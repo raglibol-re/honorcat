@@ -1,0 +1,32 @@
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+*.key
+keystore/
+
+# Node
+node_modules/
+dist/
+.next/
+out/
+*.tsbuildinfo
+.vercel/
+
+# Foundry
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+
+# Local data
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+data/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
