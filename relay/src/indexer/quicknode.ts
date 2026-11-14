@@ -109,14 +109,19 @@ export function extractBatchRange(payload: unknown): { start: bigint | null; end
 }
 
 /**
- * Recommended Streams filter (dataset "logs"). It always returns an object, so every batch
- * reaches the webhook: the delivery doubles as a clock that drives the relay tick.
- * Replace VAULT before pasting into the QuickNode dashboard.
+ * Recommended Streams filter (dataset "logs"), for plans capped at 1 block per delivery.
+ *
+ * QuickNode skips the delivery when the filter returns null ("Return null to skip delivery for
+ * that block", docs/streams/filters). So the webhook is called only for blocks with our events
+ * (vault, GuaranteeBook, and Arc Memo logs in the same transactions) plus one heartbeat every
+ * HEARTBEAT blocks, which keeps waking the serverless relay to settle off-chain results.
+ * With Arc's ~2 blocks/s and HEARTBEAT = 20 that is about one call per 10 s instead of two per
+ * second, within Vercel Hobby's included function invocations. Replace the addresses before use.
  */
 export const STREAMS_FILTER_TEMPLATE = `function main(stream) {
-  // Vault, GuaranteeBook, and Arc's Memo contract (memo logs only for txs that touch ours).
   const OURS = ["<VAULT_ADDRESS_LOWERCASE>", "<GUARANTEE_BOOK_ADDRESS_LOWERCASE>"];
   const MEMO = "0x5294e9927c3306dcbadb03fe70b92e01ccede505";
+  const HEARTBEAT = 20;
   const all = [];
   const walk = (x) => {
     if (Array.isArray(x)) { x.forEach(walk); return; }
@@ -127,5 +132,7 @@ export const STREAMS_FILTER_TEMPLATE = `function main(stream) {
   const ourTxs = new Set(all.filter((l) => OURS.includes(l.address.toLowerCase())).map((l) => l.transactionHash));
   const logs = all.filter((l) => OURS.includes(l.address.toLowerCase()) || (l.address.toLowerCase() === MEMO && ourTxs.has(l.transactionHash)));
   const m = stream.metadata || {};
+  const end = Number(m.batch_end_range);
+  if (logs.length === 0 && !(Number.isFinite(end) && end % HEARTBEAT === 0)) return null;
   return { logs: logs, batchStart: m.batch_start_range ?? null, batchEnd: m.batch_end_range ?? null };
 }`;
