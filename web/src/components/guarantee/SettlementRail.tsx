@@ -32,7 +32,7 @@ export function SettlementRail({ steps, compact = false }: { steps: RailStep[]; 
   return (
     <ol className="grid grid-cols-5" aria-label="Settlement progress">
       {steps.map((s, i) => (
-        <li key={s.key} className="relative flex flex-col items-start pr-1">
+        <li key={s.key} className="relative flex min-w-0 flex-col items-start pr-1">
           {/* connector to the next step */}
           {i < steps.length - 1 && (
             <span
@@ -66,13 +66,14 @@ export function SettlementRail({ steps, compact = false }: { steps: RailStep[]; 
               href={txUrl(s.tx)}
               target="_blank"
               rel="noreferrer"
-              className="vg-chip-in mono mt-1 block text-[11px] leading-4 hover:underline"
+              className="vg-chip-in mono mt-1 block max-w-full truncate text-[10px] leading-4 hover:underline sm:text-[11px]"
               style={{ color: "var(--vg-muted)" }}
               title={`Transaction ${s.tx}${s.block ? `, block ${s.block}` : ""}`}
             >
-              {shortHash(s.tx)}
-              {s.block !== undefined && <span className="block">#{s.block.toLocaleString("en-US")}</span>}
-              {s.time !== undefined && <span className="block">{clock(s.time)}</span>}
+              <span className="block truncate sm:hidden">{s.tx.slice(2, 6)}…</span>
+              <span className="hidden truncate sm:block">{shortHash(s.tx)}</span>
+              {s.block !== undefined && <span className="hidden truncate sm:block">#{s.block.toLocaleString("en-US")}</span>}
+              {s.time !== undefined && <span className="block truncate">{clock(s.time)}</span>}
             </a>
           )}
         </li>
