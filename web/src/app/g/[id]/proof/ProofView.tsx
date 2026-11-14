@@ -136,10 +136,16 @@ export function ProofView() {
             <dd>{new Date(g.settlesAt * 1000).toLocaleString()}</dd>
             <dt style={{ color: "var(--vg-muted)" }}>Chance</dt>
             <dd>
-              {d.market?.chanceOfRefund === null || d.market?.chanceOfRefund === undefined ? "—" : `${Math.round(d.market.chanceOfRefund * 100)}%`}{" "}
-              <span className="t-13" style={{ color: "var(--vg-muted)" }}>
-                estimate from the market price
-              </span>
+              {d.market?.status === "settled" ? (
+                <>settled {d.market.resolutionSide === "yes" ? "Yes" : "No"}</>
+              ) : (
+                <>
+                  {d.market?.chanceOfRefund === null || d.market?.chanceOfRefund === undefined ? "—" : `${Math.round(d.market.chanceOfRefund * 100)}%`}{" "}
+                  <span className="t-13" style={{ color: "var(--vg-muted)" }}>
+                    estimate from the market price
+                  </span>
+                </>
+              )}
             </dd>
           </dl>
         </div>

@@ -139,7 +139,9 @@ export function promiseFor(t: Template, e: GeminiEvent, c: GeminiContract, side:
   if (t === "rate") {
     return `If the ${clause(e.title)} is ${side === "yes" ? `“${c.label}”` : negateLabel(c.label)}, ${pay}`;
   }
-  return `If ${clause(e.title).replace(/^(?!the )/, "the ")} is ${side === "yes" ? c.label : negateLabel(c.label)}, ${pay}`;
+  const range = /^(.*) to (.*)$/i.exec(c.label);
+  const yesText = range ? `between ${range[1]} and ${range[2]}` : c.label;
+  return `If ${clause(e.title).replace(/^(?!the )/, "the ")} is ${side === "yes" ? yesText : negateLabel(c.label)}, ${pay}`;
 }
 
 /** Default enrolment lock and pot deadline (seconds) for a market expiry. */

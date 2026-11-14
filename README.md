@@ -5,16 +5,22 @@ payees (by share) or refunded once an authorised resolver signs the outcome of a
 Verdict is infrastructure: an app decides what a condition means, Verdict holds the money, signs,
 settles, indexes and notifies.
 
+**Verdict Guarantees** is the product built on it: a business promises customers a refund if a
+real-world event happens ("if it is hotter than 95°F on your tour day, you get your money back"),
+priced from live Gemini markets, with the refunds locked on Arc, customers joining without a
+wallet, and payment the moment the market settles. See [Verdict Guarantees](#verdict-guarantees).
+
 > Testnet only. Never use these keys or contracts on mainnet.
 
 **Live:** https://verdict-phi-livid.vercel.app ([status](https://verdict-phi-livid.vercel.app/status),
 [developers](https://verdict-phi-livid.vercel.app/developers)) · vault
 [`0xba7190441bc00fC1AC8597d68197039e1167E6D4`](https://explorer.testnet.arc.io/address/0xba7190441bc00fC1AC8597d68197039e1167E6D4)
 on Arc testnet (chainId 5042002). The scripted e2e run passes against this deployment in every
-mode (classic, gasless, integration API, multisig resolver) for both outcomes.
+mode (classic, gasless, integration API, multisig resolver, guarantees) for both outcomes.
 
 ```
-contracts/   Foundry (Arc Foundry): VerdictVault, MultisigResolver, tests, deploy script
+contracts/   Foundry (Arc Foundry): VerdictVault, GuaranteeBook, BatchGuard, MultisigResolver,
+             unit/fuzz/invariant tests, deploy scripts
 relay/       TypeScript library: sources, signer, resolver, indexers, gasless relaying,
              integrations, webhooks, gas accounting, read models, e2e script
 web/         Next.js app on Vercel: UI + every HTTP API route (the relay runs inside it)
@@ -52,6 +58,62 @@ const settled = await verdict.waitForSettlement(potId!);
 
 API keys are issued by the operator: `POST /api/admin/integrations {name, webhookUrl}` with
 `Authorization: Bearer $ADMIN_TOKEN` (the key and webhook secret are returned once).
+
+## Verdict Guarantees
+
+Two roles. The **merchant** creates and funds a guarantee; the **customer** joins and gets paid.
+Live: [`/guarantees`](https://verdict-phi-livid.vercel.app/guarantees),
+[`/guarantees/new`](https://verdict-phi-livid.vercel.app/guarantees/new), customer page `/g/<id>`,
+public proof `/g/<id>/proof`.
+
+| Template | Gemini markets (read live, never hardcoded) | Enrolment closes |
+|---|---|---|
+| Rate | Fed decision events (`FED…`, category Economics) | 24 h before the decision |
+| Temperature | daily high by city (`WXHIGH-…`), only for days that have not started | 24 h before expiry (≈ start of the measured day) |
+| Price | crypto daily and commodity threshold contracts (`strike.type` above/below) | 6 h before the close |
+| Demo | 5- and 15-minute crypto up/down (`…05M…`, `…15M…`), labelled as a demo | 75 s before expiry |
+
+The promise is rendered in one sentence from the API fields (`title`, contract `label`,
+`strike.value`, `expiryDate`), verified against developer.gemini.com. A guarantee can refund on
+the contract settling Yes or on it settling No (condition key `EVENT:CONTRACT[:no]`). The chance
+shown is the market price (bid/ask midpoint, else last trade) and is labelled an estimate; the
+expected cost is chance × refunds; the worst case is what the merchant locks. The hedge (contracts
+and price) is information only; Verdict never places orders.
+
+**On-chain shape (the vault is unchanged).** A guarantee is a vault pot whose only payee is the
+`GuaranteeBook` contract and whose `refundTo` is the merchant, plus a book entry (refund per
+customer, seats, lock time). It is created in **one transaction** through Arc's Multicall3From,
+all-or-nothing: `BatchGuard.expectNextPotId` → `Memo.memo(vault, createPotWithAuthorization(…))`
+(the merchant only signs an EIP-3009 authorization for every seat) → `GuaranteeBook.open`.
+Customers join by signing a message; the relay enrols them (gas paid by the relay). When Gemini
+settles, the relay sends **one transaction**: `Memo.memo(vault, resolve(…))` and, if triggered,
+`Memo.memo(book, payout(…))`, so the verdict and every customer refund land together with the
+reason in the memo. Unused seats go back to the merchant; not triggered or expired, the vault
+refunds the merchant. Customers withdraw with a signed USDC `transferWithAuthorization` the relay
+submits, so they never need gas.
+
+**Customer accounts.** Passkey accounts are not built yet. The temporary path is a key generated in
+the browser and kept in its storage (`DeviceWallet`, behind the same `WalletAdapter` interface), so
+it can be swapped for passkeys without changing the pages. Clearing site data loses the key; the
+UI says so and suggests withdrawing.
+
+**Trust.** The relay is the GuaranteeBook operator: it enrols customers and is trusted not to enrol
+fake ones (a Merkle-root mode can replace the list). The resolver key decides outcomes from Gemini's
+public API. Everything else (locked amount, enrolments, payouts) is on-chain and shown on the proof page.
+
+**Tested on production** (`e2e --mode guarantees`): on a live BTC 5-minute market, a refund-on-Yes
+and a refund-on-No guarantee, three customers each. Gemini settled Yes: the three customers received
+exactly 0.10 USDC each (none of them sent a transaction), the merchant got the other 0.30 USDC back,
+resolution and refunds were in the same transaction (1.6 s from result to payment), memos carried
+the reason, and a customer withdrew without gas. Rate, temperature and price guarantees were created,
+funded and filled on live markets; they settle when Gemini settles those markets.
+
+| Measured on Arc testnet | Gas | USDC |
+|---|---|---|
+| create guarantee (guard + memo'd createPotWithAuthorization + open) | 478k | 0.0096 |
+| enrol one customer | 126k | 0.0025 |
+| settle two pots + refund three customers + three memos, one tx | 361k | 0.0072 |
+| gasless withdraw (memo'd transferWithAuthorization) | 137k | 0.0028 |
 
 ## Architecture
 
@@ -93,9 +155,11 @@ depends on traffic: an open page, an integration call, the e2e script, or a Quic
 Reporting an outcome through the API triggers a tick itself, so the common path settles in
 seconds. On Vercel Pro, change the cron schedule to `* * * * *`.
 
-## Arc-specific engineering
+## Built for Arc
 
-Facts checked against docs.arc.io and the live testnet RPC, and what Verdict does with them:
+Every place where Verdict deliberately handles an Arc difference. Facts checked against
+docs.arc.io (EVM differences, contract addresses, execution layer, transaction memos, batched
+transactions) and the live testnet RPC:
 
 | Arc property | How Verdict uses it |
 |---|---|
@@ -105,7 +169,12 @@ Facts checked against docs.arc.io and the live testnet RPC, and what Verdict doe
 | Base fee floor **20 gwei**; underpriced transactions are dropped silently | every relay transaction sets `maxFeePerGas ≥ 20 gwei × 1.125 + tip` |
 | **Deterministic sub-second finality**, no reorgs | the indexer reads `latest` with zero confirmations; one receipt is final. Receipt polling runs every 500 ms (viem's 4 s default made relay latency ~4.2 s; now ~0.7–1.3 s, measured in `relay_txs.latency_ms`) |
 | `eth_getLogs` ≤ 10,000 blocks per call | the poller uses 5,000-block chunks |
-| Native USDC transfers don't log at the ERC-20 address | the vault emits an event for every state change and payment |
+| **Native USDC transfers log from a system address** (`0xffff…fffE`, 18 dp) in addition to the ERC-20 `Transfer` (6 dp) | the indexer only reads logs from the vault, the GuaranteeBook and the Memo contract, so it never double-counts; contracts emit their own events for every state change and payment |
+| **Blocklist**: a value transfer to or from a blocklisted address reverts | payouts and refunds use `trySafeTransfer`; a failed transfer becomes `claimable` with `PaymentDeferred` / `RefundDeferred` instead of blocking the pot (vault and GuaranteeBook); fuzz/invariant tests toggle the blocklist |
+| **No on-chain randomness** (`PREVRANDAO` is always 0) | nothing in Verdict uses randomness on-chain; pot ids are sequential, EIP-3009 salts and nonces are made off-chain |
+| **Memo** `0x5294…E505` routes a call through CallFrom and logs `BeforeMemo` / `Memo` | funding, resolution, refunds and withdrawals carry a memo: bytes32 reference + JSON reason. Memos are indexed and tied to the events between `BeforeMemo` and `Memo` |
+| **Multicall3From** `0x522f…47D0`: batched calls with the EOA as `msg.sender`, no value forwarding | guarantee creation is one atomic batch; settlement of everything due is one batch (failing calls are dropped after simulation). Pot ids are predicted, so `BatchGuard.expectNextPotId` makes the batch revert instead of funding another pot. Verdict never forwards value |
+| CallFrom extensions **do not accept smart-contract wallets** as the caller | the relay and the customers' device accounts are EOAs; a future passkey (contract) account must call through the relay instead |
 
 Measured on testnet (from `/api/status`): resolve ≈ 110k–160k gas ≈ 0.0023–0.0033 USDC (refund vs. two payouts); gasless
 create + fund ≈ 330k gas ≈ 0.0067 USDC; gasless top-up ≈ 109k gas ≈ 0.0022 USDC.
@@ -204,8 +273,8 @@ cp .env.example .env      # fill in keys and tokens (see "Environment variables"
 ### 3. Tests
 
 ```bash
-cd contracts && arc-forge test --network arc     # 54 contract tests incl. gasless + multisig (WSL)
-pnpm --filter @verdict/relay test                # 26 relay tests (GEMINI_LIVE=1 adds a live check)
+cd contracts && arc-forge test --network arc     # 80 tests: unit, fuzz, 9 invariants, GuaranteeBook (WSL)
+pnpm --filter @verdict/relay test                # 31 relay tests (GEMINI_LIVE=1 adds a live check)
 pnpm --filter @verdict/sdk test                  # SDK tests
 ```
 

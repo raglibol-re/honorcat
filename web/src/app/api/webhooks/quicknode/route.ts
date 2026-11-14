@@ -8,6 +8,7 @@ import {
   getDb,
   ingestLogs,
   nudgeRelay,
+  ARC_MEMO,
   publicClient,
   recordBatch,
   verifyStreamsSignature,
@@ -41,7 +42,9 @@ export async function POST(req: Request) {
   }
 
   const db = await getDb();
-  const logs = extractStreamsLogs(payload, cfg.vault);
+  // Vault, GuaranteeBook and Arc Memo logs; ingestLogs keeps memo logs only for our transactions.
+  const logs = extractStreamsLogs(payload, [cfg.vault, ...(cfg.guarantees ? [cfg.guarantees.book] : []), ARC_MEMO]);
+  const vaultLogs = logs.filter((l) => l.address.toLowerCase() === cfg.vault.toLowerCase());
   const result = logs.length
     ? await ingestLogs(db, cfg.vault, logs, "streams", blockTimeFromRpc(publicClient()))
     : { received: 0, inserted: 0, pots: [] };
@@ -52,9 +55,9 @@ export async function POST(req: Request) {
     end: range.end ?? (logs.length ? logs.reduce((m, l) => (l.blockNumber > m ? l.blockNumber : m), 0n) : null),
     bytes: raw.length,
     gzip,
-    logs: logs.length,
+    logs: vaultLogs.length,
     inserted: result.inserted,
-    events: decodeVaultLogs(logs, cfg.vault).map((d) => ({
+    events: decodeVaultLogs(vaultLogs, cfg.vault).map((d) => ({
       name: d.eventName,
       potId: d.potId?.toString() ?? null,
       block: d.blockNumber.toString(),

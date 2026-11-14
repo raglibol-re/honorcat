@@ -53,8 +53,8 @@ function isLogLike(x: Record<string, unknown>): boolean {
  * (receipts with a `logs` array), or the output of our filter (`{ logs: [...] }`).
  * Logs flagged `removed: true` are skipped.
  */
-export function extractStreamsLogs(payload: unknown, vault: Address): RawLog[] {
-  const want = vault.toLowerCase();
+export function extractStreamsLogs(payload: unknown, addresses: Address | Address[]): RawLog[] {
+  const want = new Set((Array.isArray(addresses) ? addresses : [addresses]).map((a) => a.toLowerCase()));
   const out: RawLog[] = [];
   const seen = new Set<string>();
   const walk = (x: unknown, depth: number) => {
@@ -65,7 +65,7 @@ export function extractStreamsLogs(payload: unknown, vault: Address): RawLog[] {
     }
     const o = x as Record<string, unknown>;
     if (isLogLike(o)) {
-      if ((o.address as string).toLowerCase() !== want || o.removed === true) return;
+      if (!want.has((o.address as string).toLowerCase()) || o.removed === true) return;
       const blockNumber = toBig(o.blockNumber);
       const logIndex = toBig(o.logIndex);
       if (blockNumber === null || logIndex === null) return;
@@ -114,15 +114,18 @@ export function extractBatchRange(payload: unknown): { start: bigint | null; end
  * Replace VAULT before pasting into the QuickNode dashboard.
  */
 export const STREAMS_FILTER_TEMPLATE = `function main(stream) {
-  const VAULT = "<VAULT_ADDRESS_LOWERCASE>";
-  const logs = [];
+  // Vault, GuaranteeBook, and Arc's Memo contract (memo logs only for txs that touch ours).
+  const OURS = ["<VAULT_ADDRESS_LOWERCASE>", "<GUARANTEE_BOOK_ADDRESS_LOWERCASE>"];
+  const MEMO = "0x5294e9927c3306dcbadb03fe70b92e01ccede505";
+  const all = [];
   const walk = (x) => {
     if (Array.isArray(x)) { x.forEach(walk); return; }
-    if (x && typeof x === "object" && Array.isArray(x.topics) && typeof x.address === "string") {
-      if (x.address.toLowerCase() === VAULT) logs.push(x);
-    }
+    if (x && typeof x === "object" && Array.isArray(x.topics) && typeof x.address === "string") all.push(x);
+    else if (x && typeof x === "object") Object.values(x).forEach(walk);
   };
   walk(stream.data);
+  const ourTxs = new Set(all.filter((l) => OURS.includes(l.address.toLowerCase())).map((l) => l.transactionHash));
+  const logs = all.filter((l) => OURS.includes(l.address.toLowerCase()) || (l.address.toLowerCase() === MEMO && ourTxs.has(l.transactionHash)));
   const m = stream.metadata || {};
   return { logs: logs, batchStart: m.batch_start_range ?? null, batchEnd: m.batch_end_range ?? null };
 }`;
