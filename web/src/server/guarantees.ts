@@ -31,7 +31,12 @@ function belongs(t: Template, e: GeminiEvent): boolean {
 }
 
 /** Earliest acceptable expiry: enough time to enrol customers before the lock. */
-const MIN_LEAD_SECONDS: Record<Template, number> = { rate: 3600, temperature: 3600, price: 1800, demo: 150 };
+/**
+ * Earliest acceptable expiry. A daily-high market is only offered for a day that has not started
+ * yet (expiry more than 25 h away), so enrolment can close before the measured day begins; price
+ * markets need 7 h so enrolment closes 6 h before the close.
+ */
+const MIN_LEAD_SECONDS: Record<Template, number> = { rate: 25 * 3600, temperature: 25 * 3600, price: 7 * 3600, demo: 150 };
 
 export type MarketContract = {
   ticker: string;
@@ -140,7 +145,9 @@ export function promiseFor(t: Template, e: GeminiEvent, c: GeminiContract, side:
 /** Default enrolment lock and pot deadline (seconds) for a market expiry. */
 export function defaultTimes(t: Template, expiry: number) {
   const now = Math.floor(Date.now() / 1000);
-  const lockBefore: Record<Template, number> = { rate: 24 * 3600, temperature: 12 * 3600, price: 2 * 3600, demo: 75 };
+  // Enrolment closes this long before expiry: before the meeting day, before the measured day,
+  // 6 h before a price close. Demo markets are 5 minutes long and are labelled as demos.
+  const lockBefore: Record<Template, number> = { rate: 24 * 3600, temperature: 24 * 3600, price: 6 * 3600, demo: 75 };
   const settleWindow: Record<Template, number> = { rate: 3 * 86400, temperature: 3 * 86400, price: 2 * 86400, demo: 30 * 60 };
   let lock = expiry - lockBefore[t];
   if (lock < now + 60) lock = Math.min(expiry - 30, now + Math.max(60, Math.floor((expiry - now) / 2)));

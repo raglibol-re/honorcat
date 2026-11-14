@@ -1,37 +1,63 @@
 import Link from "next/link";
-
-const steps = [
-  { title: "Lock", body: "USDC is deposited into a pot tied to an external condition." },
-  { title: "Report", body: "An authorised source signs the outcome once the event is known." },
-  { title: "Settle", body: "The contract pays the payees by share, or refunds the funder." },
-];
+import { LiveExample } from "./LiveExample";
 
 export default function Home() {
   return (
-    <div className="space-y-10">
-      <section className="space-y-3">
-        <h1 className="text-2xl font-semibold tracking-tight">Conditional payouts in USDC</h1>
-        <p className="max-w-2xl text-muted">
-          Verdict holds USDC in escrow and releases it automatically when an authorised source reports the outcome of
-          an external event.
-        </p>
-        <div className="flex gap-3 pt-2">
-          <Link href="/create" className="rounded-md bg-foreground px-4 py-2 text-sm font-medium text-surface">
-            Create a pot
-          </Link>
-          <Link href="/ledger" className="rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium">
-            View ledger
-          </Link>
-        </div>
-      </section>
-      <section className="grid gap-4 sm:grid-cols-3">
-        {steps.map((s, i) => (
-          <div key={s.title} className="rounded-lg border border-border bg-surface p-5">
-            <div className="text-xs font-mono text-muted">0{i + 1}</div>
-            <div className="mt-2 font-medium">{s.title}</div>
-            <p className="mt-1 text-sm text-muted">{s.body}</p>
+    <div className="space-y-14">
+      <section className="grid items-start gap-10 lg:grid-cols-[1fr_420px]">
+        <div className="space-y-5 lg:pt-6">
+          <h1 className="t-36 max-w-xl font-semibold" style={{ textWrap: "balance" }}>
+            Promise your customers a refund when the world turns against them.
+          </h1>
+          <p className="t-17 max-w-xl" style={{ color: "var(--vg-muted)" }}>
+            &ldquo;If it&apos;s hotter than 95°F on your tour day, you get your money back.&rdquo; Verdict prices the promise from live Gemini
+            markets, locks the refunds in USDC on Arc, lets customers join without a wallet, and pays them the moment the market settles.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <Link href="/guarantees/new" className="t-15 rounded-xl px-5 py-3 font-medium" style={{ background: "var(--vg-accent)", color: "var(--vg-card)" }}>
+              Offer a guarantee
+            </Link>
+            <Link href="/guarantees" className="t-15 rounded-xl border px-5 py-3 font-medium" style={{ borderColor: "var(--vg-rule)" }}>
+              See live guarantees
+            </Link>
           </div>
-        ))}
+        </div>
+        <LiveExample />
+      </section>
+
+      <section>
+        <h2 className="t-21 font-medium">How a guarantee works</h2>
+        <ol className="mt-5 grid gap-6 sm:grid-cols-3">
+          {[
+            ["The merchant locks the refunds", "Pick a live market, set the refund and the number of customers, and sign once. The full amount is locked in USDC on Arc, visible to anyone."],
+            ["Customers join in seconds", "They open a link or scan a code and join. No wallet, no fees: Verdict submits everything."],
+            ["The market decides, the money moves", "When Gemini settles the market, a signed result is verified on Arc and every customer is refunded in the same transaction."],
+          ].map(([title, body], i) => (
+            <li key={title} className="border-t pt-4" style={{ borderColor: "var(--vg-rule)" }}>
+              <span className="mono t-13" style={{ color: "var(--vg-muted)" }}>
+                {i + 1}
+              </span>
+              <h3 className="t-17 mt-1 font-medium">{title}</h3>
+              <p className="t-15 mt-1" style={{ color: "var(--vg-muted)" }}>
+                {body}
+              </p>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <section className="t-15 max-w-2xl space-y-2" style={{ color: "var(--vg-muted)" }}>
+        <p>
+          This is a testnet demo of conditional refunds, not insurance. Chances shown are estimates from Gemini market prices. Verdict shows
+          the hedge a merchant could buy but never places orders.
+        </p>
+        <p>
+          Building on Verdict? The vault, relay API and SDK are documented under{" "}
+          <Link href="/developers" className="underline underline-offset-4">
+            Developers
+          </Link>
+          .
+        </p>
       </section>
     </div>
   );
