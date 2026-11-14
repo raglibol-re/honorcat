@@ -61,7 +61,7 @@ function need(name: string): string {
 
 const funder = privateKeyToAccount(need("DEPLOYER_PRIVATE_KEY") as Hex);
 const adminToken = need("ADMIN_TOKEN");
-const pub = createPublicClient({ chain: arcTestnet, transport: http(RPC) });
+const pub = createPublicClient({ chain: arcTestnet, transport: http(RPC), pollingInterval: 500 });
 const wallet = createWalletClient({ account: funder, chain: arcTestnet, transport: http(RPC) });
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
