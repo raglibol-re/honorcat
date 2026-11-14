@@ -74,7 +74,7 @@ export async function streamsOverview(db: Db, opts: { since?: number } = {}) {
     db.query<BatchRow>(
       `SELECT id::text AS id, received_at, batch_start::text AS batch_start, batch_end::text AS batch_end,
          latency_ms, bytes, gzip, logs, inserted, events
-       FROM stream_batches WHERE id > $1 ORDER BY id DESC LIMIT 60`,
+       FROM stream_batches b WHERE b.id > $1 ORDER BY b.id DESC LIMIT 60`,
       [opts.since ?? 0],
     ),
     db.query<{ n: string; blocks: string | null; avg: string | null; p50: string | null; p95: string | null; logs: string | null; bytes: string | null }>(
