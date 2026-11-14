@@ -179,6 +179,30 @@ transactions) and the live testnet RPC:
 Measured on testnet (from `/api/status`): resolve ≈ 110k–160k gas ≈ 0.0023–0.0033 USDC (refund vs. two payouts); gasless
 create + fund ≈ 330k gas ≈ 0.0067 USDC; gasless top-up ≈ 109k gas ≈ 0.0022 USDC.
 
+### Batching on Arc: measured
+
+`relay/scripts/bench-batch.ts` on Arc testnet, median of 3 runs, 0.01 USDC pots paying one payee.
+Time is from the first send to the last receipt (Arc finality is one receipt).
+
+| Operation | Txs | Gas | Fee (USDC) | Time to final |
+|---|---|---|---|---|
+| create + fund: approve, createPot, fund | 3 | 334,821 | 0.0077 | 4.75 s |
+| create + fund: one Multicall3From batch (with BatchGuard) | 1 | 289,862 | 0.0068 | 1.50 s |
+| settle 1 pot: resolve | 1 | 108,666 | 0.0026 | 1.47 s |
+| settle 1 pot: batch | 1 | 119,243 | 0.0028 | 1.05 s |
+| settle 1 pot: batch, memo | 1 | 136,584 | 0.0032 | 1.48 s |
+| settle 5 pots: 5 resolve txs | 5 | 543,330 | 0.0111 | 10.85 s |
+| settle 5 pots: one batch | 1 | 417,317 | 0.0086 | 1.56 s |
+| settle 5 pots: one batch, memo per pot | 1 | 474,716 | 0.0097 | 1.56 s |
+| settle 10 pots: 10 resolve txs | 10 | 1,086,636 | 0.0222 | 17.54 s |
+| settle 10 pots: one batch | 1 | 790,005 | 0.0158 | 1.45 s |
+| settle 10 pots: one batch, memo per pot | 1 | 901,756 | 0.0180 | 1.47 s |
+
+Batching saves the 21k base cost per transaction (27% gas at 10 pots) and, more importantly,
+turns N sequential confirmations into one: settlement time stays ~1.5 s regardless of N. A memo
+costs ~11k gas per pot. For a single pot the batch wrapper costs ~10% more than a direct call, so
+the relay sends a lone call directly and batches only when two or more are due.
+
 ## Contracts
 
 ### `VerdictVault`
