@@ -8,4 +8,6 @@ import type { Hex } from "viem";
 export interface ResultSource {
   readonly name: string;
   getOutcome(conditionId: Hex): Promise<boolean | null>;
+  /** Optional: validate a condition key at registration and return a human-readable label. */
+  describe?(key: string): Promise<string>;
 }

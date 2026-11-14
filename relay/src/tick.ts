@@ -4,6 +4,7 @@ import { getConfig } from "./config";
 import { getDb, setState, type Db } from "./db";
 import { pollLogs } from "./indexer/rpcPoller";
 import { processOpenPots, type ActionReport } from "./resolver";
+import { GeminiSource } from "./sources/gemini";
 import { ManualSource } from "./sources/manual";
 import type { ResultSource } from "./sources/types";
 
@@ -18,7 +19,7 @@ export type TickReport = {
 
 /** Registry of result sources. New adapters are added here. */
 export function buildSources(db: Db): Record<string, ResultSource> {
-  const sources: ResultSource[] = [new ManualSource(db)];
+  const sources: ResultSource[] = [new ManualSource(db), new GeminiSource(db, getConfig().geminiBase)];
   return Object.fromEntries(sources.map((s) => [s.name, s]));
 }
 

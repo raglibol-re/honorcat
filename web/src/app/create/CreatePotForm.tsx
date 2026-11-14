@@ -27,6 +27,7 @@ export function CreatePotForm() {
   const [health, setHealth] = useState<Health | null>(null);
   const [label, setLabel] = useState("");
   const now = useNow();
+  const [source, setSource] = useState<"manual" | "gemini">("manual");
   const [conditionKey, setConditionKey] = useState("");
   const [rows, setRows] = useState<Row[]>([{ address: "", percent: "100" }]);
   const [refundToInput, setRefundTo] = useState<string | null>(null);
@@ -100,8 +101,8 @@ export function CreatePotForm() {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          source: "manual",
-          key: conditionKey.trim() || `pot-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+          source,
+          key: conditionKey.trim() || (source === "gemini" ? "" : `pot-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`),
           label: label.trim(),
         }),
       });
@@ -164,13 +165,30 @@ export function CreatePotForm() {
             <Field label="Description" hint="What has to happen for the payees to be paid.">
               <input className={inputCls} value={label} onChange={(e) => setLabel(e.target.value)} placeholder="e.g. Delivery confirmed by 30 Nov" />
             </Field>
-            <Field label="Result source" hint="Manual: the outcome is reported by an operator through the relay.">
-              <select className={inputCls} disabled value="manual">
+            <Field
+              label="Result source"
+              hint={
+                source === "gemini"
+                  ? "Gemini prediction market: met if the contract settles Yes, not met if it settles No."
+                  : "Manual: the outcome is reported by an operator through the relay."
+              }
+            >
+              <select className={inputCls} value={source} onChange={(e) => setSource(e.target.value as "manual" | "gemini")}>
                 <option value="manual">Manual</option>
+                <option value="gemini">Gemini prediction market</option>
               </select>
             </Field>
-            <Field label="Condition key" hint="Unique reference within the source. Generated if left empty.">
-              <input className={`${inputCls} font-mono`} value={conditionKey} placeholder="auto" onChange={(e) => setConditionKey(e.target.value)} />
+            <Field
+              label={source === "gemini" ? "Market" : "Condition key"}
+              hint={source === "gemini" ? "Event ticker and contract ticker, e.g. SOL05M2611141625:UP." : "Unique reference within the source. Generated if left empty."}
+            >
+              <input
+                className={`${inputCls} font-mono`}
+                value={conditionKey}
+                placeholder={source === "gemini" ? "EVENTTICKER:CONTRACT" : "auto"}
+                required={source === "gemini"}
+                onChange={(e) => setConditionKey(e.target.value)}
+              />
             </Field>
           </div>
         </Card>

@@ -86,6 +86,13 @@ Events: `PotCreated`, `PotFunded` (incl. funder), `PotResolved`, `PotExpired`, `
   `conditionId = keccak256("<source>:<key>")`.
 - `ManualSource`: outcomes set with `POST /api/admin/outcome {conditionId, outcome}` and
   `Authorization: Bearer $ADMIN_TOKEN`.
+- `GeminiSource`: Gemini prediction markets via the public, keyless
+  `GET https://api.gemini.com/v1/prediction-markets/events/{eventTicker}`. Key is
+  `<eventTicker>:<contractTicker>` (e.g. `SOL05M2611141625:UP`), checked against the API at
+  registration. Per contract: `status == "settled"` and `resolutionSide == "yes"` → met,
+  `"no"` → not met; anything else (active, closed, under_review, invalid) → `null`, so a market
+  that never settles lets the pot expire and refund. Each event is fetched once per tick
+  (Gemini allows 120 req/min). `GEMINI_API_BASE` can point at the sandbox host.
 - Indexing: all vault logs go into `chain_events` (idempotent on `(tx_hash, log_index)`); `pots` is
   rebuilt per pot from its events; `payments` is a view (payout, refund, deferred, claim).
   Sources: RPC poller, Streams webhook, and the relay's own transaction receipts.

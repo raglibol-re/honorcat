@@ -4,6 +4,7 @@ export { publicClient, resolverAccount, arcTestnet } from "./chain";
 export { getDb, getState, memoryDb, type Db } from "./db";
 export { conditionIdFor, registerCondition, getCondition, type Condition } from "./conditions";
 export { ManualSource } from "./sources/manual";
+export { GeminiSource, parseGeminiKey, outcomeFromContract, type GeminiEvent } from "./sources/gemini";
 export type { ResultSource } from "./sources/types";
 export { signResolution, resolutionDomain, resolutionTypes } from "./signer";
 export { ingestLogs, decodeVaultLogs, projectPot, type RawLog } from "./indexer/ingest";
