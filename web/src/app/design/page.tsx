@@ -36,12 +36,16 @@ async function sampleCards(): Promise<{ cards: Record<"active" | "refunded" | "n
   const events = await listActiveEvents("Weather").catch(() => []);
   const now = Date.now();
   let pick: { title: string; ticker: string; label: string; chance: number | null; expiry: string } | null = null;
-  for (const e of events.sort((a, b) => (a.expiryDate ?? "").localeCompare(b.expiryDate ?? ""))) {
+  // Prefer the two-sided "above" contract whose chance is closest to 50%: the most informative example.
+  for (const e of events) {
     if (!e.expiryDate || new Date(e.expiryDate).getTime() < now + 3_600_000) continue;
-    const c = e.contracts.find((c) => c.strike?.type === "above" && c.prices?.bestBid && c.prices?.bestAsk);
-    if (c) {
-      pick = { title: e.title, ticker: `${e.ticker}:${c.ticker}`, label: c.label, chance: impliedChance(c.prices), expiry: e.expiryDate };
-      break;
+    for (const c of e.contracts) {
+      if (c.strike?.type !== "above" || !c.prices?.bestBid || !c.prices?.bestAsk) continue;
+      const chance = impliedChance(c.prices);
+      if (chance === null) continue;
+      if (!pick || Math.abs(chance - 0.5) < Math.abs((pick.chance ?? 0) - 0.5)) {
+        pick = { title: e.title, ticker: `${e.ticker}:${c.ticker}`, label: c.label, chance, expiry: e.expiryDate };
+      }
     }
   }
   pick ??= {
