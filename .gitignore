@@ -30,3 +30,6 @@ data/
 Thumbs.db
 .idea/
 .vscode/
+
+# PGlite local database
+.data/
