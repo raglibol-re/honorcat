@@ -386,8 +386,13 @@ baked into the frontend build.
 ## QuickNode Streams (optional, recommended on the free Vercel plan)
 
 1. Create a Stream: chain **Arc**, network **Testnet**, dataset **Logs**.
-2. Filter: paste `STREAMS_FILTER_TEMPLATE` from `relay/src/indexer/quicknode.ts` with the vault
-   address (lowercase). It returns `{ logs, batchEnd }` for every batch.
+2. Filter: paste `STREAMS_FILTER_TEMPLATE` from `relay/src/indexer/quicknode.ts` with the vault and
+   GuaranteeBook addresses (lowercase), or upload it with
+   `tsx --env-file=../.env relay/scripts/quicknode-stream.ts --filter --status active`
+   (needs `QUICKNODE_API_KEY`, `QUICKNODE_STREAM_ID`). It returns `null` (QuickNode skips the
+   delivery) unless a block holds our events or is a heartbeat block (every 20th, ~10 s), so a plan
+   capped at 1 block per delivery stays at ~0.1 webhook calls/s, inside Vercel Hobby's included
+   invocations. The heartbeat keeps waking the relay to settle results that arrive off-chain.
 3. Destination: Webhook `https://<project>.vercel.app/api/webhooks/quicknode`, compression none or
    gzip. Copy the stream's security token into `QUICKNODE_STREAMS_TOKEN` and redeploy.
 4. Optionally set `INDEXER_PRIMARY=streams` to stop polling logs over RPC on each tick.
