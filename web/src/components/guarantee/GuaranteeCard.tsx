@@ -1,6 +1,6 @@
 "use client";
 
-import { formatUsdc } from "@/lib/format";
+import { formatMoney } from "@/lib/format";
 import { useNow } from "@/lib/useNow";
 import { HonorCatMark } from "@/components/brand/HonorCatMark";
 import { LockedBadge } from "./LockedBadge";
@@ -85,9 +85,9 @@ export function GuaranteeCard({
               <dt className="t-13" style={{ color: "var(--vg-muted)" }}>
                 Your refund
               </dt>
-              <dd className="mono t-36 mt-1 font-medium">{formatUsdc(g.refundUsdc)}</dd>
+              <dd className="mono t-36 mt-1 font-medium">{formatMoney(g.refundUsdc)}</dd>
               <dd className="t-13" style={{ color: "var(--vg-muted)" }}>
-                USDC, locked on Arc
+                in USDC, already set aside for you
               </dd>
             </div>
             <div>
@@ -117,8 +117,8 @@ export function GuaranteeCard({
               {g.state === "refunded" ? "Refunded" : "Not triggered"}
             </p>
             <p className="mono t-36 mt-1 font-medium" style={{ color: g.state === "refunded" ? "var(--vg-accent)" : "var(--vg-muted)" }}>
-              {g.state === "refunded" ? formatUsdc(g.refundUsdc) : "0.00"}
-              <span className="t-15 ml-2 font-normal">USDC</span>
+              {g.state === "refunded" ? formatMoney(g.refundUsdc) : "$0.00"}
+              <span className="t-15 ml-2 font-normal">in USDC</span>
             </p>
             {g.reason && (
               <p className="t-15 mt-3" style={{ color: "var(--vg-ink)" }}>

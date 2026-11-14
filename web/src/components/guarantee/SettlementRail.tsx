@@ -1,6 +1,7 @@
 "use client";
 
 import { txUrl } from "@/lib/chain";
+import { useTechMode } from "@/components/TechMode";
 
 export type RailStep = {
   key: "locked" | "enrolled" | "event" | "verdict" | "paid";
@@ -30,6 +31,7 @@ const clock = (t: number) => new Date(t * 1000).toLocaleTimeString([], { hour: "
  */
 export function SettlementRail({ steps, compact = false }: { steps: RailStep[]; compact?: boolean }) {
   const lastDone = steps.reduce((i, s, j) => (s.done ? j : i), -1);
+  const { tech } = useTechMode();
   return (
     <ol className="grid grid-cols-5" aria-label="Settlement progress">
       {steps.map((s, i) => (
@@ -61,7 +63,7 @@ export function SettlementRail({ steps, compact = false }: { steps: RailStep[]; 
             {s.label}
             <span className="sr-only">{s.done ? " (done)" : " (pending)"}</span>
           </span>
-          {!compact && s.done && s.tx && (
+          {!compact && tech && s.done && s.tx && (
             <a
               key={`chip-${s.key}-${s.tx}`}
               href={txUrl(s.tx)}

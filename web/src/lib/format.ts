@@ -5,6 +5,11 @@ export function formatUsdc(base: string | bigint): string {
   return n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 });
 }
 
+/** "$0.25": consumer-facing amount. Amounts are USDC (6 decimals), a dollar stablecoin. */
+export function formatMoney(base: string | bigint): string {
+  return `$${formatUsdc(base)}`;
+}
+
 export function parseUsdc(input: string): bigint {
   return parseUnits(input.trim() || "0", 6);
 }

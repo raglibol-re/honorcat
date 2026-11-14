@@ -305,7 +305,7 @@ function Fund(p: { template: Template; market: Market | null; contract: Contract
           maxCustomers: p.seats,
         }),
       });
-      setBusy("Sign once in your wallet. No gas, no approval.");
+      setBusy("Confirm once in your wallet. No fees.");
       const m = prep.typedData.message;
       const signature = await adapter.signTypedData({
         domain: { ...prep.typedData.domain, chainId: Number(prep.typedData.domain.chainId) },
@@ -313,7 +313,7 @@ function Fund(p: { template: Template; market: Market | null; contract: Contract
         primaryType: prep.typedData.primaryType,
         message: { ...m, value: BigInt(m.value!), validAfter: BigInt(m.validAfter!), validBefore: BigInt(m.validBefore!) },
       } as unknown as TypedDataDefinition);
-      setBusy("Locking the refunds on Arc…");
+      setBusy("Setting the refunds aside…");
       const created = await getJson<{ id: string }>("/api/guarantees", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -344,7 +344,7 @@ function Fund(p: { template: Template; market: Market | null; contract: Contract
         Lock {(Number(p.refund) * p.seats || 0).toFixed(2)} USDC and publish
       </button>
       <p className="t-13 mt-2" style={{ color: "var(--vg-muted)" }}>
-        {busy ?? (ready ? "You sign one USDC authorization; HonorCat submits it and pays the gas." : "Choose a market and enter your business name and refund (at least 0.10 USDC).")}
+        {busy ?? (ready ? "You confirm once in your wallet. No approval step and no network fees." : "Choose a market and enter your business name and refund (at least 0.10 USDC).")}
       </p>
       {err && (
         <p className="t-13 mt-2" style={{ color: "var(--negative)" }}>

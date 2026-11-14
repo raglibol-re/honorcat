@@ -1,6 +1,7 @@
 "use client";
 
 import { txUrl } from "@/lib/chain";
+import { useTechMode } from "@/components/TechMode";
 
 type Props = {
   play: boolean; // animate step by step (only when the result arrives while watching)
@@ -20,15 +21,28 @@ const short = (h: string) => `${h.slice(0, 8)}…${h.slice(-4)}`;
  * resolver's EIP-712 signature on Arc, and the money moved. Timings are measured, not decorative.
  */
 export function VerdictMoment(p: Props) {
+  const { tech } = useTechMode();
   const steps = [
     {
       title: "Result received",
       detail: p.resultSeenAt ? new Date(p.resultSeenAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "from Gemini",
     },
-    { title: "Signature verified on Arc", detail: `block #${p.resolvedBlock.toLocaleString("en-US")}`, tx: p.resolvedTx },
+    {
+      title: tech ? "Signature verified on Arc" : "Decision recorded",
+      detail: tech ? `block #${p.resolvedBlock.toLocaleString("en-US")}` : "checked automatically, no one can change it",
+      tx: p.resolvedTx,
+    },
     p.triggered
-      ? { title: "Refunds sent", detail: p.refundBlock ? `block #${p.refundBlock.toLocaleString("en-US")}` : "pending", tx: p.refundTx ?? undefined }
-      : { title: "Deposit returned to the merchant", detail: `block #${p.resolvedBlock.toLocaleString("en-US")}`, tx: p.resolvedTx },
+      ? {
+          title: tech ? "Refunds sent" : "Refund sent to you",
+          detail: tech ? (p.refundBlock ? `block #${p.refundBlock.toLocaleString("en-US")}` : "pending") : "it is in your account",
+          tx: p.refundTx ?? undefined,
+        }
+      : {
+          title: tech ? "Deposit returned to the merchant" : "No refund this time",
+          detail: tech ? `block #${p.resolvedBlock.toLocaleString("en-US")}` : "the event did not happen, so the merchant keeps the payment",
+          tx: p.resolvedTx,
+        },
   ];
   return (
     <section aria-label="Verdict" className="vg-ticket px-5 py-4">
@@ -52,7 +66,7 @@ export function VerdictMoment(p: Props) {
               <span className="t-15 block font-medium">{s.title}</span>
               <span className="t-13 block" style={{ color: "var(--vg-muted)" }}>
                 {s.detail}
-                {s.tx && (
+                {tech && s.tx && (
                   <>
                     {", "}
                     <a href={txUrl(s.tx)} target="_blank" rel="noreferrer" className="mono hover:underline">
@@ -67,7 +81,7 @@ export function VerdictMoment(p: Props) {
       </ol>
       {p.resultToPaymentMs !== null && (
         <p className="t-13 mt-4 border-t pt-3" style={{ borderColor: "var(--vg-rule)", color: "var(--vg-muted)" }}>
-          From result to payment: <span className="mono" style={{ color: "var(--vg-ink)" }}>{(p.resultToPaymentMs / 1000).toFixed(1)} s</span>
+          {p.triggered ? "From result to refund" : "From result to close"}: <span className="mono" style={{ color: "var(--vg-ink)" }}>{(p.resultToPaymentMs / 1000).toFixed(1)} s</span>
         </p>
       )}
     </section>
