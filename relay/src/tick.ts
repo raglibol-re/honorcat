@@ -4,7 +4,10 @@ import { getConfig } from "./config";
 import { getDb, setState, type Db } from "./db";
 import { pollLogs } from "./indexer/rpcPoller";
 import { processOpenPots, type ActionReport } from "./resolver";
+import { ApiSource } from "./sources/api";
 import { GeminiSource } from "./sources/gemini";
+import { HttpSource } from "./sources/http";
+import { deliverDueWebhooks } from "./webhooks";
 import { ManualSource } from "./sources/manual";
 import type { ResultSource } from "./sources/types";
 
@@ -12,6 +15,7 @@ export type TickReport = {
   ran: boolean;
   reason: string;
   indexed?: { from: string; to: string; inserted: number } | null;
+  webhooks?: { delivered: number; failed: number };
   actions?: ActionReport[];
   errors: string[];
   ms: number;
@@ -19,7 +23,13 @@ export type TickReport = {
 
 /** Registry of result sources. New adapters are added here. */
 export function buildSources(db: Db): Record<string, ResultSource> {
-  const sources: ResultSource[] = [new ManualSource(db), new GeminiSource(db, getConfig().geminiBase)];
+  const cfg = getConfig();
+  const sources: ResultSource[] = [
+    new ManualSource(db),
+    new ApiSource(db),
+    new GeminiSource(db, cfg.geminiBase),
+    new HttpSource(db, { allowInsecure: cfg.httpSourceAllowInsecure }),
+  ];
   return Object.fromEntries(sources.map((s) => [s.name, s]));
 }
 
@@ -59,6 +69,11 @@ export async function runTick(opts: { reason: string; force?: boolean; skipIndex
       } catch (err) {
         report.errors.push(`resolve: ${(err as Error).message.split("\n")[0]}`);
       }
+    }
+    try {
+      report.webhooks = await deliverDueWebhooks(db, { deadlineMs: 15_000 });
+    } catch (err) {
+      report.errors.push(`webhooks: ${(err as Error).message.split("\n")[0]}`);
     }
     await setState(db, "last_tick", JSON.stringify({ at: new Date().toISOString(), reason: opts.reason }));
   } finally {

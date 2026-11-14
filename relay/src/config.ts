@@ -24,7 +24,24 @@ const schema = z.object({
     .default("true")
     .transform((v) => v === "true"),
   DEPLOYMENTS_FILE: z.string().optional(),
+  /** Smallest amount (USDC, decimal) the relay will sponsor gas for. */
+  GASLESS_MIN_AMOUNT: z.string().regex(/^\d+(\.\d{1,6})?$/).default("0.10"),
+  /** Sponsored submissions per funder address per hour (API-key callers are exempt). */
+  GASLESS_MAX_PER_HOUR: z.coerce.number().int().min(0).default(10),
+  /** Below this resolver balance (USDC) /api/status reports "low". */
+  RELAY_LOW_BALANCE_USDC: z.string().regex(/^\d+(\.\d{1,6})?$/).default("1"),
+  /** Tests only: allow http:// and private hosts in the HTTP result source. */
+  HTTP_SOURCE_ALLOW_INSECURE: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
 });
+
+/** Parses a decimal USDC string into 6-decimal base units. */
+export function usdcUnits(v: string): bigint {
+  const [i, f = ""] = v.split(".");
+  return BigInt(i!) * 1_000_000n + BigInt((f + "000000").slice(0, 6));
+}
 
 export type Config = {
   rpcUrl: string;
@@ -41,6 +58,10 @@ export type Config = {
   geminiBase: string;
   tickMinIntervalMs: number;
   autoExpire: boolean;
+  gaslessMinAmount: bigint;
+  gaslessMaxPerHour: number;
+  lowBalance: bigint;
+  httpSourceAllowInsecure: boolean;
 };
 
 let cached: Config | undefined;
@@ -76,6 +97,10 @@ export function getConfig(): Config {
     geminiBase: env.GEMINI_API_BASE,
     tickMinIntervalMs: env.TICK_MIN_INTERVAL_MS,
     autoExpire: env.AUTO_EXPIRE,
+    gaslessMinAmount: usdcUnits(env.GASLESS_MIN_AMOUNT),
+    gaslessMaxPerHour: env.GASLESS_MAX_PER_HOUR,
+    lowBalance: usdcUnits(env.RELAY_LOW_BALANCE_USDC),
+    httpSourceAllowInsecure: env.HTTP_SOURCE_ALLOW_INSECURE,
   };
   return cached;
 }

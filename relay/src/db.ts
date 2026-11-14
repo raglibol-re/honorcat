@@ -95,7 +95,76 @@ CREATE TABLE IF NOT EXISTS relay_lease (
 );
 INSERT INTO relay_lease (id, holder, until, last_start)
 VALUES (1, NULL, to_timestamp(0), to_timestamp(0)) ON CONFLICT (id) DO NOTHING;
+
+-- Every transaction the relay sends. On Arc gas is paid in USDC, so fee_wei (18-decimal native
+-- USDC) is the relay's USDC cost; fee_wei / 1e12 is the same amount in 6-decimal ERC-20 units.
+CREATE TABLE IF NOT EXISTS relay_txs (
+  tx_hash             TEXT PRIMARY KEY,
+  kind                TEXT    NOT NULL,           -- resolve | expire | fund_gasless | create_gasless
+  pot_id              BIGINT,
+  status              TEXT    NOT NULL,           -- submitted | confirmed | reverted
+  gas_used            NUMERIC(78,0),
+  effective_gas_price NUMERIC(78,0),
+  fee_wei             NUMERIC(78,0),
+  block_number        BIGINT,
+  submitted_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  confirmed_at        TIMESTAMPTZ,
+  latency_ms          INTEGER
+);
+CREATE INDEX IF NOT EXISTS relay_txs_pot_idx ON relay_txs (pot_id);
+
+CREATE TABLE IF NOT EXISTS integrations (
+  id             TEXT PRIMARY KEY,
+  name           TEXT NOT NULL,
+  key_hash       TEXT NOT NULL UNIQUE,
+  webhook_url    TEXT,
+  webhook_secret TEXT NOT NULL,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  revoked_at     TIMESTAMPTZ
+);
+
+ALTER TABLE conditions ADD COLUMN IF NOT EXISTS owner TEXT;
+
+CREATE TABLE IF NOT EXISTS api_outcomes (
+  condition_id TEXT PRIMARY KEY,
+  outcome      BOOLEAN NOT NULL,
+  integration  TEXT NOT NULL,
+  set_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Outbox for signed webhooks. One row per (integration, chain event); delivered at least once.
+CREATE TABLE IF NOT EXISTS webhook_deliveries (
+  id              BIGSERIAL PRIMARY KEY,
+  integration     TEXT NOT NULL,
+  event_id        TEXT NOT NULL,
+  event_type      TEXT NOT NULL,
+  pot_id          BIGINT,
+  payload         JSONB NOT NULL,
+  attempts        INTEGER NOT NULL DEFAULT 0,
+  next_attempt_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_status     INTEGER,
+  last_error      TEXT,
+  delivered_at    TIMESTAMPTZ,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (integration, event_id)
+);
+CREATE INDEX IF NOT EXISTS webhook_due_idx ON webhook_deliveries (next_attempt_at) WHERE delivered_at IS NULL;
+
+-- Rate limiting for relay-sponsored (gasless) submissions.
+CREATE TABLE IF NOT EXISTS gasless_requests (
+  id          BIGSERIAL PRIMARY KEY,
+  funder      TEXT NOT NULL,
+  integration TEXT,
+  kind        TEXT NOT NULL,
+  amount      NUMERIC(78,0) NOT NULL,
+  tx_hash     TEXT,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS gasless_funder_idx ON gasless_requests (funder, created_at);
 `;
+
+/** Tables derived from one vault's chain history. Cleared when VAULT_ADDRESS changes. */
+const VAULT_SCOPED = ["chain_events", "pots", "resolutions", "relay_txs", "webhook_deliveries", "gasless_requests"];
 
 type GlobalWithDb = typeof globalThis & { __verdictDb?: Promise<Db> };
 
@@ -113,7 +182,24 @@ async function open(): Promise<Db> {
   const { databaseUrl, pgliteDir } = getConfig();
   const db = databaseUrl ? await openPg(databaseUrl) : await openPglite(pgliteDir);
   await db.exec(SCHEMA);
+  await scopeToVault(db, getConfig().vault);
   return db;
+}
+
+/**
+ * The read models describe exactly one vault. After a redeploy (new VAULT_ADDRESS) the indexed
+ * history of the old vault is dropped and the poller restarts from VAULT_DEPLOY_BLOCK.
+ * Conditions, outcomes and integrations are kept: they are not tied to a contract.
+ */
+export async function scopeToVault(db: Db, vault: string): Promise<boolean> {
+  const current = await getState(db, "vault");
+  if (current?.toLowerCase() === vault.toLowerCase()) return false;
+  if (current) {
+    await db.exec(`TRUNCATE ${VAULT_SCOPED.join(", ")}`);
+    await db.query("DELETE FROM relay_state WHERE key <> 'vault'");
+  }
+  await setState(db, "vault", vault.toLowerCase());
+  return current !== undefined;
 }
 
 async function openPg(url: string): Promise<Db> {

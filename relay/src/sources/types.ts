@@ -10,4 +10,8 @@ export interface ResultSource {
   getOutcome(conditionId: Hex): Promise<boolean | null>;
   /** Optional: validate a condition key at registration and return a human-readable label. */
   describe?(key: string): Promise<string>;
+  /** Optional: canonical form of a key, applied before the conditionId is derived. */
+  normalizeKey?(key: string): string;
+  /** True if registering requires an integration (API key), e.g. outcomes reported by that app. */
+  readonly requiresOwner?: boolean;
 }

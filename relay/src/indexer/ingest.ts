@@ -1,6 +1,7 @@
 import { decodeEventLog, getAddress, type Address, type Hex } from "viem";
 import { verdictVaultAbi } from "../abi";
 import type { Db } from "../db";
+import { enqueueWebhooks, type IngestedEvent } from "../webhooks";
 
 /** A log in the shape both eth_getLogs and QuickNode Streams deliver (numbers already parsed). */
 export type RawLog = {
@@ -62,6 +63,7 @@ export async function ingestLogs(
 
   let inserted = 0;
   const affected = new Set<string>();
+  const fresh: IngestedEvent[] = [];
   for (const d of decoded) {
     const rows = await db.query(
       `INSERT INTO chain_events (tx_hash, log_index, block_number, block_time, event_name, pot_id, args, source)
@@ -79,10 +81,23 @@ export async function ingestLogs(
         source,
       ],
     );
-    if (rows.length) inserted++;
+    if (rows.length) {
+      inserted++;
+      fresh.push({
+        txHash: d.transactionHash.toLowerCase(),
+        logIndex: d.logIndex,
+        blockNumber: d.blockNumber,
+        blockTime: times.get(d.blockNumber) ?? null,
+        eventName: d.eventName,
+        potId: d.potId,
+        args: d.args,
+      });
+    }
     if (d.potId !== null) affected.add(d.potId.toString());
   }
   for (const potId of affected) await projectPot(db, potId);
+  // After projection, so pot -> condition -> integration can be resolved for PotCreated too.
+  if (fresh.length) await enqueueWebhooks(db, fresh);
   return { received: logs.length, inserted, pots: [...affected] };
 }
 

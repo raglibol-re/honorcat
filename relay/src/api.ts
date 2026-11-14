@@ -1,3 +1,4 @@
+import { potRelayCost } from "./status";
 import type { Db } from "./db";
 
 /** Read models served by the REST API. Amounts are strings in USDC base units (6 decimals). */
@@ -95,6 +96,7 @@ export async function getPotDetail(db: Db, potId: number) {
     })),
     payments: await listPayments(db, { potId, limit: 200 }),
     relay: resolution[0] ?? null,
+    relayCost: await potRelayCost(db, String(potId)),
   };
 }
 

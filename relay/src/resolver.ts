@@ -1,13 +1,12 @@
-import { BaseError, ContractFunctionRevertedError, type Hex } from "viem";
+import type { Hex } from "viem";
 import { verdictVaultAbi } from "./abi";
-import { publicClient, resolverAccount, resolverWallet } from "./chain";
+import { publicClient, resolverAccount } from "./chain";
 import { getCondition } from "./conditions";
 import { getConfig } from "./config";
 import type { Db } from "./db";
-import { ingestLogs } from "./indexer/ingest";
-import { blockTimeFromRpc } from "./indexer/rpcPoller";
 import { signResolution } from "./signer";
 import type { ResultSource } from "./sources/types";
+import { sendVaultTx } from "./txs";
 
 const MAX_ATTEMPTS = 5;
 
@@ -23,14 +22,6 @@ async function gracePeriod(): Promise<bigint> {
     functionName: "gracePeriod",
   });
   return graceCache;
-}
-
-function revertName(err: unknown): string | undefined {
-  if (err instanceof BaseError) {
-    const r = err.walk((e) => e instanceof ContractFunctionRevertedError);
-    if (r instanceof ContractFunctionRevertedError) return r.data?.errorName ?? r.reason ?? "reverted";
-  }
-  return undefined;
 }
 
 async function record(
@@ -54,7 +45,7 @@ async function attempts(db: Db, potId: string): Promise<number> {
   return rows[0]?.attempts ?? 0;
 }
 
-/** Simulates, sends and confirms one vault call; ingests the receipt logs right away. */
+/** Sends one resolve/expire through the shared transaction path and records the outcome. */
 async function submit(
   db: Db,
   potId: string,
@@ -62,51 +53,18 @@ async function submit(
   args: readonly unknown[],
   outcome?: boolean,
 ): Promise<ActionReport> {
-  const { vault } = getConfig();
-  const client = publicClient();
-  const account = resolverAccount();
-  try {
-    const { request } = await client.simulateContract({
-      account,
-      address: vault,
-      abi: verdictVaultAbi,
-      functionName: action,
-      args: args as never,
-    });
-    const tx = await resolverWallet().writeContract(request);
-    await record(db, potId, action, { outcome, tx, status: "submitted", attempt: true });
-    const receipt = await client.waitForTransactionReceipt({ hash: tx, timeout: 45_000 });
-    if (receipt.status !== "success") {
-      await record(db, potId, action, { outcome, tx, status: "failed", error: "tx reverted" });
-      return { potId, action, outcome, tx, result: "reverted" };
-    }
-    await ingestLogs(
-      db,
-      vault,
-      receipt.logs.map((l) => ({
-        address: l.address,
-        topics: l.topics,
-        data: l.data,
-        blockNumber: l.blockNumber,
-        transactionHash: l.transactionHash,
-        logIndex: l.logIndex,
-      })),
-      "receipt",
-      blockTimeFromRpc(client),
-    );
-    await record(db, potId, action, { outcome, tx, status: "confirmed" });
-    return { potId, action, outcome, tx, result: "confirmed" };
-  } catch (err) {
-    const name = revertName(err);
-    if (name === "PotNotOpen") {
-      // Settled by someone else (or by an earlier attempt we lost track of); the indexer catches up.
-      await record(db, potId, action, { outcome, status: "already_settled" });
-      return { potId, action, outcome, result: "already_settled" };
-    }
-    const message = name ?? (err instanceof Error ? err.message.split("\n")[0]! : String(err));
-    await record(db, potId, action, { outcome, status: "error", error: message, attempt: true });
-    return { potId, action, outcome, result: `error: ${message}` };
+  const res = await sendVaultTx(db, action, action, args, potId);
+  if (res.ok) {
+    await record(db, potId, action, { outcome, tx: res.tx, status: "confirmed", attempt: true });
+    return { potId, action, outcome, tx: res.tx, result: "confirmed" };
   }
+  if (res.revert === "PotNotOpen") {
+    // Settled by someone else (or by an earlier attempt we lost track of); the indexer catches up.
+    await record(db, potId, action, { outcome, status: "already_settled" });
+    return { potId, action, outcome, result: "already_settled" };
+  }
+  await record(db, potId, action, { outcome, tx: res.tx, status: "error", error: res.error, attempt: true });
+  return { potId, action, outcome, tx: res.tx, result: `error: ${res.error}` };
 }
 
 /**

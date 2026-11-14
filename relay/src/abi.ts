@@ -31,6 +31,32 @@ export const verdictVaultAbi = [
   },
   {
     "type": "function",
+    "name": "CREATE_NONCE_TAG",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "FUND_NONCE_TAG",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "MAX_PAYEES",
     "inputs": [],
     "outputs": [
@@ -83,6 +109,62 @@ export const verdictVaultAbi = [
   },
   {
     "type": "function",
+    "name": "createNonce",
+    "inputs": [
+      {
+        "name": "params",
+        "type": "tuple",
+        "internalType": "struct VerdictVault.PotParams",
+        "components": [
+          {
+            "name": "conditionId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "resolver",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "payees",
+            "type": "address[]",
+            "internalType": "address[]"
+          },
+          {
+            "name": "sharesBps",
+            "type": "uint16[]",
+            "internalType": "uint16[]"
+          },
+          {
+            "name": "refundTo",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "deadline",
+            "type": "uint64",
+            "internalType": "uint64"
+          }
+        ]
+      },
+      {
+        "name": "salt",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "createPot",
     "inputs": [
       {
@@ -114,6 +196,104 @@ export const verdictVaultAbi = [
         "name": "deadline",
         "type": "uint64",
         "internalType": "uint64"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "potId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "createPotWithAuthorization",
+    "inputs": [
+      {
+        "name": "params",
+        "type": "tuple",
+        "internalType": "struct VerdictVault.PotParams",
+        "components": [
+          {
+            "name": "conditionId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "resolver",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "payees",
+            "type": "address[]",
+            "internalType": "address[]"
+          },
+          {
+            "name": "sharesBps",
+            "type": "uint16[]",
+            "internalType": "uint16[]"
+          },
+          {
+            "name": "refundTo",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "deadline",
+            "type": "uint64",
+            "internalType": "uint64"
+          }
+        ]
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "auth",
+        "type": "tuple",
+        "internalType": "struct VerdictVault.Authorization",
+        "components": [
+          {
+            "name": "from",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "validAfter",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "validBefore",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "salt",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "v",
+            "type": "uint8",
+            "internalType": "uint8"
+          },
+          {
+            "name": "r",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "s",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          }
+        ]
       }
     ],
     "outputs": [
@@ -207,6 +387,90 @@ export const verdictVaultAbi = [
         "name": "amount",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "fundNonce",
+    "inputs": [
+      {
+        "name": "potId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "salt",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "fundWithAuthorization",
+    "inputs": [
+      {
+        "name": "potId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "auth",
+        "type": "tuple",
+        "internalType": "struct VerdictVault.Authorization",
+        "components": [
+          {
+            "name": "from",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "validAfter",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "validBefore",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "salt",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "v",
+            "type": "uint8",
+            "internalType": "uint8"
+          },
+          {
+            "name": "r",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "s",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          }
+        ]
       }
     ],
     "outputs": [],
@@ -705,6 +969,11 @@ export const verdictVaultAbi = [
         "internalType": "string"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "TransferMismatch",
+    "inputs": []
   },
   {
     "type": "error",
