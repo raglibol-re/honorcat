@@ -177,11 +177,11 @@ type Prepared = {
 async function signPrepared(signer: PrivateKeyAccount, p: Prepared) {
   const m = p.typedData.message;
   const signature = await signer.signTypedData({
-    domain: { ...p.typedData.domain, chainId: Number(p.typedData.domain.chainId) } as never,
-    types: p.typedData.types as never,
-    primaryType: p.typedData.primaryType as never,
-    message: { ...m, value: BigInt(m.value!), validAfter: BigInt(m.validAfter!), validBefore: BigInt(m.validBefore!) } as never,
-  });
+    domain: { ...p.typedData.domain, chainId: Number(p.typedData.domain.chainId) },
+    types: p.typedData.types,
+    primaryType: p.typedData.primaryType,
+    message: { ...m, value: BigInt(m.value!), validAfter: BigInt(m.validAfter!), validBefore: BigInt(m.validBefore!) },
+  } as unknown as Parameters<PrivateKeyAccount["signTypedData"]>[0]);
   return { from: signer.address, validAfter: p.validAfter, validBefore: p.validBefore, salt: p.salt, signature };
 }
 
