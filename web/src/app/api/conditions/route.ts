@@ -1,33 +1,15 @@
-import { z } from "zod";
-import { buildSources, getDb, registerCondition } from "@/server/relay";
-
-const body = z.object({
-  source: z.string(),
-  key: z.string().min(1).max(200),
-  label: z.string().max(200).optional(),
-});
+import { conditionBody, errorResponse, getDb, integrationFrom, registerFor } from "@/server/relay";
 
 /**
  * Registers an external condition so the relay knows which source answers it. The id is
- * derived from (source, key), so registering is idempotent and cannot change a condition's meaning.
+ * keccak256("<source>:<key>"), so registering is idempotent and cannot change a condition's
+ * meaning. An API key is optional here (required for source "api"); see /api/v1/conditions.
  */
 export async function POST(req: Request) {
-  const parsed = body.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) return Response.json({ error: "expected { source, key, label? }" }, { status: 400 });
-  const db = await getDb();
-  const source = buildSources(db)[parsed.data.source];
-  if (!source) {
-    return Response.json({ error: `unknown source '${parsed.data.source}'` }, { status: 400 });
+  try {
+    const input = conditionBody.parse(await req.json().catch(() => null));
+    return Response.json(await registerFor(await getDb(), input, await integrationFrom(req)));
+  } catch (err) {
+    return errorResponse(err);
   }
-  let label = parsed.data.label?.trim() || undefined;
-  if (source.describe) {
-    try {
-      const described = await source.describe(parsed.data.key);
-      label ??= described;
-    } catch (err) {
-      return Response.json({ error: (err as Error).message }, { status: 400 });
-    }
-  }
-  const condition = await registerCondition(db, parsed.data.source, parsed.data.key, label);
-  return Response.json(condition);
 }
