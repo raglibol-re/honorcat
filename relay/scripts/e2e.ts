@@ -449,6 +449,7 @@ async function createGuaranteeViaApi(template: string, market: MarketsResponse["
       merchant: funder.address,
       refund: (Number(REFUND) / 1e6).toFixed(2),
       maxCustomers: SEATS,
+      listed: false, // test run: real Gemini market, but not shown in product lists
     },
   });
   const authorization = await signPrepared(funder, prep);

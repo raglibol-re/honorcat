@@ -44,7 +44,6 @@ export function GuaranteeList() {
             <div className="t-13 flex flex-wrap justify-between gap-2" style={{ color: "var(--vg-muted)" }}>
               <span>
                 {r.merchantName}
-                {r.template === "demo" ? " · demo" : ""}
               </span>
               <span style={r.potStatus === "resolved" && r.outcome ? { color: "var(--vg-accent)" } : undefined}>{statusText(r)}</span>
             </div>

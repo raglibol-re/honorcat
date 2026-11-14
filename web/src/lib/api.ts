@@ -30,7 +30,16 @@ export type Payment = {
   blockNumber: number;
   time: number | null;
   potId: number | null;
-  kind: "payout" | "refund" | "payout_deferred" | "refund_deferred" | "claim";
+  kind:
+    | "payout"
+    | "refund"
+    | "payout_deferred"
+    | "refund_deferred"
+    | "claim"
+    | "guarantee_refund"
+    | "guarantee_deferred"
+    | "guarantee_leftover"
+    | "guarantee_claim";
   recipient: string;
   amount: string;
 };

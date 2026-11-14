@@ -6,7 +6,7 @@ import { formatTime, formatUsdc } from "@/lib/format";
 import { StatusBadge } from "@/components/ui";
 
 export function PotList() {
-  const { data, error } = usePolling<{ pots: Pot[] }>("/api/pots?limit=100", 4000);
+  const { data, error } = usePolling<{ pots: Pot[] }>("/api/pots?limit=100&scope=guarantees", 4000);
 
   if (error && !data) return <p className="text-sm text-negative">{error}</p>;
   if (!data) return <p className="text-sm text-muted">Loading…</p>;

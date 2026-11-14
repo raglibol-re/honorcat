@@ -14,12 +14,14 @@ const { values } = parseArgs({
   options: {
     api: { type: "string", default: "https://verdict-phi-livid.vercel.app" },
     template: { type: "string", default: "temperature" },
-    name: { type: "string", default: "Demo merchant" },
+    name: { type: "string" },
     refund: { type: "string", default: "0.50" },
     seats: { type: "string", default: "10" },
     side: { type: "string", default: "yes" },
+    unlisted: { type: "boolean", default: false },
   },
 });
+if (!values.name) throw new Error("--name <merchant name> is required");
 const API = values.api!.replace(/\/$/, "");
 const merchant = privateKeyToAccount(process.env.DEPLOYER_PRIVATE_KEY as Hex);
 
@@ -61,6 +63,7 @@ const prep = await api<Prep>("/api/guarantees/prepare", {
   merchant: merchant.address,
   refund: values.refund,
   maxCustomers: Number(values.seats),
+  listed: !values.unlisted,
 });
 const m = prep.typedData.message;
 const signature = await merchant.signTypedData({

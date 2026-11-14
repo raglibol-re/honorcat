@@ -28,4 +28,8 @@ export const kindLabel: Record<string, string> = {
   payout_deferred: "Payout (claimable)",
   refund_deferred: "Refund (claimable)",
   claim: "Claim",
+  guarantee_refund: "Refund to customer",
+  guarantee_deferred: "Refund (claimable)",
+  guarantee_leftover: "Unused places returned",
+  guarantee_claim: "Claimed refund",
 };

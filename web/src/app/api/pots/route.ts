@@ -10,7 +10,8 @@ export async function GET(req: NextRequest) {
     return Response.json({ error: "invalid status" }, { status: 400 });
   }
   const limit = Number(req.nextUrl.searchParams.get("limit") ?? 50);
-  const pots = await listPots(await getDb(), { status, limit });
+  const listedOnly = req.nextUrl.searchParams.get("scope") === "guarantees";
+  const pots = await listPots(await getDb(), { status, limit, listedOnly });
   nudgeRelay("api:pots");
   return Response.json({ pots });
 }

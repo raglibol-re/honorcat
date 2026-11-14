@@ -64,8 +64,17 @@ function toPot(r: PotRow): PotDto {
 const POT_SELECT = `SELECT p.*, c.source AS c_source, c.key AS c_key, c.label AS c_label
   FROM pots p LEFT JOIN conditions c ON c.condition_id = p.condition_id`;
 
-export async function listPots(db: Db, opts: { status?: string; limit?: number } = {}): Promise<PotDto[]> {
+/** Product views show only pots behind a listed guarantee (always a live Gemini market). */
+const LISTED = "p.pot_id IN (SELECT g.pot_id FROM guarantees g WHERE g.listed AND g.pot_id IS NOT NULL)";
+
+export async function listPots(db: Db, opts: { status?: string; limit?: number; listedOnly?: boolean } = {}): Promise<PotDto[]> {
   const limit = Math.min(Math.max(opts.limit ?? 50, 1), 200);
+  if (opts.listedOnly) {
+    const rows = opts.status
+      ? await db.query<PotRow>(`${POT_SELECT} WHERE ${LISTED} AND p.status = $1 ORDER BY p.pot_id DESC LIMIT $2`, [opts.status, limit])
+      : await db.query<PotRow>(`${POT_SELECT} WHERE ${LISTED} ORDER BY p.pot_id DESC LIMIT $1`, [limit]);
+    return rows.map(toPot);
+  }
   const rows = opts.status
     ? await db.query<PotRow>(`${POT_SELECT} WHERE p.status = $1 ORDER BY p.pot_id DESC LIMIT $2`, [opts.status, limit])
     : await db.query<PotRow>(`${POT_SELECT} ORDER BY p.pot_id DESC LIMIT $1`, [limit]);
@@ -100,11 +109,18 @@ export async function getPotDetail(db: Db, potId: number) {
   };
 }
 
-export async function listPayments(db: Db, opts: { potId?: number; limit?: number } = {}): Promise<PaymentDto[]> {
+export async function listPayments(
+  db: Db,
+  opts: { potId?: number; limit?: number; listedOnly?: boolean } = {},
+): Promise<PaymentDto[]> {
   const limit = Math.min(Math.max(opts.limit ?? 50, 1), 500);
+  const where = [
+    opts.potId !== undefined ? "pot_id = $2" : null,
+    opts.listedOnly ? "pot_id IN (SELECT g.pot_id FROM guarantees g WHERE g.listed AND g.pot_id IS NOT NULL)" : null,
+  ].filter(Boolean);
   const sql = `SELECT tx_hash, log_index, block_number::text AS block_number, block_time::text AS block_time,
       pot_id::text AS pot_id, kind, recipient, amount FROM payments
-    ${opts.potId !== undefined ? "WHERE pot_id = $2" : ""}
+    ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
     ORDER BY block_number DESC, log_index DESC LIMIT $1`;
   const rows = await db.query<Record<string, unknown>>(sql, opts.potId !== undefined ? [limit, opts.potId] : [limit]);
   return rows.map((r) => ({

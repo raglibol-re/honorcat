@@ -19,7 +19,7 @@ export function LiveExample() {
       try {
         if (!id) {
           const { guarantees } = await getJson<{ guarantees: Row[] }>("/api/guarantees");
-          const pick = guarantees.find((g) => g.potStatus === "open" && g.template !== "demo") ?? guarantees.find((g) => g.potStatus === "open") ?? guarantees[0];
+          const pick = guarantees.find((g) => g.potStatus === "open") ?? guarantees[0];
           if (!pick) {
             setNone(true);
             return;

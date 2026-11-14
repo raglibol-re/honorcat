@@ -11,7 +11,9 @@ export async function GET(req: NextRequest) {
   if (potId !== undefined && (!Number.isSafeInteger(potId) || potId < 1)) {
     return Response.json({ error: "invalid potId" }, { status: 400 });
   }
-  const payments = await listPayments(await getDb(), { potId, limit: Number(params.get("limit") ?? 50) });
+  // scope=guarantees: only payments of listed guarantees (the product ledger). Default: everything.
+  const listedOnly = params.get("scope") === "guarantees";
+  const payments = await listPayments(await getDb(), { potId, limit: Number(params.get("limit") ?? 50), listedOnly });
   nudgeRelay("api:payments");
   return Response.json({ payments });
 }

@@ -55,6 +55,8 @@ export type GuaranteeTerms = {
   lockTime: number; // unix seconds, enrolment closes
   settlesAt: number; // market expiry
   deadline: number; // pot deadline (resolution allowed until deadline + grace)
+  /** false for test runs: on-chain and provable, but not shown in product lists. */
+  listed?: boolean;
 };
 
 const MAX_SEATS = 50;
@@ -130,8 +132,8 @@ export async function createGuarantee(db: Db, t: GuaranteeTerms, auth: SignedAut
   const ref = `guarantee-${id}`;
   await db.query(
     `INSERT INTO guarantees (id, template, merchant_name, merchant, event_ticker, contract_ticker, side, event_title, contract_label,
-       promise, refund, max_customers, lock_time, settles_at, deadline, condition_id)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+       promise, refund, max_customers, lock_time, settles_at, deadline, condition_id, listed)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
     [
       id,
       t.template,
@@ -149,6 +151,7 @@ export async function createGuarantee(db: Db, t: GuaranteeTerms, auth: SignedAut
       t.settlesAt,
       t.deadline,
       params.conditionId.toLowerCase(),
+      t.listed !== false,
     ],
   );
 
@@ -392,7 +395,7 @@ export async function listGuarantees(db: Db) {
        (SELECT count(*) FROM chain_events e WHERE e.contract = 'book' AND e.event_name = 'Enrolled' AND e.gid = g.gid)::text AS enrolled,
        p.status AS pot_status, p.outcome, p.total
      FROM guarantees g LEFT JOIN pots p ON p.pot_id = g.pot_id
-     WHERE g.status <> 'failed' ORDER BY g.created_at DESC LIMIT 200`,
+     WHERE g.status <> 'failed' AND g.listed ORDER BY g.created_at DESC LIMIT 200`,
   );
   return rows.map((r) => ({ ...toDto(r), enrolled: Number(r.enrolled), potStatus: r.pot_status, outcome: r.outcome, lockedTotal: r.total }));
 }

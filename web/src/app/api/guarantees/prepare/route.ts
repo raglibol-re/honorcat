@@ -13,6 +13,8 @@ const body = z.object({
   refund: z.string().regex(/^\d+(\.\d{1,6})?$/),
   maxCustomers: z.number().int().min(1).max(50),
   lockTime: z.number().int().optional(),
+  /** false creates an unlisted guarantee (test runs): real and provable, not shown in lists. */
+  listed: z.boolean().optional(),
 });
 
 const units = (v: string) => {
@@ -50,6 +52,7 @@ export async function POST(req: Request) {
       lockTime,
       settlesAt: expiry,
       deadline: times.deadline,
+      listed: input.listed !== false,
     };
     const { amount, prepared } = await prepareGuarantee(toTerms(terms));
     const json = JSON.stringify(

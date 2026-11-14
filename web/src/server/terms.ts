@@ -32,6 +32,7 @@ const canonical = (t: TermsJson) =>
     t.lockTime,
     t.settlesAt,
     t.deadline,
+    t.listed !== false,
   ]);
 
 export function sealTerms(t: TermsJson): string {

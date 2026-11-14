@@ -12,7 +12,7 @@ export const TEMPLATE_INFO: Record<Template, { title: string; blurb: string; cat
   rate: { title: "Rate guarantee", blurb: "Refund if the Fed decides a certain way at its next meeting.", categories: ["Economics"] },
   temperature: { title: "Temperature guarantee", blurb: "Refund if a city's daily high crosses a threshold.", categories: ["Weather"] },
   price: { title: "Price guarantee", blurb: "Refund if a crypto or commodity price ends above or below a level.", categories: ["Crypto", "Commodities"] },
-  demo: { title: "Demo (5-minute market)", blurb: "Settles within minutes. For trying the flow end to end; clearly a demo.", categories: ["Crypto"] },
+  demo: { title: "5-minute crypto", blurb: "A Gemini 5-minute BTC, ETH, SOL or XRP up/down market. Settles within minutes.", categories: ["Crypto"] },
 };
 
 const isShortCrypto = (e: GeminiEvent) => /\d(05M|15M)\d/.test(e.ticker) || /^[A-Z]+(05M|15M)\d{10}$/.test(e.ticker);
@@ -148,7 +148,7 @@ export function promiseFor(t: Template, e: GeminiEvent, c: GeminiContract, side:
 export function defaultTimes(t: Template, expiry: number) {
   const now = Math.floor(Date.now() / 1000);
   // Enrolment closes this long before expiry: before the meeting day, before the measured day,
-  // 6 h before a price close. Demo markets are 5 minutes long and are labelled as demos.
+  // 6 h before a price close. 5-minute markets close enrolment 75 s before expiry.
   const lockBefore: Record<Template, number> = { rate: 24 * 3600, temperature: 24 * 3600, price: 6 * 3600, demo: 75 };
   const settleWindow: Record<Template, number> = { rate: 3 * 86400, temperature: 3 * 86400, price: 2 * 86400, demo: 30 * 60 };
   let lock = expiry - lockBefore[t];

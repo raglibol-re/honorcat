@@ -9,10 +9,10 @@ export default function PotsPage() {
       <div className="flex items-end justify-between">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Pots</h1>
-          <p className="text-sm text-muted">All pots registered in the vault.</p>
+          <p className="text-sm text-muted">The vault pots behind each listed guarantee.</p>
         </div>
-        <Link href="/create" className="text-sm text-accent hover:underline">
-          Create pot
+        <Link href="/guarantees/new" className="text-sm text-accent hover:underline">
+          New guarantee
         </Link>
       </div>
       <PotList />

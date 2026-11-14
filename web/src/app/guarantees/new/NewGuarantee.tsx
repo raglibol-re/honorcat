@@ -15,14 +15,14 @@ const TEMPLATES: { key: Template; title: string; blurb: string }[] = [
   { key: "rate", title: "Rate guarantee", blurb: "Fed decision at a specific meeting" },
   { key: "temperature", title: "Temperature guarantee", blurb: "A city's daily high" },
   { key: "price", title: "Price guarantee", blurb: "Crypto or commodity price threshold" },
-  { key: "demo", title: "Demo", blurb: "5-minute crypto market, settles in minutes" },
+  { key: "demo", title: "5-minute crypto", blurb: "Gemini up/down market, settles in minutes" },
 ];
 
 const pct = (x: number | null) => (x === null ? "—" : `${Math.round(x * 100)}%`);
 const usd = (x: number) => x.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export function NewGuarantee() {
-  const [template, setTemplate] = useState<Template>("demo");
+  const [template, setTemplate] = useState<Template>("temperature");
   const { data, error } = usePolling<MarketsResponse>(`/api/markets?template=${template}`, 15_000);
   const markets = data?.template === template ? data.markets : null;
 

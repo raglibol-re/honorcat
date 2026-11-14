@@ -234,6 +234,10 @@ CREATE TABLE IF NOT EXISTS guarantees (
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Unlisted guarantees (test runs) stay on-chain and keep their proof page but are not shown in
+-- product lists, the ledger or the landing page.
+ALTER TABLE guarantees ADD COLUMN IF NOT EXISTS listed BOOLEAN NOT NULL DEFAULT true;
+
 CREATE TABLE IF NOT EXISTS stream_batches (
   id            BIGSERIAL PRIMARY KEY,
   received_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
