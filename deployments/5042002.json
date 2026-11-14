@@ -1,7 +1,7 @@
 {
   "chainId": 5042002,
-  "deployBlock": 72328756,
+  "deployBlock": 72342723,
   "gracePeriod": 3600,
   "usdc": "0x3600000000000000000000000000000000000000",
-  "vault": "0x6a181EFBa4763E28F785e3FA576C264d89402bBE"
+  "vault": "0xba7190441bc00fC1AC8597d68197039e1167E6D4"
 }
