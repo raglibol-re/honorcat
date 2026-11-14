@@ -135,7 +135,7 @@ export function GuaranteeCard({
       <div className="space-y-5 px-6 pb-5 pt-5">
         <SettlementRail steps={g.steps} />
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <LockedBadge lockedUsdc={g.lockedUsdc} potId={g.potId} vault={g.vault} />
+          <LockedBadge lockedUsdc={g.lockedUsdc} potId={g.potId} vault={g.vault} released={settled} />
           <div className="t-13 text-right" style={{ color: "var(--vg-muted)" }}>
             <div>
               Seat {g.seat.n} of {g.seat.of}

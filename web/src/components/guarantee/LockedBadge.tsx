@@ -8,7 +8,17 @@ import { formatUsdc } from "@/lib/format";
  * "Locked on Arc": the pot balance read from the chain. Opening it reveals where to check it
  * yourself (contract, pot id, explorer).
  */
-export function LockedBadge({ lockedUsdc, potId, vault }: { lockedUsdc: string; potId: number; vault: string }) {
+export function LockedBadge({
+  lockedUsdc,
+  potId,
+  vault,
+  released = false,
+}: {
+  lockedUsdc: string;
+  potId: number;
+  vault: string;
+  released?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const id = useId();
   return (
@@ -26,14 +36,14 @@ export function LockedBadge({ lockedUsdc, potId, vault }: { lockedUsdc: string; 
           <path d="M4 5.5V4a2 2 0 1 1 4 0v1.5" stroke="var(--vg-accent)" strokeWidth="1.3" />
         </svg>
         <span style={{ color: "var(--vg-accent)" }} className="font-medium">
-          Locked on Arc
+          {released ? "Settled on Arc" : "Locked on Arc"}
         </span>
         <span className="mono">{formatUsdc(lockedUsdc)} USDC</span>
       </button>
       {open && (
         <dl id={id} className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
           <dt style={{ color: "var(--vg-muted)" }}>Read from</dt>
-          <dd>the vault contract, live</dd>
+          <dd>{released ? "the vault contract (pot total at settlement)" : "the vault contract, live"}</dd>
           <dt style={{ color: "var(--vg-muted)" }}>Contract</dt>
           <dd>
             <a className="mono underline-offset-2 hover:underline" href={addressUrl(vault)} target="_blank" rel="noreferrer">
