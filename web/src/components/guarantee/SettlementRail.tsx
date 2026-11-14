@@ -19,7 +19,8 @@ export const RAIL_LABELS: Record<RailStep["key"], string> = {
   paid: "Paid",
 };
 
-const shortHash = (h: string) => `${h.slice(0, 6)}…${h.slice(-4)}`;
+// Chips must fit a fifth of a 420 px card: 8 characters of hash, block without separators.
+const shortHash = (h: string) => `${h.slice(2, 6)}…${h.slice(-3)}`;
 const clock = (t: number) => new Date(t * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
 /**
@@ -72,7 +73,7 @@ export function SettlementRail({ steps, compact = false }: { steps: RailStep[]; 
             >
               <span className="block truncate sm:hidden">{s.tx.slice(2, 6)}…</span>
               <span className="hidden truncate sm:block">{shortHash(s.tx)}</span>
-              {s.block !== undefined && <span className="hidden truncate sm:block">#{s.block.toLocaleString("en-US")}</span>}
+              {s.block !== undefined && <span className="hidden truncate sm:block">#{s.block}</span>}
               {s.time !== undefined && <span className="block truncate">{clock(s.time)}</span>}
             </a>
           )}
