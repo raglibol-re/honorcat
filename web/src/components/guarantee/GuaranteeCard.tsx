@@ -2,6 +2,7 @@
 
 import { formatUsdc } from "@/lib/format";
 import { useNow } from "@/lib/useNow";
+import { HonorCatMark } from "@/components/brand/HonorCatMark";
 import { LockedBadge } from "./LockedBadge";
 import { SettlementRail, type RailStep } from "./SettlementRail";
 
@@ -44,10 +45,13 @@ export function GuaranteeCard({
   g,
   canWithdraw = false,
   onWithdraw,
+  brand = false,
 }: {
   g: GuaranteeCardData;
   canWithdraw?: boolean;
   onWithdraw?: () => void;
+  /** HonorCat branding (mark in the header, "HonorCat, settled by Verdict" at the foot). */
+  brand?: boolean;
 }) {
   const now = useNow();
   const settleMs = new Date(g.settlesAt).getTime();
@@ -59,9 +63,16 @@ export function GuaranteeCard({
       <div className="px-6 pb-6 pt-5">
         <div className="flex items-baseline justify-between gap-4">
           <span className="t-15 font-medium">{g.merchant}</span>
-          <span className="t-13" style={{ color: "var(--vg-muted)" }}>
-            Guarantee
-          </span>
+          {brand ? (
+            <span className="t-13 inline-flex items-center gap-1.5 font-medium" style={{ color: "var(--vg-accent)" }}>
+              <HonorCatMark size={15} />
+              HonorCat
+            </span>
+          ) : (
+            <span className="t-13" style={{ color: "var(--vg-muted)" }}>
+              Guarantee
+            </span>
+          )}
         </div>
 
         <p className="t-21 mt-5 font-medium" style={{ textWrap: "pretty" }}>
@@ -145,6 +156,11 @@ export function GuaranteeCard({
             </div>
           </div>
         </div>
+        {brand && (
+          <p className="t-13 border-t pt-3" style={{ borderColor: "var(--vg-rule)", color: "var(--vg-muted)" }}>
+            HonorCat, settled by Verdict on Arc
+          </p>
+        )}
       </div>
     </article>
   );
