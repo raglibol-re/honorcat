@@ -34,3 +34,24 @@ export { createIntegration, listIntegrations, updateIntegration, authenticate, t
 export { enqueueWebhooks, enqueuePing, deliverDueWebhooks, listDeliveries, signPayload, verifyWebhookSignature, EVENT_TYPES, type WebhookPayload } from "./webhooks";
 export { relayStatus, potRelayCost } from "./status";
 export { scopeToVault } from "./db";
+export { ARC_MEMO, ARC_MULTICALL3_FROM } from "./arc";
+export { memoIdFor, memoIdText, decodeMemoBody, encodeMemoBody, memoCall, type MemoBody } from "./memo";
+export { sendRelayCalls, decodeRevert, multicall3FromAbi, type RelayCall } from "./txs";
+export {
+  TEMPLATES,
+  conditionKeyFor,
+  validateTerms,
+  prepareGuarantee,
+  createGuarantee,
+  joinGuarantee,
+  joinMessage,
+  prepareWithdraw,
+  submitWithdraw,
+  listGuarantees,
+  guaranteeDetail,
+  type Template,
+  type GuaranteeTerms,
+  type GuaranteeDto,
+  type GuaranteeDetail,
+} from "./guarantees";
+export { guaranteeBookAbi, batchGuardAbi } from "./abi";

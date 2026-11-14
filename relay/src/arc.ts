@@ -15,6 +15,13 @@ import { erc20Abi, parseGwei, type Address, type Hex, type PublicClient, type Ty
  *   relay reads both from the chain and checks them against DOMAIN_SEPARATOR().
  */
 export const ARC_USDC: Address = "0x3600000000000000000000000000000000000000";
+/**
+ * Transaction extensions (docs.arc.io/arc/references/contract-addresses, same on testnet and
+ * mainnet). Both route calls through the CallFrom precompile (0x1800…0003), so the target sees the
+ * submitting EOA as msg.sender. Verified on testnet by scripts/probe-arc-extensions.ts.
+ */
+export const ARC_MEMO: Address = "0x5294E9927c3306DcBaDb03fe70b92e01cCede505";
+export const ARC_MULTICALL3_FROM: Address = "0x522fAf9A91c41c443c66765030741e4AaCe147D0";
 export const NATIVE_PER_USDC_UNIT = 10n ** 12n;
 export const ARC_MIN_BASE_FEE = parseGwei("20");
 

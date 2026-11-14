@@ -44,18 +44,31 @@ CREATE TABLE IF NOT EXISTS pots (
 );
 CREATE INDEX IF NOT EXISTS pots_status_idx ON pots (status);
 
+-- Book (GuaranteeBook) events share chain_events; contract tells them apart.
+ALTER TABLE chain_events ADD COLUMN IF NOT EXISTS contract TEXT NOT NULL DEFAULT 'vault';
+ALTER TABLE chain_events ADD COLUMN IF NOT EXISTS gid BIGINT;
+CREATE INDEX IF NOT EXISTS chain_events_gid_idx ON chain_events (gid);
+CREATE INDEX IF NOT EXISTS chain_events_tx_idx ON chain_events (tx_hash);
+
+DROP VIEW IF EXISTS payments;
 CREATE OR REPLACE VIEW payments AS
 SELECT tx_hash, log_index, block_number, block_time, pot_id,
-  CASE event_name
-    WHEN 'Payout' THEN 'payout'
-    WHEN 'Refund' THEN 'refund'
-    WHEN 'Claimed' THEN 'claim'
-    WHEN 'PaymentDeferred' THEN CASE WHEN (args->>'kind') = '0' THEN 'payout_deferred' ELSE 'refund_deferred' END
+  CASE
+    WHEN contract = 'book' AND event_name = 'RefundPaid' THEN 'guarantee_refund'
+    WHEN contract = 'book' AND event_name = 'RefundDeferred' THEN 'guarantee_deferred'
+    WHEN contract = 'book' AND event_name = 'LeftoverReturned' THEN 'guarantee_leftover'
+    WHEN contract = 'book' AND event_name = 'Claimed' THEN 'guarantee_claim'
+    WHEN event_name = 'Payout' THEN 'payout'
+    WHEN event_name = 'Refund' THEN 'refund'
+    WHEN event_name = 'Claimed' THEN 'claim'
+    WHEN event_name = 'PaymentDeferred' THEN CASE WHEN (args->>'kind') = '0' THEN 'payout_deferred' ELSE 'refund_deferred' END
   END AS kind,
-  COALESCE(args->>'payee', args->>'refundTo', args->>'recipient', args->>'account') AS recipient,
-  args->>'amount' AS amount
+  COALESCE(args->>'payee', args->>'refundTo', args->>'recipient', args->>'account', args->>'merchant') AS recipient,
+  args->>'amount' AS amount,
+  contract,
+  gid
 FROM chain_events
-WHERE event_name IN ('Payout', 'Refund', 'PaymentDeferred', 'Claimed');
+WHERE event_name IN ('Payout', 'Refund', 'PaymentDeferred', 'Claimed', 'RefundPaid', 'RefundDeferred', 'LeftoverReturned');
 
 CREATE TABLE IF NOT EXISTS conditions (
   condition_id TEXT PRIMARY KEY,
@@ -163,6 +176,64 @@ CREATE TABLE IF NOT EXISTS gasless_requests (
 CREATE INDEX IF NOT EXISTS gasless_funder_idx ON gasless_requests (funder, created_at);
 
 -- Every QuickNode Streams delivery that passed signature verification.
+-- Arc Memo events (Memo contract 0x5294…E505) attached to our transactions. A memo covers the
+-- logs between its BeforeMemo (before_log_index) and the Memo log itself, in the same tx.
+CREATE TABLE IF NOT EXISTS memos (
+  tx_hash          TEXT    NOT NULL,
+  log_index        INTEGER NOT NULL,
+  before_log_index INTEGER,
+  memo_index       NUMERIC(78,0) NOT NULL,
+  sender           TEXT NOT NULL,
+  target           TEXT NOT NULL,
+  memo_id          TEXT NOT NULL,
+  memo_hex         TEXT NOT NULL,
+  memo_text        TEXT,
+  block_number     BIGINT NOT NULL,
+  block_time       BIGINT,
+  source           TEXT NOT NULL,
+  PRIMARY KEY (tx_hash, log_index)
+);
+CREATE INDEX IF NOT EXISTS memos_id_idx ON memos (memo_id);
+
+-- A batched relay transaction can settle several pots.
+CREATE TABLE IF NOT EXISTS relay_tx_pots (
+  tx_hash TEXT NOT NULL,
+  pot_id  BIGINT NOT NULL,
+  PRIMARY KEY (tx_hash, pot_id)
+);
+
+-- What the relay signed, and when it first saw the outcome ("Verdict moment").
+ALTER TABLE resolutions ADD COLUMN IF NOT EXISTS outcome_seen_at TIMESTAMPTZ;
+ALTER TABLE resolutions ADD COLUMN IF NOT EXISTS signature TEXT;
+ALTER TABLE resolutions ADD COLUMN IF NOT EXISTS digest TEXT;
+ALTER TABLE resolutions ADD COLUMN IF NOT EXISTS reason TEXT;
+
+-- Verdict Guarantees: product metadata for a pot that pays into the GuaranteeBook.
+CREATE TABLE IF NOT EXISTS guarantees (
+  id              TEXT PRIMARY KEY,           -- short public id used in /g/[id]
+  gid             BIGINT UNIQUE,              -- GuaranteeBook id (set once opened on-chain)
+  pot_id          BIGINT UNIQUE,
+  template        TEXT NOT NULL,              -- rate | temperature | price | demo
+  merchant_name   TEXT NOT NULL,
+  merchant        TEXT NOT NULL,              -- funder / refundTo address
+  event_ticker    TEXT NOT NULL,
+  contract_ticker TEXT NOT NULL,
+  side            TEXT NOT NULL,              -- yes | no: which settlement triggers refunds
+  event_title     TEXT NOT NULL,
+  contract_label  TEXT NOT NULL,
+  promise         TEXT NOT NULL,              -- plain sentence rendered at creation from API fields
+  refund          NUMERIC(78,0) NOT NULL,     -- per customer, 6-dp USDC
+  max_customers   INTEGER NOT NULL,
+  lock_time       BIGINT NOT NULL,
+  settles_at      BIGINT NOT NULL,            -- market expiry
+  deadline        BIGINT NOT NULL,            -- pot deadline
+  condition_id    TEXT NOT NULL,
+  created_tx      TEXT,
+  status          TEXT NOT NULL DEFAULT 'pending', -- pending | live | failed
+  error           TEXT,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS stream_batches (
   id            BIGSERIAL PRIMARY KEY,
   received_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -180,7 +251,18 @@ CREATE INDEX IF NOT EXISTS stream_batches_recent_idx ON stream_batches (id DESC)
 `;
 
 /** Tables derived from one vault's chain history. Cleared when VAULT_ADDRESS changes. */
-const VAULT_SCOPED = ["chain_events", "pots", "resolutions", "relay_txs", "webhook_deliveries", "gasless_requests", "stream_batches"];
+const VAULT_SCOPED = [
+  "chain_events",
+  "pots",
+  "resolutions",
+  "relay_txs",
+  "relay_tx_pots",
+  "memos",
+  "guarantees",
+  "webhook_deliveries",
+  "gasless_requests",
+  "stream_batches",
+];
 
 type GlobalWithDb = typeof globalThis & { __verdictDb?: Promise<Db> };
 

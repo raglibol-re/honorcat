@@ -24,6 +24,9 @@ const schema = z.object({
     .default("true")
     .transform((v) => v === "true"),
   DEPLOYMENTS_FILE: z.string().optional(),
+  GUARANTEE_BOOK_ADDRESS: z.string().optional(),
+  BATCH_GUARD_ADDRESS: z.string().optional(),
+  GUARANTEES_DEPLOY_BLOCK: z.coerce.bigint().optional(),
   /** Smallest amount (USDC, decimal) the relay will sponsor gas for. */
   GASLESS_MIN_AMOUNT: z.string().regex(/^\d+(\.\d{1,6})?$/).default("0.10"),
   /** Sponsored submissions per funder address per hour (API-key callers are exempt). */
@@ -62,6 +65,8 @@ export type Config = {
   gaslessMaxPerHour: number;
   lowBalance: bigint;
   httpSourceAllowInsecure: boolean;
+  /** GuaranteeBook + BatchGuard (Verdict Guarantees); null if not deployed/configured. */
+  guarantees: { book: Address; guard: Address; deployBlock: bigint } | null;
 };
 
 let cached: Config | undefined;
@@ -101,8 +106,37 @@ export function getConfig(): Config {
     gaslessMaxPerHour: env.GASLESS_MAX_PER_HOUR,
     lowBalance: usdcUnits(env.RELAY_LOW_BALANCE_USDC),
     httpSourceAllowInsecure: env.HTTP_SOURCE_ALLOW_INSECURE,
+    guarantees: guaranteesConfig(env),
   };
   return cached;
+}
+
+function guaranteesConfig(env: z.infer<typeof schema>): Config["guarantees"] {
+  let book = env.GUARANTEE_BOOK_ADDRESS;
+  let guard = env.BATCH_GUARD_ADDRESS;
+  let block = env.GUARANTEES_DEPLOY_BLOCK;
+  if (!book || !guard || block === undefined) {
+    const f = readJson<{ guaranteeBook: string; batchGuard: string; deployBlock: number }>(
+      env.DEPLOYMENTS_FILE ? undefined : `deployments/${env.ARC_CHAIN_ID}.guarantees.json`,
+    );
+    book ??= f?.guaranteeBook;
+    guard ??= f?.batchGuard;
+    block ??= f ? BigInt(f.deployBlock) : undefined;
+  }
+  if (!book || !guard || !isAddress(book) || !isAddress(guard)) return null;
+  return { book: getAddress(book), guard: getAddress(guard), deployBlock: block ?? 0n };
+}
+
+function readJson<T>(relative: string | undefined): T | undefined {
+  if (!relative) return undefined;
+  for (const p of [relative, `../${relative}`]) {
+    try {
+      return JSON.parse(readFileSync(p, "utf8")) as T;
+    } catch {
+      /* next */
+    }
+  }
+  return undefined;
 }
 
 function readDeploymentFile(path: string | undefined, chainId: number) {

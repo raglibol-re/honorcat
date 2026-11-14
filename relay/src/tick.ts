@@ -57,7 +57,7 @@ export async function runTick(opts: { reason: string; force?: boolean; skipIndex
   try {
     if (cfg.indexerPrimary === "rpc" && !opts.skipIndex) {
       try {
-        const r = await pollLogs(db, publicClient(), cfg.vault, cfg.deployBlock, { deadlineMs: 20_000 });
+        const r = await pollLogs(db, publicClient(), cfg.vault, cfg.deployBlock, { deadlineMs: 20_000, book: cfg.guarantees?.book ?? null });
         report.indexed = r && { from: r.from.toString(), to: r.to.toString(), inserted: r.inserted };
       } catch (err) {
         report.errors.push(`index: ${(err as Error).message.split("\n")[0]}`);

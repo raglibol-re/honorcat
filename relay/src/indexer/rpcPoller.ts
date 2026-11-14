@@ -1,4 +1,5 @@
-import type { Address, PublicClient } from "viem";
+import { getAddress, type Address, type PublicClient } from "viem";
+import { ARC_MEMO } from "../arc";
 import { getState, setState, type Db } from "../db";
 import { ingestLogs, type BlockTimeFn } from "./ingest";
 
@@ -27,7 +28,7 @@ export async function pollLogs(
   client: PublicClient,
   vault: Address,
   deployBlock: bigint,
-  opts: { maxBlocks?: bigint; deadlineMs?: number } = {},
+  opts: { maxBlocks?: bigint; deadlineMs?: number; book?: Address | null } = {},
 ): Promise<{ from: bigint; to: bigint; inserted: number } | null> {
   const stored = await getState(db, CURSOR_KEY);
   const cursor = stored !== undefined ? BigInt(stored) : deployBlock > 0n ? deployBlock - 1n : 0n;
@@ -44,7 +45,12 @@ export async function pollLogs(
   while (from <= end) {
     if (opts.deadlineMs && Date.now() - started > opts.deadlineMs) break;
     const to = from + CHUNK - 1n > end ? end : from + CHUNK - 1n;
-    const logs = await client.getLogs({ address: vault, fromBlock: from, toBlock: to });
+    // One call for the vault, the GuaranteeBook and Arc's Memo contract. Memo logs from other
+    // users of the shared Memo contract are dropped unless their tx also touched our contracts.
+    const addresses = [vault, ...(opts.book ? [opts.book] : []), ARC_MEMO];
+    const all = await client.getLogs({ address: addresses, fromBlock: from, toBlock: to });
+    const ourTxs = new Set(all.filter((l) => getAddress(l.address) !== ARC_MEMO).map((l) => l.transactionHash));
+    const logs = all.filter((l) => getAddress(l.address) !== ARC_MEMO || ourTxs.has(l.transactionHash));
     const res = await ingestLogs(
       db,
       vault,
@@ -58,6 +64,7 @@ export async function pollLogs(
       })),
       "rpc",
       blockTime,
+      { book: opts.book ?? null },
     );
     inserted += res.inserted;
     await setState(db, CURSOR_KEY, to.toString());

@@ -187,7 +187,7 @@ export class GaslessError extends Error {
   }
 }
 
-async function checkPolicy(db: Db, from: Address, amount: bigint, integration: string | null) {
+export async function checkPolicy(db: Db, from: Address, amount: bigint, integration: string | null) {
   const cfg = getConfig();
   if (amount < cfg.gaslessMinAmount) {
     throw new GaslessError(`amount below the sponsored minimum (${Number(cfg.gaslessMinAmount) / 1e6} USDC)`);
@@ -209,7 +209,7 @@ async function checkPolicy(db: Db, from: Address, amount: bigint, integration: s
 }
 
 /** Recovers the signer off-chain so an invalid authorization never costs the relay gas. */
-async function verifySigner(auth: SignedAuthorization, value: bigint, nonce: Hex) {
+export async function verifySigner(auth: SignedAuthorization, value: bigint, nonce: Hex) {
   const cfg = getConfig();
   const domain = await usdcDomain(publicClient(), cfg.chainId);
   const now = BigInt(Math.floor(Date.now() / 1000));
@@ -230,7 +230,7 @@ async function verifySigner(auth: SignedAuthorization, value: bigint, nonce: Hex
   if (getAddress(signer) !== getAddress(auth.from)) throw new GaslessError("signature does not match `from`");
 }
 
-function toContractAuth(auth: SignedAuthorization) {
+export function toContractAuth(auth: SignedAuthorization) {
   const sig = parseSignature(auth.signature);
   const v = sig.v !== undefined ? Number(sig.v) : 27 + (sig.yParity ?? 0);
   return {
@@ -244,7 +244,7 @@ function toContractAuth(auth: SignedAuthorization) {
   };
 }
 
-async function logRequest(db: Db, from: Address, integration: string | null, kind: string, amount: bigint, tx?: Hex) {
+export async function logRequest(db: Db, from: Address, integration: string | null, kind: string, amount: bigint, tx?: Hex) {
   await db.query(
     "INSERT INTO gasless_requests (funder, integration, kind, amount, tx_hash) VALUES ($1, $2, $3, $4, $5)",
     [from.toLowerCase(), integration, kind, amount.toString(), tx ?? null],

@@ -16,7 +16,9 @@ function fakeFetch(body: GeminiEvent | null, calls: string[] = []): typeof fetch
 
 describe("GeminiSource", () => {
   it("parses keys", () => {
-    expect(parseGeminiKey("SOL05M2611141625:UP")).toEqual({ eventTicker: "SOL05M2611141625", contractTicker: "UP" });
+    expect(parseGeminiKey("SOL05M2611141625:UP")).toEqual({ eventTicker: "SOL05M2611141625", contractTicker: "UP", side: "yes" });
+    expect(parseGeminiKey("SOL05M2611141625:UP:no")).toEqual({ eventTicker: "SOL05M2611141625", contractTicker: "UP", side: "no" });
+    expect(parseGeminiKey("SOL05M2611141625:UP:maybe")).toBeNull();
     expect(parseGeminiKey("no-colon")).toBeNull();
     expect(parseGeminiKey("a:b:c")).toBeNull();
     expect(parseGeminiKey("../x:UP")).toBeNull();
@@ -45,6 +47,19 @@ describe("GeminiSource", () => {
     expect(await src.getOutcome(conditionIdFor("gemini", "EVT1:UP"))).toBe(true);
     expect(await src.getOutcome(conditionIdFor("gemini", "EVT1:DOWN"))).toBe(false);
     expect(calls).toEqual(["https://example.test/v1/prediction-markets/events/EVT1"]);
+  });
+
+  it("inverts the outcome for a NO-side key", async () => {
+    const db = await memoryDb();
+    const src = new GeminiSource(
+      db,
+      "https://example.test",
+      fakeFetch(event([{ ticker: "UP", status: "settled", resolutionSide: "yes" }, { ticker: "DN", status: "active" }])),
+    );
+    await registerCondition(db, "gemini", "EVT1:UP:no");
+    await registerCondition(db, "gemini", "EVT1:DN:no");
+    expect(await src.getOutcome(conditionIdFor("gemini", "EVT1:UP:no"))).toBe(false);
+    expect(await src.getOutcome(conditionIdFor("gemini", "EVT1:DN:no"))).toBeNull(); // unsettled stays unknown
   });
 
   it("returns null for unknown conditions, other sources, missing contracts and 404s", async () => {
