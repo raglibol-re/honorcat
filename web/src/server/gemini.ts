@@ -43,21 +43,48 @@ export type GeminiEvent = {
   contracts: GeminiContract[];
 };
 
+type Cached = { at: number; value: unknown };
+const g = globalThis as typeof globalThis & { __geminiCache?: Map<string, Cached> };
+const cache = (g.__geminiCache ??= new Map());
+const TTL_MS = 15_000;
+
+/**
+ * GET with a 15 s in-memory cache (keeps us far below 120 req/min across page views) and
+ * retries: the public API intermittently answers with a non-JSON "upstream connect error".
+ * Returns null on 404.
+ */
+async function getJson<T>(path: string): Promise<T | null> {
+  const hit = cache.get(path);
+  if (hit && Date.now() - hit.at < TTL_MS) return hit.value as T;
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch(`${BASE}${path}`, { signal: AbortSignal.timeout(8000), cache: "no-store" });
+      if (res.status === 404) return null;
+      const text = await res.text();
+      if (!res.ok) throw new Error(`Gemini ${res.status}: ${text.slice(0, 80)}`);
+      const value = JSON.parse(text) as T; // throws on "upstream connect error…"
+      cache.set(path, { at: Date.now(), value });
+      return value;
+    } catch (err) {
+      lastErr = err;
+      await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
+    }
+  }
+  // Serve a stale value rather than nothing if we have one.
+  if (hit) return hit.value as T;
+  throw lastErr;
+}
+
 export async function listActiveEvents(category: string, limit = 100): Promise<GeminiEvent[]> {
-  const url = `${BASE}/v1/prediction-markets/events?status=active&limit=${limit}&category=${encodeURIComponent(category)}`;
-  const res = await fetch(url, { signal: AbortSignal.timeout(8000), cache: "no-store" });
-  if (!res.ok) throw new Error(`Gemini ${res.status}`);
-  return ((await res.json()) as { data: GeminiEvent[] }).data;
+  const r = await getJson<{ data: GeminiEvent[] }>(
+    `/v1/prediction-markets/events?status=active&limit=${limit}&category=${encodeURIComponent(category)}`,
+  );
+  return r?.data ?? [];
 }
 
 export async function getEvent(ticker: string): Promise<GeminiEvent | null> {
-  const res = await fetch(`${BASE}/v1/prediction-markets/events/${encodeURIComponent(ticker)}`, {
-    signal: AbortSignal.timeout(8000),
-    cache: "no-store",
-  });
-  if (res.status === 404) return null;
-  if (!res.ok) throw new Error(`Gemini ${res.status}`);
-  return (await res.json()) as GeminiEvent;
+  return getJson<GeminiEvent>(`/v1/prediction-markets/events/${encodeURIComponent(ticker)}`);
 }
 
 const num = (v?: string | null) => (v === undefined || v === null || v === "" ? null : Number(v));
