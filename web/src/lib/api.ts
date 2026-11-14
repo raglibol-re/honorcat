@@ -49,9 +49,16 @@ export type PotDetail = {
   events: PotEvent[];
   payments: Payment[];
   relay: { action: string; status: string; tx_hash: string | null; last_error: string | null } | null;
+  relayCost?: { totalUsdc: string; txs: { txHash: string; kind: string; status: string; gasUsed: string | null; feeUsdc: string | null; latencyMs: number | null }[] };
 };
 
-export type Health = { chainId: number; vault: Address; resolver: Address | null; indexerPrimary: string };
+export type Health = {
+  chainId: number;
+  vault: Address;
+  resolver: Address | null;
+  indexerPrimary: string;
+  gasless?: { minAmount: string };
+};
 
 export async function getJson<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, { cache: "no-store", ...init });

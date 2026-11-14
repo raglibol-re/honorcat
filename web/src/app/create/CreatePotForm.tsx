@@ -6,7 +6,8 @@ import { encodeFunctionData, erc20Abi, isAddress, parseEventLogs, type Address, 
 import { verdictVaultAbi } from "@verdict/relay/abi";
 import { getHealth, getJson, type Health } from "@/lib/api";
 import { publicClient, USDC_ADDRESS } from "@/lib/chain";
-import { parseUsdc } from "@/lib/format";
+import { formatUsdc, parseUsdc } from "@/lib/format";
+import { gaslessCreate } from "@/lib/gasless";
 import { useWallet } from "@/lib/wallet/context";
 import { useNow } from "@/lib/useNow";
 import { buttonCls, Card, Field, inputCls, secondaryButtonCls, Tx } from "@/components/ui";
@@ -36,6 +37,8 @@ export function CreatePotForm() {
   const refundTo = refundToInput ?? account ?? "";
   const deadline = deadlineInput ?? defaultDeadline(now);
   const [amount, setAmount] = useState("1.00");
+  // "gasless": the user signs an EIP-3009 authorization and the relay submits (pays gas in USDC).
+  const [method, setMethod] = useState<"gasless" | "wallet">("gasless");
   const [steps, setSteps] = useState<Step[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,13 +60,16 @@ export function CreatePotForm() {
     if (totalBps !== 10_000) return `Shares add up to ${(totalBps / 100).toFixed(2)}%, not 100%.`;
     if (!isAddress(refundTo)) return "Refund address is invalid.";
     if (!deadline || new Date(deadline).getTime() <= now + 60_000) return "Deadline must be in the future.";
+    let value: bigint;
     try {
-      parseUsdc(amount);
+      value = parseUsdc(amount);
     } catch {
       return "Amount is not a valid number.";
     }
+    const min = BigInt(health.gasless?.minAmount ?? "0");
+    if (method === "gasless" && value < min) return `Gasless funding needs at least ${formatUsdc(min)} USDC.`;
     return null;
-  }, [health, label, rows, bps, totalBps, refundTo, deadline, amount, now]);
+  }, [health, label, rows, bps, totalBps, refundTo, deadline, amount, now, method]);
 
   const setStep = (i: number, patch: Partial<Step>) =>
     setSteps((s) => s.map((st, j) => (j === i ? { ...st, ...patch } : st)));
@@ -84,6 +90,7 @@ export function CreatePotForm() {
     setBusy(true);
     setError(null);
     const value = parseUsdc(amount);
+    if (method === "gasless") return submitGasless(value);
     const plan: Step[] = [
       { label: "Register condition with relay", state: "pending" },
       { label: "Approve USDC", state: "pending" },
@@ -97,15 +104,7 @@ export function CreatePotForm() {
       if (!from) throw new Error("Wallet not connected");
 
       setStep(0, { state: "active" });
-      const condition = await getJson<{ conditionId: Hex }>("/api/conditions", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          source,
-          key: conditionKey.trim() || (source === "gemini" ? "" : `pot-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`),
-          label: label.trim(),
-        }),
-      });
+      const condition = await registerCondition();
       setStep(0, { state: "done" });
 
       current = 1;
@@ -149,6 +148,64 @@ export function CreatePotForm() {
         setStep(3, { state: "done", detail: "Skipped (no amount)" });
       }
       router.push(`/pots/${potId}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message.split("\n")[0]! : String(err);
+      setStep(current, { state: "error", detail: msg });
+      setError(msg);
+      setBusy(false);
+    }
+  }
+
+  function registerCondition() {
+    return getJson<{ conditionId: Hex }>("/api/conditions", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        source,
+        key: conditionKey.trim() || (source === "gemini" ? "" : `pot-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`),
+        label: label.trim(),
+      }),
+    });
+  }
+
+  /** Register → sign one authorization → relay creates and funds the pot in one transaction. */
+  async function submitGasless(value: bigint) {
+    setSteps([
+      { label: "Register condition with relay", state: "pending" },
+      { label: "Sign USDC authorization (no gas)", state: "pending" },
+      { label: "Relay creates and funds the pot", state: "pending" },
+    ]);
+    let current = 0;
+    try {
+      const from = account ?? (await connect());
+      if (!from) throw new Error("Wallet not connected");
+      setStep(0, { state: "active" });
+      const condition = await registerCondition();
+      setStep(0, { state: "done" });
+
+      current = 1;
+      setStep(1, { state: "active", detail: "Confirm the signature in your wallet" });
+      const res = await gaslessCreate(
+        adapter,
+        from,
+        {
+          conditionId: condition.conditionId,
+          resolver: health!.resolver!,
+          payees: rows.map((r) => r.address as Address),
+          sharesBps: bps,
+          refundTo: refundTo as Address,
+          deadline: BigInt(Math.floor(new Date(deadline).getTime() / 1000)),
+        },
+        value,
+        () => {
+          setStep(1, { state: "done", detail: undefined });
+          current = 2;
+          setStep(2, { state: "active", detail: "Relay is submitting" });
+        },
+      );
+      setStep(2, { state: "done", tx: res.tx, detail: undefined });
+      if (!res.potId) throw new Error("Relay did not return a pot id");
+      router.push(`/pots/${res.potId}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message.split("\n")[0]! : String(err);
       setStep(current, { state: "error", detail: msg });
@@ -244,6 +301,19 @@ export function CreatePotForm() {
             </Field>
             <Field label="Deadline" hint="Funding closes at the deadline. Unresolved pots can be refunded after the grace period.">
               <input type="datetime-local" className={inputCls} value={deadline} onChange={(e) => setDeadline(e.target.value)} />
+            </Field>
+            <Field
+              label="Payment method"
+              hint={
+                method === "gasless"
+                  ? "You sign one USDC authorization (EIP-3009); the relay submits it and pays gas. No approve, no gas needed."
+                  : "Your wallet sends approve, create and fund transactions and pays gas in USDC."
+              }
+            >
+              <select className={inputCls} value={method} onChange={(e) => setMethod(e.target.value as "gasless" | "wallet")}>
+                <option value="gasless">Sign only (relay pays gas)</option>
+                <option value="wallet">Send transactions from my wallet</option>
+              </select>
             </Field>
             <Field label="Initial funding (USDC)" hint="Others can add funds until the deadline.">
               <input className={`${inputCls} text-right`} inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />

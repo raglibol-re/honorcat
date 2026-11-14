@@ -1,4 +1,4 @@
-import type { Address, Hex } from "viem";
+import type { Address, Hex, TypedDataDefinition } from "viem";
 
 export type ContractCall = { to: Address; data: Hex };
 
@@ -17,5 +17,10 @@ export interface WalletAdapter {
   getAccount(): Promise<Address | null>;
   /** Sends a transaction and resolves with its hash. */
   send(call: ContractCall): Promise<Hex>;
+  /**
+   * Signs EIP-712 typed data (eth_signTypedData_v4). Used for gasless funding: the user signs
+   * an Arc USDC `ReceiveWithAuthorization` and the relay submits it, so no gas is needed.
+   */
+  signTypedData(data: TypedDataDefinition): Promise<Hex>;
   onAccountChange(cb: (account: Address | null) => void): () => void;
 }

@@ -1,4 +1,4 @@
-import { createWalletClient, custom, numberToHex, type Address, type EIP1193Provider } from "viem";
+import { createWalletClient, custom, numberToHex, type Address, type EIP1193Provider, type TypedDataDefinition } from "viem";
 import { arcTestnet } from "viem/chains";
 import { RPC_URL } from "../chain";
 import type { ContractCall, WalletAdapter } from "./types";
@@ -62,6 +62,12 @@ export class InjectedWallet implements WalletAdapter {
     const account = await this.connect();
     const client = createWalletClient({ account, chain: arcTestnet, transport: custom(this.provider) });
     return client.sendTransaction({ to: call.to, data: call.data });
+  }
+
+  async signTypedData(data: TypedDataDefinition) {
+    const account = await this.connect();
+    const client = createWalletClient({ account, chain: arcTestnet, transport: custom(this.provider) });
+    return client.signTypedData({ account, ...data } as never);
   }
 
   onAccountChange(cb: (account: Address | null) => void) {

@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { encodeFunctionData, erc20Abi } from "viem";
 import { verdictVaultAbi } from "@verdict/relay/abi";
 import { getHealth, usePolling, type PotDetail } from "@/lib/api";
+import { gaslessFund } from "@/lib/gasless";
 import { publicClient, USDC_ADDRESS } from "@/lib/chain";
 import { formatTime, formatUsdc, kindLabel, parseUsdc } from "@/lib/format";
 import { useWallet } from "@/lib/wallet/context";
@@ -31,7 +32,7 @@ export function PotView() {
   }
   if (!data) return <p className="text-sm text-muted">Loading…</p>;
 
-  const { pot, events, payments, relay } = data;
+  const { pot, events, payments, relay, relayCost } = data;
   const total = BigInt(pot.total);
 
   return (
@@ -131,11 +132,38 @@ export function PotView() {
             </dl>
           </Card>
           {pot.status === "open" && now > 0 && now / 1000 < pot.deadline && <FundCard potId={pot.potId} />}
+          {relayCost && relayCost.txs.length > 0 && (
+            <Card title="Relay cost">
+              <p className="text-xs text-muted">Gas on Arc is paid in USDC. These are the relay&apos;s transactions for this pot.</p>
+              <ul className="mt-3 space-y-2 text-sm">
+                {relayCost.txs.map((t) => (
+                  <li key={t.txHash} className="flex items-center justify-between gap-3">
+                    <span>{relayKind[t.kind] ?? t.kind}</span>
+                    <span className="flex items-center gap-3">
+                      <span className="tabular-nums">{t.feeUsdc ? formatUsdc(t.feeUsdc) : "…"}</span>
+                      <Tx hash={t.txHash} label="tx" />
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-3 flex justify-between border-t border-border pt-2 text-sm font-medium">
+                <span>Total</span>
+                <span className="tabular-nums">{formatUsdc(relayCost.totalUsdc)} USDC</span>
+              </div>
+            </Card>
+          )}
         </div>
       </div>
     </div>
   );
 }
+
+const relayKind: Record<string, string> = {
+  resolve: "Resolve",
+  expire: "Expire",
+  fund_gasless: "Gasless funding",
+  create_gasless: "Gasless create + fund",
+};
 
 function Row({ k, v }: { k: string; v: React.ReactNode }) {
   return (
@@ -149,6 +177,7 @@ function Row({ k, v }: { k: string; v: React.ReactNode }) {
 function FundCard({ potId }: { potId: number }) {
   const { adapter, connect } = useWallet();
   const [amount, setAmount] = useState("1.00");
+  const [gasless, setGasless] = useState(true);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -158,6 +187,12 @@ function FundCard({ potId }: { potId: number }) {
     try {
       const from = await connect();
       if (!from) throw new Error("Wallet not connected");
+      if (gasless) {
+        setMsg("Sign the USDC authorization in your wallet…");
+        const res = await gaslessFund(adapter, from, potId, parseUsdc(amount), () => setMsg("Relay is submitting…"));
+        setMsg(`Funded without gas (tx ${res.tx.slice(0, 10)}…). The amount updates in a moment.`);
+        return;
+      }
       const { vault } = await getHealth();
       const value = parseUsdc(amount);
       const allowance = await publicClient.readContract({ address: USDC_ADDRESS, abi: erc20Abi, functionName: "allowance", args: [from, vault] });
@@ -181,6 +216,10 @@ function FundCard({ potId }: { potId: number }) {
     <Card title="Add funds">
       <div className="space-y-3">
         <input className={`${inputCls} text-right`} inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
+        <label className="flex items-center gap-2 text-xs text-muted">
+          <input type="checkbox" checked={gasless} onChange={(e) => setGasless(e.target.checked)} />
+          Sign only, relay pays gas (EIP-3009)
+        </label>
         <button className={`${buttonCls} w-full`} disabled={busy} onClick={fund}>
           Fund pot
         </button>

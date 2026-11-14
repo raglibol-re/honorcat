@@ -19,6 +19,7 @@ export async function GET() {
     resolver,
     indexerPrimary: cfg.indexerPrimary,
     streamsConfigured: Boolean(cfg.streamsToken),
+    gasless: { minAmount: cfg.gaslessMinAmount.toString(), maxPerHour: cfg.gaslessMaxPerHour },
     lastIndexedBlock: (await getState(db, "rpc_last_indexed_block")) ?? null,
     lastTick: JSON.parse((await getState(db, "last_tick")) ?? "null"),
   });
