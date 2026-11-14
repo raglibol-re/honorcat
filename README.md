@@ -2,76 +2,133 @@
 
 Conditional USDC payouts on Circle's **Arc testnet**. USDC is locked in a pot and is paid out to
 payees (by share) or refunded once an authorised resolver signs the outcome of an external event.
+Verdict is infrastructure: an app decides what a condition means, Verdict holds the money, signs,
+settles, indexes and notifies.
 
 > Testnet only. Never use these keys or contracts on mainnet.
 
-**Live:** https://verdict-phi-livid.vercel.app · vault
+**Live:** https://verdict-phi-livid.vercel.app ([status](https://verdict-phi-livid.vercel.app/status),
+[developers](https://verdict-phi-livid.vercel.app/developers)) · vault
 [`0xba7190441bc00fC1AC8597d68197039e1167E6D4`](https://explorer.testnet.arc.io/address/0xba7190441bc00fC1AC8597d68197039e1167E6D4)
-on Arc testnet (chainId 5042002). The scripted e2e run passes against this deployment for both
-outcomes (payout and refund).
+on Arc testnet (chainId 5042002). The scripted e2e run passes against this deployment in every
+mode (classic, gasless, integration API, multisig resolver) for both outcomes.
 
 ```
-contracts/   Foundry (Arc Foundry): VerdictVault.sol, tests, deploy script
-relay/       TypeScript library: result sources, signer, resolver, indexers, read models, e2e script
-web/         Next.js app on Vercel: UI (create, pot status, ledger) + the relay's HTTP API routes
+contracts/   Foundry (Arc Foundry): VerdictVault, MultisigResolver, tests, deploy script
+relay/       TypeScript library: sources, signer, resolver, indexers, gasless relaying,
+             integrations, webhooks, gas accounting, read models, e2e script
+web/         Next.js app on Vercel: UI + every HTTP API route (the relay runs inside it)
+sdk/         @verdict/sdk: typed client, gasless signing helpers, webhook verification
 deployments/ <chainId>.json written by the deploy script (vault address, deploy block)
 ```
+
+## What you can build on it today
+
+| You want to… | Use |
+|---|---|
+| Hold a payment until your backend says "done" (delivery, milestone, match result) | API key → `POST /api/v1/conditions {source:"api"}` → gasless pot → `POST /api/v1/outcomes` |
+| Let a payer fund without gas, approve or an Arc-configured wallet | `POST /api/gasless/prepare` → user signs once → `POST /api/gasless/create` / `fund` |
+| Settle on a public data feed without writing code | source `http`: `{"url","path","yes","no"}` |
+| Settle on a prediction market | source `gemini`: `EVENT:CONTRACT` |
+| Not trust a single key for the outcome | deploy a `MultisigResolver` (M-of-N, ERC-1271) and use it as the pot's resolver |
+| React in your backend | signed webhooks: `pot.created`, `pot.funded`, `pot.resolved`, `pot.expired`, `payment.*` |
+| Show money movements | `/ledger`, `/pots/:id`, or `GET /api/payments` |
+| Watch costs and health | `/status` (resolver balance, gas spent in USDC, runway, indexer lag) |
+
+Quickstart with curl is on [`/developers`](https://verdict-phi-livid.vercel.app/developers); with TypeScript:
+
+```ts
+import { Verdict, verifyWebhook } from "@verdict/sdk";
+const verdict = new Verdict({ baseUrl: "https://verdict-phi-livid.vercel.app", apiKey: process.env.VERDICT_KEY });
+const { conditionId } = await verdict.registerCondition({ source: "api", key: "order-1042", label: "Order 1042 delivered" });
+const { potId } = await verdict.createPotGasless({
+  signer: payerAccount,                     // any viem account / wallet client; it only signs
+  amount: 5_000_000n,                       // 5 USDC (6 decimals)
+  params: { conditionId, payees: [seller], sharesBps: [10_000], refundTo: payer, deadline: Math.floor(Date.now() / 1000) + 86_400 },
+});
+await verdict.reportOutcome(conditionId, true); // final; changing it later returns 409
+const settled = await verdict.waitForSettlement(potId!);
+```
+
+API keys are issued by the operator: `POST /api/admin/integrations {name, webhookUrl}` with
+`Authorization: Bearer $ADMIN_TOKEN` (the key and webhook secret are returned once).
 
 ## Architecture
 
 ```
-            ┌──────────── Vercel (web/) ─────────────────────────────────────┐
- browser ──▶│ pages: /create  /pots/[id]  /ledger                            │
-            │ API:   GET /api/pots, /api/pots/:id, /api/payments, /api/health│
-            │        POST /api/conditions, /api/admin/outcome (bearer)       │
-            │        POST /api/webhooks/quicknode (HMAC)                      │
-            │        GET  /api/cron/tick (bearer, Vercel Cron)               │
-            │                    │ runTick(): lease-guarded, rate-limited     │
-            │                    ▼                                            │
-            │  @verdict/relay: RPC log poller ─┐   ResultSource (manual, …)   │
-            │                  Streams ingest ─┼─▶ chain_events ─▶ pots       │
-            │                  receipts ───────┘   resolver: sign + resolve() │
-            └────────────────────┬───────────────────────────┬───────────────┘
-                                 │ Postgres (Neon)           │ Arc testnet RPC
+            ┌──────────── Vercel (web/) ──────────────────────────────────────────┐
+ browser ──▶│ pages: /create /pots/[id] /ledger /status /developers               │
+ your app ─▶│ API: public  GET /api/pots, /api/pots/:id, /api/payments, /api/status│
+            │      v1      /api/v1/{me,conditions,outcomes,pots,deliveries,…} (key)│
+            │      gasless POST /api/gasless/{prepare,create,fund}                 │
+            │      admin   /api/admin/{outcome,integrations} (bearer)              │
+            │      hooks   POST /api/webhooks/quicknode (HMAC), GET /api/cron/tick │
+            │                     │ runTick(): lease-guarded, rate-limited         │
+            │                     ▼                                                │
+            │  @verdict/relay                                                      │
+            │   RPC poller ┐                      sources: api manual gemini http  │
+            │   Streams    ├─▶ chain_events ─▶ pots ─▶ resolver (EIP-712) ─┐       │
+            │   receipts ──┘        │                                      ▼       │
+            │                       └─▶ webhook outbox ─▶ HMAC POST   sendVaultTx  │
+            │                                            (backoff)    (fee floor,  │
+            │                                                          gas in USDC)│
+            └──────────────────────────┬────────────────────────────────┬──────────┘
+                                       │ Postgres (Neon)                │ Arc testnet
 ```
 
-There is no long-running process. A relay **tick** (index new logs, ask each source for
-outcomes, sign and submit `resolve`, expire overdue pots) runs whenever something calls the API:
+There is no long-running process. A relay **tick** (index new logs, deliver webhooks, ask each
+source for outcomes, sign and submit `resolve`, expire overdue pots) runs whenever something calls
+the API:
 
 | Trigger | When | Notes |
 |---|---|---|
-| API reads (`/api/pots*`, `/api/payments`) | every 2–4 s while a page is open or the e2e script runs | via `after()`, rate-limited by `TICK_MIN_INTERVAL_MS`, guarded by a DB lease |
+| API reads (`/api/pots*`, `/api/payments`, `/api/status`, `/api/v1/*`) | every 2–5 s while a page is open or an integration polls | via `after()`, rate-limited by `TICK_MIN_INTERVAL_MS`, guarded by a DB lease |
+| Writes (`/api/v1/outcomes`, gasless, admin outcome) | immediately | the write itself nudges the relay |
 | QuickNode Streams webhook | every delivered batch (seconds) | the recommended filter always returns an object, so each batch acts as a clock |
 | Vercel Cron `/api/cron/tick` | Hobby: **once per day** (±59 min); Pro: up to every minute | daily safety net only on the free plan |
 
 **Trade-off (free Hobby plan):** Vercel Cron Jobs run at most once a day, and the newer
-Schedules feature (beta) at most every 15 minutes with a 15-minute jitter, which is too slow for
-markets that settle in minutes. Settlement therefore depends on traffic: an open page, the e2e
-script, or a QuickNode Stream. With none of these, a result is acted on at the next trigger (at
-the latest the daily cron). Once QuickNode Streams is set up, the relay advances every few
-seconds without any page open. On Vercel Pro, change the cron schedule to `* * * * *`.
+Schedules feature (beta) at most every 15 minutes with a 15-minute jitter. Settlement therefore
+depends on traffic: an open page, an integration call, the e2e script, or a QuickNode Stream.
+Reporting an outcome through the API triggers a tick itself, so the common path settles in
+seconds. On Vercel Pro, change the cron schedule to `* * * * *`.
 
-## Arc testnet facts (checked against docs.arc.io and the live RPC)
+## Arc-specific engineering
 
-| | |
+Facts checked against docs.arc.io and the live testnet RPC, and what Verdict does with them:
+
+| Arc property | How Verdict uses it |
 |---|---|
-| Chain ID | `5042002` |
-| RPC | `https://rpc.testnet.arc.io` (WS: `wss://rpc.testnet.arc.io`) |
-| Explorer | `https://explorer.testnet.arc.io` |
-| USDC (ERC-20, 6 decimals) | `0x3600000000000000000000000000000000000000` |
-| Faucet | `https://faucet.circle.com` → Arc Testnet |
+| Chain ID `5042002`, RPC `https://rpc.testnet.arc.io`, explorer `https://explorer.testnet.arc.io`, faucet `https://faucet.circle.com` | config enforces chain 5042002; testnet only |
+| **USDC is the gas token**, one balance exposed twice: native (18 decimals) and ERC-20 at `0x3600…0000` (6 decimals) | all amounts use the ERC-20 interface; every relay receipt's `gasUsed × effectiveGasPrice` (18 dp) is stored and converted to 6-dp USDC (`/ 10¹²`, rounded up). `/status` reads the resolver balance through both interfaces and shows they agree |
+| **USDC is FiatToken v2**: EIP-2612 + **EIP-3009** (`receiveWithAuthorization`); EIP-712 domain name `USDC`, version `2` (verified: `DOMAIN_SEPARATOR()` matches) | gasless funding: the payer signs, the relay submits `fundWithAuthorization` / `createPotWithAuthorization`. The relay reads name/version on-chain and checks them against `DOMAIN_SEPARATOR()` before building typed data |
+| Base fee floor **20 gwei**; underpriced transactions are dropped silently | every relay transaction sets `maxFeePerGas ≥ 20 gwei × 1.125 + tip` |
+| **Deterministic sub-second finality**, no reorgs | the indexer reads `latest` with zero confirmations; one receipt is final. Receipt polling runs every 500 ms (viem's 4 s default made relay latency ~4.2 s; now ~0.7–1.3 s, measured in `relay_txs.latency_ms`) |
+| `eth_getLogs` ≤ 10,000 blocks per call | the poller uses 5,000-block chunks |
+| Native USDC transfers don't log at the ERC-20 address | the vault emits an event for every state change and payment |
 
-Gas is paid in USDC (the native balance has 18 decimals; all amount math goes through the ERC-20
-interface). The minimum base fee is 20 gwei; `eth_getLogs` covers at most 10,000 blocks per call (the poller uses
-5,000). Finality is deterministic and comes with inclusion, so there are no reorgs to handle.
+Measured on testnet (from `/api/status`): resolve ≈ 110k–160k gas ≈ 0.0023–0.0033 USDC (refund vs. two payouts); gasless
+create + fund ≈ 330k gas ≈ 0.0067 USDC; gasless top-up ≈ 109k gas ≈ 0.0022 USDC.
 
-## Contract: `VerdictVault`
+## Contracts
+
+### `VerdictVault`
 
 - `createPot(conditionId, resolver, payees[], sharesBps[], refundTo, deadline)`: shares sum to 10,000.
 - `fund(potId, amount)`: anyone, repeatedly, until the deadline (needs USDC `approve`).
+- `fundWithAuthorization(potId, amount, auth)`: same, from an EIP-3009 authorization signed by
+  `auth.from`; anyone may submit. The 3009 nonce must equal
+  `fundNonce(potId, salt) = keccak256(abi.encode("VerdictVault.fund" tag, chainId, vault, potId, salt))`.
+- `createPotWithAuthorization(params, amount, auth)`: create + fund in one transaction; `auth.from`
+  becomes the creator. The nonce is `createNonce(params, salt)`, which commits to **every** pot
+  parameter (condition, resolver, payees, shares, refundTo, deadline).
+  Because the nonce is derived on-chain and `receiveWithAuthorization` requires `msg.sender == to`,
+  a submitter can neither redirect a signature to another pot, change the amount or terms, nor
+  front-run it at the token level. Replays fail on the token's used-nonce check.
 - `resolve(potId, outcome, signature)`: EIP-712 `Resolution(uint256 potId,bytes32 conditionId,bool outcome)`
-  signed by the pot's resolver (EOA or ERC-1271). Domain: name `VerdictVault`, version `1`, chainId,
-  verifyingContract. Anyone may submit. Allowed until `deadline + gracePeriod`; unfunded pots revert.
+  signed by the pot's resolver (EOA or **ERC-1271**). Domain: name `VerdictVault`, version `1`,
+  chainId, verifyingContract. Anyone may submit. Allowed until `deadline + gracePeriod`; unfunded
+  pots revert.
 - `expire(potId)`: after `deadline + gracePeriod`, refunds the whole pot to `refundTo`.
 - `claim()`: if a transfer failed (e.g. a USDC-blocklisted recipient), the amount is credited as
   claimable instead of blocking the pot; the recipient withdraws it later.
@@ -83,26 +140,41 @@ remains. **Refunds go to `refundTo` as a whole; third-party funders are not refu
 Events: `PotCreated`, `PotFunded` (incl. funder), `PotResolved`, `PotExpired`, `Payout`, `Refund`,
 `PaymentDeferred`, `Claimed`.
 
+### `MultisigResolver`
+
+Immutable M-of-N ERC-1271 signer. Use its address as a pot's `resolver`; the vault verifies it
+through OpenZeppelin `SignatureChecker`. Signature = `threshold` 65-byte ECDSA signatures over the
+resolution digest, concatenated in strictly increasing signer-address order (rejects duplicates
+without storage). Exercised on testnet by the e2e `multisig` mode (1 of 3 rejected, 2 of 3 settle).
+
 ## Relay
 
-- `ResultSource { getOutcome(conditionId) → true | false | null }`. `null` (unknown, not settled,
-  voided) never triggers an on-chain action. Sources are registered in `relay/src/tick.ts`.
-- Conditions are registered with `POST /api/conditions {source, key, label}`;
-  `conditionId = keccak256("<source>:<key>")`.
-- `ManualSource`: outcomes set with `POST /api/admin/outcome {conditionId, outcome}` and
-  `Authorization: Bearer $ADMIN_TOKEN`.
-- `GeminiSource`: Gemini prediction markets via the public, keyless
-  `GET https://api.gemini.com/v1/prediction-markets/events/{eventTicker}`. Key is
-  `<eventTicker>:<contractTicker>` (e.g. `SOL05M2611141625:UP`), checked against the API at
-  registration. Per contract: `status == "settled"` and `resolutionSide == "yes"` → met,
-  `"no"` → not met; anything else (active, closed, under_review, invalid) → `null`, so a market
-  that never settles lets the pot expire and refund. Each event is fetched once per tick
-  (Gemini allows 120 req/min). `GEMINI_API_BASE` can point at the sandbox host.
-- Indexing: all vault logs go into `chain_events` (idempotent on `(tx_hash, log_index)`); `pots` is
-  rebuilt per pot from its events; `payments` is a view (payout, refund, deferred, claim).
-  Sources: RPC poller, Streams webhook, and the relay's own transaction receipts.
-- `INDEXER_PRIMARY=rpc|streams` switches whether ticks poll RPC logs. The webhook is always
-  accepted when `QUICKNODE_STREAMS_TOKEN` is set.
+- **Sources** (`ResultSource { getOutcome(conditionId) → true | false | null }`; `null` never acts):
+
+  | Source | Key | Outcome |
+  |---|---|---|
+  | `api` | any string, **owned** by the registering integration | reported by the owner via `POST /api/v1/outcomes`; immutable once reported |
+  | `manual` | any string | `POST /api/admin/outcome` with `ADMIN_TOKEN` (demos, tests) |
+  | `gemini` | `<eventTicker>:<contractTicker>` | contract `status == "settled"` and `resolutionSide` yes/no (public `GET /v1/prediction-markets/events/{ticker}`) |
+  | `http` | JSON `{"url","path","yes","no"}`, canonicalised | value at `path` deep-equals `yes` / `no`; https only, no redirects, 5 s timeout, 256 KB cap, private/loopback/metadata IPs refused |
+
+  `conditionId = keccak256("<source>:<key>")`; registration is idempotent and validates the key
+  with the source (and fills the label) when the source supports it.
+- **Transactions** all go through `sendVaultTx`: simulate (reverts cost nothing) → Arc fee floor →
+  send → receipt → ingest the receipt's logs immediately → record gas paid in USDC in `relay_txs`.
+- **Gasless relaying** (`/api/gasless/*`): the relay verifies the signature off-chain, checks the
+  payer's balance, a minimum amount (`GASLESS_MIN_AMOUNT`) and a per-payer hourly limit
+  (`GASLESS_MAX_PER_HOUR`; API-key callers exempt), and without an API key only sponsors pots it
+  resolves itself.
+- **Integrations**: API keys `vk_<id>_<secret>` (SHA-256 stored, constant-time compare, revocable).
+- **Webhooks**: a transactional outbox filled in the same pass that ingests an event; delivered on
+  ticks with `Verdict-Signature: t=<unix>,v1=<hex HMAC-SHA256(secret, "<t>.<body>")>` and
+  `Verdict-Event-Id` (dedupe key), exponential backoff (10 s … 1 h, 12 attempts), at-least-once.
+- **Indexing**: all vault logs go into `chain_events` (idempotent on `(tx_hash, log_index)`); `pots`
+  is rebuilt per pot from its events; `payments` is a view. Sources: RPC poller, Streams webhook,
+  and the relay's own receipts. When `VAULT_ADDRESS` changes, vault-scoped tables are cleared and
+  re-indexed from `VAULT_DEPLOY_BLOCK` (conditions, outcomes and integrations are kept).
+- `INDEXER_PRIMARY=rpc|streams` switches whether ticks poll RPC logs.
 
 ## Setup
 
@@ -132,20 +204,24 @@ cp .env.example .env      # fill in keys and tokens (see "Environment variables"
 ### 3. Tests
 
 ```bash
-cd contracts && arc-forge test --network arc     # 37 contract tests (WSL)
-pnpm --filter @verdict/relay test                # relay unit tests
+cd contracts && arc-forge test --network arc     # 54 contract tests incl. gasless + multisig (WSL)
+pnpm --filter @verdict/relay test                # 26 relay tests (GEMINI_LIVE=1 adds a live check)
+pnpm --filter @verdict/sdk test                  # SDK tests
 ```
 
 ### 4. Fund the testnet wallets
 
 Get testnet USDC from https://faucet.circle.com (Arc Testnet) for the deployer (gas and pot funds)
-and the resolver (gas for `resolve` / `expire`).
+and the resolver (gas for `resolve` / `expire` and sponsored gasless transactions).
 
 ### 5. Deploy the contract (WSL)
 
 ```bash
 ./contracts/deploy.sh      # writes deployments/5042002.json (vault, deployBlock)
 ```
+
+Then update `VAULT_ADDRESS` / `VAULT_DEPLOY_BLOCK` in `.env` and on Vercel and redeploy; the relay
+re-indexes the new vault automatically.
 
 ### 6. Run the app locally
 
@@ -162,46 +238,53 @@ Fully offline variant: run `arc-anvil --network arc --chain-id 5042002` in WSL, 
 `--rpc-url http://localhost:8545` using anvil's public test keys, and set
 `ARC_RPC_URL=NEXT_PUBLIC_RPC_URL=http://localhost:8545`.
 
-### 7. End-to-end run (definition of done)
+### 7. End-to-end runs (definition of done)
 
 ```bash
-# against a local server
-pnpm --filter @verdict/relay e2e -- --api http://localhost:3000 --outcome both
-# against the Vercel deployment
-pnpm --filter @verdict/relay e2e -- --api https://<project>.vercel.app --outcome both
+pnpm --filter @verdict/relay e2e -- --api https://verdict-phi-livid.vercel.app --mode all --outcome both
 ```
 
-For each outcome the script creates and funds a pot, reports the result via the relay, waits for
-the relay to settle on-chain, checks the recipients' USDC balances, and checks the payments in
-`/api/payments` (the data the `/ledger` page shows). It reads `DEPLOYER_PRIVATE_KEY` and
-`ADMIN_TOKEN` from `.env`; `ADMIN_TOKEN` must match the server's.
+| Mode | What it proves on Arc testnet |
+|---|---|
+| `classic` | approve → create → fund from a wallet; operator reports; relay pays out / refunds |
+| `gasless` | a fresh payer that never sends a transaction (nonce stays 0) creates and tops up a pot by signature; Arc USDC marks the 3009 nonce used; a replay is rejected |
+| `api` | an integration registers an owned `api` condition, funds gaslessly, reports the outcome itself; 401 without a key, 403 for another integration, 409 on flipping. `--webhook <url>` also checks delivery |
+| `multisig` | deploys a 2-of-3 `MultisigResolver`; one owner signature is rejected on-chain, two settle the pot |
+
+Every mode checks recipient balances on-chain, the payments in `/api/payments` (what `/ledger`
+shows), the relay's gas per pot, and prints the relay's balance and runway. The script reads
+`DEPLOYER_PRIVATE_KEY` and `ADMIN_TOKEN` from `.env`; `ADMIN_TOKEN` must match the server's.
 
 ## Deploying to Vercel
 
 The whole app (UI and relay API) deploys from `web/` with Vercel's Git integration: every push to
-`main` updates production, every other branch gets a preview deployment.
+`main` updates production, every other branch gets a preview deployment. The live project is
+`raglibol/verdict` (Root Directory `web`, Neon Postgres in us-east-1).
+
+To set it up from scratch:
 
 1. Push this repo to GitHub.
 2. Vercel dashboard → **Add New… → Project → Import** the repository.
 3. **Root Directory: `web`**. Framework: Next.js (auto-detected). Keep the default build and install
    commands; Vercel detects the pnpm workspace from the root `pnpm-lock.yaml`.
-4. **Storage → Neon (Marketplace) → Create / Connect** to the project. This sets `DATABASE_URL`.
-   The schema is created automatically on first request.
+4. **Storage → Neon (Marketplace) → Create / Connect**, or set `DATABASE_URL` to any Postgres
+   (pooled connection string). The schema is created automatically on first request.
 5. Add the environment variables below (Production and Preview), then **Deploy**.
-6. Check `https://<project>.vercel.app/api/health`, then run the e2e script against it.
+6. Check `https://<project>.vercel.app/api/health` and `/status`, then run the e2e script against it.
 
-CLI alternative (after the project exists):
+CLI alternative:
 
 ```bash
 npm i -g vercel@latest
 vercel login
 vercel link                      # in the repo root; select the project
-vercel env add ADMIN_TOKEN       # repeat for each variable
-vercel deploy                    # preview;  vercel deploy --prod  for production
+vercel env add ADMIN_TOKEN       # repeat for each variable (add --sensitive for secrets)
+vercel deploy --prod
 ```
 
 Preview deployments share the production database and resolver key unless you give Preview its own
-`DATABASE_URL` (e.g. a Neon branch). Only one environment should run the resolver for a given vault.
+`DATABASE_URL` (e.g. a Neon branch). The DB lease makes that safe, but only one environment should
+run the resolver for a given vault in normal operation.
 
 ### Environment variables
 
@@ -210,18 +293,22 @@ environment settings (or the git-ignored `.env`), never committed.
 
 | Variable | Where | Secret | Purpose |
 |---|---|---|---|
-| `DATABASE_URL` | Vercel | **yes** | Postgres (Neon); set by the Marketplace integration |
-| `RESOLVER_PRIVATE_KEY` | Vercel | **yes** | signs outcomes, submits `resolve` / `expire` |
-| `ADMIN_TOKEN` | Vercel + local `.env` | **yes** | bearer token for `POST /api/admin/outcome` |
-| `CRON_SECRET` | Vercel | **yes** | bearer token Vercel Cron sends to `/api/cron/tick` |
+| `DATABASE_URL` | Vercel | **yes** | Postgres (Neon) |
+| `RESOLVER_PRIVATE_KEY` | Vercel | **yes** | signs outcomes; submits `resolve` / `expire` and sponsored gasless transactions |
+| `ADMIN_TOKEN` | Vercel + local `.env` | **yes** | bearer for `/api/admin/*` (outcomes, integrations) |
+| `CRON_SECRET` | Vercel | **yes** | bearer Vercel Cron sends to `/api/cron/tick` |
 | `QUICKNODE_STREAMS_TOKEN` | Vercel | **yes** | Streams security token (webhook HMAC) |
 | `VAULT_ADDRESS` | Vercel | no | deployed vault (from `deployments/5042002.json`) |
 | `VAULT_DEPLOY_BLOCK` | Vercel | no | first block the poller scans |
 | `ARC_RPC_URL` | Vercel, local | no | default `https://rpc.testnet.arc.io` |
 | `INDEXER_PRIMARY` | Vercel | no | `rpc` (default) or `streams` |
 | `TICK_MIN_INTERVAL_MS` | Vercel | no | default `4000` |
+| `GASLESS_MIN_AMOUNT` | Vercel | no | smallest sponsored amount in USDC, default `0.10` |
+| `GASLESS_MAX_PER_HOUR` | Vercel | no | sponsored transactions per payer per hour without API key, default `10` |
+| `RELAY_LOW_BALANCE_USDC` | Vercel | no | `/status` warns below this resolver balance, default `1` |
+| `GEMINI_API_BASE` | Vercel | no | default `https://api.gemini.com` |
 | `NEXT_PUBLIC_RPC_URL` | Vercel | no | optional browser RPC override |
-| `DEPLOYER_PRIVATE_KEY` | local `.env` only | **yes** | deploys the vault, funds pots in the e2e script |
+| `DEPLOYER_PRIVATE_KEY` | local `.env` only | **yes** | deploys contracts, funds the e2e runs |
 | `USDC_ADDRESS`, `GRACE_PERIOD_SECONDS` | local `.env` | no | deploy script inputs |
 
 The browser gets the vault and resolver addresses from `/api/health`, so no contract address is
