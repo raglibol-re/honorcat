@@ -29,7 +29,8 @@ contract DeployGuarantees is Script {
         vm.serializeUint(obj, "deployBlock", block.number);
         vm.serializeAddress(obj, "batchGuard", address(guard));
         string memory json = vm.serializeAddress(obj, "guaranteeBook", address(book));
-        string memory path = string.concat(vm.projectRoot(), "/../deployments/", vm.toString(block.chainid), ".guarantees.json");
+        string memory path =
+            string.concat(vm.projectRoot(), "/../deployments/", vm.toString(block.chainid), ".guarantees.json");
         vm.writeJson(json, path);
         console2.log("GuaranteeBook", address(book));
         console2.log("BatchGuard", address(guard));
