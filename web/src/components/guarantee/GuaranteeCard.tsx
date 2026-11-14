@@ -148,12 +148,20 @@ export function GuaranteeCard({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <LockedBadge lockedUsdc={g.lockedUsdc} potId={g.potId} vault={g.vault} released={settled} />
           <div className="t-13 text-right" style={{ color: "var(--vg-muted)" }}>
-            <div>
-              Seat {g.seat.n} of {g.seat.of}
-            </div>
-            <div className="mono">
-              {g.account.slice(0, 6)}…{g.account.slice(-4)}
-            </div>
+            {g.account ? (
+              <>
+                <div>
+                  Seat {g.seat.n} of {g.seat.of}
+                </div>
+                <div className="mono">
+                  {g.account.slice(0, 6)}…{g.account.slice(-4)}
+                </div>
+              </>
+            ) : (
+              <div>
+                {g.seat.n} of {g.seat.of} places taken
+              </div>
+            )}
           </div>
         </div>
         {brand && (

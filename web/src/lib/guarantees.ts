@@ -125,7 +125,7 @@ export function toCard(d: GuaranteeDetail, account: string | null): GuaranteeCar
     settlesAt: new Date(d.guarantee.settlesAt * 1000).toISOString(),
     state,
     seat: { n: me?.seat ?? d.customers.length, of: d.guarantee.maxCustomers },
-    account: account ?? d.guarantee.merchant,
+    account: me ? me.account : "", // empty for visitors: the card shows places taken instead
     lockedUsdc: d.onchain?.potTotal ?? "0",
     potId: d.guarantee.potId ?? 0,
     vault: d.chain.vault,
