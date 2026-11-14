@@ -45,7 +45,7 @@ export function GuaranteeCard({
   g,
   canWithdraw = false,
   onWithdraw,
-  brand = false,
+  brand = true,
 }: {
   g: GuaranteeCardData;
   canWithdraw?: boolean;

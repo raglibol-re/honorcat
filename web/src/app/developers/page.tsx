@@ -1,6 +1,6 @@
 import { Card } from "@/components/ui";
 
-export const metadata = { title: "Developers · Verdict" };
+export const metadata = { title: { absolute: "Developers · Verdict" } };
 
 const steps: { title: string; body: string; code: string }[] = [
   {

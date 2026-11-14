@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { GuaranteeList } from "./GuaranteeList";
 
-export const metadata = { title: "Guarantees · Verdict" };
+export const metadata = { title: "Guarantees" };
 
 export default function GuaranteesPage() {
   return (

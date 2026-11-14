@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { PotView } from "./PotView";
 
-export const metadata = { title: "Pot · Verdict" };
+export const metadata = { title: "Pot" };
 
 export default function PotPage() {
   return (

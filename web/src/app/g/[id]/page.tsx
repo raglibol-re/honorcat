@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { CustomerView } from "./CustomerView";
 
-export const metadata = { title: "Your guarantee · Verdict" };
+export const metadata = { title: "Your guarantee" };
 
 export default function GuaranteePage() {
   return (

@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { ProofView } from "./ProofView";
 
-export const metadata = { title: "Public proof · Verdict" };
+export const metadata = { title: "Public proof" };
 
 export default function ProofPage() {
   return (

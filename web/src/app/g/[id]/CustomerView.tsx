@@ -131,7 +131,7 @@ export function CustomerView() {
                 {joining ? "Joining…" : "Join with this device"}
               </button>
               <p className="t-13" style={{ color: "var(--vg-muted)" }}>
-                No wallet needed. Joining creates an account on this device that receives your refund; Verdict pays every fee. Passkey
+                No wallet needed. Joining creates an account on this device that receives your refund; HonorCat pays every fee. Passkey
                 sign-in replaces this soon. Clearing this browser&apos;s data removes the account, so withdraw a refund once it arrives.
               </p>
               <p className="t-13" style={{ color: "var(--vg-muted)" }}>
@@ -242,7 +242,7 @@ function Withdraw({ account, guaranteeId }: { account: Address; guaranteeId: str
         <span className="mono t-15">{balance === null ? "…" : `${formatUsdc(balance)} USDC`}</span>
       </div>
       <p className="t-13" style={{ color: "var(--vg-muted)" }}>
-        Balance read from Arc. Send it to any address; Verdict pays the fee.
+        Balance read from Arc. Send it to any address; HonorCat pays the fee.
       </p>
       <input
         value={to}

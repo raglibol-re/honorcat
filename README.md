@@ -5,10 +5,12 @@ payees (by share) or refunded once an authorised resolver signs the outcome of a
 Verdict is infrastructure: an app decides what a condition means, Verdict holds the money, signs,
 settles, indexes and notifies.
 
-**Verdict Guarantees** is the product built on it: a business promises customers a refund if a
+**HonorCat** ("Promises that always land.") is the product built on it, shown to merchants and
+customers as "HonorCat, settled by Verdict": a business promises customers a refund if a
 real-world event happens ("if it is hotter than 95°F on your tour day, you get your money back"),
 priced from live Gemini markets, with the refunds locked on Arc, customers joining without a
-wallet, and payment the moment the market settles. See [Verdict Guarantees](#verdict-guarantees).
+wallet, and payment the moment the market settles. See [HonorCat](#honorcat-the-product). Verdict
+remains the name of the engine: contracts, SDK, API and developer docs.
 
 > Testnet only. Never use these keys or contracts on mainnet.
 
@@ -59,7 +61,7 @@ const settled = await verdict.waitForSettlement(potId!);
 API keys are issued by the operator: `POST /api/admin/integrations {name, webhookUrl}` with
 `Authorization: Bearer $ADMIN_TOKEN` (the key and webhook secret are returned once).
 
-## Verdict Guarantees
+## HonorCat: the product
 
 Two roles. The **merchant** creates and funds a guarantee; the **customer** joins and gets paid.
 Live: [`/guarantees`](https://verdict-phi-livid.vercel.app/guarantees),

@@ -3,14 +3,15 @@ import Link from "next/link";
 import { IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
 import { WalletProvider } from "@/lib/wallet/context";
 import { LiveLine } from "@/components/LiveLine";
+import { HonorCatLogo } from "@/components/brand/HonorCatMark";
 import "./globals.css";
 
 const plexSans = IBM_Plex_Sans({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-plex-sans" });
 const plexMono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-plex-mono" });
 
 export const metadata: Metadata = {
-  title: "Verdict Guarantees",
-  description: "Refund promises backed by USDC locked on Arc and settled from live Gemini markets. Testnet demo.",
+  title: { default: "HonorCat · Promises that always land", template: "%s · HonorCat" },
+  description: "Refund promises backed by USDC locked on Arc and settled from live Gemini markets. HonorCat, settled by Verdict. Testnet demo.",
 };
 
 export const viewport: Viewport = {
@@ -38,8 +39,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           </p>
           <header className="border-b" style={{ borderColor: "var(--vg-rule)", background: "var(--vg-card)" }}>
             <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3">
-              <Link href="/" className="t-15 font-semibold">
-                Verdict
+              <Link href="/" aria-label="HonorCat home" style={{ color: "var(--vg-ink)" }}>
+                <HonorCatLogo size={20} />
               </Link>
               <nav className="t-15 flex flex-wrap gap-x-5 gap-y-1" style={{ color: "var(--vg-muted)" }}>
                 {nav.map((n) => (
@@ -55,7 +56,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-2 px-4 py-4">
               <LiveLine />
               <span className="t-13" style={{ color: "var(--vg-muted)" }}>
-                Settled on Arc testnet · market data from Gemini
+                HonorCat, settled by Verdict on Arc testnet. Market data from Gemini.
               </span>
             </div>
           </footer>

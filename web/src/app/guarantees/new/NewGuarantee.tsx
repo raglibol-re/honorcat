@@ -248,7 +248,7 @@ export function NewGuarantee() {
           <p className="t-13 mt-1" style={{ color: "var(--vg-muted)" }}>
             To offset the refunds you could buy {Math.ceil(worstCase)} &ldquo;{side === "yes" ? "Yes" : "No"}&rdquo; contracts on Gemini (each pays $1)
             {hedgePrice === null ? ", no live price right now." : ` at about $${hedgePrice.toFixed(2)}, roughly $${usd(Math.ceil(worstCase) * hedgePrice)} in total.`}{" "}
-            Verdict never places orders.
+            HonorCat never places orders.
           </p>
         </section>
 
@@ -344,7 +344,7 @@ function Fund(p: { template: Template; market: Market | null; contract: Contract
         Lock {(Number(p.refund) * p.seats || 0).toFixed(2)} USDC and publish
       </button>
       <p className="t-13 mt-2" style={{ color: "var(--vg-muted)" }}>
-        {busy ?? (ready ? "You sign one USDC authorization; Verdict submits it and pays the gas." : "Choose a market and enter your business name and refund (at least 0.10 USDC).")}
+        {busy ?? (ready ? "You sign one USDC authorization; HonorCat submits it and pays the gas." : "Choose a market and enter your business name and refund (at least 0.10 USDC).")}
       </p>
       {err && (
         <p className="t-13 mt-2" style={{ color: "var(--negative)" }}>
@@ -361,7 +361,8 @@ function Share({ id, promise }: { id: string; promise: string }) {
   useEffect(() => {
     QRCode.toString(url, { type: "svg", margin: 1, width: 180 }).then(setQr).catch(() => setQr(null));
   }, [url]);
-  const badge = `<a href="${url}"><img src="${url.replace(`/g/${id}`, `/api/guarantees/${id}/badge`)}" alt="Refund guarantee by Verdict" height="28"></a>`;
+  // The badge links to the public proof page, so a shopper can check the locked money.
+  const badge = `<a href="${url}/proof"><img src="${url.replace(`/g/${id}`, `/api/guarantees/${id}/badge`)}" alt="Guaranteed by HonorCat" height="28"></a>`;
   return (
     <section className="vg-ticket space-y-4 px-5 py-4">
       <div>

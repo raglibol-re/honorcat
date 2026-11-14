@@ -1,6 +1,6 @@
 import { NewGuarantee } from "./NewGuarantee";
 
-export const metadata = { title: "New guarantee · Verdict" };
+export const metadata = { title: "New guarantee" };
 
 export default function NewGuaranteePage() {
   return (

@@ -1,6 +1,6 @@
 import { StatusView } from "./StatusView";
 
-export const metadata = { title: "Relay status · Verdict" };
+export const metadata = { title: { absolute: "Relay status · Verdict" } };
 
 export default function StatusPage() {
   return (

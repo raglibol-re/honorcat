@@ -1,6 +1,6 @@
 import { Ledger } from "./Ledger";
 
-export const metadata = { title: "Ledger · Verdict" };
+export const metadata = { title: "Ledger" };
 
 export default function LedgerPage() {
   return (

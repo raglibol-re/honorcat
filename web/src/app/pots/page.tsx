@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { PotList } from "./PotList";
 
-export const metadata = { title: "Pots · Verdict" };
+export const metadata = { title: "Pots" };
 
 export default function PotsPage() {
   return (
