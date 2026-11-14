@@ -13,6 +13,8 @@
  *   guarantees  Verdict Guarantees on live Gemini markets: on a 5-minute demo market, two
  *            guarantees (refund on YES / refund on NO), 3 customers each, settle, verify refunds,
  *            memos and a gasless withdrawal; for the other templates create, fund and enrol.
+ *   passkey  registers a passkey (software authenticator), joins a guarantee with it, and withdraws
+ *            from the counterfactual account: the relay deploys it and WebAuthn is verified on Arc.
  *   multisig deploys a 2-of-3 MultisigResolver (ERC-1271) and uses it as the pot's resolver:
  *            one owner signature is rejected on-chain, two (sorted) settle the pot. Needs the
  *            Foundry build output (contracts/out).
@@ -23,6 +25,7 @@
  *   pnpm --filter @verdict/relay e2e -- --api https://<app>.vercel.app --mode all --outcome both
  * Env: DEPLOYER_PRIVATE_KEY (funds the runs), ADMIN_TOKEN (must match the server), ARC_RPC_URL.
  */
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import {
@@ -33,7 +36,9 @@ import {
   formatUnits,
   getAddress,
   http,
+  keccak256,
   parseEventLogs,
+  stringToBytes,
   type Address,
   type Hex,
 } from "viem";
@@ -41,6 +46,8 @@ import { generatePrivateKey, privateKeyToAccount, type PrivateKeyAccount } from 
 import { arcTestnet } from "viem/chains";
 import { verdictVaultAbi } from "../src/abi";
 import { signResolution } from "../src/signer";
+import { passkeyFactoryAbi } from "../src/passkeys";
+import { softPasskey } from "../src/softPasskey";
 
 // `pnpm run e2e -- --api ...` forwards the literal "--"; drop it.
 const { values } = parseArgs({
@@ -577,6 +584,80 @@ async function runGuarantees() {
   for (const t of ["rate", "temperature", "price"]) await runGuaranteeTemplate(t);
 }
 
+// ------------------------------------------------------------------ passkey accounts (Phase B)
+
+/**
+ * A software authenticator stands in for the user's device: register a passkey, join an
+ * (unlisted) guarantee with a passkey signature, receive USDC on the not-yet-deployed account,
+ * then withdraw it: the relay deploys the account and runs PasskeyAccount.execute, whose WebAuthn
+ * signature is verified on Arc through the P-256 precompile. A replay must be rejected.
+ */
+async function runPasskey() {
+  log("=== passkey account: register, join, withdraw (relay pays gas) ===");
+  const rpId = new URL(API).hostname;
+  const pk = await softPasskey(rpId);
+  const reg = await api<{ account: Address }>("/api/passkeys/register", { json: { credentialId: pk.credentialId, qx: pk.qx, qy: pk.qy } });
+  const factoryAddr = getAddress(
+    (JSON.parse(readFileSync(new URL("../../deployments/5042002.passkeys.json", import.meta.url), "utf8")) as { passkeyAccountFactory: string }).passkeyAccountFactory,
+  );
+  const onchain = await pub.readContract({
+    address: factoryAddr,
+    abi: passkeyFactoryAbi,
+    functionName: "accountAddress",
+    args: [pk.qx, pk.qy, keccakFreeSha256(rpId)],
+  });
+  if (getAddress(onchain) !== getAddress(reg.account)) throw new Error("account address does not match the factory");
+  log(`passkey account ${reg.account} (not deployed yet)`);
+
+  // join an unlisted guarantee that is still open
+  const open = process.env.E2E_OPEN_GUARANTEE ?? (await findOpenUnlistedGuarantee());
+  const message = `Join Verdict guarantee ${open} as ${reg.account}`;
+  const assertion = await pk.sign(keccak256(stringToBytes(message)));
+  const joined = await api<{ tx?: Hex }>(`/api/guarantees/${open}/join`, { json: { account: reg.account, passkey: assertion } });
+  log(`joined guarantee ${open} with a passkey signature  ${joined.tx ? `${EXPLORER}/tx/${joined.tx}` : ""}`);
+  await expectRejected(
+    api(`/api/guarantees/${open}/join`, { json: { account: reg.account, passkey: { ...assertion, s: assertion.r } } }),
+    "join with a corrupted passkey signature",
+  );
+
+  // fund the counterfactual account, then withdraw through the passkey
+  const amount = 20_000n; // 0.02 USDC
+  const fundTx = await wallet.writeContract({ address: USDC, abi: erc20Abi, functionName: "transfer", args: [reg.account, amount] });
+  await pub.waitForTransactionReceipt({ hash: fundTx });
+  const dest = fresh();
+  const prep = await api<{ challenge: Hex; deadline: string }>("/api/passkeys/withdraw/prepare", {
+    json: { account: reg.account, to: dest, value: amount.toString() },
+  });
+  const wAssertion = await pk.sign(prep.challenge);
+  const w = await api<{ tx: Hex }>("/api/passkeys/withdraw", {
+    json: { account: reg.account, to: dest, value: amount.toString(), deadline: prep.deadline, assertion: wAssertion },
+  });
+  const rc = await pub.waitForTransactionReceipt({ hash: w.tx });
+  const bal = await pub.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [dest] });
+  if (bal !== amount) throw new Error(`destination got ${usdc(bal)}, expected ${usdc(amount)}`);
+  const code = await pub.getCode({ address: reg.account });
+  if (!code || code === "0x") throw new Error("passkey account was not deployed");
+  log(`withdrew ${usdc(amount)} with the passkey; account deployed and WebAuthn verified on Arc in one tx (${rc.gasUsed} gas)  ${EXPLORER}/tx/${w.tx}`);
+  await expectRejected(
+    api("/api/passkeys/withdraw", { json: { account: reg.account, to: dest, value: amount.toString(), deadline: prep.deadline, assertion: wAssertion } }),
+    "replayed passkey withdrawal",
+  );
+}
+
+/** sha256(rpId) as hex, matching the contract's rpIdHash. */
+function keccakFreeSha256(s: string): Hex {
+  return `0x${createHash("sha256").update(s).digest("hex")}`;
+}
+
+async function findOpenUnlistedGuarantee(): Promise<string> {
+  // unlisted test guarantees are not in /api/guarantees; use the known open test guarantee ids
+  for (const id of ["KHb_jO6rDa", "1tDGd9vAy_"]) {
+    const d = await api<{ guarantee: { lockTime: number; maxCustomers: number }; customers: unknown[] }>(`/api/guarantees/${id}`).catch(() => null);
+    if (d && d.guarantee.lockTime > Date.now() / 1000 + 60 && d.customers.length < d.guarantee.maxCustomers) return id;
+  }
+  throw new Error("no open unlisted guarantee to join; set E2E_OPEN_GUARANTEE");
+}
+
 async function main() {
   log(`API ${API}`);
   const health = await waitFor("API health", () => api<Health>("/api/health"), 3000);
@@ -587,6 +668,11 @@ async function main() {
   const bal = await pub.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [funder.address] });
   log(`funder ${funder.address} has ${usdc(bal)}`);
 
+  if (values.mode === "passkey") {
+    await runPasskey();
+    log("E2E PASSED");
+    return;
+  }
   if (values.mode === "guarantees") {
     await runGuarantees();
     log("E2E PASSED");

@@ -238,6 +238,19 @@ CREATE TABLE IF NOT EXISTS guarantees (
 -- product lists, the ledger or the landing page.
 ALTER TABLE guarantees ADD COLUMN IF NOT EXISTS listed BOOLEAN NOT NULL DEFAULT true;
 
+-- Passkey accounts (PasskeyAccountFactory): credential -> public key -> deterministic account.
+-- Not vault-scoped: an account belongs to a person, not to a vault deployment.
+CREATE TABLE IF NOT EXISTS passkeys (
+  credential_id TEXT PRIMARY KEY,
+  qx            TEXT NOT NULL,
+  qy            TEXT NOT NULL,
+  rp_id         TEXT NOT NULL,
+  rp_id_hash    TEXT NOT NULL,
+  account       TEXT NOT NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS passkeys_account_idx ON passkeys (account);
+
 CREATE TABLE IF NOT EXISTS stream_batches (
   id            BIGSERIAL PRIMARY KEY,
   received_at   TIMESTAMPTZ NOT NULL DEFAULT now(),

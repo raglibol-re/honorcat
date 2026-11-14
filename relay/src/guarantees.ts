@@ -28,6 +28,7 @@ import {
   type SignedAuthorization,
 } from "./gasless";
 import { memoCall, memoIdFor } from "./memo";
+import { verifyPasskeyJoin, type WebAuthnAssertion } from "./passkeys";
 import { sendRelayCalls } from "./txs";
 
 /**
@@ -207,8 +208,15 @@ export async function createGuarantee(db: Db, t: GuaranteeTerms, auth: SignedAut
 
 export const joinMessage = (id: string, account: Address) => `Join Verdict guarantee ${id} as ${getAddress(account)}`;
 
-/** Enrols a customer who proved control of `account` by signing joinMessage. Relay pays gas. */
-export async function joinGuarantee(db: Db, id: string, account: Address, signature: Hex) {
+export type JoinProof = { kind: "eoa"; signature: Hex } | { kind: "passkey"; assertion: WebAuthnAssertion };
+
+/**
+ * Enrols a customer who proved control of `account` over joinMessage: an EOA signature (device
+ * key, browser wallet) or a passkey assertion over keccak256(joinMessage) for a passkey account.
+ * The relay pays gas.
+ */
+export async function joinGuarantee(db: Db, id: string, account: Address, proof: JoinProof | Hex) {
+  const p: JoinProof = typeof proof === "string" ? { kind: "eoa", signature: proof } : proof;
   const { book } = requireBook();
   const rows = await db.query<{ gid: string | null; lock_time: string; max_customers: number; status: string }>(
     "SELECT gid::text AS gid, lock_time::text AS lock_time, max_customers, status FROM guarantees WHERE id = $1",
@@ -217,8 +225,12 @@ export async function joinGuarantee(db: Db, id: string, account: Address, signat
   const g = rows[0];
   if (!g || !g.gid) throw new GaslessError("guarantee not found or not open yet", 404);
   if (Number(g.lock_time) <= Math.floor(Date.now() / 1000)) throw new GaslessError("enrolment has closed", 409);
-  const ok = await verifyMessage({ address: getAddress(account), message: joinMessage(id, account), signature });
-  if (!ok) throw new GaslessError("signature does not match the account", 401);
+  if (p.kind === "eoa") {
+    const ok = await verifyMessage({ address: getAddress(account), message: joinMessage(id, account), signature: p.signature });
+    if (!ok) throw new GaslessError("signature does not match the account", 401);
+  } else {
+    await verifyPasskeyJoin(db, getAddress(account), joinMessage(id, account), p.assertion);
+  }
   const already = await db.query(
     `SELECT 1 FROM chain_events WHERE contract = 'book' AND event_name = 'Enrolled' AND gid = $1 AND args->>'account' = $2`,
     [g.gid, account.toLowerCase()],
@@ -537,3 +549,17 @@ export async function guaranteeDetail(db: Db, id: string) {
   };
 }
 export type GuaranteeDetail = NonNullable<Awaited<ReturnType<typeof guaranteeDetail>>>;
+
+/** Guarantees an account has joined (from on-chain Enrolled events), newest first. */
+export async function accountGuarantees(db: Db, account: Address) {
+  const rows = await db.query<Row & { seat: string; pot_status: string | null; outcome: boolean | null }>(
+    `SELECT ${COLS_G}, (e.args->>'seat') AS seat, p.status AS pot_status, p.outcome
+     FROM chain_events e
+     JOIN guarantees g ON g.gid = e.gid
+     LEFT JOIN pots p ON p.pot_id = g.pot_id
+     WHERE e.contract = 'book' AND e.event_name = 'Enrolled' AND e.args->>'account' = $1
+     ORDER BY e.block_number DESC`,
+    [account.toLowerCase()],
+  );
+  return rows.map((r) => ({ ...toDto(r), seat: Number(r.seat), potStatus: r.pot_status, outcome: r.outcome }));
+}

@@ -24,6 +24,7 @@ export const viewport: Viewport = {
 const nav = [
   { href: "/guarantees", label: "Guarantees" },
   { href: "/guarantees/new", label: "New guarantee" },
+  { href: "/account", label: "Your account" },
   { href: "/ledger", label: "Ledger" },
   { href: "/live", label: "Live" },
   { href: "/developers", label: "Developers" },

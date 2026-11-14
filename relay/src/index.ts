@@ -49,9 +49,26 @@ export {
   submitWithdraw,
   listGuarantees,
   guaranteeDetail,
+  accountGuarantees,
   type Template,
   type GuaranteeTerms,
   type GuaranteeDto,
   type GuaranteeDetail,
+  type JoinProof,
 } from "./guarantees";
 export { guaranteeBookAbi, batchGuardAbi } from "./abi";
+export {
+  verifyAssertion,
+  executeDigest as passkeyExecuteDigest,
+  registerPasskey,
+  getPasskey,
+  verifyPasskeyJoin,
+  joinChallenge,
+  preparePasskeyWithdraw,
+  submitPasskeyWithdraw,
+  rpIdHashOf,
+  passkeyAccountAbi,
+  passkeyFactoryAbi,
+  type WebAuthnAssertion,
+  type PasskeyRecord,
+} from "./passkeys";

@@ -27,6 +27,7 @@ const schema = z.object({
   GUARANTEE_BOOK_ADDRESS: z.string().optional(),
   BATCH_GUARD_ADDRESS: z.string().optional(),
   GUARANTEES_DEPLOY_BLOCK: z.coerce.bigint().optional(),
+  PASSKEY_FACTORY_ADDRESS: z.string().optional(),
   /** Smallest amount (USDC, decimal) the relay will sponsor gas for. */
   GASLESS_MIN_AMOUNT: z.string().regex(/^\d+(\.\d{1,6})?$/).default("0.10"),
   /** Sponsored submissions per funder address per hour (API-key callers are exempt). */
@@ -67,6 +68,8 @@ export type Config = {
   httpSourceAllowInsecure: boolean;
   /** GuaranteeBook + BatchGuard (Verdict Guarantees); null if not deployed/configured. */
   guarantees: { book: Address; guard: Address; deployBlock: bigint } | null;
+  /** PasskeyAccountFactory for payee passkey accounts; null if not configured. */
+  passkeys: { factory: Address } | null;
 };
 
 let cached: Config | undefined;
@@ -107,6 +110,7 @@ export function getConfig(): Config {
     lowBalance: usdcUnits(env.RELAY_LOW_BALANCE_USDC),
     httpSourceAllowInsecure: env.HTTP_SOURCE_ALLOW_INSECURE,
     guarantees: guaranteesConfig(env),
+    passkeys: passkeysConfig(env),
   };
   return cached;
 }
@@ -125,6 +129,13 @@ function guaranteesConfig(env: z.infer<typeof schema>): Config["guarantees"] {
   }
   if (!book || !guard || !isAddress(book) || !isAddress(guard)) return null;
   return { book: getAddress(book), guard: getAddress(guard), deployBlock: block ?? 0n };
+}
+
+function passkeysConfig(env: z.infer<typeof schema>): Config["passkeys"] {
+  const f =
+    env.PASSKEY_FACTORY_ADDRESS ??
+    readJson<{ passkeyAccountFactory: string }>(`deployments/${env.ARC_CHAIN_ID}.passkeys.json`)?.passkeyAccountFactory;
+  return f && isAddress(f) ? { factory: getAddress(f) } : null;
 }
 
 function readJson<T>(relative: string | undefined): T | undefined {

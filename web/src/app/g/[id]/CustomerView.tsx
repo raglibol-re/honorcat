@@ -13,6 +13,15 @@ import { formatUsdc } from "@/lib/format";
 import { cardState, toCard, type GuaranteeDetail } from "@/lib/guarantees";
 import { useNow } from "@/lib/useNow";
 import { deviceWallet } from "@/lib/wallet/device";
+import {
+  createPasskey,
+  joinChallenge,
+  passkeysSupported,
+  savedPasskey,
+  signChallenge,
+  signInWithPasskey,
+  type PasskeySession,
+} from "@/lib/passkey";
 
 const post = <T,>(path: string, body: unknown) =>
   getJson<T>(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
@@ -49,20 +58,28 @@ function useGuarantee(id: string) {
   return { d, error, justSettled };
 }
 
-function useDeviceAccount() {
-  const [account, setAccount] = useState<Address | null>(null);
+/** The customer's accounts on this browser: a passkey account and/or the device-key fallback. */
+function useAccounts() {
+  const [passkey, setPasskey] = useState<PasskeySession | null>(null);
+  const [device, setDevice] = useState<Address | null>(null);
+  const [canPasskey, setCanPasskey] = useState(false);
   useEffect(() => {
+    // Browser-only state (local storage, WebAuthn support), read after hydration.
     deviceWallet()
       .getAccount()
-      .then((a) => setAccount(a));
+      .then((a) => {
+        setDevice(a);
+        setPasskey(savedPasskey());
+        setCanPasskey(passkeysSupported());
+      });
   }, []);
-  return [account, setAccount] as const;
+  return { passkey, setPasskey, device, setDevice, canPasskey };
 }
 
 export function CustomerView() {
   const { id } = useParams<{ id: string }>();
   const { d, error, justSettled } = useGuarantee(id);
-  const [account, setAccount] = useDeviceAccount();
+  const { passkey, setPasskey, device, setDevice, canPasskey } = useAccounts();
   const now = useNow();
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
@@ -71,20 +88,32 @@ export function CustomerView() {
   if (!d) return <p className="t-15" style={{ color: "var(--vg-muted)" }}>Loading your guarantee…</p>;
 
   const g = d.guarantee;
-  const me = account ? d.customers.find((c) => c.account.toLowerCase() === account.toLowerCase()) : null;
+  const isMe = (a?: string | null) => (a ? d.customers.find((c) => c.account.toLowerCase() === a.toLowerCase()) : undefined);
+  const me = isMe(passkey?.account) ?? isMe(device) ?? null;
+  const account = (me?.account as Address | undefined) ?? null;
+  const accountKind: "passkey" | "device" = passkey && me && me.account.toLowerCase() === passkey.account.toLowerCase() ? "passkey" : "device";
   const state = cardState(d);
   const open = state === "active" && now > 0 && now / 1000 < g.lockTime;
   const full = d.customers.length >= g.maxCustomers;
 
-  async function join() {
+  async function join(kind: "passkey-new" | "passkey-existing" | "device") {
     setJoining(true);
     setJoinError(null);
     try {
-      const w = deviceWallet();
-      const acct = await w.connect();
-      const signature = await w.signMessage(`Join Verdict guarantee ${id} as ${acct}`);
-      await post(`/api/guarantees/${id}/join`, { account: acct, signature });
-      setAccount(acct);
+      if (kind === "device") {
+        const w = deviceWallet();
+        const acct = await w.connect();
+        const signature = await w.signMessage(`Join Verdict guarantee ${id} as ${acct}`);
+        await post(`/api/guarantees/${id}/join`, { account: acct, signature });
+        setDevice(acct);
+      } else {
+        // A passkey account: the address follows from the passkey's public key; it receives the
+        // refund before it is deployed. The passkey signs keccak256 of the join message.
+        const session = kind === "passkey-existing" ? await signInWithPasskey() : (passkey ?? (await createPasskey()));
+        setPasskey(session);
+        const assertion = await signChallenge(session, await joinChallenge(`Join Verdict guarantee ${id} as ${session.account}`));
+        await post(`/api/guarantees/${id}/join`, { account: session.account, passkey: assertion });
+      }
     } catch (err) {
       setJoinError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -121,19 +150,55 @@ export function CustomerView() {
           </dl>
           {open && !full ? (
             <>
-              <button
-                type="button"
-                disabled={joining}
-                onClick={join}
-                className="t-17 w-full rounded-xl px-4 py-3.5 font-medium disabled:opacity-60"
-                style={{ background: "var(--vg-accent)", color: "var(--vg-card)" }}
-              >
-                {joining ? "Joining…" : "Join with this device"}
-              </button>
-              <p className="t-13" style={{ color: "var(--vg-muted)" }}>
-                No wallet needed. Joining creates an account on this device that receives your refund; HonorCat pays every fee. Passkey
-                sign-in replaces this soon. Clearing this browser&apos;s data removes the account, so withdraw a refund once it arrives.
-              </p>
+              {canPasskey ? (
+                <>
+                  <button
+                    type="button"
+                    disabled={joining}
+                    onClick={() => join("passkey-new")}
+                    className="t-17 w-full rounded-xl px-4 py-3.5 font-medium disabled:opacity-60"
+                    style={{ background: "var(--vg-accent)", color: "var(--vg-card)" }}
+                  >
+                    {joining ? "Joining…" : passkey ? "Join with your passkey" : "Join with a passkey"}
+                  </button>
+                  <p className="t-13" style={{ color: "var(--vg-muted)" }}>
+                    No wallet needed. Your passkey (Face ID, Touch ID, Windows Hello or a security key) controls the account that receives
+                    your refund; HonorCat pays every fee.
+                  </p>
+                  <div className="t-13 flex flex-wrap gap-x-4 gap-y-1">
+                    {!passkey && (
+                      <button type="button" disabled={joining} onClick={() => join("passkey-existing")} className="underline underline-offset-4">
+                        I already have a HonorCat passkey
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      disabled={joining}
+                      onClick={() => join("device")}
+                      className="underline underline-offset-4"
+                      style={{ color: "var(--vg-muted)" }}
+                    >
+                      Use a key stored in this browser instead
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    disabled={joining}
+                    onClick={() => join("device")}
+                    className="t-17 w-full rounded-xl px-4 py-3.5 font-medium disabled:opacity-60"
+                    style={{ background: "var(--vg-accent)", color: "var(--vg-card)" }}
+                  >
+                    {joining ? "Joining…" : "Join with this browser"}
+                  </button>
+                  <p className="t-13" style={{ color: "var(--vg-muted)" }}>
+                    This browser does not support passkeys, so joining creates an account stored in it; HonorCat pays every fee. Clearing
+                    this browser&apos;s data removes the account, so withdraw a refund once it arrives.
+                  </p>
+                </>
+              )}
               <p className="t-13" style={{ color: "var(--vg-muted)" }}>
                 Enrolment closes {new Date(g.lockTime * 1000).toLocaleString([], { weekday: "short", hour: "2-digit", minute: "2-digit" })}.{" "}
                 {g.maxCustomers - d.customers.length} of {g.maxCustomers} places left.
@@ -167,7 +232,7 @@ export function CustomerView() {
               triggered={state === "refunded"}
             />
           )}
-          {state === "refunded" && account && <Withdraw account={account} guaranteeId={id} />}
+          {state === "refunded" && account && <Withdraw account={account} kind={accountKind} passkey={passkey} guaranteeId={id} />}
         </>
       )}
 
@@ -181,7 +246,17 @@ export function CustomerView() {
   );
 }
 
-function Withdraw({ account, guaranteeId }: { account: Address; guaranteeId: string }) {
+function Withdraw({
+  account,
+  kind,
+  passkey,
+  guaranteeId,
+}: {
+  account: Address;
+  kind: "passkey" | "device";
+  passkey: PasskeySession | null;
+  guaranteeId: string;
+}) {
   const [balance, setBalance] = useState<bigint | null>(null);
   const [to, setTo] = useState("");
   const [busy, setBusy] = useState(false);
@@ -208,6 +283,22 @@ function Withdraw({ account, guaranteeId }: { account: Address; guaranteeId: str
     setBusy(true);
     setMsg(null);
     try {
+      if (kind === "passkey" && passkey) {
+        // PasskeyAccount.execute(USDC.transfer): the passkey signs, HonorCat deploys the account if
+        // needed and submits.
+        const p = await post<{ challenge: Hex; deadline: string }>("/api/passkeys/withdraw/prepare", { account, to, value: balance.toString() });
+        const assertion = await signChallenge(passkey, p.challenge);
+        const r = await post<{ tx: Hex }>("/api/passkeys/withdraw", {
+          account,
+          to,
+          value: balance.toString(),
+          deadline: p.deadline,
+          assertion,
+          guaranteeId,
+        });
+        setMsg({ text: "Sent. No fee was charged to you.", tx: r.tx });
+        return;
+      }
       type Prep = { nonce: Hex; validAfter: string; validBefore: string; typedData: { domain: Record<string, unknown>; types: Record<string, unknown>; primaryType: string; message: Record<string, string> } };
       const p = await post<Prep>("/api/withdraw/prepare", { from: account, to, value: balance.toString() });
       const m = p.typedData.message;
