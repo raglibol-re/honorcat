@@ -33,3 +33,6 @@ Thumbs.db
 
 # PGlite local database
 .data/
+
+.vercel
+.env*

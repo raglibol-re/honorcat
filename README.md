@@ -5,6 +5,11 @@ payees (by share) or refunded once an authorised resolver signs the outcome of a
 
 > Testnet only. Never use these keys or contracts on mainnet.
 
+**Live:** https://verdict-phi-livid.vercel.app · vault
+[`0x6a181EFBa4763E28F785e3FA576C264d89402bBE`](https://explorer.testnet.arc.io/address/0x6a181EFBa4763E28F785e3FA576C264d89402bBE)
+on Arc testnet (chainId 5042002). The scripted e2e run passes against this deployment for both
+outcomes (payout and refund).
+
 ```
 contracts/   Foundry (Arc Foundry): VerdictVault.sol, tests, deploy script
 relay/       TypeScript library: result sources, signer, resolver, indexers, read models, e2e script
