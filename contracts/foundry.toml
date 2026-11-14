@@ -12,6 +12,11 @@ remappings = [
 ]
 fs_permissions = [{ access = "read-write", path = "../deployments" }]
 
+[invariant]
+runs = 256
+depth = 60
+fail_on_revert = false
+
 [fuzz]
 runs = 1000
 
