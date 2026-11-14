@@ -10,6 +10,9 @@
  *   api      an integration (API key) registers an `api` condition, reports the outcome itself
  *            via /api/v1/outcomes, and reads the pot via /api/v1; checks ownership and that an
  *            outcome cannot be flipped. Webhooks are verified if --webhook is given.
+ *   multisig deploys a 2-of-3 MultisigResolver (ERC-1271) and uses it as the pot's resolver:
+ *            one owner signature is rejected on-chain, two (sorted) settle the pot. Needs the
+ *            Foundry build output (contracts/out).
  *
  * Every mode checks recipient balances on-chain and the payments in the ledger API.
  *
@@ -17,8 +20,10 @@
  *   pnpm --filter @verdict/relay e2e -- --api https://<app>.vercel.app --mode all --outcome both
  * Env: DEPLOYER_PRIVATE_KEY (funds the runs), ADMIN_TOKEN (must match the server), ARC_RPC_URL.
  */
+import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import {
+  concat,
   createPublicClient,
   createWalletClient,
   erc20Abi,
@@ -32,6 +37,7 @@ import {
 import { generatePrivateKey, privateKeyToAccount, type PrivateKeyAccount } from "viem/accounts";
 import { arcTestnet } from "viem/chains";
 import { verdictVaultAbi } from "../src/abi";
+import { signResolution } from "../src/signer";
 
 // `pnpm run e2e -- --api ...` forwards the literal "--"; drop it.
 const { values } = parseArgs({
@@ -133,7 +139,7 @@ function newTerms(): Terms {
 
 // ------------------------------------------------------------------ funding paths
 
-async function createClassic(health: Health, conditionId: Hex, t: Terms): Promise<bigint> {
+async function createClassic(health: Health, conditionId: Hex, t: Terms, resolver: Address = health.resolver!): Promise<bigint> {
   const allowance = await pub.readContract({ address: USDC, abi: erc20Abi, functionName: "allowance", args: [funder.address, health.vault] });
   if (allowance < AMOUNT) {
     const tx = await wallet.writeContract({ address: USDC, abi: erc20Abi, functionName: "approve", args: [health.vault, AMOUNT * 100n] });
@@ -144,7 +150,7 @@ async function createClassic(health: Health, conditionId: Hex, t: Terms): Promis
     address: health.vault,
     abi: verdictVaultAbi,
     functionName: "createPot",
-    args: [conditionId, health.resolver!, t.payees, t.shares, t.refundTo, t.deadline],
+    args: [conditionId, resolver, t.payees, t.shares, t.refundTo, t.deadline],
   });
   const rcpt = await pub.waitForTransactionReceipt({ hash: createTx });
   const created = parseEventLogs({ abi: verdictVaultAbi, logs: rcpt.logs, eventName: "PotCreated" })[0];
@@ -257,7 +263,7 @@ async function verifySettlement(health: Health, potId: bigint, total: bigint, ou
   if (onchain.status !== 2 || onchain.outcome !== outcome) {
     throw new Error(`on-chain pot state mismatch: status=${onchain.status} outcome=${onchain.outcome}`);
   }
-  log(`settled on-chain by relay  ${EXPLORER}/tx/${settled.relay?.tx_hash ?? "?"}`);
+  log(settled.relay?.tx_hash ? `settled on-chain by relay  ${EXPLORER}/tx/${settled.relay.tx_hash}` : "settled on-chain (indexed by relay)");
 
   const first = (total * 6000n) / 10000n;
   const expected = outcome
@@ -278,7 +284,7 @@ async function verifySettlement(health: Health, potId: bigint, total: bigint, ou
   });
   const detail = await api<PotDetail>(`/api/pots/${potId}`);
   const cost = detail.relayCost;
-  if (cost) log(`relay gas for this pot: ${usdc(BigInt(cost.totalUsdc))} over ${cost.txs.length} tx (${cost.txs.map((x) => x.kind).join(", ")})`);
+  if (cost?.txs.length) log(`relay gas for this pot: ${usdc(BigInt(cost.totalUsdc))} over ${cost.txs.length} tx (${cost.txs.map((x) => x.kind).join(", ")})`);
   log(`ledger shows ${expected.length} payment(s) for pot #${potId}  ${API}/pots/${potId}`);
 }
 
@@ -370,6 +376,45 @@ async function runApi(health: Health, outcome: boolean) {
   }
 }
 
+async function runMultisig(health: Health, outcome: boolean) {
+  log(`=== multisig resolver (2-of-3, ERC-1271): outcome ${outcome ? "YES -> payout" : "NO -> refund"} ===`);
+  const artifact = JSON.parse(
+    readFileSync(new URL("../../contracts/out/MultisigResolver.sol/MultisigResolver.json", import.meta.url), "utf8"),
+  ) as { abi: unknown[]; bytecode: { object: Hex } };
+  const owners = [0, 1, 2].map(() => privateKeyToAccount(generatePrivateKey())).sort((a, b) => (a.address.toLowerCase() < b.address.toLowerCase() ? -1 : 1));
+  const deployTx = await wallet.deployContract({
+    abi: artifact.abi as never,
+    bytecode: artifact.bytecode.object,
+    args: [owners.map((o) => o.address), 2n] as never,
+  });
+  const deployed = await pub.waitForTransactionReceipt({ hash: deployTx });
+  const resolver = deployed.contractAddress!;
+  log(`MultisigResolver ${resolver} (owners ${owners.map((o) => o.address.slice(0, 8)).join(", ")}, threshold 2)  ${EXPLORER}/tx/${deployTx}`);
+
+  const t = newTerms();
+  const condition = await api<{ conditionId: Hex }>("/api/conditions", {
+    json: { source: "manual", key: `e2e-multisig-${Date.now()}-${outcome}`, label: `E2E multisig ${outcome}` },
+  });
+  const potId = await createClassic(health, condition.conditionId, t, resolver);
+  await waitIndexed(potId, AMOUNT);
+
+  const sig = (i: number) =>
+    signResolution(owners[i]!, { chainId: 5042002, vault: health.vault, potId, conditionId: condition.conditionId, outcome });
+  const one = await sig(0);
+  try {
+    await pub.simulateContract({ account: funder, address: health.vault, abi: verdictVaultAbi, functionName: "resolve", args: [potId, outcome, one] });
+    throw new Error("a single owner signature was accepted");
+  } catch (err) {
+    if (!(err as Error).message.includes("InvalidSignature")) throw err;
+    log("ok: one of three signatures rejected on-chain (InvalidSignature)");
+  }
+  const both = concat([await sig(0), await sig(2)]);
+  const tx = await wallet.writeContract({ address: health.vault, abi: verdictVaultAbi, functionName: "resolve", args: [potId, outcome, both] });
+  await pub.waitForTransactionReceipt({ hash: tx });
+  log(`resolved with 2-of-3 owner signatures  ${EXPLORER}/tx/${tx}`);
+  await verifySettlement(health, potId, AMOUNT, outcome, t);
+}
+
 async function main() {
   log(`API ${API}`);
   const health = await waitFor("API health", () => api<Health>("/api/health"), 3000);
@@ -381,8 +426,13 @@ async function main() {
   log(`funder ${funder.address} has ${usdc(bal)}`);
 
   const outcomes = values.outcome === "both" ? [true, false] : [values.outcome === "yes"];
-  const modes = values.mode === "all" ? ["classic", "gasless", "api"] : [values.mode!];
-  const runners: Record<string, (h: Health, o: boolean) => Promise<void>> = { classic: runClassic, gasless: runGasless, api: runApi };
+  const modes = values.mode === "all" ? ["classic", "gasless", "api", "multisig"] : [values.mode!];
+  const runners: Record<string, (h: Health, o: boolean) => Promise<void>> = {
+    classic: runClassic,
+    gasless: runGasless,
+    api: runApi,
+    multisig: runMultisig,
+  };
   for (const m of modes) {
     const run = runners[m];
     if (!run) throw new Error(`unknown mode ${m}`);
