@@ -15,6 +15,9 @@
  *            memos and a gasless withdrawal; for the other templates create, fund and enrol.
  *   passkey  registers a passkey (software authenticator), joins a guarantee with it, and withdraws
  *            from the counterfactual account: the relay deploys it and WebAuthn is verified on Arc.
+ *   drops    MerkleBook payouts: two drops of 250 payees on a live 5-minute market (pay on YES /
+ *            NO), list replaced before lock, inclusion proofs via the API, the relay pushes every
+ *            claim in batches; every payee balance and the funder's return are checked on-chain.
  *   multisig deploys a 2-of-3 MultisigResolver (ERC-1271) and uses it as the pot's resolver:
  *            one owner signature is rejected on-chain, two (sorted) settle the pot. Needs the
  *            Foundry build output (contracts/out).
@@ -584,6 +587,135 @@ async function runGuarantees() {
   for (const t of ["rate", "temperature", "price"]) await runGuaranteeTemplate(t);
 }
 
+// ------------------------------------------------------------------ drops: Merkle payouts (Phase G)
+
+type PreparedDrop = Prepared & { terms: { lockTime: number; deadline: number; conditionKey: string }; root: Hex; amount: string; entropy: Hex };
+type DropResponse = {
+  drop: { id: string; dropId: string | null; potId: string | null; entries: number; claimed: number; claimedAmount: string; potStatus: string | null; outcome: boolean | null; version: number; root: Hex; rootTotal: string };
+  onchain: { root: Hex; rootTotal: string; claimed: string; version: number } | null;
+};
+type ProofResponse = { included: boolean; total: string; drop: { root: Hex; version: number }; entries: { index: number; amount: string; proof: Hex[]; claimedTx: string | null; claimedOnChain: boolean | null }[] };
+
+const DROP_PAYEES = Number(process.env.E2E_DROP_PAYEES ?? 250);
+const DROP_AMOUNT = 400n; // 0.0004 USDC each: 250 payees = 0.10 USDC per drop
+
+async function createDropViaApi(market: MarketsResponse["markets"][number], contractTicker: string, side: "yes" | "no", entries: { account: Address; amount: bigint }[], lockTime: number) {
+  const body = {
+    name: `E2E drop (${side})`,
+    funder: funder.address,
+    eventTicker: market.ticker,
+    contractTicker,
+    side,
+    lockTime,
+    entries: entries.map((e) => ({ account: e.account, amount: e.amount.toString() })),
+    listed: false,
+  };
+  const prep = await api<PreparedDrop>("/api/drops/prepare", { json: body });
+  const authorization = await signPrepared(funder, prep);
+  const created = await api<{ id: string; potId: string; root: Hex; total: string; tx: Hex }>("/api/drops", {
+    json: { ...body, lockTime: prep.terms.lockTime, entropy: prep.entropy, authorization },
+  });
+  if (created.root !== prep.root) throw new Error("created root differs from the prepared root");
+  log(`drop ${created.id} (${side}) pot #${created.potId}: ${entries.length} payees, ${usdc(BigInt(created.total))}, root ${created.root.slice(0, 12)}…  ${EXPLORER}/tx/${created.tx}`);
+
+  // A tampered list with the same signature must be refused (the salt commits to the root).
+  const tampered = [...body.entries];
+  tampered[0] = { ...tampered[0]!, account: fresh() };
+  await expectRejected(api("/api/drops", { json: { ...body, entries: tampered, lockTime: prep.terms.lockTime, entropy: prep.entropy, authorization } }), "drop with a list the funder did not sign");
+  return created;
+}
+
+async function balancesOf(accounts: Address[]) {
+  const out: bigint[] = [];
+  for (let i = 0; i < accounts.length; i += 25) {
+    out.push(
+      ...(await Promise.all(accounts.slice(i, i + 25).map((a) => pub.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [a] })))),
+    );
+  }
+  return out;
+}
+
+/**
+ * Two drops of DROP_PAYEES payees on one live 5-minute Gemini contract (pay on YES / pay on NO).
+ * Before the lock the YES list is replaced (root v2, one payee swapped); proofs are checked
+ * through the API. After Gemini settles, the relay pushes all claims in batches; every payee's
+ * balance is checked on-chain, and the other drop's funds return to the funder.
+ */
+async function runDrops() {
+  log(`=== drops: ${DROP_PAYEES} payees per drop, both outcomes on one live 5-minute market ===`);
+  const { markets } = await api<MarketsResponse>("/api/markets?template=demo");
+  const now = Date.now();
+  const market = markets.find((m) => new Date(m.expiry).getTime() > now + 170_000 && m.contracts.length);
+  if (!market) throw new Error("no live 5-minute market with enough time left; try again in a minute");
+  const contract = market.contracts[0]!;
+  const expiry = Math.floor(new Date(market.expiry).getTime() / 1000);
+  const lockTime = expiry - 75;
+  log(`market ${market.ticker} contract ${contract.ticker} (${contract.label}), settles ${market.expiry}`);
+
+  const mk = () => Array.from({ length: DROP_PAYEES }, () => ({ account: fresh(), amount: DROP_AMOUNT }));
+  const yesEntries = mk();
+  const noEntries = mk();
+  const yes = await createDropViaApi(market, contract.ticker, "yes", yesEntries, lockTime);
+  const no = await createDropViaApi(market, contract.ticker, "no", noEntries, lockTime);
+
+  // Replace the YES list before the lock: swap the last payee for a new one (same total).
+  const removed = yesEntries[yesEntries.length - 1]!.account;
+  yesEntries[yesEntries.length - 1] = { account: fresh(), amount: DROP_AMOUNT };
+  const v2 = await api<{ root: Hex; version: number; tx: Hex }>(`/api/drops/${yes.id}/entries`, {
+    method: "PUT",
+    bearer: adminToken,
+    json: { entries: yesEntries.map((e) => ({ account: e.account, amount: e.amount.toString() })) },
+  });
+  log(`list replaced before lock: root v${v2.version} ${v2.root.slice(0, 12)}…  ${EXPLORER}/tx/${v2.tx}`);
+  const d1 = await api<DropResponse>(`/api/drops/${yes.id}`);
+  if (d1.onchain?.root !== v2.root || d1.onchain.version !== 2) throw new Error(`on-chain root not updated: ${JSON.stringify(d1.onchain)}`);
+  const pIn = await api<ProofResponse>(`/api/drops/${yes.id}/proof?account=${yesEntries[7]!.account}`);
+  const pOut = await api<ProofResponse>(`/api/drops/${yes.id}/proof?account=${removed}`);
+  if (!pIn.included || pIn.total !== DROP_AMOUNT.toString() || pIn.drop.version !== 2) throw new Error("inclusion check failed for a listed payee");
+  if (pOut.included) throw new Error("removed payee is still on the list");
+  log(`inclusion: payee on the list (proof length ${pIn.entries[0]!.proof.length}), removed payee not on it`);
+
+  const funderBefore = await pub.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [funder.address] });
+  const waitMs = Math.max(0, expiry * 1000 - Date.now()) + 15 * 60_000;
+  log(`waiting for Gemini to settle ${market.ticker} and the relay to push the claims (up to ${Math.round(waitMs / 60000)} min)…`);
+  const settled = async (id: string) => {
+    const until = Date.now() + waitMs;
+    for (;;) {
+      const d = await api<DropResponse>(`/api/drops/${id}`).catch(() => null);
+      if (d?.drop.potStatus === "resolved" && (d.drop.outcome === false || d.drop.claimed === d.drop.entries)) return d;
+      if (Date.now() > until) throw new Error(`drop ${id} not settled in time (${d?.drop.potStatus}, ${d?.drop.claimed}/${d?.drop.entries} paid)`);
+      await sleep(4000);
+    }
+  };
+  const [dy, dn] = await Promise.all([settled(yes.id), settled(no.id)]);
+  if (dy.drop.outcome === dn.drop.outcome) throw new Error("both drops resolved the same way");
+  const [paidDrop, paidEntries, otherEntries] = dy.drop.outcome ? [dy, yesEntries, noEntries] : [dn, noEntries, yesEntries];
+  log(`Gemini settled: drop ${paidDrop.drop.id} pays, the other returns to the funder`);
+
+  const paidBal = await balancesOf(paidEntries.map((e) => e.account));
+  const bad = paidBal.findIndex((b) => b !== DROP_AMOUNT);
+  if (bad >= 0) throw new Error(`payee ${paidEntries[bad]!.account} has ${usdc(paidBal[bad]!)}`);
+  log(`on-chain: all ${paidEntries.length} payees received ${usdc(DROP_AMOUNT)}; none sent a transaction`);
+  const otherBal = await balancesOf(otherEntries.slice(0, 25).map((e) => e.account));
+  if (otherBal.some((b) => b !== 0n)) throw new Error("a payee of the not-triggered drop received money");
+  if (dy.drop.outcome && (await balancesOf([removed]))[0] !== 0n) throw new Error("the removed payee was paid");
+  const funderAfter = await pub.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [funder.address] });
+  const expectBack = DROP_AMOUNT * BigInt(DROP_PAYEES);
+  if (funderAfter - funderBefore !== expectBack) throw new Error(`funder got back ${usdc(funderAfter - funderBefore)}, expected ${usdc(expectBack)}`);
+  log(`on-chain: funder got the other drop's ${usdc(expectBack)} back`);
+  if (paidDrop.onchain?.claimed !== paidDrop.drop.rootTotal) throw new Error(`book claimed ${paidDrop.onchain?.claimed} != ${paidDrop.drop.rootTotal}`);
+
+  // Gas per payee from the claim transactions.
+  const sample = await api<ProofResponse>(`/api/drops/${paidDrop.drop.id}/proof?account=${paidEntries[0]!.account}`);
+  const tx0 = sample.entries[0]?.claimedTx;
+  if (tx0?.startsWith("0x")) {
+    const r = await pub.getTransactionReceipt({ hash: tx0 as Hex });
+    const claims = r.logs.filter((l) => l.topics[0] === keccak256(stringToBytes("Claimed(uint256,uint256,address,uint256)"))).length;
+    log(`claims tx ${EXPLORER}/tx/${tx0}: ${claims} payees, ${r.gasUsed} gas, ${claims ? Number(r.gasUsed) / claims : "?"} gas per payee`);
+  }
+  log(`page: ${API}/d/${paidDrop.drop.id}`);
+}
+
 // ------------------------------------------------------------------ passkey accounts (Phase B)
 
 /**
@@ -670,6 +802,11 @@ async function main() {
 
   if (values.mode === "passkey") {
     await runPasskey();
+    log("E2E PASSED");
+    return;
+  }
+  if (values.mode === "drops") {
+    await runDrops();
     log("E2E PASSED");
     return;
   }

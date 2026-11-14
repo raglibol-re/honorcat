@@ -4,6 +4,7 @@ import { getConfig } from "./config";
 import { getDb, setState, type Db } from "./db";
 import { pollLogs } from "./indexer/rpcPoller";
 import { processOpenPots, type ActionReport } from "./resolver";
+import { processDrops, type DropAction } from "./drops";
 import { ApiSource } from "./sources/api";
 import { GeminiSource } from "./sources/gemini";
 import { HttpSource } from "./sources/http";
@@ -17,6 +18,7 @@ export type TickReport = {
   indexed?: { from: string; to: string; inserted: number } | null;
   webhooks?: { delivered: number; failed: number };
   actions?: ActionReport[];
+  drops?: DropAction[];
   errors: string[];
   ms: number;
 };
@@ -57,7 +59,11 @@ export async function runTick(opts: { reason: string; force?: boolean; skipIndex
   try {
     if (cfg.indexerPrimary === "rpc" && !opts.skipIndex) {
       try {
-        const r = await pollLogs(db, publicClient(), cfg.vault, cfg.deployBlock, { deadlineMs: 20_000, book: cfg.guarantees?.book ?? null });
+        const r = await pollLogs(db, publicClient(), cfg.vault, cfg.deployBlock, {
+          deadlineMs: 20_000,
+          book: cfg.guarantees?.book ?? null,
+          merkle: cfg.merkle?.book ?? null,
+        });
         report.indexed = r && { from: r.from.toString(), to: r.to.toString(), inserted: r.inserted };
       } catch (err) {
         report.errors.push(`index: ${(err as Error).message.split("\n")[0]}`);
@@ -68,6 +74,11 @@ export async function runTick(opts: { reason: string; force?: boolean; skipIndex
         report.actions = await processOpenPots(db, buildSources(db));
       } catch (err) {
         report.errors.push(`resolve: ${(err as Error).message.split("\n")[0]}`);
+      }
+      try {
+        report.drops = await processDrops(db);
+      } catch (err) {
+        report.errors.push(`drops: ${(err as Error).message.split("\n")[0]}`);
       }
     }
     try {

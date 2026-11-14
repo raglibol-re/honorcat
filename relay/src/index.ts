@@ -56,7 +56,24 @@ export {
   type GuaranteeDetail,
   type JoinProof,
 } from "./guarantees";
-export { guaranteeBookAbi, batchGuardAbi } from "./abi";
+export { guaranteeBookAbi, batchGuardAbi, merkleBookAbi } from "./abi";
+export {
+  buildDropTree,
+  dropSalt,
+  prepareDrop,
+  createDrop,
+  replaceDropEntries,
+  dropDetail,
+  listDrops,
+  dropProofs,
+  processDrops,
+  LEAF_ENCODING,
+  CLAIM_BATCH,
+  type DropTerms,
+  type DropEntry,
+  type DropDto,
+  type DropProof,
+} from "./drops";
 export {
   verifyAssertion,
   executeDigest as passkeyExecuteDigest,

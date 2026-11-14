@@ -1,10 +1,11 @@
 import { decodeEventLog, getAddress, type Address, type Hex } from "viem";
-import { guaranteeBookAbi, verdictVaultAbi } from "../abi";
+import { guaranteeBookAbi, merkleBookAbi, verdictVaultAbi } from "../abi";
 import { ARC_MEMO } from "../arc";
 import { getConfig } from "../config";
 import type { Db } from "../db";
 import { decodeMemoBody, decodeMemoLog } from "../memo";
 import { enqueueWebhooks, type IngestedEvent } from "../webhooks";
+import { applyMerkleEvent } from "../drops";
 
 /** A log in the shape both eth_getLogs and QuickNode Streams deliver (numbers already parsed). */
 export type RawLog = {
@@ -19,7 +20,7 @@ export type RawLog = {
 export type BlockTimeFn = (blockNumber: bigint) => Promise<number | null>;
 
 type Decoded = RawLog & {
-  contract: "vault" | "book";
+  contract: "vault" | "book" | "merkle";
   eventName: string;
   args: Record<string, unknown>;
   potId: bigint | null;
@@ -36,22 +37,27 @@ function toJson(value: unknown): unknown {
   return value;
 }
 
-export function decodeVaultLogs(logs: RawLog[], vault: Address, book?: Address | null): Decoded[] {
+export function decodeVaultLogs(logs: RawLog[], vault: Address, book?: Address | null, merkle?: Address | null): Decoded[] {
   const out: Decoded[] = [];
   for (const log of logs) {
     const addr = getAddress(log.address);
-    const contract = addr === vault ? "vault" : book && addr === book ? "book" : null;
+    const contract = addr === vault ? "vault" : book && addr === book ? "book" : merkle && addr === merkle ? "merkle" : null;
     if (!contract) continue;
     try {
       const ev = decodeEventLog({
-        abi: contract === "vault" ? verdictVaultAbi : guaranteeBookAbi,
+        abi: (contract === "vault" ? verdictVaultAbi : contract === "book" ? guaranteeBookAbi : merkleBookAbi) as typeof verdictVaultAbi,
         topics: log.topics as [Hex, ...Hex[]],
         data: log.data,
       });
       if (ev.eventName === "EIP712DomainChanged") continue;
       const args = (ev.args ?? {}) as Record<string, unknown>;
       const potId = typeof args.potId === "bigint" ? args.potId : null;
-      const gid = contract === "book" && typeof args.gid === "bigint" ? args.gid : null;
+      const gid =
+        contract === "book" && typeof args.gid === "bigint"
+          ? args.gid
+          : contract === "merkle" && typeof args.dropId === "bigint"
+            ? args.dropId
+            : null;
       out.push({ ...log, contract, eventName: ev.eventName, args: toJson(args) as Record<string, unknown>, potId, gid });
     } catch {
       // Not one of our events (or malformed); ignore.
@@ -64,6 +70,14 @@ export function decodeVaultLogs(logs: RawLog[], vault: Address, book?: Address |
 function configuredBook(): Address | null {
   try {
     return getConfig().guarantees?.book ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function configuredMerkle(): Address | null {
+  try {
+    return getConfig().merkle?.book ?? null;
   } catch {
     return null;
   }
@@ -129,13 +143,14 @@ export async function ingestLogs(
   logs: RawLog[],
   source: string,
   blockTime: BlockTimeFn,
-  opts: { book?: Address | null; extraMemoTargets?: Address[]; memoTxs?: Iterable<string> } = {},
+  opts: { book?: Address | null; merkle?: Address | null; extraMemoTargets?: Address[]; memoTxs?: Iterable<string> } = {},
 ): Promise<{ received: number; inserted: number; pots: string[]; memos: number }> {
   const book = opts.book === undefined ? configuredBook() : opts.book;
   const sorted = [...logs].sort((x, y) =>
     x.blockNumber === y.blockNumber ? x.logIndex - y.logIndex : x.blockNumber < y.blockNumber ? -1 : 1,
   );
-  const decoded = decodeVaultLogs(sorted, vault, book);
+  const merkle = opts.merkle === undefined ? configuredMerkle() : opts.merkle;
+  const decoded = decodeVaultLogs(sorted, vault, book, merkle);
   const times = new Map<bigint, number | null>();
   const blocks = new Set<bigint>(decoded.map((d) => d.blockNumber));
   for (const l of sorted) if (getAddress(l.address) === ARC_MEMO) blocks.add(l.blockNumber);
@@ -147,10 +162,10 @@ export async function ingestLogs(
   for (const d of decoded) {
     // Book events other than GuaranteeOpened carry only the gid; map it to the pot.
     let potId = d.potId;
-    if (d.contract === "book" && potId === null && d.gid !== null) {
+    if (d.contract !== "vault" && potId === null && d.gid !== null) {
       const r = await db.query<{ pot_id: string }>(
-        `SELECT pot_id::text AS pot_id FROM chain_events WHERE contract = 'book' AND event_name = 'GuaranteeOpened' AND gid = $1 LIMIT 1`,
-        [d.gid.toString()],
+        `SELECT pot_id::text AS pot_id FROM chain_events WHERE contract = $2 AND event_name = $3 AND gid = $1 LIMIT 1`,
+        [d.gid.toString(), d.contract, d.contract === "book" ? "GuaranteeOpened" : "DropOpened"],
       );
       potId = r[0] ? BigInt(r[0].pot_id) : null;
     }
@@ -178,6 +193,10 @@ export async function ingestLogs(
         d.potId.toString(),
       ]);
     }
+    if (d.contract === "merkle" && d.eventName === "DropOpened" && d.gid !== null && d.potId !== null) {
+      await db.query(`UPDATE drops SET drop_id = $1, status = 'live' WHERE pot_id = $2 AND drop_id IS NULL`, [d.gid.toString(), d.potId.toString()]);
+    }
+    if (d.contract === "merkle") await applyMerkleEvent(db, d.eventName, d.args, d.transactionHash.toLowerCase());
     if (rows.length) {
       inserted++;
       if (d.contract === "vault") {
@@ -199,7 +218,7 @@ export async function ingestLogs(
   if (fresh.length) await enqueueWebhooks(db, fresh);
 
   const ours = new Set<string>([...decoded.map((d) => d.transactionHash.toLowerCase()), ...[...(opts.memoTxs ?? [])].map((t) => t.toLowerCase())]);
-  const targets = new Set([vault, ...(book ? [book] : []), ...(opts.extraMemoTargets ?? [])].map((x) => getAddress(x)));
+  const targets = new Set([vault, ...(book ? [book] : []), ...(merkle ? [merkle] : []), ...(opts.extraMemoTargets ?? [])].map((x) => getAddress(x)));
   const memos = await ingestMemos(db, sorted, ours, (t) => targets.has(t), source, times);
   return { received: logs.length, inserted, pots: [...affected], memos };
 }

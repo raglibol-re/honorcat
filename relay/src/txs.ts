@@ -8,7 +8,7 @@ import {
   type Hex,
   type TransactionReceipt,
 } from "viem";
-import { batchGuardAbi, guaranteeBookAbi, verdictVaultAbi } from "./abi";
+import { batchGuardAbi, guaranteeBookAbi, merkleBookAbi, verdictVaultAbi } from "./abi";
 import { arcFees, ARC_MULTICALL3_FROM } from "./arc";
 import { publicClient, resolverAccount, resolverWallet } from "./chain";
 import { getConfig } from "./config";
@@ -26,7 +26,11 @@ export type TxKind =
   | "guarantee_create"
   | "guarantee_enrol"
   | "guarantee_refunds"
-  | "withdraw";
+  | "withdraw"
+  | "drop_create"
+  | "drop_root"
+  | "drop_claims"
+  | "drop_sweep";
 
 type VaultFunction = "resolve" | "expire" | "fundWithAuthorization" | "createPotWithAuthorization";
 
@@ -42,7 +46,7 @@ export const multicall3FromAbi = parseAbi([
   "function aggregate3(Call3[] calls) returns (Result[] returnData)",
 ]);
 
-const errorAbis = [verdictVaultAbi, guaranteeBookAbi, batchGuardAbi, memoAbi, parseAbi(["error Error(string)"])] as const;
+const errorAbis = [verdictVaultAbi, guaranteeBookAbi, merkleBookAbi, batchGuardAbi, memoAbi, parseAbi(["error Error(string)"])] as const;
 
 /** Name of a revert from raw return data; unwraps Arc's Memo `MemoFailed(bytes)` wrapper. */
 export function decodeRevert(data: Hex | undefined, depth = 0): string {

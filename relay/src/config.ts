@@ -28,6 +28,7 @@ const schema = z.object({
   BATCH_GUARD_ADDRESS: z.string().optional(),
   GUARANTEES_DEPLOY_BLOCK: z.coerce.bigint().optional(),
   PASSKEY_FACTORY_ADDRESS: z.string().optional(),
+  MERKLE_BOOK_ADDRESS: z.string().optional(),
   /** Smallest amount (USDC, decimal) the relay will sponsor gas for. */
   GASLESS_MIN_AMOUNT: z.string().regex(/^\d+(\.\d{1,6})?$/).default("0.10"),
   /** Sponsored submissions per funder address per hour (API-key callers are exempt). */
@@ -70,6 +71,7 @@ export type Config = {
   guarantees: { book: Address; guard: Address; deployBlock: bigint } | null;
   /** PasskeyAccountFactory for payee passkey accounts; null if not configured. */
   passkeys: { factory: Address } | null;
+  merkle: { book: Address } | null;
 };
 
 let cached: Config | undefined;
@@ -111,6 +113,7 @@ export function getConfig(): Config {
     httpSourceAllowInsecure: env.HTTP_SOURCE_ALLOW_INSECURE,
     guarantees: guaranteesConfig(env),
     passkeys: passkeysConfig(env),
+    merkle: merkleConfig(env),
   };
   return cached;
 }
@@ -136,6 +139,11 @@ function passkeysConfig(env: z.infer<typeof schema>): Config["passkeys"] {
     env.PASSKEY_FACTORY_ADDRESS ??
     readJson<{ passkeyAccountFactory: string }>(`deployments/${env.ARC_CHAIN_ID}.passkeys.json`)?.passkeyAccountFactory;
   return f && isAddress(f) ? { factory: getAddress(f) } : null;
+}
+
+function merkleConfig(env: z.infer<typeof schema>): Config["merkle"] {
+  const b = env.MERKLE_BOOK_ADDRESS ?? readJson<{ merkleBook: string }>(`deployments/${env.ARC_CHAIN_ID}.merkle.json`)?.merkleBook;
+  return b && isAddress(b) ? { book: getAddress(b) } : null;
 }
 
 function readJson<T>(relative: string | undefined): T | undefined {

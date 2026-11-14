@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.16",
+    "@openzeppelin/merkle-tree": "1.0.8",
     "pg": "^8.23.1",
     "viem": "^2.57.19",
     "zod": "^4.6.7"

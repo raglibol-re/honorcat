@@ -148,11 +148,11 @@ export type GaslessPrepared = {
 export async function prepareGasless(
   input:
     | { kind: "fund"; potId: bigint; from: Address; amount: bigint; validForSeconds?: number }
-    | { kind: "create"; params: PotParams; from: Address; amount: bigint; validForSeconds?: number },
+    | { kind: "create"; params: PotParams; from: Address; amount: bigint; validForSeconds?: number; salt?: Hex },
 ): Promise<GaslessPrepared> {
   const cfg = getConfig();
   const domain = await usdcDomain(publicClient(), cfg.chainId);
-  const salt = randomSalt();
+  const salt = (input.kind === "create" ? input.salt : undefined) ?? randomSalt();
   const nonce =
     input.kind === "fund"
       ? fundNonce(cfg.chainId, cfg.vault, input.potId, salt)

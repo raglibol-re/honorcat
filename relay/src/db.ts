@@ -265,6 +265,46 @@ CREATE TABLE IF NOT EXISTS stream_batches (
   events        JSONB NOT NULL DEFAULT '[]'
 );
 CREATE INDEX IF NOT EXISTS stream_batches_recent_idx ON stream_batches (id DESC);
+
+-- Drops (MerkleBook): one pot, a Merkle root over (index, account, amount) for many payees.
+CREATE TABLE IF NOT EXISTS drops (
+  id              TEXT PRIMARY KEY,
+  drop_id         BIGINT UNIQUE,              -- MerkleBook id
+  pot_id          BIGINT UNIQUE,
+  name            TEXT NOT NULL,
+  funder          TEXT NOT NULL,
+  condition_key   TEXT NOT NULL,
+  condition_label TEXT NOT NULL,
+  condition_id    TEXT NOT NULL,
+  lock_time       BIGINT NOT NULL,
+  deadline        BIGINT NOT NULL,
+  claim_deadline  BIGINT NOT NULL,
+  root            TEXT NOT NULL,
+  root_total      NUMERIC(78,0) NOT NULL,
+  entries         INTEGER NOT NULL,
+  version         INTEGER NOT NULL DEFAULT 1,
+  listed          BOOLEAN NOT NULL DEFAULT true,
+  status          TEXT NOT NULL DEFAULT 'pending', -- pending | live | failed
+  error           TEXT,
+  created_tx      TEXT,
+  swept_tx        TEXT,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS drop_entries (
+  drop_id    TEXT NOT NULL REFERENCES drops(id) ON DELETE CASCADE,
+  idx        INTEGER NOT NULL,
+  account    TEXT NOT NULL,
+  amount     NUMERIC(78,0) NOT NULL,
+  proof      JSONB NOT NULL,
+  version    INTEGER NOT NULL,
+  claimed_tx TEXT,
+  deferred   BOOLEAN NOT NULL DEFAULT false,
+  failed     BOOLEAN NOT NULL DEFAULT false,
+  error      TEXT,
+  PRIMARY KEY (drop_id, idx)
+);
+CREATE INDEX IF NOT EXISTS drop_entries_account_idx ON drop_entries (drop_id, account);
+CREATE INDEX IF NOT EXISTS drop_entries_pending_idx ON drop_entries (drop_id, idx) WHERE claimed_tx IS NULL;
 `;
 
 /** Tables derived from one vault's chain history. Cleared when VAULT_ADDRESS changes. */
@@ -276,6 +316,8 @@ const VAULT_SCOPED = [
   "relay_tx_pots",
   "memos",
   "guarantees",
+  "drop_entries",
+  "drops",
   "webhook_deliveries",
   "gasless_requests",
   "stream_batches",

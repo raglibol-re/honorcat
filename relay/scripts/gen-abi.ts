@@ -12,6 +12,8 @@ export const verdictVaultAbi = ${JSON.stringify(abiOf("VerdictVault.sol", "Verdi
 export const guaranteeBookAbi = ${JSON.stringify(abiOf("GuaranteeBook.sol", "GuaranteeBook"), null, 2)} as const;
 
 export const batchGuardAbi = ${JSON.stringify(abiOf("BatchGuard.sol", "BatchGuard"), null, 2)} as const;
+
+export const merkleBookAbi = ${JSON.stringify(abiOf("MerkleBook.sol", "MerkleBook"), null, 2)} as const;
 `;
 writeFileSync(fileURLToPath(new URL("src/abi.ts", root)), out);
 console.log("wrote src/abi.ts");
