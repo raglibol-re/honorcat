@@ -19,6 +19,8 @@ const { values } = parseArgs({
     seats: { type: "string", default: "10" },
     side: { type: "string", default: "yes" },
     unlisted: { type: "boolean", default: false },
+    event: { type: "string" },
+    contract: { type: "string" },
   },
 });
 if (!values.name) throw new Error("--name <merchant name> is required");
@@ -38,9 +40,15 @@ async function api<T>(path: string, json?: unknown): Promise<T> {
 
 type Markets = { markets: { ticker: string; title: string; expiry: string; contracts: { ticker: string; label: string; chanceYes: number | null }[] }[] };
 const { markets } = await api<Markets>(`/api/markets?template=${values.template}`);
-// The most informative contract: a live price closest to 50%.
+// A given market/contract (--event/--contract), else the most informative one: price closest to 50%.
 let best: { m: Markets["markets"][number]; c: Markets["markets"][number]["contracts"][number] } | null = null;
-for (const m of markets) for (const c of m.contracts) {
+if (values.event) {
+  const m = markets.find((x) => x.ticker === values.event);
+  const c = m?.contracts.find((x) => x.ticker === values.contract);
+  if (!m || !c) throw new Error(`market ${values.event}:${values.contract} is not offered for template ${values.template}`);
+  best = { m, c };
+}
+if (!best) for (const m of markets) for (const c of m.contracts) {
   if (c.chanceYes === null) continue;
   if (!best || Math.abs(c.chanceYes - 0.5) < Math.abs((best.c.chanceYes ?? 0) - 0.5)) best = { m, c };
 }
