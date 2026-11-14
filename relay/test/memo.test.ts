@@ -42,7 +42,7 @@ function log(address: `0x${string}`, abi: unknown, eventName: string, args: Reco
   const nonIndexed = item.inputs.filter((i) => !i.indexed);
   return {
     address,
-    topics: encodeEventTopics({ abi: abi as never, eventName: eventName as never, args: args as never }) as Hex[],
+    topics: (encodeEventTopics as (a: unknown) => Hex[])({ abi, eventName, args }),
     data: encodeAbiParameters(nonIndexed as never, nonIndexed.map((i) => args[i.name]) as never),
     blockNumber: 100n,
     transactionHash: tx,
