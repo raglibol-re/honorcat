@@ -17,6 +17,7 @@ const nav = [
   { href: "/create", label: "Create pot" },
   { href: "/pots", label: "Pots" },
   { href: "/ledger", label: "Ledger" },
+  { href: "/live", label: "Live" },
   { href: "/status", label: "Status" },
   { href: "/developers", label: "Developers" },
 ];

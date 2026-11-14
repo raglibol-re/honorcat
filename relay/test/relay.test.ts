@@ -17,7 +17,7 @@ import { verdictVaultAbi } from "../src/abi";
 import { conditionIdFor, registerCondition } from "../src/conditions";
 import { memoryDb } from "../src/db";
 import { ingestLogs, type RawLog } from "../src/indexer/ingest";
-import { decodeBody, extractStreamsLogs, verifyStreamsSignature } from "../src/indexer/quicknode";
+import { decodeBody, extractBatchRange, extractStreamsLogs, verifyStreamsSignature } from "../src/indexer/quicknode";
 import { listPayments, listPots, getPotDetail } from "../src/api";
 import { ManualSource } from "../src/sources/manual";
 import { resolutionDomain, resolutionTypes, signResolution } from "../src/signer";
@@ -238,5 +238,15 @@ describe("QuickNode Streams", () => {
     const second = await ingestLogs(db, VAULT, logs, "streams", blockTime);
     expect(second.inserted).toBe(0);
     expect((await listPots(db))[0]?.status).toBe("resolved");
+  });
+});
+
+describe("streams batch range", () => {
+  it("reads our filter output and QuickNode metadata (decimal or hex)", () => {
+    expect(extractBatchRange({ logs: [], batchStart: 100, batchEnd: 105 })).toEqual({ start: 100n, end: 105n });
+    expect(extractBatchRange({ logs: [], batchEnd: "0x69" })).toEqual({ start: null, end: 105n });
+    expect(extractBatchRange({ data: [], metadata: { batch_start_range: "7", batch_end_range: 9 } })).toEqual({ start: 7n, end: 9n });
+    expect(extractBatchRange(null)).toEqual({ start: null, end: null });
+    expect(extractBatchRange({ batchEnd: "not-a-number" })).toEqual({ start: null, end: null });
   });
 });

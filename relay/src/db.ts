@@ -161,10 +161,26 @@ CREATE TABLE IF NOT EXISTS gasless_requests (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS gasless_funder_idx ON gasless_requests (funder, created_at);
+
+-- Every QuickNode Streams delivery that passed signature verification.
+CREATE TABLE IF NOT EXISTS stream_batches (
+  id            BIGSERIAL PRIMARY KEY,
+  received_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  batch_start   BIGINT,
+  batch_end     BIGINT,
+  block_time    BIGINT,          -- unix seconds of batch_end
+  latency_ms    INTEGER,         -- received_at - block_time(batch_end)
+  bytes         INTEGER NOT NULL,
+  gzip          BOOLEAN NOT NULL,
+  logs          INTEGER NOT NULL, -- vault logs in the batch
+  inserted      INTEGER NOT NULL, -- of which new to the index
+  events        JSONB NOT NULL DEFAULT '[]'
+);
+CREATE INDEX IF NOT EXISTS stream_batches_recent_idx ON stream_batches (id DESC);
 `;
 
 /** Tables derived from one vault's chain history. Cleared when VAULT_ADDRESS changes. */
-const VAULT_SCOPED = ["chain_events", "pots", "resolutions", "relay_txs", "webhook_deliveries", "gasless_requests"];
+const VAULT_SCOPED = ["chain_events", "pots", "resolutions", "relay_txs", "webhook_deliveries", "gasless_requests", "stream_batches"];
 
 type GlobalWithDb = typeof globalThis & { __verdictDb?: Promise<Db> };
 

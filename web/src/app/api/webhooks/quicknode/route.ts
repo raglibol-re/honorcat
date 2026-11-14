@@ -1,12 +1,15 @@
 import {
   blockTimeFromRpc,
   decodeBody,
+  decodeVaultLogs,
+  extractBatchRange,
   extractStreamsLogs,
   getConfig,
   getDb,
   ingestLogs,
   nudgeRelay,
   publicClient,
+  recordBatch,
   verifyStreamsSignature,
 } from "@/server/relay";
 
@@ -20,7 +23,9 @@ export async function POST(req: Request) {
   const cfg = getConfig();
   if (!cfg.streamsToken) return Response.json({ error: "streams not configured" }, { status: 503 });
 
-  const body = decodeBody(new Uint8Array(await req.arrayBuffer()));
+  const raw = new Uint8Array(await req.arrayBuffer());
+  const gzip = raw.length > 2 && raw[0] === 0x1f && raw[1] === 0x8b;
+  const body = decodeBody(raw);
   const ok = verifyStreamsSignature(cfg.streamsToken, body, {
     nonce: req.headers.get("x-qn-nonce"),
     timestamp: req.headers.get("x-qn-timestamp"),
@@ -35,10 +40,26 @@ export async function POST(req: Request) {
     return Response.json({ error: "invalid json" }, { status: 400 });
   }
 
+  const db = await getDb();
   const logs = extractStreamsLogs(payload, cfg.vault);
   const result = logs.length
-    ? await ingestLogs(await getDb(), cfg.vault, logs, "streams", blockTimeFromRpc(publicClient()))
+    ? await ingestLogs(db, cfg.vault, logs, "streams", blockTimeFromRpc(publicClient()))
     : { received: 0, inserted: 0, pots: [] };
+
+  const range = extractBatchRange(payload);
+  await recordBatch(db, {
+    start: range.start,
+    end: range.end ?? (logs.length ? logs.reduce((m, l) => (l.blockNumber > m ? l.blockNumber : m), 0n) : null),
+    bytes: raw.length,
+    gzip,
+    logs: logs.length,
+    inserted: result.inserted,
+    events: decodeVaultLogs(logs, cfg.vault).map((d) => ({
+      name: d.eventName,
+      potId: d.potId?.toString() ?? null,
+      block: d.blockNumber.toString(),
+    })),
+  }).catch((err) => console.error("[streams] could not record batch", err));
 
   nudgeRelay("streams");
   return Response.json({ status: "received", ...result });

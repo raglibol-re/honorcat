@@ -30,3 +30,39 @@ body {
   font-family: var(--font-geist-sans), system-ui, sans-serif;
   font-feature-settings: "tnum";
 }
+
+/* ---------------------------------------------------------------- live pipeline (/live) */
+@keyframes packet-travel {
+  0% { left: 0%; opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
+  8% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  92% { opacity: 1; }
+  100% { left: 100%; opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+}
+/* batches without vault events stop at the relay (stage 4 of 5 = 75% of the track) */
+@keyframes packet-travel-short {
+  0% { left: 0%; opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
+  10% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  88% { opacity: 1; }
+  100% { left: 75%; opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+}
+@keyframes stage-ping {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent); }
+  100% { box-shadow: 0 0 0 14px color-mix(in srgb, var(--accent) 0%, transparent); }
+}
+@keyframes tile-in {
+  from { transform: translateX(14px) scale(0.85); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@keyframes chip-pop {
+  0% { transform: translateY(6px); opacity: 0; }
+  15% { transform: none; opacity: 1; }
+  85% { opacity: 1; }
+  100% { transform: translateY(-6px); opacity: 0; }
+}
+.packet { position: absolute; top: 50%; opacity: 0; animation: packet-travel var(--dur, 1600ms) cubic-bezier(.45,.05,.35,1) both; }
+.stage-ping { animation: stage-ping 900ms ease-out both; }
+.tile-in { animation: tile-in 260ms ease-out; }
+.chip-pop { animation: chip-pop 3200ms ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  .packet, .stage-ping, .tile-in, .chip-pop { animation-duration: 1ms !important; }
+}

@@ -89,6 +89,26 @@ export function extractStreamsLogs(payload: unknown, vault: Address): RawLog[] {
 }
 
 /**
+ * Block range of a delivery: our filter's `batchStart`/`batchEnd`, or QuickNode's
+ * `metadata.batch_start_range`/`batch_end_range` (decimal or hex).
+ */
+export function extractBatchRange(payload: unknown): { start: bigint | null; end: bigint | null } {
+  const o = (payload ?? {}) as Record<string, unknown>;
+  const meta = (o.metadata ?? {}) as Record<string, unknown>;
+  const num = (v: unknown) => {
+    try {
+      return v === null || v === undefined || v === "" ? null : toBig(v);
+    } catch {
+      return null;
+    }
+  };
+  return {
+    start: num(o.batchStart) ?? num(meta.batch_start_range),
+    end: num(o.batchEnd) ?? num(meta.batch_end_range),
+  };
+}
+
+/**
  * Recommended Streams filter (dataset "logs"). It always returns an object, so every batch
  * reaches the webhook: the delivery doubles as a clock that drives the relay tick.
  * Replace VAULT before pasting into the QuickNode dashboard.
@@ -103,5 +123,6 @@ export const STREAMS_FILTER_TEMPLATE = `function main(stream) {
     }
   };
   walk(stream.data);
-  return { logs: logs, batchEnd: stream.metadata ? stream.metadata.batch_end_range : null };
+  const m = stream.metadata || {};
+  return { logs: logs, batchStart: m.batch_start_range ?? null, batchEnd: m.batch_end_range ?? null };
 }`;
