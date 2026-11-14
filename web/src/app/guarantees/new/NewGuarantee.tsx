@@ -5,10 +5,20 @@ import QRCode from "qrcode";
 import type { Hex, TypedDataDefinition } from "viem";
 import { getJson, usePolling } from "@/lib/api";
 import { useWallet } from "@/lib/wallet/context";
+import { MarketPicker } from "@/components/guarantee/MarketPicker";
 
 type Template = "rate" | "temperature" | "price" | "demo";
 type Contract = { ticker: string; label: string; status: string; chanceYes: number | null; askYes: number | null; askNo: number | null };
-type Market = { ticker: string; title: string; category: string; expiry: string; contracts: Contract[] };
+type Market = {
+  ticker: string;
+  title: string;
+  category: string;
+  subcategory: string | null;
+  image: string | null;
+  volume: number | null;
+  expiry: string;
+  contracts: Contract[];
+};
 type MarketsResponse = { template: Template; info: { title: string; blurb: string }; markets: Market[]; fetchedAt: string };
 
 const TEMPLATES: { key: Template; title: string; blurb: string }[] = [
@@ -52,8 +62,8 @@ export function NewGuarantee() {
   };
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[1fr_340px]">
-      <div className="space-y-8">
+    <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="min-w-0 space-y-8">
         {/* ---------------------------------------------------------------- template */}
         <section>
           <h2 className="t-17 font-medium">What should the refund depend on?</h2>
@@ -97,26 +107,15 @@ export function NewGuarantee() {
           )}
           {markets && markets.length > 0 && market && (
             <div className="mt-3 space-y-4">
-              <label className="block">
-                <span className="t-13" style={{ color: "var(--vg-muted)" }}>
-                  Market
-                </span>
-                <select
-                  className="t-15 mt-1 w-full rounded-lg border px-3 py-2.5"
-                  style={{ borderColor: "var(--vg-rule)", background: "var(--vg-card)" }}
-                  value={market.ticker}
-                  onChange={(e) => {
-                    setMarketTicker(e.target.value);
-                    setContractIdx(0);
-                  }}
-                >
-                  {markets.map((m) => (
-                    <option key={m.ticker} value={m.ticker}>
-                      {m.title} (settles {new Date(m.expiry).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })})
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <MarketPicker
+                markets={markets}
+                market={market}
+                contract={contract}
+                onPick={(ticker, i) => {
+                  setMarketTicker(ticker);
+                  setContractIdx(i);
+                }}
+              />
 
               {contracts.length > 1 && (
                 <div>

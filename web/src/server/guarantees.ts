@@ -52,8 +52,22 @@ export type Market = {
   ticker: string;
   title: string;
   category: string;
+  /** e.g. "Daily Temperature", "Bitcoin" */
+  subcategory: string | null;
+  /** Gemini's own artwork for the event; only assets.gemini.com URLs are passed through. */
+  image: string | null;
+  /** USD traded, from Gemini. */
+  volume: number | null;
   expiry: string;
   contracts: MarketContract[];
+};
+
+const geminiAsset = (u?: string | null) => {
+  try {
+    return u && new URL(u).protocol === "https:" && new URL(u).hostname === "assets.gemini.com" ? u : null;
+  } catch {
+    return null;
+  }
 };
 
 const n = (v?: string | null) => (v === undefined || v === null || v === "" ? null : Number(v));
@@ -76,6 +90,9 @@ export function toMarket(e: GeminiEvent): Market {
     ticker: e.ticker,
     title: e.title,
     category: e.category,
+    subcategory: typeof e.subcategory === "string" ? e.subcategory : (e.subcategory?.name ?? null),
+    image: geminiAsset(e.imageUrl),
+    volume: n(e.volume),
     expiry: e.expiryDate ?? "",
     contracts: e.contracts.filter((c) => c.status === "active").map(toContract),
   };

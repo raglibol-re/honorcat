@@ -41,6 +41,11 @@ export type GeminiEvent = {
   status: string;
   expiryDate?: string | null;
   contracts: GeminiContract[];
+  /** Event artwork on assets.gemini.com (city photo, coin, team). */
+  imageUrl?: string | null;
+  /** Traded volume in USD, decimal string. */
+  volume?: string | null;
+  volume24h?: string | null;
 };
 
 type Cached = { at: number; value: unknown };
