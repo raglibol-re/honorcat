@@ -6,6 +6,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
+import {IERC3009} from "./interfaces/IERC3009.sol";
 
 /// @title VerdictVault
 /// @notice Locks USDC in "pots" that are paid out to payees (by share) or refunded,
@@ -19,6 +20,13 @@ import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/Signa
 ///
 ///         Failed transfers (e.g. a USDC-blocklisted recipient) do not block the pot: the
 ///         amount is credited to `claimable[recipient]` and can be withdrawn with `claim()`.
+///
+///         Gasless funding: Arc's USDC implements EIP-3009. A funder signs a
+///         `ReceiveWithAuthorization` off-chain and anyone (typically the relay, paying gas in
+///         USDC) submits it via `fundWithAuthorization` / `createPotWithAuthorization`. The 3009
+///         nonce is derived from the pot (or the pot's parameters), so a submitter cannot
+///         redirect a signed authorization to a different pot, and `receiveWithAuthorization`
+///         requires `msg.sender == to`, so it cannot be front-run at the token level.
 contract VerdictVault is EIP712, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
@@ -36,6 +44,29 @@ contract VerdictVault is EIP712, ReentrancyGuard {
     enum PaymentKind {
         Payout,
         Refund
+    }
+
+    /// @notice Parameters of a pot, used by `createPotWithAuthorization`.
+    struct PotParams {
+        bytes32 conditionId;
+        address resolver;
+        address[] payees;
+        uint16[] sharesBps;
+        address refundTo;
+        uint64 deadline;
+    }
+
+    /// @notice An EIP-3009 `ReceiveWithAuthorization` signed by `from` over
+    ///         (from, to = this vault, value, validAfter, validBefore, nonce). The nonce is not
+    ///         passed in: it is derived on-chain from `salt` and the pot it is meant for.
+    struct Authorization {
+        address from;
+        uint256 validAfter;
+        uint256 validBefore;
+        bytes32 salt;
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
     }
 
     struct Pot {
@@ -61,6 +92,10 @@ contract VerdictVault is EIP712, ReentrancyGuard {
     ///      chain and this contract; the struct binds it to one pot and one condition.
     bytes32 public constant RESOLUTION_TYPEHASH =
         keccak256("Resolution(uint256 potId,bytes32 conditionId,bool outcome)");
+
+    /// @dev Domain tags for the derived EIP-3009 nonces.
+    bytes32 public constant FUND_NONCE_TAG = keccak256("VerdictVault.fund");
+    bytes32 public constant CREATE_NONCE_TAG = keccak256("VerdictVault.createAndFund");
 
     IERC20 public immutable usdc;
     uint256 public immutable gracePeriod;
@@ -112,6 +147,7 @@ contract VerdictVault is EIP712, ReentrancyGuard {
     error NotExpirable();
     error InvalidSignature();
     error NothingToClaim();
+    error TransferMismatch();
 
     // ---------------------------------------------------------------------
     // Constructor
@@ -143,6 +179,43 @@ contract VerdictVault is EIP712, ReentrancyGuard {
         address refundTo,
         uint64 deadline
     ) external returns (uint256 potId) {
+        potId = _createPot(msg.sender, conditionId, resolver, payees, sharesBps, refundTo, deadline);
+    }
+
+    /// @notice Create a pot and fund it in one transaction from an EIP-3009 authorization.
+    ///         The funder (`auth.from`) becomes the pot's creator; the submitter only pays gas.
+    /// @dev The authorization nonce must equal `createNonce(params, auth.salt)`, which commits to
+    ///      every pot parameter, so the signature cannot be used for a pot with other terms.
+    function createPotWithAuthorization(PotParams calldata params, uint256 amount, Authorization calldata auth)
+        external
+        nonReentrant
+        returns (uint256 potId)
+    {
+        if (amount == 0) revert ZeroAmount();
+        potId = _createPot(
+            auth.from,
+            params.conditionId,
+            params.resolver,
+            params.payees,
+            params.sharesBps,
+            params.refundTo,
+            params.deadline
+        );
+        _pots[potId].total = amount;
+        emit PotFunded(potId, auth.from, amount, amount);
+
+        _receive(auth, amount, createNonce(params, auth.salt));
+    }
+
+    function _createPot(
+        address creator,
+        bytes32 conditionId,
+        address resolver,
+        address[] calldata payees,
+        uint16[] calldata sharesBps,
+        address refundTo,
+        uint64 deadline
+    ) private returns (uint256 potId) {
         if (resolver == address(0) || refundTo == address(0)) revert ZeroAddress();
         uint256 n = payees.length;
         if (n == 0 || n > MAX_PAYEES || n != sharesBps.length) revert InvalidPayees();
@@ -166,12 +239,12 @@ contract VerdictVault is EIP712, ReentrancyGuard {
         p.payees = payees;
         p.sharesBps = sharesBps;
 
-        _emitCreated(potId, p);
+        _emitCreated(potId, creator, p);
     }
 
     /// @dev Separate frame to avoid stack-too-deep in createPot.
-    function _emitCreated(uint256 potId, Pot storage p) private {
-        emit PotCreated(potId, p.conditionId, msg.sender, p.resolver, p.refundTo, p.deadline, p.payees, p.sharesBps);
+    function _emitCreated(uint256 potId, address creator, Pot storage p) private {
+        emit PotCreated(potId, p.conditionId, creator, p.resolver, p.refundTo, p.deadline, p.payees, p.sharesBps);
     }
 
     /// @notice Add USDC to an open pot. Anyone may fund, repeatedly, until the deadline.
@@ -187,6 +260,22 @@ contract VerdictVault is EIP712, ReentrancyGuard {
         emit PotFunded(potId, msg.sender, amount, newTotal);
 
         usdc.safeTransferFrom(msg.sender, address(this), amount);
+    }
+
+    /// @notice Fund an open pot from an EIP-3009 authorization signed by `auth.from`.
+    ///         Anyone may submit; the funder needs no gas balance and no prior approve.
+    /// @dev The authorization nonce must equal `fundNonce(potId, auth.salt)`.
+    function fundWithAuthorization(uint256 potId, uint256 amount, Authorization calldata auth) external nonReentrant {
+        Pot storage p = _pots[potId];
+        if (p.status != Status.Open) revert PotNotOpen();
+        if (block.timestamp > p.deadline) revert FundingClosed();
+        if (amount == 0) revert ZeroAmount();
+
+        uint256 newTotal = p.total + amount;
+        p.total = newTotal;
+        emit PotFunded(potId, auth.from, amount, newTotal);
+
+        _receive(auth, amount, fundNonce(potId, auth.salt));
     }
 
     /// @notice Settle a pot with a result signed by its resolver. Anyone may submit.
@@ -253,6 +342,26 @@ contract VerdictVault is EIP712, ReentrancyGuard {
         return _domainSeparatorV4();
     }
 
+    /// @notice The EIP-3009 nonce a funder must sign to fund `potId` via `fundWithAuthorization`.
+    function fundNonce(uint256 potId, bytes32 salt) public view returns (bytes32) {
+        return keccak256(abi.encode(FUND_NONCE_TAG, block.chainid, address(this), potId, salt));
+    }
+
+    /// @notice The EIP-3009 nonce a funder must sign for `createPotWithAuthorization(params, ...)`.
+    function createNonce(PotParams calldata params, bytes32 salt) public view returns (bytes32) {
+        bytes32 paramsHash = keccak256(
+            abi.encode(
+                params.conditionId,
+                params.resolver,
+                keccak256(abi.encodePacked(params.payees)),
+                keccak256(abi.encodePacked(params.sharesBps)),
+                params.refundTo,
+                params.deadline
+            )
+        );
+        return keccak256(abi.encode(CREATE_NONCE_TAG, block.chainid, address(this), paramsHash, salt));
+    }
+
     // ---------------------------------------------------------------------
     // Internal
     // ---------------------------------------------------------------------
@@ -267,6 +376,17 @@ contract VerdictVault is EIP712, ReentrancyGuard {
             remaining -= amount;
             if (amount > 0) _pay(potId, p.payees[i], amount, PaymentKind.Payout);
         }
+    }
+
+    /// @dev Pulls `amount` from `auth.from` with EIP-3009. Reverts if the signature, validity
+    ///      window, nonce or balance is wrong; the token marks the nonce as used.
+    function _receive(Authorization calldata auth, uint256 amount, bytes32 nonce) private {
+        uint256 before = usdc.balanceOf(address(this));
+        IERC3009(address(usdc))
+            .receiveWithAuthorization(
+                auth.from, address(this), amount, auth.validAfter, auth.validBefore, nonce, auth.v, auth.r, auth.s
+            );
+        if (usdc.balanceOf(address(this)) != before + amount) revert TransferMismatch();
     }
 
     /// @dev Never reverts on a failed transfer: the amount becomes claimable instead.
