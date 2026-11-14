@@ -25,7 +25,9 @@ import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { arcTestnet } from "viem/chains";
 import { verdictVaultAbi } from "../src/abi";
 
+// `pnpm run e2e -- --api ...` forwards the literal "--"; drop it.
 const { values } = parseArgs({
+  args: process.argv.slice(2).filter((a) => a !== "--"),
   options: {
     api: { type: "string", default: "http://localhost:3000" },
     outcome: { type: "string", default: "both" },
