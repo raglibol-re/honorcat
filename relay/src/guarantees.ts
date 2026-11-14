@@ -429,7 +429,7 @@ export async function guaranteeDetail(db: Db, id: string) {
       ))[0] ?? null
     : null;
   const memos = await db.query<{ tx_hash: string; log_index: number; memo_text: string | null; memo_id: string; block_number: string; block_time: string | null; target: string }>(
-    `SELECT DISTINCT m.tx_hash, m.log_index, m.memo_text, m.memo_id, m.block_number::text AS block_number, m.block_time::text AS block_time, m.target
+    `SELECT m.tx_hash, m.log_index, m.memo_text, m.memo_id, m.block_number::text AS block_number, m.block_time::text AS block_time, m.target
      FROM memos m
      WHERE m.memo_id = $2
         OR EXISTS (SELECT 1 FROM chain_events e WHERE e.tx_hash = m.tx_hash AND e.pot_id = $1

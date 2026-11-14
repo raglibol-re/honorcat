@@ -1,52 +1,63 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Link from "next/link";
-import { Geist, Geist_Mono } from "next/font/google";
+import { IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
 import { WalletProvider } from "@/lib/wallet/context";
-import { WalletButton } from "@/components/WalletButton";
+import { LiveLine } from "@/components/LiveLine";
 import "./globals.css";
 
-const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
-const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+const plexSans = IBM_Plex_Sans({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-plex-sans" });
+const plexMono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-plex-mono" });
 
 export const metadata: Metadata = {
-  title: "Verdict",
-  description: "Conditional USDC payouts on Arc testnet",
+  title: "Verdict Guarantees",
+  description: "Refund promises backed by USDC locked on Arc and settled from live Gemini markets. Testnet demo.",
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f4f6f5" },
+    { media: "(prefers-color-scheme: dark)", color: "#0d1110" },
+  ],
 };
 
 const nav = [
-  { href: "/create", label: "Create pot" },
-  { href: "/pots", label: "Pots" },
+  { href: "/guarantees", label: "Guarantees" },
+  { href: "/guarantees/new", label: "New guarantee" },
   { href: "/ledger", label: "Ledger" },
   { href: "/live", label: "Live" },
-  { href: "/status", label: "Status" },
   { href: "/developers", label: "Developers" },
 ];
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col">
+    <html lang="en" className={`${plexSans.variable} ${plexMono.variable} vg h-full antialiased`}>
+      <body className="flex min-h-full flex-col">
         <WalletProvider>
-          <header className="border-b border-border bg-surface">
-            <div className="mx-auto flex h-14 w-full max-w-5xl items-center justify-between gap-4 px-4">
-              <Link href="/" className="text-sm font-semibold tracking-tight">
+          <p className="t-13 px-4 py-2 text-center" style={{ background: "var(--vg-warn-bg)", color: "var(--vg-warn-ink)" }}>
+            Arc testnet with test USDC. A demo of conditional refunds, not insurance. No real hedge is placed.
+          </p>
+          <header className="border-b" style={{ borderColor: "var(--vg-rule)", background: "var(--vg-card)" }}>
+            <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3">
+              <Link href="/" className="t-15 font-semibold">
                 Verdict
               </Link>
-              <div className="flex items-center gap-6">
-                <nav className="flex gap-5 text-sm text-muted">
-                  {nav.map((n) => (
-                    <Link key={n.href} href={n.href} className="hover:text-foreground">
-                      {n.label}
-                    </Link>
-                  ))}
-                </nav>
-                <WalletButton />
-              </div>
+              <nav className="t-15 flex flex-wrap gap-x-5 gap-y-1" style={{ color: "var(--vg-muted)" }}>
+                {nav.map((n) => (
+                  <Link key={n.href} href={n.href} className="hover:underline hover:underline-offset-4">
+                    {n.label}
+                  </Link>
+                ))}
+              </nav>
             </div>
           </header>
-          <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-10">{children}</main>
-          <footer className="border-t border-border py-4 text-center text-xs text-muted">
-            Arc testnet · test funds only
+          <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:py-10">{children}</main>
+          <footer className="border-t" style={{ borderColor: "var(--vg-rule)" }}>
+            <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-2 px-4 py-4">
+              <LiveLine />
+              <span className="t-13" style={{ color: "var(--vg-muted)" }}>
+                Settled on Arc testnet · market data from Gemini
+              </span>
+            </div>
           </footer>
         </WalletProvider>
       </body>

@@ -10,6 +10,9 @@
  *   api      an integration (API key) registers an `api` condition, reports the outcome itself
  *            via /api/v1/outcomes, and reads the pot via /api/v1; checks ownership and that an
  *            outcome cannot be flipped. Webhooks are verified if --webhook is given.
+ *   guarantees  Verdict Guarantees on live Gemini markets: on a 5-minute demo market, two
+ *            guarantees (refund on YES / refund on NO), 3 customers each, settle, verify refunds,
+ *            memos and a gasless withdrawal; for the other templates create, fund and enrol.
  *   multisig deploys a 2-of-3 MultisigResolver (ERC-1271) and uses it as the pot's resolver:
  *            one owner signature is rejected on-chain, two (sorted) settle the pot. Needs the
  *            Foundry build output (contracts/out).
@@ -415,6 +418,164 @@ async function runMultisig(health: Health, outcome: boolean) {
   await verifySettlement(health, potId, AMOUNT, outcome, t);
 }
 
+// ------------------------------------------------------------------ Verdict Guarantees
+
+type MarketsResponse = {
+  markets: { ticker: string; title: string; expiry: string; contracts: { ticker: string; label: string; chanceYes: number | null }[] }[];
+};
+type PreparedGuarantee = Prepared & { terms: Record<string, unknown> & { promise: string; lockTime: number; settlesAt: number }; seal: string; amount: string };
+type GuaranteeDetailResponse = {
+  guarantee: { id: string; potId: number | null; gid: number | null; promise: string; side: string; refund: string; status: string };
+  customers: { account: string; seat: number; refund: { tx: string } | null }[];
+  memos: { txHash: string; text: string | null; body: Record<string, unknown> | null }[];
+  resolution: { signature: string | null; reason: string | null; signedPayload: unknown } | null;
+  verdict: { resultToPaymentMs: number | null; broadcastToReceiptMs: number | null; refundTx: string | null } | null;
+  onchain: { potStatus: string; potOutcome: boolean; potTotal: string; enrolled: number | null; refundsSettled: boolean | null } | null;
+  market: { chanceOfRefund: number | null; status: string | null; resolutionSide: string | null } | null;
+  events: { name: string; contract: string; firstSeenVia: string }[];
+};
+
+const REFUND = 100_000n; // 0.10 USDC per customer
+const SEATS = 3;
+
+async function createGuaranteeViaApi(template: string, market: MarketsResponse["markets"][number], contractTicker: string, side: "yes" | "no") {
+  const prep = await api<PreparedGuarantee>("/api/guarantees/prepare", {
+    json: {
+      template,
+      eventTicker: market.ticker,
+      contractTicker,
+      side,
+      merchantName: `E2E ${template} merchant`,
+      merchant: funder.address,
+      refund: (Number(REFUND) / 1e6).toFixed(2),
+      maxCustomers: SEATS,
+    },
+  });
+  const authorization = await signPrepared(funder, prep);
+  const created = await api<{ id: string; potId: string; tx: Hex }>("/api/guarantees", { json: { terms: prep.terms, seal: prep.seal, authorization } });
+  log(`guarantee ${created.id} (${side}) pot #${created.potId}: "${prep.terms.promise}"  ${EXPLORER}/tx/${created.tx}`);
+  return { ...created, promise: prep.terms.promise, lockTime: prep.terms.lockTime, settlesAt: prep.terms.settlesAt };
+}
+
+async function joinCustomers(id: string, n: number) {
+  const customers = Array.from({ length: n }, () => privateKeyToAccount(generatePrivateKey()));
+  for (const c of customers) {
+    const signature = await c.signMessage({ message: `Join Verdict guarantee ${id} as ${c.address}` });
+    const r = await api<{ tx?: Hex }>(`/api/guarantees/${id}/join`, { json: { account: c.address, signature } });
+    log(`  customer ${c.address} joined ${id}  ${r.tx ? `${EXPLORER}/tx/${r.tx}` : ""}`);
+  }
+  const d = await api<GuaranteeDetailResponse>(`/api/guarantees/${id}`);
+  if (d.onchain?.enrolled !== n) throw new Error(`guarantee ${id}: on-chain enrolled ${d.onchain?.enrolled}, expected ${n}`);
+  return customers;
+}
+
+/**
+ * Full run on a live 5-minute Gemini market: two guarantees on the same contract, one refunding
+ * if it settles YES and one if it settles NO, so both outcomes are exercised by one settlement.
+ */
+async function runGuaranteesDemo() {
+  log("=== guarantees: demo template, both outcomes on one live 5-minute market ===");
+  const { markets } = await api<MarketsResponse>("/api/markets?template=demo");
+  const now = Date.now();
+  const market = markets.find((m) => new Date(m.expiry).getTime() > now + 150_000 && m.contracts.length);
+  if (!market) throw new Error("no live 5-minute market with enough time left; try again in a minute");
+  const contract = market.contracts[0]!;
+  log(`market ${market.ticker} "${market.title}" contract ${contract.ticker} (${contract.label}), settles ${market.expiry}`);
+
+  const yes = await createGuaranteeViaApi("demo", market, contract.ticker, "yes");
+  const no = await createGuaranteeViaApi("demo", market, contract.ticker, "no");
+  const yesCustomers = await joinCustomers(yes.id, SEATS);
+  const noCustomers = await joinCustomers(no.id, SEATS);
+  const merchantBefore = await pub.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [funder.address] });
+
+  const waitMs = Math.max(0, yes.settlesAt * 1000 - Date.now()) + 15 * 60_000;
+  log(`waiting for Gemini to settle ${market.ticker} (up to ${Math.round(waitMs / 60000)} min)…`);
+  const settle = async (id: string) => {
+    const until = Date.now() + waitMs;
+    for (;;) {
+      const d = await api<GuaranteeDetailResponse>(`/api/guarantees/${id}`).catch(() => null);
+      if (d?.onchain && d.onchain.potStatus !== "open" && (d.onchain.potOutcome === false || d.onchain.refundsSettled)) return d;
+      if (Date.now() > until) throw new Error(`guarantee ${id} not settled in time (market ${d?.market?.status ?? "?"})`);
+      await sleep(4000);
+    }
+  };
+  const [dy, dn] = await Promise.all([settle(yes.id), settle(no.id)]);
+  const triggered = dy.onchain!.potOutcome ? { d: dy, customers: yesCustomers, other: { d: dn, customers: noCustomers } } : { d: dn, customers: noCustomers, other: { d: dy, customers: yesCustomers } };
+  log(`Gemini settled ${dy.market?.resolutionSide?.toUpperCase() ?? "?"}: guarantee ${triggered.d.guarantee.id} (${triggered.d.guarantee.side}) refunds, ${triggered.other.d.guarantee.id} not triggered`);
+  if (dy.onchain!.potOutcome === dn.onchain!.potOutcome) throw new Error("both guarantees resolved the same way");
+
+  for (const c of triggered.customers) {
+    const bal = await pub.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [c.address] });
+    if (bal !== REFUND) throw new Error(`customer ${c.address} has ${usdc(bal)}, expected ${usdc(REFUND)}`);
+    if ((await pub.getTransactionCount({ address: c.address })) !== 0) throw new Error("customer sent a transaction");
+  }
+  log(`on-chain: ${SEATS} customers refunded ${usdc(REFUND)} each; none of them sent a transaction`);
+  for (const c of triggered.other.customers) {
+    const bal = await pub.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [c.address] });
+    if (bal !== 0n) throw new Error(`not-triggered customer ${c.address} has ${usdc(bal)}`);
+  }
+  const merchantAfter = await pub.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [funder.address] });
+  if (merchantAfter - merchantBefore !== REFUND * BigInt(SEATS)) {
+    throw new Error(`merchant got back ${usdc(merchantAfter - merchantBefore)}, expected ${usdc(REFUND * BigInt(SEATS))}`);
+  }
+  log(`on-chain: merchant got the not-triggered guarantee's ${usdc(REFUND * BigInt(SEATS))} back`);
+
+  const memoBodies = triggered.d.memos.map((m) => m.body?.t);
+  if (!memoBodies.includes("fund") || !memoBodies.includes("payout") || !memoBodies.includes("refunds")) {
+    throw new Error(`missing memos on the triggered guarantee: ${memoBodies.join(",")}`);
+  }
+  const reason = triggered.d.memos.find((m) => m.body?.t === "refunds")?.body?.why;
+  log(`memo reason: ${reason}`);
+  if (!triggered.other.d.memos.some((m) => m.body?.t === "refund")) throw new Error("missing refund memo on the other guarantee");
+  if (!triggered.d.resolution?.signature) throw new Error("signed result not published");
+  log(
+    `verdict: result → payment ${triggered.d.verdict?.resultToPaymentMs ?? "?"} ms (broadcast → receipt ${triggered.d.verdict?.broadcastToReceiptMs ?? "?"} ms); refunds tx ${EXPLORER}/tx/${triggered.d.verdict?.refundTx}`,
+  );
+  const sameTx = triggered.d.memos.find((m) => m.body?.t === "payout")?.txHash === triggered.d.memos.find((m) => m.body?.t === "refunds")?.txHash;
+  log(`resolution and customer refunds in the same transaction: ${sameTx}`);
+
+  // gasless withdraw by one refunded customer
+  const c0 = triggered.customers[0]!;
+  const dest = fresh();
+  const prep = await api<{ nonce: Hex; validAfter: string; validBefore: string; typedData: Prepared["typedData"] }>("/api/withdraw/prepare", {
+    json: { from: c0.address, to: dest, value: REFUND.toString() },
+  });
+  const m = prep.typedData.message;
+  const signature = await c0.signTypedData({
+    domain: { ...prep.typedData.domain, chainId: Number(prep.typedData.domain.chainId) },
+    types: prep.typedData.types,
+    primaryType: prep.typedData.primaryType,
+    message: { ...m, value: BigInt(m.value!), validAfter: BigInt(m.validAfter!), validBefore: BigInt(m.validBefore!) },
+  } as unknown as Parameters<PrivateKeyAccount["signTypedData"]>[0]);
+  const w = await api<{ tx: Hex }>("/api/withdraw", {
+    json: { from: c0.address, to: dest, value: REFUND.toString(), validAfter: prep.validAfter, validBefore: prep.validBefore, nonce: prep.nonce, signature, guaranteeId: triggered.d.guarantee.id },
+  });
+  const destBal = await pub.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [dest] });
+  if (destBal !== REFUND) throw new Error(`withdrawal destination has ${usdc(destBal)}`);
+  log(`customer withdrew ${usdc(REFUND)} to ${dest} without gas  ${EXPLORER}/tx/${w.tx}`);
+  log(`cards: ${API}/g/${triggered.d.guarantee.id} (refunded), ${API}/g/${triggered.other.d.guarantee.id} (not triggered)`);
+}
+
+/** Other templates: create, fund and enrol on a live market; settlement happens when Gemini settles. */
+async function runGuaranteeTemplate(template: string) {
+  const { markets } = await api<MarketsResponse>(`/api/markets?template=${template}`);
+  const market = markets.find((mk) => mk.contracts.some((c) => c.chanceYes !== null)) ?? markets[0];
+  if (!market) {
+    log(`=== guarantees: ${template}: no active market on Gemini right now, skipped ===`);
+    return;
+  }
+  const contract = market.contracts.find((c) => c.chanceYes !== null) ?? market.contracts[0]!;
+  log(`=== guarantees: ${template} on ${market.ticker}:${contract.ticker} (settles ${market.expiry}) ===`);
+  const g = await createGuaranteeViaApi(template, market, contract.ticker, "yes");
+  await joinCustomers(g.id, SEATS);
+  log(`  ${API}/g/${g.id} is live; the relay settles it when Gemini settles the market`);
+}
+
+async function runGuarantees() {
+  await runGuaranteesDemo();
+  for (const t of ["rate", "temperature", "price"]) await runGuaranteeTemplate(t);
+}
+
 async function main() {
   log(`API ${API}`);
   const health = await waitFor("API health", () => api<Health>("/api/health"), 3000);
@@ -425,6 +586,11 @@ async function main() {
   const bal = await pub.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [funder.address] });
   log(`funder ${funder.address} has ${usdc(bal)}`);
 
+  if (values.mode === "guarantees") {
+    await runGuarantees();
+    log("E2E PASSED");
+    return;
+  }
   const outcomes = values.outcome === "both" ? [true, false] : [values.outcome === "yes"];
   const modes = values.mode === "all" ? ["classic", "gasless", "api", "multisig"] : [values.mode!];
   const runners: Record<string, (h: Health, o: boolean) => Promise<void>> = {

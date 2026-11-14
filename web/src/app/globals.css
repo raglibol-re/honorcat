@@ -1,14 +1,19 @@
 @import "tailwindcss";
 
+/* App-wide palette = the approved Verdict Guarantees tokens (.vg is set on <html>). The older
+   names stay so existing pages pick up the new palette in light and dark mode. */
 :root {
-  --background: #f7f7f5;
-  --surface: #ffffff;
-  --foreground: #17181a;
-  --muted: #6b6f76;
-  --border: #e3e3df;
-  --accent: #1f4fd1;
-  --positive: #1a7f4b;
+  --background: var(--vg-page);
+  --surface: var(--vg-card);
+  --foreground: var(--vg-ink);
+  --muted: var(--vg-muted);
+  --border: var(--vg-rule);
+  --accent: var(--vg-accent);
+  --positive: var(--vg-accent);
   --negative: #b42318;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --negative: #f08a7e; }
 }
 
 @theme inline {
@@ -20,14 +25,14 @@
   --color-accent: var(--accent);
   --color-positive: var(--positive);
   --color-negative: var(--negative);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-plex-sans);
+  --font-mono: var(--font-plex-mono);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-family: var(--font-plex-sans), system-ui, sans-serif;
   font-feature-settings: "tnum";
 }
 
