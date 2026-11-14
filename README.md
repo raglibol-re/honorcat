@@ -6,7 +6,7 @@ payees (by share) or refunded once an authorised resolver signs the outcome of a
 > Testnet only. Never use these keys or contracts on mainnet.
 
 **Live:** https://verdict-phi-livid.vercel.app · vault
-[`0x6a181EFBa4763E28F785e3FA576C264d89402bBE`](https://explorer.testnet.arc.io/address/0x6a181EFBa4763E28F785e3FA576C264d89402bBE)
+[`0xba7190441bc00fC1AC8597d68197039e1167E6D4`](https://explorer.testnet.arc.io/address/0xba7190441bc00fC1AC8597d68197039e1167E6D4)
 on Arc testnet (chainId 5042002). The scripted e2e run passes against this deployment for both
 outcomes (payout and refund).
 
