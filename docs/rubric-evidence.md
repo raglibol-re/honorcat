@@ -236,3 +236,6 @@ Every date goes through `lib/format.ts` with `PAGE_LOCALE = "en-US"` (matches `<
 `Accept-Language: de-DE`: axis "5:05 AM / 10:02 AM / 3:00 PM", replay date "Nov 15, 4:05 AM".
 Screenshot `shots/r2-new.png`.
 
+
+### e2e `early` after the second review (2026-11-15 14:08-14:15 UTC, code 40e2a3a)
+E2E PASSED. Paid early: -6jwVFL8X3 (pot #211), 2 min after creation, 3 recipients 0.10 USDC each, evidenceRoot matches the memo (signers Vercel + local). Refund: OOFFQYVJ_b (pot #212) refunded 0.30 USDC at trading close, recipients got nothing.
