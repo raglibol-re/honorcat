@@ -36,13 +36,27 @@ Partly: see BACKLOG #8.
 
 ## Technical rigour
 
-### [ ] Full test suite green, including the trigger replay tests
+### [x] Full test suite green, including the trigger replay tests
+CI on every push (`.github/workflows/ci.yml`): contracts (`forge test`: unit, fuzz, invariants),
+Slither gate, relay + SDK tests (incl. `test/trigger.test.ts` replaying recorded Gemini feeds and
+`test/sampler.test.ts`), web typecheck + lint. Green, e.g. run 43664982700
+(https://github.com/raglibol-re/honorcat/actions/runs/43664982700). Locally 2026-11-15: contracts
+108, relay 74 + 1 skipped, SDK 4.
 2026-11-15 locally: contracts 108 passed (`arc-forge test`), relay 68 passed + 1 skipped
 (`pnpm --filter @verdict/relay test`, includes `test/trigger.test.ts` with recorded Gemini feeds),
 SDK 4 passed, web `tsc --noEmit` and `eslint src` clean. Not yet in CI (BACKLOG #3).
 
-### [ ] Threat model document is current
-### [ ] Static analysis runs in CI with no unexplained findings
+### [x] Threat model document is current
+[docs/threat-model.md](threat-model.md) (2026-11-15): actors, vault/books, the early-payout trigger
+(price spikes, thin books, spoofed orders, stale data, voided markets, one or two colluding
+samplers, the relay withholding, the app lying about parameters, funder-chosen parameters,
+recipient manipulation), keys/relay/app; what stops each threat and what does not.
+### [x] Static analysis runs in CI with no unexplained findings
+Slither 0.11.3 runs in CI on `contracts/src`; `contracts/slither-gate.py` fails the build on any
+finding not explained in `contracts/slither-triage.json`. CI log of run 43664982700:
+`24 findings, 24 explained in slither-triage.json` (1 high: `PasskeyAccount.execute` is the
+passkey-signed generic call by design; the rest: false positives, trusted-vault reentrancy,
+coarse timestamps).
 ### [ ] README explains setup, architecture and every Arc-specific choice
 
 ## Sponsor fit

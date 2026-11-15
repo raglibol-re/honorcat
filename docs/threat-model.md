@@ -68,5 +68,6 @@ Assets: USDC in the vault and books; resolver and sampler keys; the deployer key
 - Unit, fuzz and invariant tests (Foundry): conservation, no double payout, refunds only to
   `refundTo`, Merkle claims capped, blocklist deferral.
 - Trigger: 30 replay and property tests (synthetic and recorded Gemini feeds); 6 sampler tests.
-- Static analysis: Slither in CI (findings explained in docs/slither.md).
+- Static analysis: Slither in CI; the build fails on any finding not explained in
+  `contracts/slither-triage.json` (24 of 24 explained).
 - Not formally verified (symbolic tests were deprioritised for the deadline).
