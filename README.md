@@ -151,9 +151,10 @@ collapsed "Full rules" block, on the proof page, or behind "Show technical detai
 | Page | What it is |
 |---|---|
 | [`/`](https://verdict-phi-livid.vercel.app) | "Get paid before it happens.", one sentence, "Try it", and a real live payout card with its chart |
-| [`/early/new`](https://verdict-phi-livid.vercel.app/early/new) | funder flow: Quick demo with two labelled choices, "Instant" (already above the threshold) and "Watch it cross" (just below it), answered at once from candidates the server precomputes from the Streams webhook, or pick any Gemini event from a picture picker, the outcome and how likely (slider with the live chance and recent trade prices), name, amount, people; one signature, then a share link and QR code. "More options": refund vs pay-if-it-happens, minutes to join |
+| [`/early/new`](https://verdict-phi-livid.vercel.app/early/new) | funder flow: Quick demo with two labelled choices, "Instant" (already above the threshold) and "Watch it cross" (just below it), answered at once from candidates the server precomputes from the Streams webhook, or pick any Gemini contract from one list across all categories, sorted by measured quality (unusable ones stay visible with the reason); the outcome and how likely (slider with the live chance and recent trade prices); the rule the pot gets; what the promise costs today (estimate); name, amount, people; one signature, then a share link and QR code. "More options": refund vs pay-if-it-happens, minutes to join |
+| [`/markets`](https://verdict-phi-livid.vercel.app/markets) | "Markets that work today": per category events, contracts, how many work now, median spread and depth; every working contract with bid, ask, depth, event 24 h volume and time to close |
 | `/e/<id>` | recipient page: a short headline ("Paid when “X” hits 85%") with the event below, "You get", "Chance now", "Ends in", a three-step bar (Money in / Watching / Paid), one "Join" button (passkey), the chance chart, "Full rules" (every edge case in plain words); "Under the hood" in technical mode |
-| `/e/<id>/proof` | every sampler's samples and signatures, recomputed in the browser with the same engine; the evidence root vs the payout memo |
+| `/e/<id>/proof` | public: each sampler's evidence hash and computed values (window, average, counts, decision), the signatures and the memo root. Funder and recipients, after one signature: every raw reading, recomputed in the browser with the same engine, and the evidence root vs the payout memo |
 | [`/how`](https://verdict-phi-livid.vercel.app/how) | the long explanation for people who want it: how it works, the rule, edge cases, how to check it, test-money note |
 | [`/account`](https://verdict-phi-livid.vercel.app/account) | "My money": balance, sign in with the passkey, withdraw everything |
 
@@ -172,7 +173,19 @@ Developers are in the footer (and in the header in technical mode).
   by the three samplers. The relay accepts a submission only after checking it in full and settles
   once two agree: `resolve` + `GuaranteeBook.payout` in one memo'd transaction whose memo carries
   the **evidence root**. Each sampler's integer-only evidence record and signed `TriggerAttestation`
-  are public. The vault does not verify evidence; it makes each decision auditable.
+  are stored unchanged. The vault does not verify evidence; it makes each decision auditable.
+- **Market data terms.** The raw readings (bid, ask, sizes) are Gemini market data, and Gemini's
+  Market Data Agreement restricts redistribution. Until Gemini answers, public pages show only each
+  record's hash and computed values, and the raw records go to the pot's funder and recipients after
+  one signature (`/api/early/<id>/evidence`). This makes the proof less public: anyone can check the
+  hashes, the signatures and the memo root, but only members can recompute the records. Every page
+  showing a Gemini price says "Data provided by Gemini".
+- **Markets and rules.** Any Gemini contract works if its order book passes the rule its pot gets.
+  The rule follows time to close: under two hours the demo rule (1-minute window), otherwise the
+  standard rule (30 minutes); Quick demo always uses the demo rule. A catalogue of every active
+  contract is refreshed continuously (events list over REST, order books over Gemini's WebSocket)
+  and the book is read again live when a pot is created: a market that fails is refused with the
+  reason (`relay/src/catalog.ts`, `web/src/server/catalog.ts`).
 - The trigger parameters, the contract, the side and the pot mode are committed in the pot's
   **conditionId**, so the rule cannot change after creation.
 - After trading closes the relay watches Gemini's settlement and records the outcome as an Arc memo.

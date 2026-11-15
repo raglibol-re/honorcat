@@ -1,4 +1,4 @@
-# Market quality (F0, 2026-11-15)
+# Market quality (F0 and F1, 2026-11-15)
 
 What the Gemini prediction markets behind HonorCat Forward look like right now, and whether the
 trigger's default rules can be met on them. Read-only measurement; no code was changed.
@@ -120,3 +120,39 @@ Hourly and 5-minute BTC/ETH/SOL/XRP strike markets expiring today. Tighter ($0.0
 
 Raw data: one JSON snapshot per contract (scratchpad, not committed); rerunnable with the same
 public endpoints.
+
+## All categories (F1 catalogue, 2026-11-15 19:45 UTC)
+
+Since F1 the app measures every active Gemini contract continuously (`relay/src/catalog.ts`): the
+events list over REST (50 events a request, the whole list in about two minutes), order books over
+Gemini's public WebSocket (`depth5`, 150 contracts per step), each judged against the rule its pot
+would get (demo under two hours to close, standard otherwise). The live view is
+[`/markets`](https://verdict-phi-livid.vercel.app/markets); this is a snapshot of it.
+
+| Category | Events | Contracts | Work now (works + borderline) | Median spread | Median depth near the price |
+|---|---|---|---|---|---|
+| Sports | 886 | 13,165 | 1,538 | 5¢ | $22 |
+| Crypto | 94 | 380 | 153 | 4¢ | $123 |
+| Politics | 21 | 215 | 98 | 4¢ | $10 |
+| Weather | 98 | 644 | 79 | 5¢ | $8 |
+| Economics | 11 | 120 | 38 | 4¢ | $7 |
+| Tech | 3 | 10 | 3 | 4¢ | $18 |
+| Business | 6 | 28 | 3 | 5¢ | $9 |
+| Commodities | 18 | 184 | 1 | 20¢ | $6 |
+| Culture | 3 | 43 | 0 | 5¢ | $13 |
+
+Depth is the dollars resting within 5¢ of the mid on the thinner side, over at most five levels.
+Gemini's categories "Live", "Pro Football", "Economy", "Fun/Culture", "Media", "Other" and "Finance"
+either overlap these (an event carries one category) or had no active events.
+
+Main reasons a contract does not work: a one-sided book (most common in Weather, Economics and
+Politics), a spread over the limit (Weather, Commodities) and, for short crypto markets under the
+demo rule, too few contracts at the best price. Weather has improved since the F0 snapshot because
+tomorrow's events are now quoted on both sides; it changes through the day.
+
+**What this means for the defaults.** The rules can be met on a meaningful share of markets in every
+category except Commodities and Culture right now, but "works now" is a snapshot: a book that is
+two-sided now can go one-sided within the 30-minute standard window, which then needs a new window
+before the pot can pay. The creation check reads the book live and refuses a market that fails, so
+a pot is never created on a market that cannot pass at that moment. Depth near the price is small
+almost everywhere (tens of dollars), which matters for F2's pot cap.

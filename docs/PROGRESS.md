@@ -19,6 +19,14 @@
 - Work in cycles per docs/improve.md, everything in the agreed priority order.
 
 ## Rubric cycle log
+- 2026-11-15: F1 built and deployed (655dbc3 … b053595): catalogue of every active Gemini contract
+  (14,782 contracts, 1,140 events, 9 categories on the first sweep) with quality under the rule its
+  pot would get; quality-sorted picker with reasons; /markets; profile by time to close; live book
+  check at creation (refuses with the reason); cost view on /early/new and the funder's pot page;
+  quality now on the pot page; raw evidence only for members; "Data provided by Gemini" on every
+  price. Tests: relay 88 (13 new catalogue tests), contracts 100, SDK 4, web typecheck/lint/build.
+  First e2e caught a refund market failing the demo rule at creation (6¢ spread): the refund demo
+  now needs a market at 15% or less whose book passes in the WebSocket observation.
 - 2026-11-15: forward-spec.md replaced with the category-neutral version; guard-spec.md recorded as
   shelved (it never existed in the repo); phone test moved to "Later" (user decision).
 - 2026-11-15: Forward spec (docs/forward-spec.md) milestone F0 done, no code changed: live weather
@@ -61,9 +69,17 @@
 - Then: phase I threat model and static analysis, minimal phase H, phase E only if time allows.
 
 ## Blocks current milestone
-- F1 (docs/forward-spec.md, category-neutral): plan proposed 2026-11-15, waiting for the user's
-  answers on the profile cut-off, public charts under section 7, the price used for the cost view,
-  and sign-in for raw evidence. No F1 code until then.
+- (none)
+
+## Decisions 2026-11-15 (F1; the user asked me to decide)
+- Trigger profile by time to close: under 2 hours the demo rule, otherwise the standard rule. Quick
+  demo keeps the demo rule and stays labelled as a demo.
+- Public charts stay, as averages across the samplers per 5 seconds, with "Data provided by Gemini";
+  raw bid/ask/size readings only for the funder and recipients after one signature (1-hour session,
+  key derived from the existing ADMIN_TOKEN/CRON_SECRET, no new secret).
+- Cost view: payout total × midpoint of the side's best bid and ask, labelled as an estimate.
+- /markets ("Markets that work today") is public, with attribution.
+- No real money: testnet only (user, 2026-11-15).
 
 ## Later
 - (Moved from Blocks, 2026-11-15, user decision.) Rubric item "A new user completes the recipient flow on a phone without help" needs a real person
