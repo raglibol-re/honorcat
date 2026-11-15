@@ -55,7 +55,7 @@ export function VerdictMoment(p: Props) {
           >
             <span
               aria-hidden
-              className="mt-1 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full"
+              className="mt-1 inline-flex h-4 w-4 shrink-0 items-center justify-center"
               style={{ background: "var(--vg-accent)" }}
             >
               <svg width="8" height="8" viewBox="0 0 10 10" fill="none">

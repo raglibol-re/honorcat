@@ -52,7 +52,7 @@ export function ProofView() {
         <p className="t-15" style={{ color: "var(--vg-muted)" }}>
           Public proof for a HonorCat guarantee from {g.merchantName}. HonorCat, settled by Verdict on Arc.
         </p>
-        <h1 className="t-27 mt-1 max-w-3xl font-medium">{g.promise}</h1>
+        <h1 className="hc-long t-27 mt-1 max-w-3xl font-medium">{g.promise}</h1>
       </div>
 
       <section className="grid gap-4 sm:grid-cols-3">

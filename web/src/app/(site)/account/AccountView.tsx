@@ -7,6 +7,8 @@ import { isAddress, type Address, type Hex } from "viem";
 import { getJson, usePolling } from "@/lib/api";
 import { addressUrl, txUrl } from "@/lib/chain";
 import { formatUsdc } from "@/lib/format";
+import { CatHead, Ears, EyesSmall } from "@/components/cat/shapes";
+import { C, F } from "@/components/cat/tokens";
 import { forgetPasskey, passkeysSupported, savedPasskey, signChallenge, signInWithPasskey, type PasskeySession } from "@/lib/passkey";
 
 type AccountData = {
@@ -18,6 +20,18 @@ type AccountData = {
 
 const post = <T,>(path: string, body: unknown) =>
   getJson<T>(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+
+const btn: React.CSSProperties = {
+  width: "100%",
+  minHeight: 52,
+  background: C.ink,
+  color: C.page,
+  border: 0,
+  fontFamily: F.sans,
+  fontSize: 18,
+  fontWeight: 600,
+  cursor: "pointer",
+};
 
 const statusText = (g: AccountData["guarantees"][number]) =>
   g.potStatus === "resolved" ? (g.outcome ? "Refunded" : "Not triggered") : g.potStatus === "expired" ? "Closed" : "Waiting for the market";
@@ -44,29 +58,18 @@ export function AccountView() {
 
   if (!session) {
     return (
-      <section className="vg-ticket space-y-3 px-5 py-5">
+      <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {supported ? (
           <>
-            <button
-              type="button"
-              onClick={signIn}
-              className="t-17 w-full rounded-xl px-4 py-3.5 font-medium"
-              style={{ background: "var(--vg-accent)", color: "var(--vg-card)" }}
-            >
+            <button type="button" onClick={signIn} style={btn}>
               Sign in with passkey
             </button>
-            <p className="t-13" style={{ color: "var(--vg-muted)" }}>
-              No passkey yet? You get one when you join.
-            </p>
+            <p style={{ margin: 0, fontSize: 15, color: C.muted }}>No passkey yet? You get one when you join.</p>
           </>
         ) : (
-          <p className="t-15">This browser does not support passkeys.</p>
+          <p style={{ margin: 0, fontSize: 17 }}>This browser does not support passkeys.</p>
         )}
-        {err && (
-          <p className="t-13" style={{ color: "var(--negative)" }}>
-            {err}
-          </p>
-        )}
+        {err && <p style={{ margin: 0, fontSize: 15, color: C.signalInk }}>{err}</p>}
       </section>
     );
   }
@@ -116,73 +119,80 @@ function Signed({ session, onSignOut }: { session: PasskeySession; onSignOut: ()
   }
 
   return (
-    <div className="space-y-6">
-      <section className="vg-ticket px-5 py-5">
-        <p className="t-13" style={{ color: "var(--vg-muted)" }}>
-          Your balance
-        </p>
-        <p className="mono t-36 mt-1 font-medium">{balance === null ? "…" : formatUsdc(balance)}</p>
-        <TechOnly>
-          <p className="t-13" style={{ color: "var(--vg-muted)" }}>
-            USDC in{" "}
-            <a href={addressUrl(session.account)} target="_blank" rel="noreferrer" className="mono hover:underline">
-              {session.account.slice(0, 8)}…{session.account.slice(-6)}
-            </a>
-            {data && !data.deployed ? ", an account that is created on its first withdrawal" : ""}
-          </p>
-        </TechOnly>
-        <form onSubmit={withdraw} className="mt-5 space-y-3">
-          <input
-            value={to}
-            onChange={(e) => setTo(e.target.value.trim())}
-            placeholder="Send to (0x… address)"
-            aria-label="Destination address"
-            className="mono t-15 w-full rounded-lg border px-3 py-2.5"
-            style={{ borderColor: "var(--vg-rule)", background: "var(--vg-card)" }}
-          />
-          <button
-            type="submit"
-            disabled={busy || !isAddress(to) || !balance}
-            className="t-15 w-full rounded-xl px-4 py-3 font-medium disabled:opacity-50"
-            style={{ background: "var(--vg-accent)", color: "var(--vg-card)" }}
-          >
-            {busy ? "Sending…" : "Withdraw everything"}
-          </button>
-          {msg && (
-            <p className="t-13" style={{ color: msg.error ? "var(--negative)" : "var(--vg-muted)" }}>
-              {msg.text}{" "}
-              {msg.tx && (
-                <a className="mono hover:underline" href={txUrl(msg.tx)} target="_blank" rel="noreferrer">
-                  {msg.tx.slice(0, 10)}…
-                </a>
-              )}
-            </p>
-          )}
-        </form>
+    <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+      <section style={{ display: "flex", flexDirection: "column" }}>
+        <Ears viewBox="0 0 342 30" points={["22,31 54,2 86,31", "256,31 288,2 320,31"]} />
+        <div style={{ background: C.ink, color: C.page, padding: "16px 20px 20px", display: "flex", flexDirection: "column", gap: 2 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+            <span style={{ fontFamily: F.cond, fontSize: 30, fontWeight: 600 }}>Your balance</span>
+            <EyesSmall />
+          </div>
+          <span style={{ fontFamily: F.cond, fontSize: "clamp(72px, 24vw, 132px)", fontWeight: 700, lineHeight: 0.92, letterSpacing: "-0.01em" }}>
+            {balance === null ? "…" : `$${formatUsdc(balance)}`}
+          </span>
+          <span style={{ fontSize: 15, color: C.faint }}>
+            test USDC on Arc
+            <TechOnly>
+              {" in "}
+              <a href={addressUrl(session.account)} target="_blank" rel="noreferrer" style={{ fontFamily: F.mono, fontSize: 13, color: C.page }}>
+                {session.account.slice(0, 8)}…{session.account.slice(-6)}
+              </a>
+              {data && !data.deployed ? ", an account that is created on its first withdrawal" : ""}
+            </TechOnly>
+          </span>
+        </div>
       </section>
 
+      <form onSubmit={withdraw} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <input
+          value={to}
+          onChange={(e) => setTo(e.target.value.trim())}
+          placeholder="Send to (0x… address)"
+          aria-label="Destination address"
+          style={{ fontFamily: F.mono, fontSize: 15, minHeight: 52, padding: "0 14px", border: `1.5px solid ${C.ink}`, background: C.panel, color: C.ink, width: "100%", boxSizing: "border-box" }}
+        />
+        <button type="submit" disabled={busy || !isAddress(to) || !balance} style={{ ...btn, opacity: busy || !isAddress(to) || !balance ? 0.5 : 1 }}>
+          {busy ? "Sending…" : "Withdraw everything"}
+        </button>
+        {msg && (
+          <p style={{ margin: 0, fontSize: 15, color: msg.error ? C.signalInk : C.muted }}>
+            {msg.text}{" "}
+            {msg.tx && (
+              <a style={{ fontFamily: F.mono, fontSize: 13 }} href={txUrl(msg.tx)} target="_blank" rel="noreferrer">
+                {msg.tx.slice(0, 10)}…
+              </a>
+            )}
+          </p>
+        )}
+      </form>
+
       {data && data.guarantees.length > 0 && (
-      <section>
-        <h2 className="t-17 font-medium">Your guarantees</h2>
-        {(
-          <ul className="mt-3 space-y-3">
-            {data.guarantees.map((g) => (
-              <li key={g.id}>
-                <Link href={`/g/${g.id}`} className="vg-ticket block px-5 py-4">
-                  <div className="t-13 flex justify-between gap-2" style={{ color: "var(--vg-muted)" }}>
-                    <span>{g.merchantName}</span>
-                    <span>{statusText(g)}</span>
-                  </div>
-                  <p className="t-15 mt-1">{g.promise}</p>
+        <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <h2 style={{ margin: 0, fontFamily: F.cond, fontSize: 44, fontWeight: 600, lineHeight: 1 }}>Your guarantees</h2>
+          <ul style={{ margin: 0, padding: 0, listStyle: "none", borderTop: `1.5px solid ${C.ink}`, borderBottom: `1.5px solid ${C.ink}` }}>
+            {data.guarantees.map((g, i) => (
+              <li key={g.id} style={{ borderTop: i ? `1px solid ${C.faint}` : undefined }}>
+                <Link href={`/g/${g.id}`} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 0", textDecoration: "none" }}>
+                  <CatHead width={18} height={17} style={{ marginTop: 3 }} />
+                  <span style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0, flex: 1 }}>
+                    <span style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                      <span style={{ fontSize: 17, fontWeight: 600 }}>{g.merchantName}</span>
+                      <span style={{ fontSize: 14, color: C.muted, textAlign: "right" }}>{statusText(g)}</span>
+                    </span>
+                    <span style={{ fontSize: 15, color: C.body }}>{g.promise}</span>
+                  </span>
                 </Link>
               </li>
             ))}
           </ul>
-        )}
-      </section>
+        </section>
       )}
 
-      <button type="button" onClick={onSignOut} className="t-13 underline underline-offset-4" style={{ color: "var(--vg-muted)" }}>
+      <button
+        type="button"
+        onClick={onSignOut}
+        style={{ alignSelf: "flex-start", background: "none", border: 0, padding: "12px 0", fontFamily: F.sans, fontSize: 15, color: C.muted, textDecoration: "underline", textUnderlineOffset: 4, cursor: "pointer" }}
+      >
         Sign out on this device
       </button>
     </div>

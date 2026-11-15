@@ -18,7 +18,7 @@ export function UnderTheHood({ d, account }: { d: GuaranteeDetail; account?: str
               <p className="mt-1" style={{ color: "var(--vg-muted)" }}>
                 EIP-712 resolution signed by the resolver and verified by the vault on Arc.
               </p>
-              <pre className="mono mt-2 overflow-x-auto rounded-lg p-3 text-[12px] leading-5" style={{ background: "var(--vg-page)" }}>
+              <pre className="mono mt-2 overflow-x-auto p-3 text-[12px] leading-5" style={{ background: "var(--vg-page)" }}>
                 {JSON.stringify(d.resolution.signedPayload, null, 2)}
               </pre>
             </>

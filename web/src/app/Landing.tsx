@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { CatScale } from "@/components/cat/CatScale";
 import { PounceChart } from "@/components/cat/PounceChart";
+import { HcFooterLinks, HcHeader } from "@/components/cat/Chrome";
 import { CatHead, Ears, EyesLarge } from "@/components/cat/shapes";
 import { StateRail, type RailStep } from "@/components/cat/StateRail";
 import { C, F } from "@/components/cat/tokens";
@@ -104,24 +105,7 @@ export function Landing({ initial }: { initial: LandingData | null }) {
 
   return (
     <div className="hc" style={{ background: C.page, color: C.ink, fontFamily: F.sans, minHeight: "100vh", boxSizing: "border-box" }}>
-      <header className="hc-wrap" style={{ paddingTop: 22, paddingBottom: 22, display: "flex", flexWrap: "wrap", gap: "12px 40px", alignItems: "center", justifyContent: "space-between" }}>
-        <Link href="/" aria-label="HonorCat home" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
-          <CatHead width={30} height={28} eyes={C.signal} />
-          <span style={{ ...cond, fontSize: 28, fontWeight: 600, letterSpacing: "0.01em" }}>HonorCat</span>
-        </Link>
-        <nav style={{ display: "flex", flexWrap: "wrap", gap: "4px 36px", fontSize: 17, fontWeight: 500 }}>
-          <Link href="/early/new" style={{ textDecoration: "none", padding: "12px 0" }}>
-            Start
-          </Link>
-          <Link href="/how" style={{ textDecoration: "none", padding: "12px 0" }}>
-            How it works
-          </Link>
-          <Link href="/account" style={{ textDecoration: "none", padding: "12px 0" }}>
-            My money
-          </Link>
-        </nav>
-        <span style={{ fontSize: 15, color: C.muted }}>Test version on Arc testnet. Test money only.</span>
-      </header>
+      <HcHeader />
 
       <section className="hc-wrap" style={{ paddingTop: 36, display: "flex", flexWrap: "wrap", gap: "32px 72px", alignItems: "flex-end" }}>
         <div style={{ flex: "1 1 480px", minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
@@ -263,23 +247,7 @@ export function Landing({ initial }: { initial: LandingData | null }) {
           <p style={{ margin: 0, fontSize: 16, lineHeight: 1.5, color: C.faint, maxWidth: 720 }}>
             This is a testnet demo, not insurance. Chances come from Gemini market prices, which can be wrong. An early payout is final.
           </p>
-          <div style={{ borderTop: `1px solid ${C.muted}`, paddingTop: 20, display: "flex", flexWrap: "wrap", gap: "8px 32px", justifyContent: "space-between", fontSize: 15, color: C.faint }}>
-            <span>HonorCat, settled by Verdict.</span>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 28px" }}>
-              {(
-                [
-                  ["/ledger", "Ledger"],
-                  ["/live", "Live"],
-                  ["/status", "Status"],
-                  ["/developers", "Developers"],
-                ] as const
-              ).map(([href, label]) => (
-                <Link key={href} href={href} style={{ color: C.page, padding: "12px 0" }}>
-                  {label}
-                </Link>
-              ))}
-            </div>
-          </div>
+          <HcFooterLinks />
         </div>
       </footer>
     </div>

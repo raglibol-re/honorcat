@@ -81,7 +81,7 @@ export function DropCheck({ drop }: { drop: DropDto }) {
           value={account}
           onChange={(e) => setAccount(e.target.value)}
           placeholder="Your account address, 0x…"
-          className="mono t-15 w-full rounded-lg border px-3 py-2.5"
+          className="mono t-15 w-full border px-3 py-2.5"
           style={{ borderColor: "var(--vg-rule)", background: "var(--vg-card)" }}
           autoComplete="off"
           spellCheck={false}
@@ -89,8 +89,8 @@ export function DropCheck({ drop }: { drop: DropDto }) {
         <button
           type="submit"
           disabled={busy}
-          className="t-17 w-full rounded-xl px-4 py-3 font-medium disabled:opacity-60"
-          style={{ background: "var(--vg-accent)", color: "var(--vg-card)" }}
+          className="t-17 w-full px-4 py-3 font-medium disabled:opacity-60"
+          style={{ background: "#111111", color: "#ECEAE4" }}
         >
           {busy ? "Checking…" : "Check"}
         </button>

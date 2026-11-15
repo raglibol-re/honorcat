@@ -28,7 +28,7 @@ export function GuaranteeList() {
   if (!data) return <p className="t-15" style={{ color: "var(--vg-muted)" }}>Loading…</p>;
   if (data.guarantees.length === 0)
     return (
-      <p className="t-15 rounded-xl border px-4 py-6 text-center" style={{ borderColor: "var(--vg-rule)" }}>
+      <p className="t-15 border-y-[1.5px] py-4 text-center" style={{ borderColor: "#111111" }}>
         No guarantees yet.{" "}
         <Link href="/guarantees/new" className="underline underline-offset-4">
           Offer the first one

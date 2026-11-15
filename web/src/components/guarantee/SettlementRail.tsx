@@ -47,7 +47,7 @@ export function SettlementRail({ steps, compact = false }: { steps: RailStep[]; 
           <span
             key={`${s.key}-${s.done}`}
             aria-hidden
-            className={`relative z-10 flex h-[19px] w-[19px] items-center justify-center rounded-full border ${s.done ? "vg-step-done" : ""}`}
+            className={`relative z-10 flex h-[19px] w-[19px] items-center justify-center border ${s.done ? "vg-step-done" : ""}`}
             style={{
               borderColor: s.done ? "var(--vg-accent)" : "var(--vg-rule)",
               background: s.done ? "var(--vg-accent)" : "var(--vg-card)",

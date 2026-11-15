@@ -45,20 +45,17 @@ export const useTechMode = () => useContext(Ctx);
 export function TechToggle() {
   const { tech, setTech } = useTechMode();
   return (
-    <label className="t-13 inline-flex cursor-pointer items-center gap-2" style={{ color: "var(--vg-muted)" }}>
+    <label className="inline-flex cursor-pointer items-center gap-2" style={{ fontSize: 15, color: "inherit", padding: "12px 0" }}>
       <span
         role="switch"
         aria-checked={tech}
         tabIndex={0}
         onClick={() => setTech(!tech)}
         onKeyDown={(e) => (e.key === " " || e.key === "Enter") && (e.preventDefault(), setTech(!tech))}
-        className="relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors"
-        style={{ background: tech ? "var(--vg-accent)" : "var(--vg-rule)" }}
+        className="relative inline-flex h-5 w-9 shrink-0 items-center"
+        style={{ border: "1.5px solid currentColor", background: tech ? "#E8421A" : "transparent" }}
       >
-        <span
-          className="inline-block h-4 w-4 rounded-full transition-transform"
-          style={{ background: "var(--vg-card)", transform: tech ? "translateX(18px)" : "translateX(2px)" }}
-        />
+        <span className="inline-block h-3 w-3" style={{ background: "currentColor", transform: tech ? "translateX(19px)" : "translateX(2px)" }} />
       </span>
       Show technical details
     </label>

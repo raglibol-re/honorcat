@@ -6,14 +6,14 @@ import { short } from "@/lib/format";
 
 export function StatusBadge({ pot }: { pot: Pick<Pot, "status" | "outcome"> }) {
   const map = {
-    open: { text: "Open", cls: "bg-amber-50 text-amber-800 ring-amber-200" },
-    resolved_true: { text: "Paid out", cls: "bg-green-50 text-positive ring-green-200" },
-    resolved_false: { text: "Refunded", cls: "bg-slate-100 text-slate-700 ring-slate-200" },
-    expired: { text: "Expired · refunded", cls: "bg-slate-100 text-slate-700 ring-slate-200" },
+    open: { text: "Open", color: "#111111" },
+    resolved_true: { text: "Paid out", color: "#B8320F" },
+    resolved_false: { text: "Refunded", color: "#55534E" },
+    expired: { text: "Expired, refunded", color: "#55534E" },
   } as const;
   const key = pot.status === "resolved" ? (pot.outcome ? "resolved_true" : "resolved_false") : pot.status;
-  const { text, cls } = map[key];
-  return <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ring-1 ${cls}`}>{text}</span>;
+  const { text, color } = map[key];
+  return <span className="inline-flex text-sm font-semibold" style={{ color }}>{text}</span>;
 }
 
 export function Addr({ a }: { a: string }) {
@@ -32,16 +32,17 @@ export function Tx({ hash, label }: { hash: string; label?: string }) {
   );
 }
 
+/** A section under an ink rule (no boxed cards: docs/design). */
 export function Card({ title, children, right }: { title?: string; children: React.ReactNode; right?: React.ReactNode }) {
   return (
-    <section className="rounded-lg border border-border bg-surface">
+    <section className="border-t-[1.5px] border-foreground">
       {title && (
-        <div className="flex items-center justify-between border-b border-border px-5 py-3">
-          <h2 className="text-sm font-medium">{title}</h2>
+        <div className="flex items-center justify-between gap-4 pt-3 pb-2">
+          <h2 className="text-2xl leading-none">{title}</h2>
           {right}
         </div>
       )}
-      <div className="p-5">{children}</div>
+      <div className={title ? "pb-2" : "py-4"}>{children}</div>
     </section>
   );
 }
@@ -49,18 +50,18 @@ export function Card({ title, children, right }: { title?: string; children: Rea
 export function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <label className="block space-y-1">
-      <span className="text-sm font-medium">{label}</span>
+      <span className="text-[17px] font-semibold">{label}</span>
       {children}
-      {hint && <span className="block text-xs text-muted">{hint}</span>}
+      {hint && <span className="block text-sm text-muted">{hint}</span>}
     </label>
   );
 }
 
 export const inputCls =
-  "w-full rounded-md border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-accent focus:ring-1 focus:ring-accent";
+  "w-full min-h-12 border-[1.5px] border-foreground bg-surface px-3 py-2 text-[17px] outline-none focus:outline-2 focus:outline-[#E8421A]";
 
 export const buttonCls =
-  "inline-flex items-center justify-center rounded-md bg-foreground px-4 py-2 text-sm font-medium text-surface disabled:opacity-50";
+  "inline-flex min-h-[52px] items-center justify-center bg-foreground px-6 py-2 text-lg font-semibold text-background hover:text-background disabled:opacity-50";
 
 export const secondaryButtonCls =
-  "inline-flex items-center justify-center rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium disabled:opacity-50";
+  "inline-flex min-h-[52px] items-center justify-center border-[1.5px] border-foreground px-6 py-2 text-lg font-semibold disabled:opacity-50";

@@ -13,7 +13,7 @@ export function PotList() {
   if (data.pots.length === 0) return <p className="text-sm text-muted">No pots yet.</p>;
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-border bg-surface">
+    <div className="overflow-x-auto border-y-[1.5px] border-foreground">
       <table className="w-full text-sm">
         <thead className="border-b border-border text-left text-xs uppercase tracking-wide text-muted">
           <tr>

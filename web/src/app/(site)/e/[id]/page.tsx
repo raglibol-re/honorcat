@@ -10,7 +10,7 @@ const loading = <p className="t-15" style={{ color: "var(--vg-muted)" }}>Loading
 
 export default function EarlyPage({ params }: PageProps<"/e/[id]">) {
   return (
-    <div className="mx-auto max-w-[560px]">
+    <div>
       <Suspense fallback={loading}>
         <Checked params={params} />
       </Suspense>

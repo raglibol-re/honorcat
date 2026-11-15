@@ -84,7 +84,7 @@ export default function DevelopersPage() {
         {steps.map((s) => (
           <Card key={s.title} title={s.title}>
             <p className="text-sm text-muted">{s.body}</p>
-            <pre className="mt-3 overflow-x-auto rounded-md bg-background p-3 font-mono text-xs leading-relaxed">{s.code}</pre>
+            <pre className="mt-3 overflow-x-auto bg-background p-3 font-mono text-xs leading-relaxed">{s.code}</pre>
           </Card>
         ))}
       </div>

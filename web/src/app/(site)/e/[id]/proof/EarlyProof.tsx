@@ -112,7 +112,7 @@ export function EarlyProof() {
                 {(Number(c.record.averageMicro) / 10 ** (c.record.params.priceDecimals + 6) * 100).toFixed(2)}%. Source: {c.record.dataSource}. Evidence
                 hash <span className="mono break-all">{c.hash}</span>
               </p>
-              <div className="max-h-64 overflow-auto rounded-lg border" style={{ borderColor: "var(--vg-rule)" }}>
+              <div className="max-h-64 overflow-auto border-y-[1.5px]" style={{ borderColor: "#111111" }}>
                 <table className="t-13 mono w-full">
                   <thead>
                     <tr style={{ color: "var(--vg-muted)" }}>

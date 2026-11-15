@@ -28,7 +28,7 @@ export function LockedBadge({
         aria-expanded={open}
         aria-controls={id}
         onClick={() => setOpen((o) => !o)}
-        className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5"
+        className="inline-flex items-center gap-2 border px-3 py-1.5"
         style={{ borderColor: "var(--vg-rule)", background: "var(--vg-accent-soft)" }}
       >
         <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden fill="none">

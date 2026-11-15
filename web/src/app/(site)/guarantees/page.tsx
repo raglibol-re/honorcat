@@ -13,7 +13,7 @@ export default function GuaranteesPage() {
             Every refund promise on this deployment, with the money locked for it on Arc.
           </p>
         </div>
-        <Link href="/guarantees/new" className="t-15 rounded-xl px-4 py-2.5 font-medium" style={{ background: "var(--vg-accent)", color: "var(--vg-card)" }}>
+        <Link href="/guarantees/new" className="t-15 px-4 py-2.5 font-medium" style={{ background: "#111111", color: "#ECEAE4" }}>
           New guarantee
         </Link>
       </div>

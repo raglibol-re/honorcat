@@ -102,7 +102,7 @@ export function NewGuarantee() {
             </p>
           )}
           {markets && markets.length === 0 && (
-            <p className="t-15 mt-2 rounded-xl border px-4 py-3" style={{ borderColor: "var(--vg-rule)" }}>
+            <p className="t-15 mt-2 border-y-[1.5px] py-4" style={{ borderColor: "#111111" }}>
               Gemini has no active market for this template right now. Try another template or check back later.
             </p>
           )}
@@ -129,12 +129,12 @@ export function NewGuarantee() {
                       aria-label="Previous threshold"
                       disabled={contractIdx === 0}
                       onClick={() => setContractIdx((i) => Math.max(0, i - 1))}
-                      className="t-17 h-10 w-10 shrink-0 rounded-lg border disabled:opacity-40"
+                      className="t-17 h-10 w-10 shrink-0 border disabled:opacity-40"
                       style={{ borderColor: "var(--vg-rule)" }}
                     >
                       ‹
                     </button>
-                    <div className="t-15 flex-1 rounded-lg border px-3 py-2 text-center" style={{ borderColor: "var(--vg-rule)" }}>
+                    <div className="t-15 flex-1 border px-3 py-2 text-center" style={{ borderColor: "var(--vg-rule)" }}>
                       {contract?.label} <span className="mono t-13" style={{ color: "var(--vg-muted)" }}>({pct(contract?.chanceYes ?? null)} yes)</span>
                     </div>
                     <button
@@ -142,7 +142,7 @@ export function NewGuarantee() {
                       aria-label="Next threshold"
                       disabled={contractIdx >= contracts.length - 1}
                       onClick={() => setContractIdx((i) => Math.min(contracts.length - 1, i + 1))}
-                      className="t-17 h-10 w-10 shrink-0 rounded-lg border disabled:opacity-40"
+                      className="t-17 h-10 w-10 shrink-0 border disabled:opacity-40"
                       style={{ borderColor: "var(--vg-rule)" }}
                     >
                       ›
@@ -159,7 +159,7 @@ export function NewGuarantee() {
                   {(["yes", "no"] as const).map((s) => (
                     <label
                       key={s}
-                      className="t-15 flex cursor-pointer items-center justify-center gap-2 rounded-lg border px-3 py-2"
+                      className="t-15 flex cursor-pointer items-center justify-center gap-2 border px-3 py-2"
                       style={side === s ? { borderColor: "var(--vg-accent)", boxShadow: "0 0 0 1px var(--vg-accent)" } : { borderColor: "var(--vg-rule)" }}
                     >
                       <input type="radio" name="side" className="sr-only" checked={side === s} onChange={() => setSide(s)} />
@@ -179,7 +179,7 @@ export function NewGuarantee() {
               Your business name, as customers will see it
             </span>
             <input
-              className="t-15 mt-1 w-full rounded-lg border px-3 py-2.5"
+              className="t-15 mt-1 w-full border px-3 py-2.5"
               style={{ borderColor: "var(--vg-rule)", background: "var(--vg-card)" }}
               value={merchantName}
               maxLength={60}
@@ -192,7 +192,7 @@ export function NewGuarantee() {
               Refund per customer (USDC)
             </span>
             <input
-              className="mono t-15 mt-1 w-full rounded-lg border px-3 py-2.5 text-right"
+              className="mono t-15 mt-1 w-full border px-3 py-2.5 text-right"
               style={{ borderColor: "var(--vg-rule)", background: "var(--vg-card)" }}
               inputMode="decimal"
               value={refund}
@@ -204,7 +204,7 @@ export function NewGuarantee() {
               Customers (max 50)
             </span>
             <input
-              className="mono t-15 mt-1 w-full rounded-lg border px-3 py-2.5 text-right"
+              className="mono t-15 mt-1 w-full border px-3 py-2.5 text-right"
               style={{ borderColor: "var(--vg-rule)", background: "var(--vg-card)" }}
               type="number"
               min={1}
@@ -338,8 +338,8 @@ function Fund(p: { template: Template; market: Market | null; contract: Contract
         type="button"
         onClick={fund}
         disabled={!ready || busy !== null}
-        className="t-15 w-full rounded-xl px-4 py-3 font-medium disabled:opacity-50"
-        style={{ background: "var(--vg-accent)", color: "var(--vg-card)" }}
+        className="t-15 w-full px-4 py-3 font-medium disabled:opacity-50"
+        style={{ background: "#111111", color: "#ECEAE4" }}
       >
         Lock {(Number(p.refund) * p.seats || 0).toFixed(2)} USDC and publish
       </button>
@@ -375,14 +375,14 @@ function Share({ id, promise }: { id: string; promise: string }) {
         <span className="t-13" style={{ color: "var(--vg-muted)" }}>
           Share link
         </span>
-        <input readOnly value={url} onFocus={(e) => e.target.select()} className="mono t-13 mt-1 w-full rounded-lg border px-3 py-2" style={{ borderColor: "var(--vg-rule)", background: "var(--vg-page)" }} />
+        <input readOnly value={url} onFocus={(e) => e.target.select()} className="mono t-13 mt-1 w-full border px-3 py-2" style={{ borderColor: "var(--vg-rule)", background: "var(--vg-page)" }} />
       </label>
-      {qr && <div className="w-[180px] rounded-lg bg-white p-1" aria-label="QR code for the share link" dangerouslySetInnerHTML={{ __html: qr }} />}
+      {qr && <div className="w-[180px] bg-white p-1" aria-label="QR code for the share link" dangerouslySetInnerHTML={{ __html: qr }} />}
       <label className="block">
         <span className="t-13" style={{ color: "var(--vg-muted)" }}>
           Badge for your checkout page
         </span>
-        <textarea readOnly rows={3} value={badge} onFocus={(e) => e.target.select()} className="mono mt-1 w-full rounded-lg border px-3 py-2 text-[12px]" style={{ borderColor: "var(--vg-rule)", background: "var(--vg-page)" }} />
+        <textarea readOnly rows={3} value={badge} onFocus={(e) => e.target.select()} className="mono mt-1 w-full border px-3 py-2 text-[12px]" style={{ borderColor: "var(--vg-rule)", background: "var(--vg-page)" }} />
       </label>
       <a href={`/g/${id}`} className="t-15 block underline underline-offset-4">
         Open the customer page

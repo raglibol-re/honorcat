@@ -1,15 +1,14 @@
-import { SiteFooter, SiteHeader } from "@/components/SiteChrome";
+import { HcFooter, HcHeader } from "@/components/cat/Chrome";
 
-/** Site chrome for every page except the landing page, which brings its own (docs/design). */
+/** Header and closing block from docs/design for every page except the landing page, which has the full closing block. */
 export default function SiteLayout({ children }: { children: React.ReactNode }) {
   return (
-    <>
-      <p className="t-13 px-4 py-2 text-center" style={{ background: "var(--vg-warn-bg)", color: "var(--vg-warn-ink)" }}>
-        Test version with test money. Not insurance.
-      </p>
-      <SiteHeader />
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:py-10">{children}</main>
-      <SiteFooter />
-    </>
+    <div className="hc" style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "#ECEAE4", color: "#111111" }}>
+      <HcHeader />
+      <main className="hc-wrap" style={{ width: "100%", flex: 1, paddingTop: 24 }}>
+        <div style={{ maxWidth: 1040 }}>{children}</div>
+      </main>
+      <HcFooter />
+    </div>
   );
 }

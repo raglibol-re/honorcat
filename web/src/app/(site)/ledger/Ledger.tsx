@@ -31,10 +31,10 @@ export function Ledger() {
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2 text-xs text-muted">
-        <span className={`h-2 w-2 rounded-full ${error ? "bg-negative" : "bg-positive animate-pulse"}`} />
+        <span className={`h-2 w-2 ${error ? "bg-negative" : "bg-positive animate-pulse"}`} />
         {error ? `Disconnected: ${error}` : "Live · updates every 2 seconds"}
       </div>
-      <div className="overflow-x-auto rounded-lg border border-border bg-surface">
+      <div className="overflow-x-auto border-y-[1.5px] border-foreground">
         <table className="w-full text-sm">
           <thead className="border-b border-border text-left text-xs uppercase tracking-wide text-muted">
             <tr>
@@ -64,7 +64,7 @@ export function Ledger() {
             {data?.payments.map((p) => (
               <tr
                 key={p.id}
-                className={`border-b border-border transition-colors duration-1000 last:border-0 ${fresh.has(p.id) ? "bg-green-50" : ""}`}
+                className={`border-b border-border transition-colors duration-1000 last:border-0 ${fresh.has(p.id) ? "bg-[rgba(232,66,26,0.18)]" : ""}`}
               >
                 <td className="px-4 py-2 whitespace-nowrap text-muted">{formatTime(p.time)}</td>
                 <td className="px-4 py-2">{kindLabel[p.kind]}</td>

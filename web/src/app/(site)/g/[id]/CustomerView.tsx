@@ -128,7 +128,7 @@ export function CustomerView() {
           <p className="t-15" style={{ color: "var(--vg-muted)" }}>
             A guarantee from <span style={{ color: "var(--vg-ink)" }}>{g.merchantName}</span>
           </p>
-          <h1 className="t-27 font-medium" style={{ textWrap: "pretty" }}>
+          <h1 className="hc-long t-27 font-medium" style={{ textWrap: "pretty" }}>
             {g.promise}
           </h1>
           <dl className="grid grid-cols-2 gap-4">
@@ -156,8 +156,8 @@ export function CustomerView() {
                     type="button"
                     disabled={joining}
                     onClick={() => join("passkey-new")}
-                    className="t-17 w-full rounded-xl px-4 py-3.5 font-medium disabled:opacity-60"
-                    style={{ background: "var(--vg-accent)", color: "var(--vg-card)" }}
+                    className="t-17 w-full px-4 py-3.5 font-medium disabled:opacity-60"
+                    style={{ background: "#111111", color: "#ECEAE4" }}
                   >
                     {joining ? "Joining…" : passkey ? "Join with your passkey" : "Join with a passkey"}
                   </button>
@@ -188,8 +188,8 @@ export function CustomerView() {
                     type="button"
                     disabled={joining}
                     onClick={() => join("device")}
-                    className="t-17 w-full rounded-xl px-4 py-3.5 font-medium disabled:opacity-60"
-                    style={{ background: "var(--vg-accent)", color: "var(--vg-card)" }}
+                    className="t-17 w-full px-4 py-3.5 font-medium disabled:opacity-60"
+                    style={{ background: "#111111", color: "#ECEAE4" }}
                   >
                     {joining ? "Joining…" : "Join with this browser"}
                   </button>
@@ -205,7 +205,7 @@ export function CustomerView() {
               </p>
             </>
           ) : (
-            <p className="t-15 rounded-xl border px-4 py-3" style={{ borderColor: "var(--vg-rule)" }}>
+            <p className="t-15 border-y-[1.5px] py-4" style={{ borderColor: "#111111" }}>
               {state !== "active" ? "This guarantee has settled." : full ? "This guarantee is full." : "Enrolment has closed."}
             </p>
           )}
@@ -339,15 +339,15 @@ function Withdraw({
         value={to}
         onChange={(e) => setTo(e.target.value.trim())}
         placeholder="0x… destination address"
-        className="mono t-15 w-full rounded-lg border px-3 py-2.5"
+        className="mono t-15 w-full border px-3 py-2.5"
         style={{ borderColor: "var(--vg-rule)", background: "var(--vg-card)" }}
         aria-label="Destination address"
       />
       <button
         type="submit"
         disabled={busy || !isAddress(to) || !balance}
-        className="t-15 w-full rounded-xl px-4 py-3 font-medium disabled:opacity-50"
-        style={{ background: "var(--vg-accent)", color: "var(--vg-card)" }}
+        className="t-15 w-full px-4 py-3 font-medium disabled:opacity-50"
+        style={{ background: "#111111", color: "#ECEAE4" }}
       >
         {busy ? "Sending…" : "Withdraw"}
       </button>
