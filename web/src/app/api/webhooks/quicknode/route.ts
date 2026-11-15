@@ -14,7 +14,8 @@ import {
   verifyStreamsSignature,
 } from "@/server/relay";
 
-export const maxDuration = 60;
+// Streams calls every few seconds: the app's early-payout sampler runs here in long bursts.
+export const maxDuration = 300;
 
 /**
  * QuickNode Streams webhook destination. Verifies the HMAC signature, ingests our contract's
@@ -64,6 +65,6 @@ export async function POST(req: Request) {
     })),
   }).catch((err) => console.error("[streams] could not record batch", err));
 
-  nudgeRelay("streams");
+  nudgeRelay("streams", { samplerBudgetMs: 270_000 });
   return Response.json({ status: "received", ...result });
 }

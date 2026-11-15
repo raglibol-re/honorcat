@@ -22,7 +22,8 @@ export * from "@verdict/relay";
  * polling), the Streams webhook and the cron route, so the relay advances whenever anything
  * is looking at it. The tick itself is lease-guarded and rate-limited.
  */
-export function nudgeRelay(reason: string) {
+/** `samplerBudgetMs`: how long this invocation may run the app's sampler (needs a matching maxDuration). */
+export function nudgeRelay(reason: string, opts: { samplerBudgetMs?: number } = {}) {
   after(async () => {
     try {
       const report = await runTick({ reason });
@@ -30,7 +31,7 @@ export function nudgeRelay(reason: string) {
         console.log("[relay] tick", JSON.stringify(report));
       }
       // The app's own early-payout sampler (one of three); a lease keeps it to one burst at a time.
-      const s = await runAppSampler(await getDb(), { budgetMs: 40_000 });
+      const s = await runAppSampler(await getDb(), { budgetMs: opts.samplerBudgetMs ?? 40_000 });
       if (s.ran && s.pots) console.log("[sampler:vercel] burst", JSON.stringify(s));
     } catch (err) {
       console.error("[relay] tick failed", err);
