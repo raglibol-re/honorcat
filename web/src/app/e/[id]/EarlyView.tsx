@@ -86,7 +86,7 @@ function Rail({ d, now }: { d: EarlyDetail; now: number }) {
   const steps = [
     { label: "Locked", done: !!e.createdTx, note: "money set aside" },
     { label: "Armed", done: now >= e.lockTime, note: "watching the market" },
-    { label: "Triggered", done: paidEarly || d.signatures.filter((s) => s.kind === "trigger").length >= 2, note: "2 of 3 samplers" },
+    { label: "Triggered", done: paidEarly || d.signatures.filter((s) => s.kind === "trigger").length >= 2, note: "2 of 3 checks agree" },
     { label: "Paid", done: e.state === "paid", note: "to every recipient" },
     { label: "Confirmed", done: !!e.record, note: e.record ? (e.record.status === "confirmed" ? "event happened" : e.record.status === "market_wrong" ? "market was wrong" : "market voided") : "after settlement" },
   ];
@@ -188,6 +188,8 @@ export function EarlyView() {
   const triggerAt = d.signatures.filter((s) => s.kind === "trigger").map((s) => Number((s.record as { windowEnd?: string } | null)?.windowEnd ?? 0)).sort()[1] ?? null;
   const settledMs = d.settledAt ? new Date(d.settledAt).getTime() : null;
   const leadMin = settledMs ? Math.max(0, Math.round((e.tradingClose * 1000 - settledMs) / 60_000)) : null;
+  // Measured: from the second independent check (the moment the rule was met twice) to the payment on Arc.
+  const toPayS = settledMs && triggerAt ? Math.max(0, (settledMs - triggerAt) / 1000) : null;
 
   async function join() {
     setJoining(true);
@@ -249,6 +251,11 @@ export function EarlyView() {
               ? `The market held at ${pct(threshold)} or more, so everyone on the list was paid${leadMin !== null ? `, ${leadMin} minutes before trading closed` : ""}.`
               : "The event happened, so everyone on the list was paid."}
           </p>
+          {e.settledKind === "early" && toPayS !== null && (
+            <p className="t-13" style={{ color: "var(--vg-muted)" }}>
+              Money moved {toPayS < 90 ? `${toPayS.toFixed(1)} seconds` : `${Math.round(toPayS / 60)} minutes`} after the second independent check saw the rule met.
+            </p>
+          )}
           {e.record && (
             <p className="t-15">
               {e.record.status === "confirmed" ? "Confirmed: the event happened." : e.record.status === "market_wrong" ? "The market was wrong: the event did not happen. The payout stands." : "The market was voided later. The payout stands."}

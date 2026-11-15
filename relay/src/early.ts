@@ -28,6 +28,7 @@ import {
 import { memoCall, type MemoBody } from "./memo";
 import { verifyPasskeyJoin, type WebAuthnAssertion } from "./passkeys";
 import { resolutionDomain, resolutionTypes } from "./signer";
+import { fetchMarketState } from "./sampler";
 import { sendRelayCalls, type RelayCall } from "./txs";
 import { aggregate, recordFromJson, recordToJson, type SignedTrigger } from "./trigger/evidence";
 import { conditionIdForTrigger, validateParams, type PotMode, type TriggerParams, type TriggerSide } from "./trigger/params";
@@ -501,6 +502,40 @@ export async function processEarly(db: Db): Promise<EarlyAction[]> {
       out.push({ id: r.id, action: kind, tx: res.tx, result: `error: ${res.error}` });
       if (/PotNotOpen/.test(res.error)) await db.query("UPDATE early_pots SET settled_kind = 'external', settled_tx = 'external' WHERE id = $1", [r.id]);
     }
+  }
+  out.push(...(await recordSettledOutcomes(db)));
+  return out;
+}
+
+/**
+ * After an early payout, waits for Gemini to settle (or void) the market and records publicly
+ * whether the event occurred. Checks each pot at most every 5 minutes, a few pots per tick.
+ */
+async function recordSettledOutcomes(db: Db): Promise<EarlyAction[]> {
+  const out: EarlyAction[] = [];
+  const due = await db.query<{ id: string; event_ticker: string; contract_ticker: string; side: TriggerSide }>(
+    `SELECT e.id, e.event_ticker, e.contract_ticker, e.side FROM early_pots e
+     LEFT JOIN relay_state s ON s.key = 'early_record_check:' || e.id
+     WHERE e.settled_kind = 'early' AND e.record_tx IS NULL AND e.trading_close < extract(epoch from now())
+       AND (s.value IS NULL OR s.value::bigint < extract(epoch from now()) * 1000 - 300000)
+     ORDER BY e.trading_close LIMIT 5`,
+  );
+  for (const p of due) {
+    await db.query(
+      `INSERT INTO relay_state (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
+      [`early_record_check:${p.id}`, String(Date.now())],
+    );
+    const m = await fetchMarketState(p.event_ticker, p.contract_ticker);
+    if (!m) continue;
+    let observed: Parameters<typeof recordEarlyOutcome>[2] | null = null;
+    if (m.status === "invalid") observed = { occurred: null, status: "voided", resolutionSide: null };
+    else if (m.status === "settled" && m.resolutionSide) {
+      const occurred = m.resolutionSide === p.side;
+      observed = { occurred, status: occurred ? "confirmed" : "market_wrong", resolutionSide: m.resolutionSide };
+    }
+    if (!observed) continue;
+    const r = await recordEarlyOutcome(db, p.id, observed);
+    if (r) out.push({ id: p.id, action: `record:${observed.status}`, tx: "tx" in r ? r.tx : undefined, result: "error" in r ? `error: ${r.error}` : "confirmed" });
   }
   return out;
 }

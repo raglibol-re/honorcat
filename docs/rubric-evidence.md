@@ -5,12 +5,33 @@ Production: https://verdict-phi-livid.vercel.app
 
 ## Works end to end
 
-### [ ] Scripted run passes against production twice in a row: one early payout, one refund
-Not yet: the early-payout e2e mode (BACKLOG #13) does not exist yet. Existing modes (classic,
-gasless, api, multisig, guarantees, passkey, drops) passed on production earlier; see README.
-2026-11-15 regression run after 8f2acb6 (`--mode all --outcome no`): classic refund passed (pot
-#182); gasless stopped because the deployer wallet ran out of test USDC (0.18 USDC left; each run
-sends refunds to fresh addresses). Blocked on a faucet top-up, see docs/PROGRESS.md.
+### [x] Scripted run passes against production twice in a row: one early payout, one refund
+`E2E_EARLY_RUNS=2 pnpm --filter @verdict/relay e2e -- --api https://verdict-phi-livid.vercel.app --mode early`
+(2026-11-15 02:01–02:15 UTC), live Gemini contracts picked by `/api/early/demo`, 3 recipients each:
+
+```
+--- early run 1 of 2 ---
+trigger market: ETH price on November 15 — $1,880 or above (NO at 97.0%, spread 0.03)
+refund market:  BTC price today at 9:05pm EST — Up (NO at 34.0%), closes 02:05 UTC
+PAID EARLY: _8iR830So7 settled early …/tx/0xd102eb55… (1196 min before trading closes)
+on-chain: 3 recipients received 0.1 USDC each; none sent a transaction
+evidence: 2 signer records recompute; evidenceRoot 0x1a70ec7b2f04… matches the payout memo; signers 0x5342D1, 0x75E233
+REFUNDED: VgIyQpo305 settled close …/tx/0xa9cef521…
+on-chain: refund-run recipients got nothing; the funder got 0.3 USDC back
+--- early run 2 of 2 ---
+trigger market: Baylor vs BYU: Point Spread — BYU wins by more than 6.5 points (YES at 96.0%, spread 0.02)
+refund market:  BTC price today at 9:15pm EST — Up (NO at 15.0%), closes 02:15 UTC
+PAID EARLY: 075q0y7RQ- settled early …/tx/0x22547eaf… (1312 min before trading closes)
+on-chain: 3 recipients received 0.1 USDC each; none sent a transaction
+evidence: 2 signer records recompute; evidenceRoot 0xd7bdf16d851b… matches the payout memo; signers 0x75E233, 0x5342D1
+REFUNDED: AxhE4N4yFz settled close …/tx/0xedf264fe…
+on-chain: refund-run recipients got nothing; the funder got 0.3 USDC back
+E2E PASSED
+```
+Pages: /e/_8iR830So7, /e/075q0y7RQ- (paid early), /e/VgIyQpo305, /e/AxhE4N4yFz (refunded).
+Earlier attempts and what they fixed: a thin book flipping one-sided (finder now watches books
+over WebSocket), the demo template following the market horizon (demo rule now forced), the app
+sampler's short bursts (now 270 s bursts from the Streams webhook).
 
 ### [ ] A new user completes the recipient flow on a phone without help
 Not yet (needs the early-payout recipient flow, BACKLOG #12, and a human test).
@@ -61,7 +82,13 @@ coarse timestamps).
 
 ## Sponsor fit
 
-### [ ] Gemini: the trigger uses live Gemini market data; the proof page shows contract and samples
+### [x] Gemini: the trigger uses live Gemini market data; the proof page shows contract and samples
+Samplers read `wss://ws.gemini.com` `{symbol}@depth5` (local, GitHub Actions) or
+`https://api.gemini.com/v1/book/{symbol}` (Vercel bursts); market status from
+`/v1/prediction-markets/events/{ticker}`. Proof pages of the e2e payouts show the instrument
+symbol, side, every sample of each sampler (time, bid, ask, sizes, status), recomputed in the
+browser: /e/_8iR830So7/proof, /e/075q0y7RQ-/proof.
+
 ### [ ] Arc: USDC gas, signature-only funding, batched payout, measured confirmation times visible and documented
 ### [ ] QuickNode: the live view shows events delivered by Streams, and the stream is running
 2026-11-15 `GET /api/streams`: configured, 4 blocks behind head, 22 batches in the last 5 minutes,
@@ -90,5 +117,8 @@ deployment (QUICKNODE_STREAMS_TOKEN)", the variable's name, not its value.
 
 ## Submission
 
-### [ ] Demo script for a three-minute video
-### [ ] Devpost project description draft
+### [x] Demo script for a three-minute video
+[docs/demo-script.md](demo-script.md): timed shot list and narration, with a fallback.
+
+### [x] Devpost project description draft
+[docs/devpost.md](devpost.md).
