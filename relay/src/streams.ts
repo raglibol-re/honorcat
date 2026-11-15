@@ -66,7 +66,7 @@ type BatchRow = {
 
 export async function streamsOverview(db: Db, opts: { since?: number } = {}) {
   const cfg = getConfig();
-  const [head, batches, stats, sources, recent] = await Promise.all([
+  const [head, batches, lastRows, stats, sources, recent] = await Promise.all([
     publicClient()
       .getBlock({ blockTag: "latest" })
       .then((b) => ({ number: b.number.toString(), timestamp: Number(b.timestamp) }))
@@ -76,6 +76,11 @@ export async function streamsOverview(db: Db, opts: { since?: number } = {}) {
          latency_ms, bytes, gzip, logs, inserted, events
        FROM stream_batches b WHERE b.id > $1 ORDER BY b.id DESC LIMIT 60`,
       [opts.since ?? 0],
+    ),
+    // The newest delivery regardless of `since`: polling clients ask only for newer batches, and
+    // an empty page between deliveries must not read as "never delivered".
+    db.query<{ received_at: string; batch_end: string | null }>(
+      "SELECT received_at, batch_end::text AS batch_end FROM stream_batches ORDER BY id DESC LIMIT 1",
     ),
     db.query<{ n: string; blocks: string | null; avg: string | null; p50: string | null; p95: string | null; logs: string | null; bytes: string | null }>(
       `SELECT count(*)::text AS n,
@@ -94,7 +99,7 @@ export async function streamsOverview(db: Db, opts: { since?: number } = {}) {
     ),
   ]);
   const s = stats[0];
-  const last = batches[0];
+  const last = lastRows[0];
   return {
     configured: Boolean(cfg.streamsToken),
     primary: cfg.indexerPrimary,

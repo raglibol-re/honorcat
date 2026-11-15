@@ -820,7 +820,7 @@ async function waitEarly(id: string, until: number, done: (d: EarlyDetailRespons
  */
 async function runEarly() {
   log("=== early payouts: one trigger, one refund, 3 recipients each ===");
-  const demo = await api<{ trigger: DemoCandidate[]; refund: DemoCandidate[] }>("/api/early/demo");
+  const demo = await api<{ trigger: DemoCandidate[]; refund: DemoCandidate[] }>("/api/early/demo?fresh=1");
   const t = demo.trigger[0];
   const r = demo.refund[0];
   if (!t) throw new Error("no live Gemini contract meets the demo trigger rules right now");

@@ -22,7 +22,7 @@ export const RAIL_LABELS: Record<RailStep["key"], string> = {
 
 // Chips must fit a fifth of a 420 px card: 8 characters of hash, block without separators.
 const shortHash = (h: string) => `${h.slice(2, 6)}…${h.slice(-3)}`;
-const clock = (t: number) => new Date(t * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+const clock = (t: number) => new Date(t * 1000).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 
 /**
  * Five-step rail from money locked to money paid. Completed steps show where it happened on Arc

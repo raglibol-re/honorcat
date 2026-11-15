@@ -200,7 +200,7 @@ export function CustomerView() {
                 </>
               )}
               <p className="t-13" style={{ color: "var(--vg-muted)" }}>
-                Enrolment closes {new Date(g.lockTime * 1000).toLocaleString([], { weekday: "short", hour: "2-digit", minute: "2-digit" })}.{" "}
+                Enrolment closes {new Date(g.lockTime * 1000).toLocaleString("en-US", { weekday: "short", hour: "2-digit", minute: "2-digit" })}.{" "}
                 {g.maxCustomers - d.customers.length} of {g.maxCustomers} places left.
               </p>
             </>

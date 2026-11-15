@@ -85,6 +85,9 @@ function useStreamFeed() {
   return { overview, arrivals, fetchedAt, error };
 }
 
+const fmtAge = (ms: number | null) =>
+  ms === null ? "—" : ms < 60_000 ? `${Math.round(ms / 1000)} s` : ms < 3_600_000 ? `${Math.round(ms / 60_000)} min` : `${Math.round(ms / 3_600_000)} h`;
+
 const fmtMs = (ms: number | null | undefined) => (ms === null || ms === undefined ? "—" : ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`);
 
 const STAGES = [
@@ -129,13 +132,12 @@ export function LiveView() {
     <div className="space-y-6">
       {!o.configured && (
         <p className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          QuickNode Streams is not configured on this deployment (QUICKNODE_STREAMS_TOKEN). The relay falls back to RPC polling.
+          Push delivery is off on this deployment. Chain events are read directly from Arc instead.
         </p>
       )}
       {o.configured && !o.lastBatch && (
         <p className="rounded-md border border-border bg-surface px-4 py-3 text-sm text-muted">
-          Waiting for the first delivery from QuickNode. If the stream was paused after failed deliveries, resume it in the
-          QuickNode dashboard.
+          Waiting for the next delivery from QuickNode.
         </p>
       )}
 
@@ -145,7 +147,7 @@ export function LiveView() {
         right={
           <span className={`flex items-center gap-2 text-xs ${healthy ? "text-positive" : "text-muted"}`}>
             <span className={`h-2 w-2 rounded-full ${healthy ? "animate-pulse bg-positive" : "bg-border"}`} />
-            {healthy ? `streaming · last delivery ${fmtMs(lastAge)} ago` : o.lastBatch ? `idle · last delivery ${fmtMs(lastAge)} ago` : "no deliveries yet"}
+            {healthy ? `streaming · last delivery ${fmtMs(lastAge)} ago` : o.lastBatch ? `last delivery ${fmtAge(lastAge)} ago` : "waiting for the next delivery"}
           </span>
         }
       >

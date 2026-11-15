@@ -107,7 +107,7 @@ export function GuaranteeCard({
                 {now ? countdown(settleMs - now) : "—"}
               </dd>
               <dd className="t-13" style={{ color: "var(--vg-muted)" }} suppressHydrationWarning>
-                {now ? new Date(settleMs).toLocaleString([], { weekday: "short", hour: "2-digit", minute: "2-digit" }) : ""}
+                {now ? new Date(settleMs).toLocaleString("en-US", { weekday: "short", hour: "2-digit", minute: "2-digit" }) : ""}
               </dd>
             </div>
           </dl>

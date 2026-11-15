@@ -16,9 +16,22 @@ export function parseUsdc(input: string): bigint {
 
 export const short = (a: string, n = 4) => (a.length > 2 + n * 2 ? `${a.slice(0, 2 + n)}…${a.slice(-n)}` : a);
 
+/** The page language (<html lang="en">). Dates follow it, not the browser locale. */
+export const PAGE_LOCALE = "en-US";
+
+/** "Nov 15, 3:02 PM" (ms). */
+export const formatDate = (ms: number) => new Date(ms).toLocaleString(PAGE_LOCALE, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+/** "3:02:15 PM" (ms). */
+export const formatClock = (ms: number) => new Date(ms).toLocaleTimeString(PAGE_LOCALE, { hour: "numeric", minute: "2-digit", second: "2-digit" });
+/** Axis label: "3:02 PM", or "Nov 15" when the span is several days (ms). */
+export const formatAxis = (ms: number, spanMs: number) =>
+  spanMs > 2 * 86_400_000
+    ? new Date(ms).toLocaleDateString(PAGE_LOCALE, { month: "short", day: "numeric" })
+    : new Date(ms).toLocaleTimeString(PAGE_LOCALE, spanMs < 600_000 ? { hour: "numeric", minute: "2-digit", second: "2-digit" } : { hour: "numeric", minute: "2-digit" });
+
 export function formatTime(unix: number | null): string {
   if (!unix) return "—";
-  return new Date(unix * 1000).toLocaleString("en-GB", {
+  return new Date(unix * 1000).toLocaleString(PAGE_LOCALE, {
     day: "2-digit",
     month: "short",
     hour: "2-digit",

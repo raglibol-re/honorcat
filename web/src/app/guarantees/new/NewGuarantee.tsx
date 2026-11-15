@@ -5,6 +5,7 @@ import QRCode from "qrcode";
 import type { Hex, TypedDataDefinition } from "viem";
 import { getJson, usePolling } from "@/lib/api";
 import { useWallet } from "@/lib/wallet/context";
+import { formatClock } from "@/lib/format";
 import { MarketPicker } from "@/components/guarantee/MarketPicker";
 
 type Template = "rate" | "temperature" | "price" | "demo";
@@ -220,7 +221,7 @@ export function NewGuarantee() {
         <section className="vg-ticket px-5 py-4" aria-live="polite">
           <h2 className="t-17 font-medium">Pricing</h2>
           <p className="t-13" style={{ color: "var(--vg-muted)" }}>
-            Live from Gemini{data ? `, updated ${new Date(data.fetchedAt).toLocaleTimeString()}` : ""}. Estimates, not quotes.
+            Live from Gemini{data ? `, updated ${formatClock(new Date(data.fetchedAt).getTime())}` : ""}. Estimates, not quotes.
           </p>
           <dl className="mt-4 space-y-3">
             <div className="flex items-baseline justify-between gap-3">

@@ -32,7 +32,7 @@ function settlesIn(expiry: string, now: number) {
 }
 
 const settlesAt = (expiry: string) =>
-  new Date(expiry).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  new Date(expiry).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 
 const traded = (v: number | null) =>
   v === null || v <= 0 ? null : `$${v >= 1000 ? `${(v / 1000).toLocaleString("en-US", { maximumFractionDigits: 1 })}k` : Math.round(v)} traded`;

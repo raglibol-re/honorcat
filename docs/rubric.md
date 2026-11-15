@@ -37,6 +37,20 @@ name, a screenshot path or a command output. No evidence, not done.
       case.
 - [ ] No secrets in the repository or the browser bundle.
 
+## Second browser review (2026-11-15)
+- [ ] /live shows QuickNode Streams deliveries, confirmed by a real
+      delivery; visitors see a neutral status, the operator hint about
+      resuming the stream is on /status.
+- [ ] The landing page shows a current market with real data or a
+      labelled replay (chart, current value, no stale date) and the
+      three "How it works" steps.
+- [ ] Quick demo offers two labelled choices: an instant one and one
+      just below the threshold, so the crossing can be watched.
+- [ ] Quick demo picks a market without a 10 to 15 second wait: the
+      candidates are precomputed on the server.
+- [ ] The price chart has a readable size, axes and the threshold line;
+      dates are formatted in the page language, not the browser locale.
+
 ## Submission
 - [ ] A written demo script for a three-minute video.
 - [ ] A project description draft for Devpost.

@@ -1,3 +1,5 @@
+import { after } from "next/server";
+import { refreshDemo } from "@/server/early";
 import {
   blockTimeFromRpc,
   decodeBody,
@@ -66,5 +68,9 @@ export async function POST(req: Request) {
   }).catch((err) => console.error("[streams] could not record batch", err));
 
   nudgeRelay("streams", { samplerBudgetMs: 270_000 });
+  // Keep the quick-demo candidates fresh so the demo button answers at once.
+  after(async () => {
+    await refreshDemo(await getDb()).catch((e) => console.error("[demo] refresh", e));
+  });
   return Response.json({ status: "received", ...result });
 }

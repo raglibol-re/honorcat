@@ -8,7 +8,7 @@ import { useEarly } from "../EarlyView";
 
 type Check = { signer: string; ok: boolean; message: string; record: EvidenceRecord | null; hash: string | null };
 
-const clock = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+const clock = (ms: number) => new Date(ms).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
 /**
  * Everything a visitor needs to check an early payout without trusting HonorCat: the Gemini

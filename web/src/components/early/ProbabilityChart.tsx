@@ -1,5 +1,7 @@
 "use client";
 
+import { formatAxis } from "@/lib/format";
+
 type Pt = { t: number; mid: number | null; status: number; signer: string };
 
 /**
@@ -14,7 +16,9 @@ export function ProbabilityChart({
   windowMs,
   armedAt,
   triggeredAt,
-  height = 180,
+  height = 240,
+  domain,
+  range,
 }: {
   samples: Pt[];
   threshold: number; // 0..1
@@ -22,10 +26,16 @@ export function ProbabilityChart({
   armedAt: number; // ms
   triggeredAt?: number | null;
   height?: number;
+  /** Fixed time range (ms), e.g. for a replay that reveals samples over time. */
+  domain?: [number, number];
+  /** Fixed probability range (0..1) for the y axis. */
+  range?: [number, number];
 }) {
-  const W = 640;
+  // A narrow viewBox keeps the labels readable when scaled down to a phone.
+  const W = 480;
   const H = height;
-  const pad = { l: 56, r: 8, t: 14, b: 28 };
+  const pad = { l: 50, r: 10, t: 14, b: 34 };
+  const FS = 17;
   const valid = samples.filter((s) => s.status === 0 && s.mid !== null);
   if (samples.length < 2) {
     return (
@@ -34,11 +44,11 @@ export function ProbabilityChart({
       </div>
     );
   }
-  const t0 = Math.min(...samples.map((s) => s.t));
-  const t1 = Math.max(...samples.map((s) => s.t), t0 + 1);
+  const t0 = domain?.[0] ?? Math.min(...samples.map((s) => s.t));
+  const t1 = domain?.[1] ?? Math.max(...samples.map((s) => s.t), t0 + 1);
   const mids = valid.map((s) => s.mid!);
-  const lo = Math.max(0, Math.min(threshold - 0.1, ...mids) - 0.02);
-  const hi = Math.min(1, Math.max(threshold + 0.05, ...mids) + 0.02);
+  const lo = range?.[0] ?? Math.max(0, Math.min(threshold - 0.1, ...mids) - 0.02);
+  const hi = range?.[1] ?? Math.min(1, Math.max(threshold + 0.05, ...mids) + 0.02);
   const x = (t: number) => pad.l + ((t - t0) / Math.max(1, t1 - t0)) * (W - pad.l - pad.r);
   const y = (p: number) => pad.t + (1 - (p - lo) / Math.max(0.0001, hi - lo)) * (H - pad.t - pad.b);
 
@@ -76,20 +86,31 @@ export function ProbabilityChart({
     if (w > 0) smooth += `${smooth ? "L" : "M"}${x(end).toFixed(1)},${y(acc / w).toFixed(1)}`;
   }
 
-  const ticks = [lo, threshold, hi].map((p) => Math.round(p * 100));
+  const ticks = [...new Set([lo, hi].map((p) => Math.round(p * 100)))].filter((p) => Math.abs(p - threshold * 100) >= 3);
+  const xTicks = [t0, (t0 + t1) / 2, t1];
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={`Probability chart, threshold ${Math.round(threshold * 100)}%`}>
+      <line x1={pad.l} x2={pad.l} y1={pad.t} y2={H - pad.b} stroke="var(--vg-rule)" strokeWidth="1" />
+      <line x1={pad.l} x2={W - pad.r} y1={H - pad.b} y2={H - pad.b} stroke="var(--vg-rule)" strokeWidth="1" />
       {ticks.map((p) => (
-        <text key={p} x={pad.l - 8} y={y(p / 100) + 6} textAnchor="end" fontSize="20" fill="var(--vg-muted)">
+        <text key={p} x={pad.l - 6} y={y(p / 100) + 6} textAnchor="end" fontSize={FS} fill="var(--vg-muted)">
           {p}%
         </text>
       ))}
-      <line x1={pad.l} x2={W - pad.r} y1={y(threshold)} y2={y(threshold)} stroke="var(--vg-ink)" strokeDasharray="4 4" strokeWidth="1" opacity="0.7" />
+      {xTicks.map((t, i) => (
+        <text key={i} x={x(t)} y={H - 10} textAnchor={i === 0 ? "start" : i === 2 ? "end" : "middle"} fontSize={FS} fill="var(--vg-muted)">
+          {formatAxis(t, t1 - t0)}
+        </text>
+      ))}
+      <line x1={pad.l} x2={W - pad.r} y1={y(threshold)} y2={y(threshold)} stroke="var(--vg-ink)" strokeDasharray="5 4" strokeWidth="1.2" opacity="0.8" />
+      <text x={pad.l - 6} y={y(threshold) + 6} textAnchor="end" fontSize={FS} fontWeight="600" fill="var(--vg-ink)">
+        {Math.round(threshold * 100)}%
+      </text>
       {armedAt > t0 && armedAt < t1 && (
         <g>
           <line x1={x(armedAt)} x2={x(armedAt)} y1={pad.t} y2={H - pad.b} stroke="var(--vg-rule)" strokeWidth="1" />
-          <text x={x(armedAt) + 6} y={H - 6} fontSize="20" fill="var(--vg-muted)">
-            armed
+          <text x={x(armedAt) + 5} y={pad.t + FS} fontSize={FS} fill="var(--vg-muted)">
+            watching
           </text>
         </g>
       )}

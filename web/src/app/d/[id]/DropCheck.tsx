@@ -12,7 +12,7 @@ import { savedPasskey } from "@/lib/passkey";
 type ProofEntry = { index: number; amount: string; proof: string[]; claimedTx: string | null; deferred: boolean; claimedOnChain: boolean | null };
 type ProofRes = { drop: { dropId: string | null; root: string; version: number; book: string | null }; included: boolean; total: string; entries: ProofEntry[] };
 
-const when = (t: number) => new Date(t * 1000).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+const when = (t: number) => new Date(t * 1000).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
 
 function stateLine(d: DropDto) {
   if (d.potStatus === "resolved") return d.outcome ? "It happened. Payouts are being sent." : "It did not happen. No payouts this time.";

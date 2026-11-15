@@ -1,11 +1,12 @@
 "use client";
 
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import QRCode from "qrcode";
 import type { TypedDataDefinition } from "viem";
 import { MarketPicker, type PickerMarket } from "@/components/guarantee/MarketPicker";
 import { getJson, usePolling } from "@/lib/api";
+import { formatAxis } from "@/lib/format";
 import { useWallet } from "@/lib/wallet/context";
 
 type Contract = { ticker: string; label: string; chanceYes: number | null; instrument: string | null };
@@ -25,24 +26,49 @@ type Prepared = {
 const post = <T,>(path: string, body: unknown) => getJson<T>(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
 const pct = (x: number | null) => (x === null ? "—" : `${Math.round(x * 100)}%`);
 
-/** Recent trade prices as a small line, labelled as such (no bid/ask history exists). */
-function TradeChart({ symbol, side }: { symbol: string | null; side: "yes" | "no" }) {
+/** Recent trade prices with axes and the threshold, labelled as such (no bid/ask history exists). */
+function TradeChart({ symbol, side, threshold }: { symbol: string | null; side: "yes" | "no"; threshold: number }) {
   const { data } = usePolling<{ points: { t: number; price: number }[] }>(symbol ? `/api/early/history?symbol=${symbol}&tf=5m` : null, 60_000);
   const pts = (data?.points ?? []).map((p) => ({ t: p.t, v: side === "yes" ? p.price : 1 - p.price }));
-  if (symbol && !data) return <div className="h-16 animate-pulse rounded-lg" style={{ background: "var(--vg-rule)", opacity: 0.3 }} aria-hidden />;
+  if (symbol && !data) return <div className="h-[200px] animate-pulse rounded-lg" style={{ background: "var(--vg-rule)", opacity: 0.3 }} aria-hidden />;
   if (!symbol || pts.length < 2) return null;
-  const W = 300;
-  const H = 60;
+  const W = 480;
+  const H = 220;
+  const pad = { l: 50, r: 10, t: 12, b: 34 };
+  const FS = 17;
   const t0 = pts[0]!.t;
-  const t1 = pts.at(-1)!.t;
-  const d = pts.map((p, i) => `${i ? "L" : "M"}${(((p.t - t0) / Math.max(1, t1 - t0)) * W).toFixed(1)},${((1 - p.v) * H).toFixed(1)}`).join("");
+  const t1 = Math.max(pts.at(-1)!.t, t0 + 1);
+  const vs = pts.map((p) => p.v);
+  const lo = Math.max(0, Math.min(threshold - 0.1, ...vs) - 0.03);
+  const hi = Math.min(1, Math.max(threshold + 0.05, ...vs) + 0.03);
+  const x = (t: number) => pad.l + ((t - t0) / (t1 - t0)) * (W - pad.l - pad.r);
+  const y = (v: number) => pad.t + (1 - (v - lo) / Math.max(0.0001, hi - lo)) * (H - pad.t - pad.b);
+  const d = pts.map((p, i) => `${i ? "L" : "M"}${x(p.t).toFixed(1)},${y(p.v).toFixed(1)}`).join("");
+  const yTicks = [...new Set([lo, hi].map((v) => Math.round(v * 100)))].filter((v) => Math.abs(v - threshold * 100) >= 3);
+  const xTicks = [t0, (t0 + t1) / 2, t1];
   return (
     <figure>
-      <svg viewBox={`0 0 ${W} ${H}`} className="h-16 w-full" role="img" aria-label="Recent trade prices">
-        <path d={d} fill="none" stroke="var(--vg-muted)" strokeWidth="1.5" />
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={`Recent trade prices, threshold ${Math.round(threshold * 100)}%`}>
+        <line x1={pad.l} x2={pad.l} y1={pad.t} y2={H - pad.b} stroke="var(--vg-rule)" />
+        <line x1={pad.l} x2={W - pad.r} y1={H - pad.b} y2={H - pad.b} stroke="var(--vg-rule)" />
+        {yTicks.map((v) => (
+          <text key={v} x={pad.l - 6} y={y(v / 100) + 6} textAnchor="end" fontSize={FS} fill="var(--vg-muted)">
+            {v}%
+          </text>
+        ))}
+        {xTicks.map((t, i) => (
+          <text key={i} x={x(t)} y={H - 10} textAnchor={i === 0 ? "start" : i === 2 ? "end" : "middle"} fontSize={FS} fill="var(--vg-muted)">
+            {formatAxis(t, t1 - t0)}
+          </text>
+        ))}
+        <line x1={pad.l} x2={W - pad.r} y1={y(threshold)} y2={y(threshold)} stroke="var(--vg-ink)" strokeDasharray="5 4" strokeWidth="1.2" opacity="0.8" />
+        <text x={pad.l - 6} y={y(threshold) + 6} textAnchor="end" fontSize={FS} fontWeight="600" fill="var(--vg-ink)">
+          {Math.round(threshold * 100)}%
+        </text>
+        <path d={d} fill="none" stroke="var(--vg-accent)" strokeWidth="2.5" />
       </svg>
       <figcaption className="t-13" style={{ color: "var(--vg-muted)" }}>
-        Recent trade prices
+        Recent trade prices. Dashed: your {Math.round(threshold * 100)}% line.
       </figcaption>
     </figure>
   );
@@ -63,17 +89,23 @@ export function NewEarly() {
   const [joinMin, setJoinMin] = useState(2);
   const [demoNote, setDemoNote] = useState<string | null>(null);
   const [demo, setDemo] = useState(false);
+  const pendingDemo = useRef<Demo | null>(null);
 
   const market = markets?.find((m) => m.ticker === picked?.ticker) ?? null;
   const contract = market ? (market.contracts[picked?.idx ?? 0] ?? null) : null;
   const chance = contract?.chanceYes == null ? null : side === "yes" ? contract.chanceYes : 1 - contract.chanceYes;
 
-  async function useDemo() {
+  async function pickDemo(kind: "trigger" | "watch") {
     setDemoNote("Finding one…");
     try {
-      const d = await getJson<{ trigger: Demo[] }>("/api/early/demo");
-      const c = d.trigger[0];
-      if (!c) throw new Error("None right now. Pick an event below or try again in a minute.");
+      const d = await getJson<{ trigger: Demo[]; watch?: Demo[] }>("/api/early/demo");
+      const c = (kind === "watch" ? d.watch : d.trigger)?.[0];
+      if (!c)
+        throw new Error(
+          kind === "watch"
+            ? "No market is just below 85% right now. Try the instant demo or pick an event below."
+            : "None right now. Pick an event below or try again in a minute.",
+        );
       const cat = c.category || (await findCategory(c.eventTicker));
       setCategory(cat);
       setInclude(c.eventTicker);
@@ -82,12 +114,12 @@ export function NewEarly() {
       setSide(c.side);
       setThreshold(85);
       setMode("early-only");
-      setJoinMin(1);
+      setJoinMin(kind === "watch" ? 2 : 1);
       setCount(3);
       setAmount("0.10");
       if (!name) setName("Demo");
-      setDemoNote(`Picked: ${c.title}. Now press the button.`);
-      pendingDemo = c;
+      setDemoNote(`Picked: ${c.title}, at ${Math.round(c.chance * 100)}% now. Add your name and press the button.`);
+      pendingDemo.current = c;
     } catch (e) {
       setDemoNote(e instanceof Error ? e.message : String(e));
     }
@@ -95,13 +127,13 @@ export function NewEarly() {
 
   // Resolve the demo's contract index once the category's markets have loaded.
   useEffect(() => {
-    if (!markets || !pendingDemo || picked?.idx !== -1) return;
-    const m = markets.find((x) => x.ticker === pendingDemo!.eventTicker);
-    const idx = m?.contracts.findIndex((c) => c.ticker === pendingDemo!.contractTicker) ?? -1;
+    if (!markets || !pendingDemo.current || picked?.idx !== -1) return;
+    const m = markets.find((x) => x.ticker === pendingDemo.current!.eventTicker);
+    const idx = m?.contracts.findIndex((c) => c.ticker === pendingDemo.current!.contractTicker) ?? -1;
     if (m && idx >= 0) {
       const ticker = m.ticker;
       Promise.resolve().then(() => setPicked({ ticker, idx }));
-      pendingDemo = null;
+      pendingDemo.current = null;
     }
   }, [markets, picked]);
 
@@ -109,9 +141,28 @@ export function NewEarly() {
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
       <div className="min-w-0 space-y-7">
         <section className="space-y-2">
-          <button type="button" onClick={useDemo} className="t-15 rounded-xl px-4 py-2.5 font-medium" style={{ background: "var(--vg-accent)", color: "var(--vg-card)" }}>
-            Quick demo: pick an event for me
-          </button>
+          <h2 className="t-17 font-medium">Quick demo</h2>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {(
+              [
+                ["trigger", "Instant", "Already above 85%. Pays about a minute after joining closes."],
+                ["watch", "Watch it cross", "Just below 85% now. Pays only if it rises; otherwise the money comes back."],
+              ] as const
+            ).map(([kind, title, sub]) => (
+              <button
+                key={kind}
+                type="button"
+                onClick={() => pickDemo(kind)}
+                className="rounded-xl border px-4 py-3 text-left"
+                style={kind === "trigger" ? { background: "var(--vg-accent)", color: "var(--vg-card)", borderColor: "var(--vg-accent)" } : { borderColor: "var(--vg-accent)" }}
+              >
+                <span className="t-15 block font-medium">{title}</span>
+                <span className="t-13 block" style={{ opacity: 0.85 }}>
+                  {sub}
+                </span>
+              </button>
+            ))}
+          </div>
           {demoNote && <p className="t-13">{demoNote}</p>}
         </section>
 
@@ -174,7 +225,7 @@ export function NewEarly() {
                 Now {pct(chance)}
               </span>
             </label>
-            <TradeChart symbol={contract.instrument} side={side} />
+            <TradeChart symbol={contract.instrument} side={side} threshold={threshold / 100} />
             <details>
               <summary className="t-15 cursor-pointer" style={{ color: "var(--vg-muted)" }}>More options</summary>
             <fieldset className="mt-3">
@@ -232,7 +283,6 @@ export function NewEarly() {
   );
 }
 
-let pendingDemo: Demo | null = null;
 
 async function findCategory(eventTicker: string): Promise<string> {
   for (const c of ["Crypto", "Weather", "Economics", "Commodities", "Sports", "Politics", "Culture"]) {

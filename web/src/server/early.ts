@@ -1,7 +1,7 @@
 import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { getAddress, type Address } from "viem";
-import { getConfig, trigger, type EarlyTerms } from "@verdict/relay";
+import { getConfig, getState, trigger, type Db, type EarlyTerms } from "@verdict/relay";
 import { getEvent, impliedChance, listActiveEvents, type GeminiEvent } from "./gemini";
 
 /**
@@ -178,7 +178,9 @@ async function observeBooks(symbols: string[], ms: number): Promise<Map<string, 
  * plus one window. Also returns the soonest-closing contract that will clearly NOT cross (for a
  * demo of the refund at trading close). Reads only public Gemini data.
  */
-export async function demoCandidates(thresholdBps = 8500): Promise<{ trigger: DemoCandidate[]; refund: DemoCandidate[] }> {
+export type DemoCandidates = { trigger: DemoCandidate[]; watch: DemoCandidate[]; refund: DemoCandidate[] };
+
+export async function demoCandidates(thresholdBps = 8500): Promise<DemoCandidates> {
   const p = trigger.paramsFor("demo");
   const thr = thresholdBps / 10_000;
   const now = Date.now();
@@ -241,9 +243,14 @@ export async function demoCandidates(thresholdBps = 8500): Promise<{ trigger: De
     .filter((r) => r.chance >= thr + 0.03 && r.estSpread <= maxSpread + 1e-9)
     .sort((a, b) => a.closesAt.localeCompare(b.closesAt))
     .slice(0, 12);
-  const seen = await observeBooks(trig.map((r) => r.instrument), 12_000);
-  const trigger_ = trig
-    .map((r): DemoCandidate & { validRate: number; observedChance: number | null } => {
+  // Watch demo: a healthy book a little below the threshold, so people can watch it cross (or not).
+  const near = rows
+    .flatMap((r) => [r, { ...r, side: (r.side === "yes" ? "no" : "yes") as "yes" | "no", chance: 1 - r.chance }])
+    .filter((r) => r.chance >= thr - 0.08 && r.chance < thr - 0.005 && r.estSpread <= maxSpread + 1e-9)
+    .sort((a, b) => b.chance - a.chance)
+    .slice(0, 10);
+  const seen = await observeBooks([...new Set([...trig, ...near].map((r) => r.instrument))], 12_000);
+  const observe = (r: Row): DemoCandidate & { validRate: number; observedChance: number | null } => {
       const snaps = seen.get(r.instrument.toLowerCase()) ?? [];
       const good = snaps.filter((b) => b.bid > 0 && b.ask > 0 && b.ask - b.bid <= maxSpread + 1e-9 && b.bidSize >= minSize && b.askSize >= minSize);
       const mids = good.map((b) => (r.side === "yes" ? (b.bid + b.ask) / 2 : 1 - (b.bid + b.ask) / 2));
@@ -257,10 +264,12 @@ export async function demoCandidates(thresholdBps = 8500): Promise<{ trigger: De
         askSize: Number.isFinite(worst.askSize) ? worst.askSize : 0,
         validRate,
         observedChance,
-        meetsRules: validRate >= 0.9 && observedChance !== null && observedChance >= thr + 0.02,
+        meetsRules: validRate >= 0.9 && observedChance !== null,
       };
-    })
-    .filter((c) => c.meetsRules)
+    };
+  const trigger_ = trig
+    .map(observe)
+    .filter((c) => c.meetsRules && c.observedChance !== null && c.observedChance >= thr + 0.02)
     .sort((a, b) => b.validRate - a.validRate || Math.min(b.bidSize, b.askSize) - Math.min(a.bidSize, a.askSize) || a.closesAt.localeCompare(b.closesAt));
   // Refund demo: closes soonest, far below the threshold on its side.
   const ref = rows
@@ -270,5 +279,52 @@ export async function demoCandidates(thresholdBps = 8500): Promise<{ trigger: De
     .sort((a, b) => Number(b.chance <= 0.15) - Number(a.chance <= 0.15) || a.closesAt.localeCompare(b.closesAt))
     .slice(0, 3);
   const refund = await Promise.all(ref.map((r) => check(r, 1)));
-  return { trigger: trigger_, refund };
+  const watch = near
+    .map(observe)
+    .filter((c) => c.meetsRules && c.observedChance !== null && c.observedChance < thr && c.observedChance >= thr - 0.08)
+    .map((c) => ({ ...c, chance: c.observedChance ?? c.chance }))
+    .sort((a, b) => b.chance - a.chance);
+  return { trigger: trigger_, watch, refund };
+}
+
+// Precomputed candidates: finding one watches order books for ~12 s, so the Streams webhook keeps a
+// fresh result in relay_state and the demo button reads it at once.
+const DEMO_KEY = "demo_candidates";
+const DEMO_LEASE = "demo_candidates_lease";
+export const DEMO_REFRESH_MS = 90_000;
+export const DEMO_MAX_AGE_MS = 5 * 60_000;
+
+export async function cachedDemo(db: Db): Promise<(DemoCandidates & { at: number }) | null> {
+  const v = await getState(db, DEMO_KEY);
+  if (!v) return null;
+  try {
+    return JSON.parse(v) as DemoCandidates & { at: number };
+  } catch {
+    return null;
+  }
+}
+
+/** Recomputes the candidates when the cached ones are older than DEMO_REFRESH_MS; one refresh at a time. */
+export async function refreshDemo(db: Db, opts: { force?: boolean } = {}): Promise<(DemoCandidates & { at: number }) | null> {
+  const now = Date.now();
+  if (!opts.force) {
+    const c = await cachedDemo(db);
+    if (c && now - c.at < DEMO_REFRESH_MS) return c;
+  }
+  const lease = await db.query(
+    `INSERT INTO relay_state (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+     WHERE relay_state.value::bigint < $3 RETURNING key`,
+    [DEMO_LEASE, String(now), String(now - 60_000)],
+  );
+  if (!lease.length) return cachedDemo(db);
+  const fresh = { ...(await demoCandidates()), at: Date.now() };
+  // Keep the last good result when Gemini returns nothing usable for a moment.
+  const prev = await cachedDemo(db);
+  const merged = fresh.trigger.length || fresh.watch.length || !prev || Date.now() - prev.at > DEMO_MAX_AGE_MS ? fresh : { ...prev };
+  await db.query(
+    "INSERT INTO relay_state (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
+    [DEMO_KEY, JSON.stringify(merged)],
+  );
+  await db.query("UPDATE relay_state SET value = '0' WHERE key = $1", [DEMO_LEASE]);
+  return merged;
 }

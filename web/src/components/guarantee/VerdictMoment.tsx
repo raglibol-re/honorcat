@@ -25,7 +25,7 @@ export function VerdictMoment(p: Props) {
   const steps = [
     {
       title: "Result received",
-      detail: p.resultSeenAt ? new Date(p.resultSeenAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "from Gemini",
+      detail: p.resultSeenAt ? new Date(p.resultSeenAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "from Gemini",
     },
     {
       title: tech ? "Signature verified on Arc" : "Decision recorded",

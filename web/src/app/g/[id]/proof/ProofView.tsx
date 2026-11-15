@@ -6,7 +6,7 @@ import { SettlementRail } from "@/components/guarantee/SettlementRail";
 import { UnderTheHood } from "@/components/guarantee/UnderTheHood";
 import { usePolling } from "@/lib/api";
 import { addressUrl, txUrl } from "@/lib/chain";
-import { formatUsdc } from "@/lib/format";
+import { formatDate, formatUsdc } from "@/lib/format";
 import { cardState, railFor, type GuaranteeDetail } from "@/lib/guarantees";
 
 const EVENT_TEXT: Record<string, (a: Record<string, unknown>) => string> = {
@@ -133,7 +133,7 @@ export function ProofView() {
             <dt style={{ color: "var(--vg-muted)" }}>Refunds if</dt>
             <dd>it settles {g.side === "yes" ? "Yes" : "No"}</dd>
             <dt style={{ color: "var(--vg-muted)" }}>Settles</dt>
-            <dd>{new Date(g.settlesAt * 1000).toLocaleString()}</dd>
+            <dd>{formatDate(g.settlesAt * 1000)}</dd>
             <dt style={{ color: "var(--vg-muted)" }}>Chance</dt>
             <dd>
               {d.market?.status === "settled" ? (
@@ -162,7 +162,7 @@ export function ProofView() {
                 </a>
                 <span>
                   block <span className="mono">{t.block.toLocaleString("en-US")}</span>
-                  {t.time ? `, ${new Date(t.time * 1000).toLocaleString()}` : ""}
+                  {t.time ? `, ${formatDate(t.time * 1000)}` : ""}
                 </span>
               </div>
               <ul className="t-15 mt-2 space-y-1">

@@ -8,7 +8,7 @@ import { ProbabilityChart } from "@/components/early/ProbabilityChart";
 import { useTechMode } from "@/components/TechMode";
 import { getJson } from "@/lib/api";
 import { addressUrl, txUrl } from "@/lib/chain";
-import { formatMoney } from "@/lib/format";
+import { formatDate, formatMoney } from "@/lib/format";
 import { createPasskey, joinChallenge, passkeysSupported, savedPasskey, signChallenge, type PasskeySession } from "@/lib/passkey";
 
 type Params = { thresholdBps: number; windowMs: number; intervalMs: number; minValidSamples: number; maxSpreadUnits: number; minSizeUnits: number; maxStalenessMs: number; priceDecimals: number; sizeDecimals: number };
@@ -129,8 +129,8 @@ export function EarlyTerms({ e }: { e: EarlyDetail["early"] }) {
           A single price spike never pays. These numbers are fixed when the money is set aside and cannot change afterwards.
         </p>
         <p>
-          <strong>When.</strong> Joining is open until {new Date(e.lockTime * 1000).toLocaleString()}. From then until trading closes (
-          {new Date(e.tradingClose * 1000).toLocaleString()}) the market is watched.
+          <strong>When.</strong> Joining is open until {formatDate(e.lockTime * 1000)}. From then until trading closes (
+          {formatDate(e.tradingClose * 1000)}) the market is watched.
         </p>
         <p>
           <strong>If it never gets there.</strong>{" "}
