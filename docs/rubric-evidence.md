@@ -29,6 +29,11 @@ on-chain: refund-run recipients got nothing; the funder got 0.3 USDC back
 E2E PASSED
 ```
 Pages: /e/_8iR830So7, /e/075q0y7RQ- (paid early), /e/VgIyQpo305, /e/AxhE4N4yFz (refunded).
+
+Re-run on the final code (af9b58b, 2026-11-15 02:46-03:05 UTC), again twice in a row:
+run 1 paid early FbGSWDMdui (ZEC $800+, tx 0x5f8c4ff4…) and refunded V8_1nyc7oI at close (pot #208,
+0.3 USDC back to the funder); run 2 paid early OZarDwqbIS (BTC $62,000+, tx 0xa479c343…) and refunded
+Lb_qsZb0o_ at close (pot #210). Both evidence roots recompute and match the payout memos. `E2E PASSED`.
 Earlier attempts and what they fixed: a thin book flipping one-sided (finder now watches books
 over WebSocket), the demo template following the market horizon (demo rule now forced), the app
 sampler's short bursts (now 270 s bursts from the Streams webhook).
