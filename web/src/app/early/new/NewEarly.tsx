@@ -29,6 +29,7 @@ const pct = (x: number | null) => (x === null ? "—" : `${Math.round(x * 100)}%
 function TradeChart({ symbol, side }: { symbol: string | null; side: "yes" | "no" }) {
   const { data } = usePolling<{ points: { t: number; price: number }[] }>(symbol ? `/api/early/history?symbol=${symbol}&tf=5m` : null, 60_000);
   const pts = (data?.points ?? []).map((p) => ({ t: p.t, v: side === "yes" ? p.price : 1 - p.price }));
+  if (symbol && !data) return <p className="t-13" style={{ color: "var(--vg-muted)" }}>Loading recent prices…</p>;
   if (!symbol || pts.length < 2) return <p className="t-13" style={{ color: "var(--vg-muted)" }}>No recent trades to show.</p>;
   const W = 300;
   const H = 60;
