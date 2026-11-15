@@ -1,0 +1,60 @@
+# Rubric evidence
+
+One section per item of docs/rubric.md. An item is checked only with evidence here.
+Production: https://verdict-phi-livid.vercel.app
+
+## Works end to end
+
+### [ ] Scripted run passes against production twice in a row: one early payout, one refund
+Not yet: the early-payout e2e mode (BACKLOG #13) does not exist yet. Existing modes (classic,
+gasless, api, multisig, guarantees, passkey, drops) passed on production earlier; see README.
+
+### [ ] A new user completes the recipient flow on a phone without help
+Not yet (needs the early-payout recipient flow, BACKLOG #12, and a human test).
+
+### [ ] No console errors and no failed requests on any page
+Audit 2026-11-15 (puppeteer, desktop 1280 px and phone 390 px, 15 routes incl. two unknown ids):
+no console errors, no failed requests, no horizontal overflow on every existing page, except
+`/g/<unknown id>`, which logs two 404s (BACKLOG #1).
+
+### [ ] Every page handles loading, empty and error states
+Partly: see BACKLOG #8.
+
+## Clear in the first minute
+
+### [ ] Landing states what HonorCat does in one sentence and shows one live example
+### [ ] A first-time visitor can start the demo template in under 60 seconds (click path recorded)
+### [ ] No unexplained jargon outside "Under the hood"
+
+## Technical rigour
+
+### [ ] Full test suite green, including the trigger replay tests
+2026-11-15 locally: contracts 108 passed (`arc-forge test`), relay 68 passed + 1 skipped
+(`pnpm --filter @verdict/relay test`, includes `test/trigger.test.ts` with recorded Gemini feeds),
+SDK 4 passed, web `tsc --noEmit` and `eslint src` clean. Not yet in CI (BACKLOG #3).
+
+### [ ] Threat model document is current
+### [ ] Static analysis runs in CI with no unexplained findings
+### [ ] README explains setup, architecture and every Arc-specific choice
+
+## Sponsor fit
+
+### [ ] Gemini: the trigger uses live Gemini market data; the proof page shows contract and samples
+### [ ] Arc: USDC gas, signature-only funding, batched payout, measured confirmation times visible and documented
+### [ ] QuickNode: the live view shows events delivered by Streams, and the stream is running
+2026-11-15 `GET /api/streams`: configured, 4 blocks behind head, 22 batches in the last 5 minutes,
+p50 delivery latency 1,356 ms. The live view (`/live`) renders Streams batches.
+
+## Honest and safe
+
+### [ ] Testnet banner and "not insurance" note on every page
+Audit 2026-11-15: banner text ("Test version … Not insurance; no real hedge is placed.") present on
+all 15 routes at both widths (`banner=true` in the audit report).
+
+### [ ] Terms screen matches actual behaviour for every edge case
+### [ ] No secrets in the repository or the browser bundle
+
+## Submission
+
+### [ ] Demo script for a three-minute video
+### [ ] Devpost project description draft

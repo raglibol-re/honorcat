@@ -12,7 +12,7 @@
   (contracts 108, relay 68 + 1 skipped, SDK 4, web typecheck and lint).
 
 ## In progress
-- Rubric goal (docs/rubric.md, docs/improve.md), requested after M1.
+- Rubric goal (docs/rubric.md), working by docs/improve.md. Evidence in docs/rubric-evidence.md, candidates in BACKLOG.md.
 
 ## Next
 - M2 funder flow and live view, M3 recipient flow, evidence on the proof page, post-settlement record,
@@ -20,8 +20,7 @@
 - Then: phase I threat model and static analysis, minimal phase H, phase E only if time allows.
 
 ## Blocks current milestone
-- docs/rubric.md and docs/improve.md are empty (0 bytes, checked after the M1 commit). The rubric
-  goal needs their content: the rubric items and the working instructions.
+(none)
 
 ## Later
 - Samplers (needed for M2): three independent always-on workers on at least two providers, budget
@@ -36,4 +35,3 @@
     contracts at the best price. M4 needs the demo template to trigger, so the demo template needs
     a different market or looser demo values before M4.
 - Minimum size per side: decided 10 (demo) / 50 (others); revisit once samplers run.
-- docs/PROGRESS.md is an old copy of this file; the current one is PROGRESS.md at the repo root.
