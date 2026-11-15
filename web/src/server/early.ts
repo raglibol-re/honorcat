@@ -133,6 +133,44 @@ async function topOfBook(sym: string) {
   }
 }
 
+type Snap = { bid: number; ask: number; bidSize: number; askSize: number };
+
+/** Collects Gemini `{symbol}@depth5` snapshots (one per second per symbol) for `ms` milliseconds. */
+async function observeBooks(symbols: string[], ms: number): Promise<Map<string, Snap[]>> {
+  const out = new Map<string, Snap[]>(symbols.map((s) => [s.toLowerCase(), []]));
+  if (!symbols.length) return out;
+  await new Promise<void>((resolve) => {
+    const ws = new WebSocket("wss://ws.gemini.com");
+    const done = () => {
+      try {
+        ws.close();
+      } catch {
+        /* already closed */
+      }
+      resolve();
+    };
+    const timer = setTimeout(done, ms);
+    ws.onopen = () => ws.send(JSON.stringify({ id: "1", method: "SUBSCRIBE", params: symbols.map((s) => `${s}@depth5`) }));
+    ws.onmessage = (m) => {
+      try {
+        const j = JSON.parse(String(m.data)) as { symbol?: string; bids?: [string, string][]; asks?: [string, string][] };
+        const list = j.symbol ? out.get(j.symbol.toLowerCase()) : undefined;
+        if (!list) return;
+        const b = j.bids?.[0];
+        const a = j.asks?.[0];
+        list.push({ bid: Number(b?.[0] ?? 0), bidSize: Number(b?.[1] ?? 0), ask: Number(a?.[0] ?? 0), askSize: Number(a?.[1] ?? 0) });
+      } catch {
+        /* ignore */
+      }
+    };
+    ws.onerror = () => {
+      clearTimeout(timer);
+      done();
+    };
+  });
+  return out;
+}
+
 /**
  * Ranks live contracts for a demo that should trigger: the order book meets the demo rules now
  * (spread, size) and one side is already above the threshold, closing far enough out for joining
@@ -194,15 +232,34 @@ export async function demoCandidates(thresholdBps = 8500): Promise<{ trigger: De
     }
     return { ...r, spread: worst?.spread ?? r.estSpread, bidSize: worst?.bidSize ?? 0, askSize: worst?.askSize ?? 0, meetsRules: ok };
   };
-  // Trigger demo: already well above the threshold, tight book, closing soonest first.
+  // Trigger demo: already well above the threshold with a tight book. Watch each candidate's book
+  // over Gemini's WebSocket for ~12 s (one snapshot per second, no REST rate limit) and keep only
+  // books where nearly every snapshot passes the demo rules: a sampler needs 25 valid of 30.
   const trig = rows
     .filter((r) => r.chance >= thr + 0.03 && r.estSpread <= maxSpread + 1e-9)
     .sort((a, b) => a.closesAt.localeCompare(b.closesAt))
-    .slice(0, 8);
-  // Stable books first, then the deepest (smaller of the two best-level sizes), then soonest close.
-  const trigger_ = (await Promise.all(trig.map((r) => check(r))))
+    .slice(0, 12);
+  const seen = await observeBooks(trig.map((r) => r.instrument), 12_000);
+  const trigger_ = trig
+    .map((r): DemoCandidate & { validRate: number; observedChance: number | null } => {
+      const snaps = seen.get(r.instrument.toLowerCase()) ?? [];
+      const good = snaps.filter((b) => b.bid > 0 && b.ask > 0 && b.ask - b.bid <= maxSpread + 1e-9 && b.bidSize >= minSize && b.askSize >= minSize);
+      const mids = good.map((b) => (r.side === "yes" ? (b.bid + b.ask) / 2 : 1 - (b.bid + b.ask) / 2));
+      const worst = snaps.reduce((w, b) => ({ spread: Math.max(w.spread, b.ask - b.bid), bidSize: Math.min(w.bidSize, b.bidSize), askSize: Math.min(w.askSize, b.askSize) }), { spread: 0, bidSize: Infinity, askSize: Infinity });
+      const validRate = snaps.length >= 8 ? good.length / snaps.length : 0;
+      const observedChance = mids.length ? mids.reduce((a, b) => a + b, 0) / mids.length : null;
+      return {
+        ...r,
+        spread: snaps.length ? worst.spread : r.estSpread,
+        bidSize: Number.isFinite(worst.bidSize) ? worst.bidSize : 0,
+        askSize: Number.isFinite(worst.askSize) ? worst.askSize : 0,
+        validRate,
+        observedChance,
+        meetsRules: validRate >= 0.9 && observedChance !== null && observedChance >= thr + 0.02,
+      };
+    })
     .filter((c) => c.meetsRules)
-    .sort((a, b) => Math.min(b.bidSize, b.askSize) - Math.min(a.bidSize, a.askSize) || a.closesAt.localeCompare(b.closesAt));
+    .sort((a, b) => b.validRate - a.validRate || Math.min(b.bidSize, b.askSize) - Math.min(a.bidSize, a.askSize) || a.closesAt.localeCompare(b.closesAt));
   // Refund demo: closes soonest, far below the threshold on its side.
   const ref = rows
     .map((r) => ({ ...r, side: (r.side === "yes" ? "no" : "yes") as "yes" | "no", chance: 1 - r.chance }))
