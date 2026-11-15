@@ -94,6 +94,10 @@ const usdc = (v: bigint) => `${formatUnits(v, 6)} USDC`;
 const log = (msg: string) => console.log(`[${new Date().toISOString().slice(11, 19)}] ${msg}`);
 const fresh = () => privateKeyToAccount(generatePrivateKey()).address;
 
+/** Same text as web/src/lib/evidence.ts evidenceMessage (the server verifies it; a mismatch fails here). */
+const evidenceMessage = (id: string, account: string, issuedAt: string) =>
+  `HonorCat: show me the raw market readings of payout ${id}.\nAccount: ${getAddress(account)}\nIssued: ${issuedAt}`;
+
 type ApiInit = { json?: unknown; bearer?: string; method?: string };
 
 async function api<T>(path: string, init: ApiInit = {}): Promise<T> {
@@ -847,8 +851,27 @@ async function runEarly() {
     }
     log(`on-chain: ${EARLY_RECIPIENTS} recipients received ${usdc(EARLY_AMOUNT)} each; none sent a transaction`);
 
-    // Evidence: every trigger record recomputes to its decision; the memo root matches.
-    const triggers = da.signatures.filter((s) => s.kind === "trigger");
+    // Evidence. Public view: hashes and computed values only (Gemini market data is not republished).
+    const publicTriggers = da.signatures.filter((s) => s.kind === "trigger");
+    if (publicTriggers.some((s) => Array.isArray((s.record as { samples?: unknown } | null)?.samples))) throw new Error("raw readings are public");
+    log("ok: public evidence carries hashes and computed values only");
+    // A stranger is refused; the funder signs once and gets the raw records.
+    const stranger = privateKeyToAccount(generatePrivateKey());
+    const strangerAt = new Date().toISOString();
+    await expectStatus(
+      403,
+      api(`/api/early/${a.id}/evidence/session`, {
+        json: { account: stranger.address, issuedAt: strangerAt, signature: await stranger.signMessage({ message: evidenceMessage(a.id, stranger.address, strangerAt) }) },
+      }),
+      "raw evidence for someone who is not a member",
+    );
+    const issuedAt = new Date().toISOString();
+    const session = await api<{ token: string }>(`/api/early/${a.id}/evidence/session`, {
+      json: { account: funder.address, issuedAt, signature: await funder.signMessage({ message: evidenceMessage(a.id, funder.address, issuedAt) }) },
+    });
+    const raw = await api<{ signatures: EarlyDetailResponse["signatures"] }>(`/api/early/${a.id}/evidence`, { bearer: session.token });
+    // Every trigger record recomputes to its decision; the memo root matches.
+    const triggers = raw.signatures.filter((s) => s.kind === "trigger");
     if (triggers.length < 2) throw new Error(`expected 2 trigger signatures, got ${triggers.length}`);
     const recs = triggers.map((s) => trigger.recordFromJson(s.record!));
     for (const rec of recs) {

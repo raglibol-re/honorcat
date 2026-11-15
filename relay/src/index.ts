@@ -115,3 +115,5 @@ export * as trigger from "./trigger";
 
 export { Sampler, WsBookSource, RestBookSource, fetchMarketState, httpIo, type SamplerIo, type BookSource } from "./sampler";
 export { runAppSampler } from "./samplerHost";
+export * as catalog from "./catalog";
+export type { CatalogRow, Quality, BookStats, CategorySummary, Profile } from "./catalog";

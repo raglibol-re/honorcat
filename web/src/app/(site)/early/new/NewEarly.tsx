@@ -1,20 +1,25 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import QRCode from "qrcode";
 import type { TypedDataDefinition } from "viem";
 import { CatScale } from "@/components/cat/CatScale";
 import { C, F } from "@/components/cat/tokens";
-import { MarketPicker, type PickerMarket } from "@/components/guarantee/MarketPicker";
+import { closesIn, GeminiCredit, MarketList, QualityMark, type MarketQuality } from "@/components/cat/Markets";
 import { getJson, usePolling } from "@/lib/api";
 import { formatAxis, parseUsdc } from "@/lib/format";
 import { useWallet } from "@/lib/wallet/context";
 import { PayFrom } from "@/components/cat/PayFrom";
+import { CostView, RuleSummary } from "@/components/cat/CostView";
 
-type Contract = { ticker: string; label: string; chanceYes: number | null; instrument: string | null };
-type Market = PickerMarket & { contracts: Contract[] };
-type MarketsResponse = { category: string; categories: string[]; markets: Market[] };
-type Demo = { eventTicker: string; contractTicker: string; title: string; label: string; image: string | null; category: string; side: "yes" | "no"; chance: number; closesAt: string };
+/** The contract a pot will watch. */
+type Picked = { symbol: string; eventTicker: string; contractTicker: string; eventTitle: string; label: string; category: string; closeMs: number };
+type Quote = { mid: number | null; bid: number | null; ask: number | null; bidSize: number | null; askSize: number | null; quality: MarketQuality | null; at: number };
+type Demo = { eventTicker: string; contractTicker: string; instrument: string; title: string; label: string; image: string | null; category: string; side: "yes" | "no"; chance: number; closesAt: string };
+
+/** Under two hours to close: the demo rule; otherwise the standard rule (relay/src/catalog.ts). */
+const profileOf = (closeMs: number, demo: boolean) => (demo || closeMs - Date.now() < 2 * 3600_000 ? "demo" : "standard");
+const usableNow = (q: Quote | null) => q?.quality?.status === "works" || q?.quality?.status === "borderline";
 type Prepared = {
   terms: Record<string, unknown> & { promise: string; template: string; lockTime: number };
   seal: string;
@@ -101,18 +106,15 @@ function TradeChart({ symbol, side, threshold }: { symbol: string | null; side: 
         <path d={d} fill="none" stroke={C.ink} strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
       </svg>
       <figcaption style={{ fontSize: 14, color: C.muted }}>
-        Recent trade prices on Gemini, not the order book the checks read. Red line: your {Math.round(threshold * 100)}%.
+        Recent trade prices on Gemini, not the order book the checks read. Red line: your {Math.round(threshold * 100)}%. <GeminiCredit />
       </figcaption>
     </figure>
   );
 }
 
 export function NewEarly() {
-  const [category, setCategory] = useState("Crypto");
-  const [include, setInclude] = useState<string | null>(null);
-  const { data, error } = usePolling<MarketsResponse>(`/api/early/markets?category=${category}${include ? `&include=${encodeURIComponent(include)}` : ""}`, 20_000);
-  const markets = data?.category === category ? data.markets : null;
-  const [picked, setPicked] = useState<{ ticker: string; idx: number } | null>(null);
+  const [sel, setSel] = useState<Picked | null>(null);
+  const { data: quote } = usePolling<Quote>(sel ? `/api/catalog/quote?symbol=${encodeURIComponent(sel.symbol)}` : null, 5000);
   const [side, setSide] = useState<"yes" | "no">("yes");
   const [threshold, setThreshold] = useState(85);
   const [mode, setMode] = useState<"early-only" | "early-or-outcome">("early-only");
@@ -122,11 +124,9 @@ export function NewEarly() {
   const [joinMin, setJoinMin] = useState(2);
   const [demoNote, setDemoNote] = useState<string | null>(null);
   const [demo, setDemo] = useState(false);
-  const pendingDemo = useRef<Demo | null>(null);
 
-  const market = markets?.find((m) => m.ticker === picked?.ticker) ?? null;
-  const contract = market ? (market.contracts[picked?.idx ?? 0] ?? null) : null;
-  const chance = contract?.chanceYes == null ? null : side === "yes" ? contract.chanceYes : 1 - contract.chanceYes;
+  const live = quote && sel ? quote : null;
+  const chance = live?.mid == null ? null : side === "yes" ? live.mid : 1 - live.mid;
 
   async function pickDemo(kind: "trigger" | "watch") {
     setDemoNote("Finding one…");
@@ -139,10 +139,7 @@ export function NewEarly() {
             ? "No market is just below 85% right now. Try the instant demo or pick an event below."
             : "None right now. Pick an event below or try again in a minute.",
         );
-      const cat = c.category || (await findCategory(c.eventTicker));
-      setCategory(cat);
-      setInclude(c.eventTicker);
-      setPicked({ ticker: c.eventTicker, idx: -1 });
+      setSel({ symbol: c.instrument, eventTicker: c.eventTicker, contractTicker: c.contractTicker, eventTitle: c.title, label: c.label, category: c.category, closeMs: Date.parse(c.closesAt) });
       setDemo(true);
       setSide(c.side);
       setThreshold(85);
@@ -151,24 +148,11 @@ export function NewEarly() {
       setCount(3);
       setAmount("0.10");
       if (!name) setName("Demo");
-      setDemoNote(`Picked: ${c.title}, at ${Math.round(c.chance * 100)}% now. Add your name and press the button.`);
-      pendingDemo.current = c;
+      setDemoNote(`Demo picked: ${c.title}, “${c.label}”, at ${Math.round(c.chance * 100)}% now. Add your name and press the button.`);
     } catch (e) {
       setDemoNote(e instanceof Error ? e.message : String(e));
     }
   }
-
-  // Resolve the demo's contract index once the category's markets have loaded.
-  useEffect(() => {
-    if (!markets || !pendingDemo.current || picked?.idx !== -1) return;
-    const m = markets.find((x) => x.ticker === pendingDemo.current!.eventTicker);
-    const idx = m?.contracts.findIndex((c) => c.ticker === pendingDemo.current!.contractTicker) ?? -1;
-    if (m && idx >= 0) {
-      const ticker = m.ticker;
-      Promise.resolve().then(() => setPicked({ ticker, idx }));
-      pendingDemo.current = null;
-    }
-  }, [markets, picked]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 40 }}>
@@ -214,50 +198,46 @@ export function NewEarly() {
 
           <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <h2 style={h2}>Pick an event</h2>
-            <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Category">
-              {(data?.categories ?? ["Crypto", "Weather", "Economics", "Commodities", "Sports", "Politics", "Culture"]).map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  role="radio"
-                  aria-checked={category === c}
-                  onClick={() => {
-                    setCategory(c);
-                    setPicked(null);
-                    setDemo(false);
-                  }}
-                  style={{ ...choice(category === c), fontSize: 16, fontWeight: 500, minHeight: 40, padding: "6px 14px" }}
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
-            {error && !markets && <p style={{ margin: 0, fontSize: 16, color: C.signalInk }}>{error}</p>}
-            {!markets && !error && <p style={{ margin: 0, fontSize: 16, color: C.muted }}>Loading…</p>}
-            {markets && markets.length === 0 && <p style={{ margin: 0, fontSize: 16 }}>Nothing open here right now. Try another one.</p>}
-            {markets && markets.length > 0 && (
-              <MarketPicker
-                markets={markets}
-                market={market}
-                contract={contract}
-                onPick={(ticker, idx) => {
-                  setPicked({ ticker, idx });
-                  setDemo(false);
-                }}
-              />
-            )}
+            <p style={{ margin: 0, fontSize: 16, lineHeight: 1.45, color: C.body, maxWidth: 620 }}>
+              Any Gemini market works if its order book can pass the rule your pot gets. The ones that work right now come first.
+            </p>
+            <MarketList
+              picked={sel?.symbol ?? null}
+              onPick={(m) => {
+                setSel({ symbol: m.symbol, eventTicker: m.eventTicker, contractTicker: m.contractTicker, eventTitle: m.eventTitle, label: m.label, category: m.category, closeMs: m.closeMs });
+                setDemo(false);
+                setDemoNote(null);
+              }}
+            />
           </section>
 
-          {contract && (
+          {sel && (
             <section style={{ display: "flex", flexDirection: "column", gap: 22 }}>
               <h2 style={h2}>Set the line</h2>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, borderTop: `1.5px solid ${C.ink}`, borderBottom: `1px solid ${C.faint}`, padding: "12px 0" }}>
+                <span style={{ fontSize: 14, color: C.muted }}>
+                  {sel.category} · {sel.eventTitle} · closes in {closesIn(sel.closeMs)}
+                  {demo ? " · demo" : ""}
+                </span>
+                <span style={{ fontSize: 19, fontWeight: 600 }}>{sel.label}</span>
+                <span style={{ display: "flex", flexWrap: "wrap", gap: "4px 14px", alignItems: "center", fontSize: 14, color: C.muted }}>
+                  <QualityMark q={live?.quality ?? null} small />
+                  {live?.quality && live.quality.reasons.length > 0 && <span>{live.quality.reasons.join("; ")}</span>}
+                  {live && live.bid !== null && live.ask !== null && (
+                    <span>
+                      buy {Math.round(live.ask * 100)}¢, sell {Math.round(live.bid * 100)}¢, {Math.min(live.bidSize ?? 0, live.askSize ?? 0)} contracts at the best price
+                    </span>
+                  )}
+                  <GeminiCredit />
+                </span>
+              </div>
               <fieldset style={{ border: 0, margin: 0, padding: 0 }}>
                 <legend style={{ fontSize: 17, fontWeight: 600, padding: 0 }}>Pay when this gets likely</legend>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2" style={{ marginTop: 10 }}>
                   {(["yes", "no"] as const).map((s) => (
                     <label key={s} style={{ ...choice(side === s), display: "flex", alignItems: "center", minHeight: 52, padding: "8px 14px", fontSize: 17 }}>
                       <input type="radio" name="side" className="sr-only" checked={side === s} onChange={() => setSide(s)} />
-                      {s === "yes" ? `“${contract.label}” happens` : `“${contract.label}” does not happen`}
+                      {s === "yes" ? `“${sel.label}” happens` : `“${sel.label}” does not happen`}
                     </label>
                   ))}
                 </div>
@@ -280,7 +260,7 @@ export function NewEarly() {
               <div style={{ maxWidth: 560 }}>
                 <CatScale compact chance={chance} threshold={threshold / 100} />
               </div>
-              <TradeChart symbol={contract.instrument} side={side} threshold={threshold / 100} />
+              <TradeChart symbol={sel.symbol} side={side} threshold={threshold / 100} />
               <details style={{ borderTop: `1px solid ${C.faint}`, borderBottom: `1px solid ${C.faint}`, padding: "12px 0" }}>
                 <summary style={{ fontSize: 17, fontWeight: 600, cursor: "pointer" }}>More options</summary>
                 <fieldset style={{ border: 0, margin: "14px 0 0", padding: 0 }}>
@@ -340,32 +320,24 @@ export function NewEarly() {
         </div>
 
         <aside className="lg:sticky lg:top-6 lg:self-start">
-          <Fund market={market} contract={contract} side={side} threshold={threshold} mode={mode} name={name} amount={amount} count={count} joinMin={joinMin} demo={demo} />
+          <Fund sel={sel} quote={live} side={side} threshold={threshold} mode={mode} name={name} amount={amount} count={count} joinMin={joinMin} demo={demo} />
         </aside>
       </div>
     </div>
   );
 }
 
-async function findCategory(eventTicker: string): Promise<string> {
-  for (const c of ["Crypto", "Weather", "Economics", "Commodities", "Sports", "Politics", "Culture"]) {
-    const r = await getJson<MarketsResponse>(`/api/early/markets?category=${c}`).catch(() => null);
-    if (r?.markets.some((m) => m.ticker === eventTicker)) return c;
-  }
-  return "Crypto";
-}
-
-function Fund(p: { market: Market | null; contract: Contract | null; side: "yes" | "no"; threshold: number; mode: "early-only" | "early-or-outcome"; name: string; amount: string; count: number; joinMin: number; demo: boolean }) {
+function Fund(p: { sel: Picked | null; quote: Quote | null; side: "yes" | "no"; threshold: number; mode: "early-only" | "early-or-outcome"; name: string; amount: string; count: number; joinMin: number; demo: boolean }) {
   const { connect, adapter } = useWallet();
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [done, setDone] = useState<{ id: string; promise: string } | null>(null);
   // Whether the wallet already holds enough USDC on Arc (PayFrom reports it; null until known).
   const [onArc, setOnArc] = useState<boolean | null>(null);
-  const ready = p.market && p.contract && p.name.trim() && Number(p.amount) >= 0.01 && Number(p.amount) * p.count >= 0.1;
+  const ready = p.sel && usableNow(p.quote) && p.name.trim() && Number(p.amount) >= 0.01 && Number(p.amount) * p.count >= 0.1;
 
   async function fund() {
-    if (!p.market || !p.contract) return;
+    if (!p.sel) return;
     setErr(null);
     try {
       setBusy("Connect your wallet…");
@@ -375,8 +347,8 @@ function Fund(p: { market: Market | null; contract: Contract | null; side: "yes"
       const prep = await post<Prepared>("/api/early/prepare", {
         name: p.name.trim(),
         funder,
-        eventTicker: p.market.ticker,
-        contractTicker: p.contract.ticker,
+        eventTicker: p.sel.eventTicker,
+        contractTicker: p.sel.contractTicker,
         side: p.side,
         mode: p.mode,
         thresholdBps: p.threshold * 100,
@@ -414,6 +386,8 @@ function Fund(p: { market: Market | null; contract: Contract | null; side: "yes"
     <section style={{ display: "flex", flexDirection: "column", gap: 12, borderTop: `1.5px solid ${C.ink}`, paddingTop: 16 }}>
       <span style={{ fontSize: 15, color: C.muted }}>Into the bowl</span>
       <span style={{ fontFamily: F.cond, fontSize: 88, fontWeight: 700, lineHeight: 0.92, letterSpacing: "-0.01em" }}>${total}</span>
+      {p.sel && <CostView total={Number(total)} chance={p.quote?.mid == null ? null : p.side === "yes" ? p.quote.mid : 1 - p.quote.mid} side={p.side} />}
+      {p.sel && <RuleSummary profile={profileOf(p.sel.closeMs, p.demo)} threshold={p.threshold} />}
       <PayFrom need={parseUsdc(total)} onReady={setOnArc} />
       <button
         type="button"
@@ -423,7 +397,7 @@ function Fund(p: { market: Market | null; contract: Contract | null; side: "yes"
       >
         Put in ${total} and get the link
       </button>
-      <p style={{ margin: 0, fontSize: 15, color: C.muted }}>{busy ?? (!ready ? "Pick an event and add your name." : onArc === false ? "Not enough USDC on Arc yet: bring it from another chain above." : "No fees.")}</p>
+      <p style={{ margin: 0, fontSize: 15, color: C.muted }}>{busy ?? (p.sel && p.quote && !usableNow(p.quote) ? `This market does not meet its rule right now: ${p.quote.quality?.reasons.join("; ") ?? "no order book"}.` : !ready ? "Pick a market and add your name." : onArc === false ? "Not enough USDC on Arc yet: bring it from another chain above." : "No fees.")}</p>
       {err && <p style={{ margin: 0, fontSize: 15, color: C.signalInk }}>{err}</p>}
     </section>
   );

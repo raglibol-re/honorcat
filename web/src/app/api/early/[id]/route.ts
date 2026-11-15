@@ -1,12 +1,14 @@
 import { connection } from "next/server";
 import { earlyDetail, getDb, nudgeRelay } from "@/server/relay";
 import { getEvent, impliedChance } from "@/server/gemini";
+import { publicDetail } from "@/server/evidence";
 
 export const maxDuration = 60;
 
 /**
- * One early payout: terms, state, recipients, payments, every sampler's signed evidence and the
- * recent samples, plus the live Gemini price for the chart (marked as an estimate).
+ * One early payout: terms, state, recipients, payments, each sampler's evidence hash with its
+ * computed values (window, average, counts, decision) and the chance averaged per 5 s for the chart,
+ * plus the live Gemini price (marked as an estimate). Raw readings: /api/early/{id}/evidence.
  */
 export async function GET(_req: Request, ctx: RouteContext<"/api/early/[id]">) {
   await connection();
@@ -27,5 +29,5 @@ export async function GET(_req: Request, ctx: RouteContext<"/api/early/[id]">) {
         image: (ev as { imageUrl?: string | null }).imageUrl ?? null,
       }
     : null;
-  return Response.json({ ...d, market }, { headers: { "cache-control": "no-store" } });
+  return Response.json({ ...publicDetail(d), market }, { headers: { "cache-control": "no-store" } });
 }

@@ -365,6 +365,18 @@ CREATE TABLE IF NOT EXISTS early_samples (
   status    SMALLINT NOT NULL,
   PRIMARY KEY (early_id, signer, t)
 );
+
+-- Market catalogue (catalog.ts): every active Gemini contract with its quotes and last book reading.
+CREATE TABLE IF NOT EXISTS market_catalog (
+  symbol    TEXT PRIMARY KEY,
+  category  TEXT NOT NULL,
+  close_ms  BIGINT NOT NULL,
+  seen_at   BIGINT NOT NULL,
+  book_at   BIGINT,
+  listed    JSONB NOT NULL,
+  book      JSONB
+);
+CREATE INDEX IF NOT EXISTS market_catalog_cat_idx ON market_catalog (category, close_ms);
 `;
 
 /** Tables derived from one vault's chain history. Cleared when VAULT_ADDRESS changes. */

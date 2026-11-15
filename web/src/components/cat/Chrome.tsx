@@ -8,6 +8,7 @@ import { C, F } from "./tokens";
 
 const primary = [
   ["/early/new", "Start"],
+  ["/markets", "Markets"],
   ["/how", "How it works"],
   ["/account", "My money"],
 ] as const;

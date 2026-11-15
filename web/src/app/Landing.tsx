@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { CatScale } from "@/components/cat/CatScale";
 import { PounceChart } from "@/components/cat/PounceChart";
 import { RollingNumber } from "@/components/cat/RollingNumber";
+import { GeminiCredit } from "@/components/cat/Markets";
 import { HcFooterLinks, HcHeader } from "@/components/cat/Chrome";
 import { CatHead, Ears, EyesLarge } from "@/components/cat/shapes";
 import { StateRail, type RailStep } from "@/components/cat/StateRail";
@@ -130,7 +131,7 @@ export function Landing({ initial }: { initial: LandingData | null }) {
           <p style={{ margin: "20px 0 0", fontSize: 19, lineHeight: 1.4, color: C.muted, maxWidth: 440 }}>
             {hero ? (
               <>
-                is how sure a live Gemini market is {what}. {catLine}
+                is how sure a live Gemini market is {what}. {catLine} <GeminiCredit style={{ fontSize: 14 }} />
                 {hero.source === "pot" && hero.potId && (
                   <>
                     {" "}
@@ -217,7 +218,8 @@ export function Landing({ initial }: { initial: LandingData | null }) {
             </div>
             <span style={{ fontSize: 14, color: C.muted }}>
               Real readings from this payout{payout.settledAt ? ` on ${formatDate(new Date(payout.settledAt).getTime())}` : ""}: the middle of Gemini’s best buy and sell
-              price, as {payout.checks} independent {payout.checks === 1 ? "check" : "checks"} recorded it, averaged. <Link href={`/e/${payout.id}/proof`}>See the proof</Link>
+              price, as {payout.checks} independent {payout.checks === 1 ? "check" : "checks"} recorded it, averaged. <Link href={`/e/${payout.id}/proof`}>See the proof</Link>.{" "}
+              <GeminiCredit />
             </span>
           </div>
         )}

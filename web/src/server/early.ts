@@ -1,7 +1,8 @@
 import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { getAddress, type Address } from "viem";
-import { getConfig, getState, trigger, type Db, type EarlyTerms } from "@verdict/relay";
+import { catalog, getConfig, getDb, getState, trigger, type Db, type EarlyTerms } from "@verdict/relay";
+import { liveQuality } from "./catalog";
 import { getEvent, impliedChance, listActiveEvents, type GeminiEvent } from "./gemini";
 
 /**
@@ -54,6 +55,13 @@ export async function earlyTermsFrom(input: EarlyInput): Promise<EarlyTermsJson>
   const now = Math.floor(Date.now() / 1000);
   const close = Math.floor(new Date((c.expiryDate ?? ev.expiryDate) || 0).getTime() / 1000);
   const template = input.template ?? (close - now <= SHORT_HORIZON_S ? "demo" : "standard");
+  // Refuse a market whose order book fails this pot's own rule right now, and say why: such a pot
+  // could never pay early. The stored catalogue may be minutes old, so read the book live.
+  const fallback = catalog.rowsFromEvent(ev as unknown as catalog.ListedEvent, Date.now()).find((r) => r.symbol === instrument);
+  const live = await liveQuality(await getDb(), instrument, fallback ? { ...fallback, book: null } : null, template);
+  if (!live.book) throw Object.assign(new Error("Gemini did not return this market's order book; try again in a moment"), { status: 502 });
+  if (live.quality?.status === "unavailable")
+    throw Object.assign(new Error(`This market does not meet the ${template} rule right now: ${live.quality.reasons.join("; ")}.`), { status: 409, reasons: live.quality.reasons });
   const params = trigger.paramsFor(template, {
     priceDecimals: decimals((c as { priceIncrement?: string }).priceIncrement),
     sizeDecimals: decimals((c as { quantityIncrement?: string }).quantityIncrement),
@@ -277,8 +285,9 @@ export async function demoCandidates(thresholdBps = 8500): Promise<DemoCandidate
     .filter((r) => r.chance <= thr - 0.3 && new Date(r.closesAt).getTime() <= now + 45 * 60_000)
     // Far below the threshold first (a coin-flip market could still cross), then soonest close.
     .sort((a, b) => Number(b.chance <= 0.15) - Number(a.chance <= 0.15) || a.closesAt.localeCompare(b.closesAt))
-    .slice(0, 3);
-  const refund = await Promise.all(ref.map((r) => check(r, 1)));
+    .slice(0, 6);
+  // Pots are refused at creation when the book fails the rule, so candidates that pass come first.
+  const refund = (await Promise.all(ref.map((r) => check(r, 1)))).sort((a, b) => Number(b.meetsRules) - Number(a.meetsRules));
   const watch = near
     .map(observe)
     .filter((c) => c.meetsRules && c.observedChance !== null && c.observedChance < thr && c.observedChance >= thr - 0.08)

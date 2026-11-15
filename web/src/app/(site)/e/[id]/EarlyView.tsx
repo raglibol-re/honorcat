@@ -12,7 +12,9 @@ import { ProbabilityChart } from "@/components/early/ProbabilityChart";
 import { useTechMode } from "@/components/TechMode";
 import { useWallet, type WalletKind } from "@/lib/wallet/context";
 import { WalletChoice } from "@/components/cat/WalletChoice";
-import { getJson } from "@/lib/api";
+import { getJson, usePolling } from "@/lib/api";
+import { CostView } from "@/components/cat/CostView";
+import { GeminiCredit, QualityMark, type MarketQuality } from "@/components/cat/Markets";
 import { addressUrl, txUrl } from "@/lib/chain";
 import { formatDate, formatMoney } from "@/lib/format";
 import { createPasskey, joinChallenge, passkeysSupported, savedPasskey, signChallenge, type PasskeySession } from "@/lib/passkey";
@@ -200,6 +202,12 @@ export function EarlyView() {
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
   const wallet = useWallet();
+  // The market's order book now (only while the pot is still watching): quality and the live price.
+  const open = d ? !["paid", "refunded", "closed", "failed"].includes(d.early.state) : false;
+  const { data: quote } = usePolling<{ mid: number | null; quality: MarketQuality | null }>(
+    open && d ? `/api/catalog/quote?symbol=${encodeURIComponent(d.early.instrument)}` : null,
+    10_000,
+  );
 
   useEffect(() => {
     const tick = () => setNow(Math.floor(Date.now() / 1000));
@@ -376,8 +384,22 @@ export function EarlyView() {
               : armed
                 ? "Waiting for the first reading."
                 : `Readings start when joining closes, ${dayAt(e.lockTime * 1000)}.`}
-            {tech && " Thin lines: each check. Thick line: the average that decides."}
+            {" "}Averaged across the checks every 5 seconds.
           </span>
+          {open && (
+            <span style={{ display: "flex", flexWrap: "wrap", gap: "4px 12px", alignItems: "center", fontSize: 14, color: C.muted }}>
+              Market quality now: <QualityMark q={quote?.quality ?? null} small />
+              {quote?.quality && quote.quality.reasons.length > 0 && <span>{quote.quality.reasons.join("; ")}</span>}
+            </span>
+          )}
+          <GeminiCredit />
+          {open && wallet.account && wallet.account.toLowerCase() === e.funder.toLowerCase() && (
+            <CostView
+              total={(Number(e.amount) / 1e6) * e.maxRecipients}
+              chance={quote?.mid == null ? null : e.side === "yes" ? quote.mid : 1 - quote.mid}
+              side={e.side}
+            />
+          )}
         </section>
 
         <EarlyTerms e={e} />
