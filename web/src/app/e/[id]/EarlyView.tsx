@@ -304,7 +304,7 @@ export function EarlyView() {
       )}
 
       <section className="vg-ticket space-y-2 px-5 py-4">
-        <div className="flex items-baseline justify-between">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-3">
           <h2 className="t-15 font-medium">Chance over time</h2>
           <span className="t-13" style={{ color: "var(--vg-muted)" }}>
             thin: each independent check · thick: the average that decides · dashed: {pct(threshold)}

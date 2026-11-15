@@ -11,13 +11,27 @@
   aggregation with evidenceRoot. 30 tests incl. replays of recorded Gemini feeds; full suite green
   (contracts 108, relay 68 + 1 skipped, SDK 4, web typecheck and lint).
 
+## Decisions 2026-11-15 (late)
+- Deployer funded by the user (20.18 test USDC).
+- Samplers: free option (the Vercel app, GitHub Actions, one local machine); no paid hosting.
+- Markets: the product is market-generic (any active Gemini contract); parameters follow the market's
+  horizon; the demo uses whichever live contract best meets the trigger rules. "As long as the tool works."
+- Work in cycles per docs/improve.md, everything in the agreed priority order.
+
 ## Rubric cycle log
+- 2026-11-15 (night): early payouts M2-M4 built and deployed (samplers resolver 0x81d1...36c9,
+  sampler on Vercel/GitHub Actions/local, funder flow, live view, recipient card, proof page,
+  post-settlement record, landing). e2e `early` passed twice in a row on production (02:01-02:15
+  UTC). CI with Slither gate (24/24 explained), threat model, demo script, Devpost draft, README.
+  Attempts that failed and why: thin book flipping one-sided (finder now watches books), demo template
+  following market horizon (demo rule forced), app sampler gaps (270 s Streams bursts).
 - 2026-11-15 audit of production (15 routes, desktop and phone): clean except `/g/<unknown>` console
   404s. Fixed (8f2acb6), re-audited clean. Secrets check added (`scripts/check-secrets.mjs`): no
   secret values in git history or the production bundle. BACKLOG.md and docs/rubric-evidence.md created.
 
 ## In progress
-- Rubric goal (docs/rubric.md), working by docs/improve.md. Evidence in docs/rubric-evidence.md, candidates in BACKLOG.md.
+- Rubric goal (docs/rubric.md), working by docs/improve.md. Evidence in docs/rubric-evidence.md,
+  candidates in BACKLOG.md. 18 of 19 items checked.
 
 ## Next
 - M2 funder flow and live view, M3 recipient flow, evidence on the proof page, post-settlement record,
@@ -25,13 +39,18 @@
 - Then: phase I threat model and static analysis, minimal phase H, phase E only if time allows.
 
 ## Blocks current milestone
-- The deployer wallet (0xb129…3228, funds every e2e run) has 0.18 test USDC; the e2e regression run
-  after 8f2acb6 stopped in the gasless mode with "transfer amount exceeds balance" (classic passed).
-  docs/improve.md requires a passing e2e before anything else. Needs a faucet top-up of the deployer
-  (about 5 USDC covers ~10 full runs). Moving test USDC from the relay wallet was refused by the
-  permission check, so this needs the user.
+- Rubric item "A new user completes the recipient flow on a phone without help" needs a real person
+  on a real phone. Automated stand-in passed (phone emulation + virtual passkey, joined in 5.5 s).
+  Please hand a phone to someone who has not seen HonorCat, open
+  https://verdict-phi-livid.vercel.app/e/G25xt3gjrG (listed, open to join until ~04:15 UTC) or a new
+  pot, and note whether they joined without help.
 
 ## Later
+- GitHub Actions sampler needs the repository secret `SAMPLER_KEY_GITHUB` (setting it from here
+  was refused by the permission check). Until then two samplers (Vercel, local machine) carry the
+  2-of-3; if this machine's sampler stops, pots cannot trigger and refund only at the deadline.
+- The post-settlement outcome record (memo on a read-only vault call) is implemented but has not run
+  yet: the first early payouts' markets settle on 2026-11-15/16.
 - Samplers (needed for M2): three independent always-on workers on at least two providers, budget
   $25 until 2026-11-22. Exact cost per host and login/card steps go to the user before anything paid
   is created. Data source: Gemini `@depth5` (snapshot every second), not `@bookTicker` (quiet books

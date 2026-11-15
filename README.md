@@ -12,11 +12,10 @@ priced from live Gemini markets, with the refunds locked on Arc, customers joini
 wallet, and payment the moment the market settles. See [HonorCat](#honorcat-the-product). Verdict
 remains the name of the engine: contracts, SDK, API and developer docs.
 
-**Next for HonorCat: early payouts** ("Paid before it happens."). Money is paid out the moment a
-Gemini market considers an event very likely, before it happens, and HonorCat records afterwards
-whether the market was right. The probability trigger (milestone M1) is built and tested; the
-funder flow, live view, recipient flow and samplers follow. See
-[Early payouts](#early-payouts-in-progress), the spec in
+**HonorCat's main flow: early payouts** ("Paid before it happens."). Money is paid out the moment a
+Gemini market considers an event very likely, before it happens; three independent samplers decide
+from Gemini's public order book and a 2-of-3 resolver releases the money; afterwards HonorCat records
+whether the market was right. See [Early payouts](#early-payouts-the-main-product), the spec in
 [docs/early-payout-spec.md](docs/early-payout-spec.md) and the rule in
 [docs/early-payout-trigger.md](docs/early-payout-trigger.md).
 
@@ -129,33 +128,63 @@ funded and filled on live markets; they settle when Gemini settles those markets
 | settle two pots + refund three customers + three memos, one tx | 361k | 0.0072 |
 | gasless withdraw (memo'd transferWithAuthorization) | 137k | 0.0028 |
 
-## Early payouts (in progress)
+## Early payouts (the main product)
 
-A funder picks a live Gemini contract, sets a probability threshold (85% by default) and locks USDC
-for a list of recipients. When the market's smoothed probability crosses the threshold, the pot pays
-everyone at once; after the market settles, HonorCat records whether the event happened. No vault
-change: the pot's resolver is a 2-of-3 `MultisigResolver` whose signers are independent samplers.
+**Paid before it happens.** A funder picks any live Gemini contract, a side and a probability
+threshold (85% by default), and sets USDC aside for up to 50 people. People join with a passkey.
+When the market's smoothed probability holds above the threshold, everyone is paid at once; after
+the market settles, HonorCat records publicly whether the event happened ("Confirmed", "Market was
+wrong" or "Market voided"). An early payout is final. If the threshold is never reached, the funder
+gets the money back at trading close (early-only), or people are paid at settlement if the event
+happened (early-or-outcome). No vault change.
 
-**The trigger (built, M1).** `relay/src/trigger/`, rule and evidence format in
-[docs/early-payout-trigger.md](docs/early-payout-trigger.md):
+| Page | What it is |
+|---|---|
+| [`/early/new`](https://verdict-phi-livid.vercel.app/early/new) | funder flow: any Gemini category, picture picker, outcome, threshold slider with the live chance and a trade-price chart, pot mode, amount, places; one signature. "Use the demo market" picks the live contract whose book best meets the demo rule right now |
+| `/e/<id>` | recipient card and live view: the promise in one sentence, live chance vs threshold, countdown, rail Locked / Armed / Triggered / Paid / Confirmed, chart (each sampler raw, the deciding average, the threshold), passkey join, terms in plain words, Under the hood |
+| `/e/<id>/proof` | every sampler's samples and signatures, recomputed in the browser with the same engine; the evidence root vs the payout memo |
 
-- Samples come from Gemini's public order book (`wss://ws.gemini.com`, `{symbol}@depth5`, a full
-  top-of-book snapshot every second). A sample counts only with a bounded spread, a minimum size on
-  both sides and fresh data. A raw tick never triggers: the time-weighted midpoint over the window
-  must be at or above the threshold, with a minimum number of valid samples and fresh data at the end.
-- Integer-only and deterministic. The trigger parameters, the contract, the side and the pot mode are
-  committed in the pot's `conditionId`, so they cannot change after creation.
-- Each signer publishes a canonical evidence record (every sample, the average, the decision) and
-  signs the vault result plus a `TriggerAttestation` over the record's hash. Two of three accepted
-  signers produce the resolver signature and an `evidenceRoot` for the payout memo. The vault does
-  not verify evidence: it makes each decision auditable, not enforced.
-- 30 tests, including replays of recorded Gemini feeds (a quiet weather book, a 5-minute crypto book).
+**How a payout is decided.** Rule and evidence format: [docs/early-payout-trigger.md](docs/early-payout-trigger.md).
 
-Parameters are provisional (demo template: 60 s window, a sample every 2 s, 25 valid samples, spread
-at most 0.04, 10 contracts per side, data at most 10 s old; other templates: 30 min, 10 s, 150, 0.05,
-50, 60 s). Next: funder flow and live view (M2), recipient flow, evidence on the proof page and the
-post-settlement record (M3), and an e2e run with one early payout and one refund (M4). Status and
-open points: [docs/PROGRESS.md](docs/PROGRESS.md).
+- Three independent **samplers** (keys on the Vercel app, GitHub Actions and a local machine) each
+  read Gemini's public order book, apply the rule to their own samples and sign only what their own
+  data shows. A sample counts only with a bounded spread, a minimum size on both sides and fresh
+  data; the time-weighted midpoint must hold at or above the threshold over a full window. A raw
+  tick never triggers. Before watching a pot, a sampler recomputes the conditionId from the
+  parameters and checks the pot on-chain.
+- The pot's resolver is a **2-of-3 `MultisigResolver`** (`deployments/5042002.samplers.json`) owned
+  by the three samplers. The relay accepts a submission only after checking it in full and settles
+  once two agree: `resolve` + `GuaranteeBook.payout` in one memo'd transaction whose memo carries
+  the **evidence root**. Each sampler's integer-only evidence record and signed `TriggerAttestation`
+  are public. The vault does not verify evidence; it makes each decision auditable.
+- The trigger parameters, the contract, the side and the pot mode are committed in the pot's
+  **conditionId**, so the rule cannot change after creation.
+- After trading closes the relay watches Gemini's settlement and records the outcome as an Arc memo.
+
+**Samplers in practice.** Gemini's `{symbol}@depth5` WebSocket sends a full top-of-book snapshot
+every second, so quiet books stay fresh (bookTicker only sends changes). Vercel functions cannot
+sample every two seconds, so the app's sampler polls the REST book in 270-second bursts run by the
+QuickNode Streams webhook (`maxDuration` 300, a database lease keeps one burst at a time, samples
+persist between bursts). The others are long-running processes:
+
+```bash
+pnpm --filter @verdict/relay sampler -- --api https://verdict-phi-livid.vercel.app --key-env SAMPLER_KEY_LOCAL
+```
+
+`.github/workflows/sampler.yml` runs the GitHub sampler every 15 minutes while pots are armed (it
+exits within seconds when none are, to stay inside the free Actions minutes); it needs the repository
+secret `SAMPLER_KEY_GITHUB`.
+
+**Parameters (provisional).** Markets closing within two hours, and the demo template: 60 s window,
+a sample every 2 s, at least 25 valid samples, spread at most 0.04, at least 10 contracts per side,
+data at most 10 s old. Others: 30 min, 10 s, 150, 0.05, 50, 60 s. Threshold 85%. Real 5-minute
+crypto books rarely meet the demo rule (11-98 cent spreads seen), so the demo finder watches
+candidate books over the WebSocket for 12 s and only offers contracts where 90% of snapshots pass.
+
+**Verified on production** (e2e mode `early`, twice in a row, one early payout and one refund each,
+3 recipients each): paid early 1.6 and 2.9 minutes after creation, money moved 4.3 s after the second
+independent check; evidence roots recompute; refunds at trading close. Details:
+[docs/rubric-evidence.md](docs/rubric-evidence.md).
 
 ## Architecture
 
@@ -217,6 +246,9 @@ transactions) and the live testnet RPC:
 | **Memo** `0x5294…E505` routes a call through CallFrom and logs `BeforeMemo` / `Memo` | funding, resolution, refunds and withdrawals carry a memo: bytes32 reference + JSON reason. Memos are indexed and tied to the events between `BeforeMemo` and `Memo` |
 | **Multicall3From** `0x522f…47D0`: batched calls with the EOA as `msg.sender`, no value forwarding | guarantee creation is one atomic batch; settlement of everything due is one batch (failing calls are dropped after simulation). Pot ids are predicted, so `BatchGuard.expectNextPotId` makes the batch revert instead of funding another pot. Verdict never forwards value |
 | CallFrom extensions **do not accept smart-contract wallets** as the caller | the relay and the customers' device accounts are EOAs; a future passkey (contract) account must call through the relay instead |
+| **P-256 precompile** (`0x…0100`, EIP-7951) | passkey accounts verify WebAuthn signatures on-chain (OpenZeppelin `WebAuthn`/`P256`, which uses the precompile); recipients join and withdraw with Face ID / a fingerprint, the relay deploys the account and pays gas |
+| ERC-1271 accepted by the vault's `SignatureChecker` | early-payout pots use a 2-of-3 `MultisigResolver` owned by three independent samplers: no single key, including the relay's, can release money |
+| Memo carries a reason | the early-payout memo carries the evidence root of the samplers' records, so the on-chain payment points at its public evidence; the post-settlement outcome is a memo on a read-only `getPot` call linked to the pot |
 
 Measured on testnet (from `/api/status`): resolve ≈ 110k–160k gas ≈ 0.0023–0.0033 USDC (refund vs. two payouts); gasless
 create + fund ≈ 330k gas ≈ 0.0067 USDC; gasless top-up ≈ 109k gas ≈ 0.0022 USDC.
@@ -376,10 +408,15 @@ cp .env.example .env      # fill in keys and tokens (see "Environment variables"
 
 ```bash
 cd contracts && arc-forge test --network arc     # 108 tests: unit, fuzz, 9 invariants, GuaranteeBook, passkeys, MerkleBook (WSL)
-pnpm --filter @verdict/relay test                # 68 relay tests incl. trigger replay tests (GEMINI_LIVE=1 adds a live check)
+pnpm --filter @verdict/relay test                # 74 relay tests incl. trigger replays and samplers (GEMINI_LIVE=1 adds a live check)
 pnpm --filter @verdict/sdk test                  # 4 SDK tests
 node scripts/check-secrets.mjs . https://verdict-phi-livid.vercel.app   # no secret values in git history or the production bundle
 ```
+
+CI (`.github/workflows/ci.yml`) runs all of the above on every push plus **Slither**; the build fails
+on any finding not explained in `contracts/slither-triage.json` (24 of 24 explained). Threat model:
+[docs/threat-model.md](docs/threat-model.md).
+
 
 ### 4. Fund the testnet wallets
 
@@ -424,6 +461,7 @@ pnpm --filter @verdict/relay e2e -- --api https://verdict-phi-livid.vercel.app -
 | `multisig` | deploys a 2-of-3 `MultisigResolver`; one owner signature is rejected on-chain, two settle the pot |
 | `guarantees` | HonorCat guarantees on live Gemini markets: refund-on-YES and refund-on-NO on one 5-minute market, customers refunded in the resolution transaction, gasless withdrawal |
 | `passkey` | software passkey registers, joins, and withdraws: the relay deploys the account and WebAuthn is verified on Arc |
+| `early` | early payouts on the live contracts best suited right now: one pot pays early (2 of 3 samplers sign; evidence recomputed; evidence root matches the memo), one refunds at trading close; 3 recipients each; on-chain balances. `E2E_EARLY_RUNS=2` repeats it, `E2E_EXTERNAL_LOCAL_SAMPLER=1` uses an already running local sampler |
 | `drops` | two drops of 250 payees on one live 5-minute market; list replaced before lock (root v2); a list the funder did not sign is refused; the relay pushes every claim in batches; all payee balances and the funder's return checked on-chain |
 
 Every mode checks recipient balances on-chain, the payments in `/api/payments` (what `/ledger`
@@ -477,6 +515,9 @@ environment settings (or the git-ignored `.env`), never committed.
 | `VAULT_DEPLOY_BLOCK` | Vercel | no | first block the poller scans |
 | `GUARANTEE_BOOK_ADDRESS`, `BATCH_GUARD_ADDRESS`, `GUARANTEES_DEPLOY_BLOCK` | Vercel | no | GuaranteeBook and BatchGuard (`deployments/5042002.guarantees.json`) |
 | `MERKLE_BOOK_ADDRESS` | Vercel | no | MerkleBook (`deployments/5042002.merkle.json`) |
+| `EARLY_RESOLVER_ADDRESS`, `EARLY_SAMPLERS` | Vercel | no | the samplers' 2-of-3 resolver and the three sampler addresses (`deployments/5042002.samplers.json`) |
+| `SAMPLER_KEY` | Vercel | **yes** | the app's own sampler key |
+| `SAMPLER_KEY_LOCAL`, `SAMPLER_KEY_GITHUB`, `SAMPLER_KEY_VERCEL` | local `.env`; `SAMPLER_KEY_GITHUB` as a GitHub Actions secret | **yes** | the three sampler keys (deploy script reads their addresses) |
 | `PASSKEY_FACTORY_ADDRESS` | Vercel | no | PasskeyAccountFactory (`deployments/5042002.passkeys.json`) |
 | `QUICKNODE_API_KEY`, `QUICKNODE_STREAM_ID` | local `.env` | **yes** (key) | `relay/scripts/quicknode-stream.ts` (batch size, filter, status) |
 | `ARC_RPC_URL` | Vercel, local | no | default `https://rpc.testnet.arc.io` |

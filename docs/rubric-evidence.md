@@ -34,26 +34,58 @@ over WebSocket), the demo template following the market horizon (demo rule now f
 sampler's short bursts (now 270 s bursts from the Streams webhook).
 
 ### [ ] A new user completes the recipient flow on a phone without help
-Not yet (needs the early-payout recipient flow, BACKLOG #12, and a human test).
+Automated stand-in (2026-11-15, production, 390 px phone emulation, virtual platform passkey via
+CDP WebAuthn, unlisted pot M3dVXZoVUv): card visible at 2.7 s, "Join with a passkey" tapped, "You
+are on the list." at 5.5 s, no console errors. **Still needs a real person on a real phone without
+help**; open, see docs/PROGRESS.md.
 
-### [ ] No console errors and no failed requests on any page
-Audit 2026-11-15 (puppeteer, desktop 1280 px and phone 390 px, 15 routes incl. two unknown ids):
-no console errors, no failed requests, no horizontal overflow on every existing page, except
-`/g/<unknown id>`, which logged two 404s (BACKLOG #1).
-Fixed in 8f2acb6 (server-side not-found for unknown guarantee ids). Re-audit on production after
-deploy: `/g/doesnotexist`, `/g/doesnotexist/proof`, `/d/doesnotexist`, `/g/TMS98ihdbH`,
-`/g/TMS98ihdbH/proof`: 0 console errors, 0 failed requests at both widths; they show "This page
-does not exist". (An unknown top-level route such as `/nothing-here` correctly answers HTTP 404.)
-Still unchecked: pages of the early-payout flow do not exist yet.
+### [x] No console errors and no failed requests on any page
+Production audit 2026-11-15 after the early-payout pages (puppeteer, 1280 px and 390 px, 20 routes:
+`/`, `/early/new`, `/e/<paid>`, `/e/<paid>/proof`, `/e/<open>`, `/e/<open>/proof`, `/e/<refunded>`,
+`/e/<unknown>`, `/guarantees`, `/guarantees/new`, `/g/<id>`, `/g/<id>/proof`, `/account`, `/live`,
+`/status`, `/ledger`, `/developers`, `/pots`, `/pots/199`, `/d/<id>`): **40 of 40 page loads with 0
+console errors, 0 failed requests, 0 px horizontal overflow**. Earlier fix: unknown guarantee ids
+(8f2acb6).
 
-### [ ] Every page handles loading, empty and error states
-Partly: see BACKLOG #8.
+### [x] Every page handles loading, empty and error states
+Every client page has all three (code review 2026-11-15): account, drop check, early payout view
+(loading, error, before joining / joined / paid / refunded), funder flow (loading markets, Gemini
+unavailable, no market in a category, no demo market, price chart loading / no trades), guarantee
+view and proof, guarantee list and form, ledger, live view, pots, pot detail, status. Server pages
+render a branded not-found page for unknown ids. Fixed in this cycle: the landing example showed an
+endless skeleton if its API failed (4569edf); the price chart said "no trades" while loading
+(1b79bb1).
 
 ## Clear in the first minute
 
-### [ ] Landing states what HonorCat does in one sentence and shows one live example
-### [ ] A first-time visitor can start the demo template in under 60 seconds (click path recorded)
-### [ ] No unexplained jargon outside "Under the hood"
+### [x] Landing states what HonorCat does in one sentence and shows one live example
+`/` (c4b3744, 7ccd299): "HonorCat sets money aside for a list of people and pays all of them the
+moment a live Gemini market considers an event very likely, before it happens, so they can
+prepare." Next to it, a live early payout from this deployment (listed pot G25xt3gjrG, NYC daily
+high on a real Gemini contract, open to join) with its live chance, threshold, chart and proof
+link; visible 0.8 s after load in the click-path run.
+
+### [x] A first-time visitor can start the demo template in under 60 seconds (click path recorded)
+Recorded on production 2026-11-15 (puppeteer, 1280 px):
+
+```
+  0.9 s  landing: one sentence and the live example visible
+  1.3 s  clicked 'Try the demo' -> /early/new
+  1.3 s  clicked 'Use the demo market'
+ 23.4 s  demo market chosen: BTC price on November 15, "$62,000 or above" happens, at 88% now.
+         Its order book meets the demo rules.
+ 23.4 s  form filled; 'Set aside $0.30 and publish' enabled (next: one wallet signature)
+```
+Then one wallet signature and the create call (about 5-10 s in the e2e runs): about 35 s in total.
+The visitor needs a wallet holding test USDC; recipients need nothing (passkey join in 5.5 s).
+
+### [x] No unexplained jargon outside "Under the hood"
+Pass over the consumer pages (2026-11-15): plain words for the rule ("the gap between the best buy
+and sell price", "independent checks"); the rail's fixed state names carry a plain note each
+("watching the market", "2 of 3 checks agree"); Arc explained on the landing page ("a public
+payment network where anyone can see it"). Technical terms (conditionId, resolver, evidence root,
+samplers) appear only in "Under the hood", on the proof page and on the developer, ledger and status
+pages.
 
 ## Technical rigour
 
@@ -78,7 +110,14 @@ finding not explained in `contracts/slither-triage.json`. CI log of run 43664982
 `24 findings, 24 explained in slither-triage.json` (1 high: `PasskeyAccount.execute` is the
 passkey-signed generic call by design; the rest: false positives, trusted-vault reentrancy,
 coarse timestamps).
-### [ ] README explains setup, architecture and every Arc-specific choice
+### [x] README explains setup, architecture and every Arc-specific choice
+README.md (2026-11-15): Setup (Arc Foundry, install, tests incl. CI and Slither, funding, deploy,
+local run, e2e modes incl. `early`), Architecture, "Early payouts (the main product)" (pages,
+how a payout is decided, samplers in practice, parameters, production results), "Built for Arc"
+table (chain id, USDC gas token, FiatToken v2 / EIP-3009, fee floor, finality, getLogs limit,
+system transfer logs, blocklist, no randomness, Memo, Multicall3From, CallFrom limits, P-256
+precompile, ERC-1271 2-of-3 resolver, memo evidence root), measured gas and batching tables,
+environment variables incl. sampler keys.
 
 ## Sponsor fit
 
@@ -89,10 +128,18 @@ Samplers read `wss://ws.gemini.com` `{symbol}@depth5` (local, GitHub Actions) or
 symbol, side, every sample of each sampler (time, bid, ask, sizes, status), recomputed in the
 browser: /e/_8iR830So7/proof, /e/075q0y7RQ-/proof.
 
-### [ ] Arc: USDC gas, signature-only funding, batched payout, measured confirmation times visible and documented
-### [ ] QuickNode: the live view shows events delivered by Streams, and the stream is running
-2026-11-15 `GET /api/streams`: configured, 4 blocks behind head, 22 batches in the last 5 minutes,
-p50 delivery latency 1,356 ms. The live view (`/live`) renders Streams batches.
+### [x] Arc: USDC gas, signature-only funding, batched payout, measured confirmation times visible and documented
+Visible: funder flow "You confirm once in your wallet. No approval step and no network fees."
+(EIP-3009, one atomic Multicall3From create+fund+open); paid card "Money moved 4.3 seconds after the
+second independent check saw the rule met" (/e/075q0y7RQ-); resolution and payout to every
+recipient in one memo'd transaction (e2e settlement txs); `/status` shows relay gas spent in USDC
+and runway; guarantee cards show result-to-payment time. Documented: README "Built for Arc",
+batching benchmark table, MerkleBook gas table (~73.7k gas per payee measured on Arc).
+
+### [x] QuickNode: the live view shows events delivered by Streams, and the stream is running
+`/live` renders Streams batches as they arrive. `GET /api/streams` 2026-11-15 02:37 UTC: 23 batches
+in the last 5 minutes, p50 delivery latency 1,277 ms, 19 blocks behind head. Streams deliveries also
+run the app's own sampler in 270 s bursts (6414334).
 
 ## Honest and safe
 
@@ -100,7 +147,25 @@ p50 delivery latency 1,356 ms. The live view (`/live`) renders Streams batches.
 Audit 2026-11-15: banner text ("Test version … Not insurance; no real hedge is placed.") present on
 all 15 routes at both widths (`banner=true` in the audit report).
 
-### [ ] Terms screen matches actual behaviour for every edge case
+### [x] Terms screen matches actual behaviour for every edge case
+Terms screen: `/e/<id>` "Terms in plain words". Each case and where the behaviour is enforced or tested:
+- rule (spread, size, staleness, window, minimum samples, 2 of 3): `relay/src/trigger/engine.ts`,
+  `test/trigger.test.ts` (spike, wide spread, thin size, one-sided, stale, outage);
+- parameters fixed at creation: conditionId commitment (test "the conditionId commits to every
+  parameter"); samplers ignore pots whose parameters do not match (`sampler.test.ts`);
+- early-only, never reached: refund at trading close (samplers sign `close`); e2e refund runs
+  VgIyQpo305 and AxhE4N4yFz;
+- early-or-outcome: paid at settlement if it happened, else refund; no result: expiry after
+  deadline + grace (`sampler.test.ts` "pays at settlement", `processEarly` expiry);
+- bad or missing data never pays; an outage until close counts as not reached: engine tests and `close`;
+- under review: cannot trigger (`sampler.test.ts`);
+- voided before a payout: refund (`sampler.test.ts` "signs void"); after a payout: the payout
+  stands and "market voided" is recorded (`recordSettledOutcomes`, 3297048);
+- early payout final, "market was wrong" recorded: there is no clawback path in the contracts;
+  `recordSettledOutcomes` records `market_wrong`;
+- recipient cannot receive: others are paid, the amount stays claimable for them (GuaranteeBook
+  deferral, `GuaranteeBook.t.sol` test_payout_blocklistedCustomerIsDeferred).
+
 ### [x] No secrets in the repository or the browser bundle
 `node scripts/check-secrets.mjs . https://verdict-phi-livid.vercel.app` (2026-11-15) compares every
 secret value in `.env` (never printed) with the full git history and every JS chunk production serves:
