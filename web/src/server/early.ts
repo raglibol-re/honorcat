@@ -129,19 +129,6 @@ export type DemoCandidate = {
 
 const CATEGORIES = ["Crypto", "Weather", "Economics", "Commodities", "Sports", "Politics", "Culture"];
 
-async function topOfBook(sym: string) {
-  try {
-    const r = await fetch(`https://api.gemini.com/v1/book/${encodeURIComponent(sym)}?limit_bids=1&limit_asks=1`, { signal: AbortSignal.timeout(4000), cache: "no-store" });
-    if (!r.ok) return null;
-    const j = (await r.json()) as { bids?: { price: string; amount: string }[]; asks?: { price: string; amount: string }[] };
-    const b = j.bids?.[0];
-    const a = j.asks?.[0];
-    return b && a ? { bid: Number(b.price), ask: Number(a.price), bidSize: Number(b.amount), askSize: Number(a.amount) } : null;
-  } catch {
-    return null;
-  }
-}
-
 type Snap = { bid: number; ask: number; bidSize: number; askSize: number };
 
 /** Collects Gemini `{symbol}@depth5` snapshots (one per second per symbol) for `ms` milliseconds. */
@@ -223,27 +210,6 @@ export async function demoCandidates(thresholdBps = 8500): Promise<DemoCandidate
   }
   const maxSpread = p.maxSpreadUnits / 10 ** p.priceDecimals;
   const minSize = p.minSizeUnits / 10 ** p.sizeDecimals;
-  // A thin book can flip to one-sided between snapshots: require several consecutive snapshots,
-  // ~1.5 s apart, to all meet the rules, and report the weakest one.
-  const check = async (r: Row, snapshots = 4): Promise<DemoCandidate> => {
-    let worst: { spread: number; bidSize: number; askSize: number } | null = null;
-    let ok = true;
-    for (let i = 0; i < snapshots; i++) {
-      if (i) await new Promise((res) => setTimeout(res, 1500));
-      const b = await topOfBook(r.instrument);
-      const good = !!b && b.ask - b.bid <= maxSpread + 1e-9 && b.bidSize >= minSize && b.askSize >= minSize;
-      ok &&= good;
-      if (!b) {
-        worst = { spread: 1, bidSize: 0, askSize: 0 };
-        break;
-      }
-      worst = worst
-        ? { spread: Math.max(worst.spread, b.ask - b.bid), bidSize: Math.min(worst.bidSize, b.bidSize), askSize: Math.min(worst.askSize, b.askSize) }
-        : { spread: b.ask - b.bid, bidSize: b.bidSize, askSize: b.askSize };
-      if (!good) break;
-    }
-    return { ...r, spread: worst?.spread ?? r.estSpread, bidSize: worst?.bidSize ?? 0, askSize: worst?.askSize ?? 0, meetsRules: ok };
-  };
   // Trigger demo: already well above the threshold with a tight book. Watch each candidate's book
   // over Gemini's WebSocket for ~12 s (one snapshot per second, no REST rate limit) and keep only
   // books where nearly every snapshot passes the demo rules: a sampler needs 25 valid of 30.
@@ -257,7 +223,15 @@ export async function demoCandidates(thresholdBps = 8500): Promise<DemoCandidate
     .filter((r) => r.chance >= thr - 0.08 && r.chance < thr - 0.005 && r.estSpread <= maxSpread + 1e-9)
     .sort((a, b) => b.chance - a.chance)
     .slice(0, 10);
-  const seen = await observeBooks([...new Set([...trig, ...near].map((r) => r.instrument))], 12_000);
+  // Refund demo: closes soonest, far below the threshold on its side.
+  const ref = rows
+    .map((r) => ({ ...r, side: (r.side === "yes" ? "no" : "yes") as "yes" | "no", chance: 1 - r.chance }))
+    // Far below the threshold: markets converge to 0% or 100% at close, so a coin-flip market could
+    // still cross. 15% or less on its side, closing within 45 minutes, soonest first.
+    .filter((r) => r.chance <= 0.15 && new Date(r.closesAt).getTime() <= now + 45 * 60_000)
+    .sort((a, b) => a.closesAt.localeCompare(b.closesAt))
+    .slice(0, 12);
+  const seen = await observeBooks([...new Set([...trig, ...near, ...ref].map((r) => r.instrument))], 12_000);
   const observe = (r: Row): DemoCandidate & { validRate: number; observedChance: number | null } => {
       const snaps = seen.get(r.instrument.toLowerCase()) ?? [];
       const good = snaps.filter((b) => b.bid > 0 && b.ask > 0 && b.ask - b.bid <= maxSpread + 1e-9 && b.bidSize >= minSize && b.askSize >= minSize);
@@ -279,16 +253,9 @@ export async function demoCandidates(thresholdBps = 8500): Promise<DemoCandidate
     .map(observe)
     .filter((c) => c.meetsRules && c.observedChance !== null && c.observedChance >= thr + 0.02)
     .sort((a, b) => b.validRate - a.validRate || Math.min(b.bidSize, b.askSize) - Math.min(a.bidSize, a.askSize) || a.closesAt.localeCompare(b.closesAt));
-  // Refund demo: closes soonest, far below the threshold on its side.
-  const ref = rows
-    .map((r) => ({ ...r, side: (r.side === "yes" ? "no" : "yes") as "yes" | "no", chance: 1 - r.chance }))
-    // Far below the threshold: markets converge to 0% or 100% at close, so a coin-flip market could
-    // still cross. 15% or less on its side, closing within 45 minutes, soonest first.
-    .filter((r) => r.chance <= 0.15 && new Date(r.closesAt).getTime() <= now + 45 * 60_000)
-    .sort((a, b) => a.closesAt.localeCompare(b.closesAt))
-    .slice(0, 12);
-  // Pots are refused at creation when the book fails the rule: keep only candidates that pass now.
-  const refund = (await Promise.all(ref.map((r) => check(r, 1)))).filter((c) => c.meetsRules);
+  // Pots are refused at creation when the book fails the rule: keep only refund candidates that pass
+  // in (nearly) every snapshot of the same WebSocket observation.
+  const refund = ref.map(observe).filter((c) => c.meetsRules);
   const watch = near
     .map(observe)
     .filter((c) => c.meetsRules && c.observedChance !== null && c.observedChance < thr && c.observedChance >= thr - 0.08)

@@ -2,7 +2,7 @@ import { after, connection } from "next/server";
 import { DEMO_MAX_AGE_MS, DEMO_REFRESH_MS, cachedDemo, demoCandidates, refreshDemo } from "@/server/early";
 import { getDb } from "@/server/relay";
 
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 /**
  * Live Gemini contracts best suited for a demo: `trigger` (already above the threshold, pays within

@@ -36,7 +36,68 @@ export async function catalogTick(db: Db) {
     [LEASE, String(now), String(now - STEP_EVERY_MS)],
   );
   if (!lease.length) return null;
-  return catalog.refreshStep(db, fetchJson);
+  // Events list over REST (a few pages); order books over one WebSocket (no REST budget used).
+  const step = await catalog.refreshStep(db, fetchJson, { bookBudget: 0 });
+  const queue = await catalog.bookQueue(db, Date.now(), 150);
+  const books = await depthOverWebSocket(queue.map((r) => r.symbol), 4000);
+  for (const [symbol, raw] of books) await catalog.saveBook(db, symbol, catalog.bookStats(raw, Date.now()));
+  return { ...step, books: books.size };
+}
+
+type RawBook = { bids: { price: string; amount: string }[]; asks: { price: string; amount: string }[] };
+
+/**
+ * Top five levels per side for many contracts at once from Gemini's public WebSocket
+ * (`{symbol}@depth5`), the same feed the demo finder watches. Depth "within 5 cents" is therefore
+ * measured over at most five levels a side, which understates very deep books slightly.
+ */
+async function depthOverWebSocket(symbols: string[], ms: number): Promise<Map<string, RawBook>> {
+  const want = new Map(symbols.map((s) => [s.toLowerCase(), s] as const));
+  const out = new Map<string, RawBook>();
+  if (!symbols.length) return out;
+  await new Promise<void>((resolve) => {
+    let ws: WebSocket;
+    try {
+      ws = new WebSocket("wss://ws.gemini.com");
+    } catch {
+      return resolve();
+    }
+    const done = () => {
+      try {
+        ws.close();
+      } catch {
+        /* already closed */
+      }
+      resolve();
+    };
+    const timer = setTimeout(done, ms);
+    ws.onopen = () => {
+      for (let i = 0; i < symbols.length; i += 50)
+        ws.send(JSON.stringify({ id: String(i), method: "SUBSCRIBE", params: symbols.slice(i, i + 50).map((s) => `${s}@depth5`) }));
+    };
+    ws.onmessage = (m) => {
+      try {
+        const j = JSON.parse(String(m.data)) as { symbol?: string; bids?: [string, string][]; asks?: [string, string][] };
+        const sym = j.symbol ? want.get(j.symbol.toLowerCase()) : undefined;
+        if (!sym) return;
+        out.set(sym, {
+          bids: (j.bids ?? []).map(([price, amount]) => ({ price, amount })),
+          asks: (j.asks ?? []).map(([price, amount]) => ({ price, amount })),
+        });
+        if (out.size === want.size) {
+          clearTimeout(timer);
+          done();
+        }
+      } catch {
+        /* ignore */
+      }
+    };
+    ws.onerror = () => {
+      clearTimeout(timer);
+      done();
+    };
+  });
+  return out;
 }
 
 export type CatalogItem = CatalogRow & { quality: Quality };
