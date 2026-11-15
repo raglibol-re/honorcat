@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { CatScale } from "@/components/cat/CatScale";
 import { PounceChart } from "@/components/cat/PounceChart";
+import { RollingNumber } from "@/components/cat/RollingNumber";
 import { HcFooterLinks, HcHeader } from "@/components/cat/Chrome";
 import { CatHead, Ears, EyesLarge } from "@/components/cat/shapes";
 import { StateRail, type RailStep } from "@/components/cat/StateRail";
@@ -27,7 +28,7 @@ function useLanding(initial: LandingData | null) {
         .then((x) => !stop && setD(x))
         .catch(() => {});
     if (!initial) void load();
-    const t = setInterval(load, 10_000);
+    const t = setInterval(load, 5_000);
     return () => {
       stop = true;
       clearInterval(t);
@@ -78,15 +79,24 @@ export function Landing({ initial }: { initial: LandingData | null }) {
         : `The cat is ${gap} point${gap === 1 ? "" : "s"} from the bowl.`
       : "";
 
-  const people = payout ? `${payout.recipients} ${payout.recipients === 1 ? "person was" : "people were"}` : "";
-  const total = payout ? formatMoney((BigInt(payout.amount) * BigInt(payout.recipients)).toString()) : "";
+  const people = payout ? `${payout.paidPeople} ${payout.paidPeople === 1 ? "person was" : "people were"}` : "";
   const rec = payout?.record;
+  const secs = (x: number) => (x < 90 ? `${x.toFixed(1)} seconds` : `${Math.round(x / 60)} minutes`);
+  // Every value below is read from the featured payout's own records.
   const steps: RailStep[] = payout
     ? [
-        { name: "Locked", done: true, phrase: `The cat sits on ${total} in the vault`, mono: short(payout.vault) },
-        { name: "Armed", done: true, phrase: `Ears up: three checks, a sample every ${payout.intervalMs / 1000} seconds` },
-        { name: "Triggered", done: true, phrase: `Pounce: two of three saw it hold above ${pct(payout.threshold)}` },
-        { name: "Paid", done: true, phrase: `Everyone fed: ${payout.recipients} ${payout.recipients === 1 ? "person" : "people"} in one transaction` },
+        { name: "Locked", done: true, phrase: `The cat sat on ${formatMoney(payout.lockedTotal)} in the vault`, mono: short(payout.vault) },
+        {
+          name: "Armed",
+          done: true,
+          phrase: `Ears up: ${payout.checks} independent ${payout.checks === 1 ? "check" : "checks"}, a sample every ${payout.intervalMs / 1000} seconds`,
+        },
+        { name: "Triggered", done: true, phrase: `Pounce: ${payout.triggerSigners} of 3 signers saw it hold above ${pct(payout.threshold)}` },
+        {
+          name: "Paid",
+          done: true,
+          phrase: `Everyone fed: ${formatMoney(payout.paidTotal)} to ${payout.paidPeople} ${payout.paidPeople === 1 ? "person" : "people"} in ${payout.paidTxs === 1 ? "one transaction" : `${payout.paidTxs} transactions`}${payout.settleSeconds !== null ? `, ${secs(payout.settleSeconds)} after the trigger` : ""}`,
+        },
         {
           name: "Confirmed",
           done: !!rec,
@@ -101,19 +111,21 @@ export function Landing({ initial }: { initial: LandingData | null }) {
       ]
     : [];
   const last = payout?.series.at(-1);
-  const startedAbove = !!payout && (payout.series[0]?.p ?? 0) >= payout.threshold;
 
   return (
     <div className="hc" style={{ background: C.page, color: C.ink, fontFamily: F.sans, minHeight: "100vh", boxSizing: "border-box" }}>
       <HcHeader />
 
       <section className="hc-wrap" style={{ paddingTop: 36, display: "flex", flexWrap: "wrap", gap: "32px 72px", alignItems: "flex-end" }}>
-        <div style={{ flex: "1 1 480px", minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+        <div key={hero ? `${hero.instrument}:${hero.side}:${hero.threshold}` : "none"} className="hc-swap" style={{ flex: "1 1 480px", minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
           <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }} aria-label={hero?.chance != null ? `${pct(hero.chance)} chance` : "chance unavailable"}>
             <span style={{ ...cond, fontWeight: 700, fontSize: "clamp(190px, 27vw, 400px)", lineHeight: 0.78, letterSpacing: "-0.02em" }}>
-              {hero?.chance != null ? Math.round(hero.chance * 100) : "–"}
+              <RollingNumber value={hero?.chance != null ? hero.chance * 100 : null} />
             </span>
-            <span style={{ ...cond, fontWeight: 600, fontSize: "clamp(56px, 7vw, 104px)", lineHeight: 1 }}>%</span>
+            {/* The % flashes in the signal colour each time the chance moves. */}
+            <span key={hero?.chance != null ? Math.round(hero.chance * 100) : -1} className="hc-tick" style={{ ...cond, fontWeight: 600, fontSize: "clamp(56px, 7vw, 104px)", lineHeight: 1 }}>
+              %
+            </span>
           </div>
           <p style={{ margin: "20px 0 0", fontSize: 19, lineHeight: 1.4, color: C.muted, maxWidth: 440 }}>
             {hero ? (
@@ -160,10 +172,20 @@ export function Landing({ initial }: { initial: LandingData | null }) {
 
       <section className="hc-wrap" style={{ paddingTop: 72, display: "flex", flexWrap: "wrap", gap: "28px 56px", alignItems: "flex-start" }}>
         <div style={{ flex: "1 1 280px", minWidth: 0, display: "flex", flexDirection: "column", gap: 14 }}>
-          <h2 style={{ margin: 0, ...cond, fontSize: 44, fontWeight: 600, lineHeight: 1 }}>The moment it pounced</h2>
+          <span style={{ fontSize: 15, color: C.muted }}>{payout ? `An earlier payout${payout.settledAt ? `, ${formatDate(new Date(payout.settledAt).getTime())}` : ""}` : ""}</span>
+          <h2 style={{ margin: 0, ...cond, fontSize: 44, fontWeight: 600, lineHeight: 1 }}>
+            {payout ? (payout.crossed ? "The moment it pounced" : "No crossing caught yet") : "No payout yet"}
+          </h2>
+          {payout && (
+            <p style={{ margin: 0, fontSize: 19, lineHeight: 1.35, fontWeight: 600 }}>
+              “{payout.side === "yes" ? payout.contractLabel : `not ${payout.contractLabel}`}”, {payout.eventTitle}
+            </p>
+          )}
           <p style={{ margin: 0, fontSize: 19, lineHeight: 1.45, color: C.body }}>
             {payout
-              ? `${startedAbove ? `The line held above ${pct(payout.threshold)} for the full window.` : `The line crossed ${pct(payout.threshold)} and held.`} ${people[0]!.toUpperCase()}${people.slice(1)} paid on the spot, before anyone knew the result.`
+              ? payout.crossed
+                ? `The line crossed ${pct(payout.threshold)} and held. ${people[0]!.toUpperCase()}${people.slice(1)} paid on the spot, before anyone knew the result.`
+                : `No payout has crossed its line while we watched yet. In this one the chance was already above ${pct(payout.threshold)} from the first reading; ${people} paid once it held. Run “Watch it cross” to catch a crossing.`
               : loading
                 ? "Loading the latest payout…"
                 : "No early payout has happened yet. The first one will show here."}
@@ -179,7 +201,7 @@ export function Landing({ initial }: { initial: LandingData | null }) {
                 threshold={payout.threshold}
                 paidAt={payout.paidAt}
                 endLabel={last ? `${pct(last.p)} last reading` : ""}
-                ariaLabel={`The chance over time for “${payout.contractLabel}”. It crosses the ${pct(payout.threshold)} line, where the payout fired${last ? `, and ends at ${pct(last.p)}` : ""}.`}
+                ariaLabel={`The chance over time for “${payout.contractLabel}”. ${payout.crossed ? `It crosses the ${pct(payout.threshold)} line, where the payout fired` : `It stays above the ${pct(payout.threshold)} line; the payout fired once it held`}${last ? `, and ends at ${pct(last.p)}` : ""}.`}
               />
 </div>
 <div className="hc-narrow">
@@ -189,13 +211,13 @@ export function Landing({ initial }: { initial: LandingData | null }) {
                 threshold={payout.threshold}
                 paidAt={payout.paidAt}
                 endLabel={last ? `${pct(last.p)} last reading` : ""}
-                ariaLabel={`The chance over time for “${payout.contractLabel}”. It crosses the ${pct(payout.threshold)} line, where the payout fired${last ? `, and ends at ${pct(last.p)}` : ""}.`}
+                ariaLabel={`The chance over time for “${payout.contractLabel}”. ${payout.crossed ? `It crosses the ${pct(payout.threshold)} line, where the payout fired` : `It stays above the ${pct(payout.threshold)} line; the payout fired once it held`}${last ? `, and ends at ${pct(last.p)}` : ""}.`}
               />
 </div>
             </div>
             <span style={{ fontSize: 14, color: C.muted }}>
               Real readings from this payout{payout.settledAt ? ` on ${formatDate(new Date(payout.settledAt).getTime())}` : ""}: the middle of Gemini’s best buy and sell
-              price, as {payout.samplers} independent checks recorded it, averaged. <Link href={`/e/${payout.id}/proof`}>See the proof</Link>
+              price, as {payout.checks} independent {payout.checks === 1 ? "check" : "checks"} recorded it, averaged. <Link href={`/e/${payout.id}/proof`}>See the proof</Link>
             </span>
           </div>
         )}

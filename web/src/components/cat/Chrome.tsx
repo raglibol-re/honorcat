@@ -16,13 +16,14 @@ export const technical = [
   ["/live", "Live"],
   ["/status", "Status"],
   ["/developers", "Developers"],
-  ["/guarantees", "Guarantees"],
 ] as const;
+// The older refund-guarantee product stays reachable in technical mode only.
+const techOnly = [["/guarantees", "Guarantees"]] as const;
 
 /** The header from the landing reference: logo, three links, the test-money note. */
 export function HcHeader() {
   const { tech } = useTechMode();
-  const items = tech ? [...primary, ...technical] : primary;
+  const items = tech ? [...primary, ...technical, ...techOnly] : primary;
   return (
     <header
       className="hc-wrap"

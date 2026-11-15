@@ -131,3 +131,12 @@ body {
 .vg .hc main h1 { font-size: clamp(44px, 6vw, 64px); line-height: 0.95; font-weight: 600; }
 .vg .hc main h2 { font-size: 30px; line-height: 1.05; font-weight: 600; }
 .vg .hc main h1.hc-long { font-size: clamp(30px, 4vw, 44px); line-height: 1.05; }
+
+/* Landing hero: digits roll to a new chance, a new market wipes in, the cat glides along the scale. */
+.hc-roll { transition: transform 900ms cubic-bezier(.2, .8, .2, 1); will-change: transform; }
+.hc-glide { transition: transform 900ms cubic-bezier(.2, .8, .2, 1); }
+@keyframes hc-swap { from { clip-path: inset(0 0 100% 0); transform: translateY(28px); } to { clip-path: inset(0 0 0 0); transform: none; } }
+.hc-swap { animation: hc-swap 650ms cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes hc-tick { 0% { color: #E8421A; } 100% { color: inherit; } }
+.hc-tick { animation: hc-tick 1200ms ease-out both; }
+@media (prefers-reduced-motion: reduce) { .hc-roll, .hc-glide { transition: none; } .hc-swap, .hc-tick { animation: none; } }

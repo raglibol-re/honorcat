@@ -48,7 +48,7 @@ export function CatHeadShape({ x, y, scale, fill = C.ink }: { x: number; y: numb
 /** Paw print centred on (x, y). */
 export function Paw({ x, y, rotate, scale, fill = C.ink }: { x: number; y: number; rotate: number; scale: number; fill?: string }) {
   return (
-    <g transform={`translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${rotate}) scale(${scale})`} fill={fill}>
+    <g className="hc-glide" style={{ transform: `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) rotate(${rotate}deg) scale(${scale})` }} fill={fill}>
       <ellipse cx="0" cy="3" rx="6" ry="5" />
       <circle cx="-6.2" cy="-4" r="2.4" />
       <circle cx="-2.2" cy="-7.6" r="2.4" />
@@ -61,7 +61,7 @@ export function Paw({ x, y, rotate, scale, fill = C.ink }: { x: number; y: numbe
 /** The sitting cat (about 130×141 at scale 1), its top-left at (x, y). */
 export function SittingCat({ x, y, scale = 1 }: { x: number; y: number; scale?: number }) {
   return (
-    <g transform={`translate(${x.toFixed(1)} ${y.toFixed(1)}) scale(${scale})`}>
+    <g className="hc-glide" style={{ transform: `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) scale(${scale})` }}>
       <path d="M94 122 C 128 122, 126 80, 104 74" fill="none" stroke={C.ink} strokeWidth="11" strokeLinecap="round" />
       <ellipse cx="64" cy="98" rx="34" ry="40" fill={C.ink} />
       <circle cx="44" cy="46" r="25" fill={C.ink} />

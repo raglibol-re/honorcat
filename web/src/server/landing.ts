@@ -72,11 +72,17 @@ export async function landingData() {
     }
   }
 
-  const rows = await db.query<{ id: string }>(
-    `SELECT e.id FROM early_pots e
+  // Featured payout: prefer one whose recorded line starts below the threshold (a visible crossing,
+  // as the "Watch it cross" demo makes); otherwise the latest early payout, flagged as not crossing.
+  const rows = await db.query<{ id: string; crossed: boolean | null }>(
+    `SELECT e.id,
+       (SELECT s.mid_micro FROM early_samples s
+         WHERE s.early_id = e.id AND s.status = 0 AND s.mid_micro IS NOT NULL ORDER BY s.t LIMIT 1)
+         < (e.params->>'thresholdBps')::bigint * 100 AS crossed
+     FROM early_pots e
      WHERE e.status = 'live' AND e.settled_kind = 'early' AND e.settled_at IS NOT NULL
        AND (SELECT count(*) FROM early_samples s WHERE s.early_id = e.id AND s.status = 0) >= 20
-     ORDER BY e.settled_at DESC LIMIT 1`,
+     ORDER BY crossed DESC NULLS LAST, e.settled_at DESC LIMIT 1`,
   );
   const d = rows[0] ? await earlyDetail(db, rows[0].id) : null;
   let payout = null;
@@ -101,6 +107,7 @@ export async function landingData() {
       cur.t += s.t;
       buckets.set(b, cur);
     }
+    const paidTo = d.payments.filter((p) => p.account && p.kind !== "LeftoverReturned");
     const series = [...buckets.entries()].sort((a, b) => a[0] - b[0]).map(([, v]) => ({ t: Math.round(v.t / v.n), p: v.sum / v.n }));
     payout = {
       id: e.id,
@@ -118,7 +125,15 @@ export async function landingData() {
       record: e.record,
       vault: cfg.vault,
       series,
-      samplers: new Set(d.samples.map((s) => s.signer)).size,
+      crossed: rows[0]?.crossed === true,
+      // Every rail value comes from this payout's records.
+      checks: new Set(d.samples.map((s) => s.signer)).size,
+      triggerSigners: new Set(d.signatures.filter((s) => s.kind === "trigger").map((s) => s.signer.toLowerCase())).size,
+      paidTotal: paidTo.reduce((a, p) => a + BigInt(p.amount), 0n).toString(),
+      paidPeople: new Set(paidTo.map((p) => p.account!.toLowerCase())).size,
+      paidTxs: new Set(paidTo.map((p) => p.tx)).size,
+      settleSeconds: paidAt && d.settledAt ? Math.max(0, (new Date(d.settledAt).getTime() - paidAt) / 1000) : null,
+      lockedTotal: (BigInt(e.amount) * BigInt(d.recipients.length)).toString(),
     };
   }
 

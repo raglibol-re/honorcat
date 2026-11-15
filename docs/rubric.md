@@ -59,6 +59,25 @@ name, a screenshot path or a command output. No evidence, not done.
 - [x] Same tokens on /early/new, /live, /status and every other page: no
       rounded corners, shadows, gradients or bordered card grids; no emoji.
 
+## Third browser review (2026-11-15)
+- [ ] The landing chart features a payout whose line crosses the threshold
+      (a "Watch it cross" demo); if none exists it says so plainly instead
+      of "The moment it pounced".
+- [ ] The chart is labelled as an earlier payout and names its market in
+      the heading area, so it is not confused with the hero market.
+- [ ] Every value in the landing rail (amount, people, checks, signers,
+      settle time) comes from the featured payout's records, and the
+      caption and rail agree on the number of checks.
+- [ ] The "PAID EARLY" stamp never covers the threshold line or its label.
+- [ ] "Guarantees" is not in the footer (reachable in technical mode only).
+- [ ] The landing hero number animates when the chance or the market
+      changes (digits roll, a new market wipes in, the cat glides).
+
+## Wallets from other chains (2026-11-15)
+- [ ] Passkey stays the default; crypto users can register and pay with a
+      wallet instead, from any supported chain: USDC on another testnet
+      moves to Arc through Circle CCTP V2 and funds the pot.
+
 ## Submission
 - [ ] A written demo script for a three-minute video.
 - [ ] A project description draft for Devpost.

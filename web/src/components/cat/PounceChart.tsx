@@ -51,10 +51,11 @@ export function PounceChart({
   // it, higher when the chance was already above it for the whole window.
   const atPaid = paidAt === null || !pts.length ? null : pts.reduce((b, s) => (Math.abs(s.t - paidAt) < Math.abs(b.t - paidAt) ? s : b), pts[0]!);
   const my = atPaid ? Math.min(y(Math.max(threshold, atPaid.p)), ty) : ty;
-  // The stamp sits above the paw as in the reference; below it when there is no room at the top.
-  const above = my - 99 >= 0;
+  // The stamp sits above the paw as in the reference. With no room at the top it goes below the
+  // threshold line and its label (label baseline ty + 23), never across them.
+  const above = my - 99 >= 0 || ty + 73 + 36 > 340;
   const d = above ? -1 : 1; // direction from the paw to the stamp
-  const sy = my + d * 75; // stamp centre
+  const sy = above ? my - 75 : Math.max(my + 75, ty + 73); // stamp centre: its top (26 + 10 for the tilt) clears the label
   // Keep the stamp clear of the cat head and its label at the end of the line.
   const endLeft = ex - 12 - endLabel.length * 9;
   const sx = px === null ? 0 : Math.max(118, Math.min(W - 118, px, above && Math.abs(ey - sy) < 60 ? endLeft - 124 : Infinity));
