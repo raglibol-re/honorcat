@@ -13,8 +13,6 @@ export { verifyStreamsSignature, decodeBody, extractStreamsLogs, extractBatchRan
 export { recordBatch, streamsOverview } from "./streams";
 export { runTick, buildSources, type TickReport } from "./tick";
 export { listPots, getPotDetail, listPayments, type PotDto, type PaymentDto } from "./api";
-export { ApiSource } from "./sources/api";
-export { HttpSource, parseHttpKey, canonicalHttpKey, readPath, outcomeFromValue, isPrivateAddress } from "./sources/http";
 export { ARC_USDC, ARC_MIN_BASE_FEE, NATIVE_PER_USDC_UNIT, nativeToUsdcUnits, arcFees, usdcDomain, usdcBalances } from "./arc";
 export { sendVaultTx, revertName, type TxKind } from "./txs";
 export {
@@ -30,8 +28,6 @@ export {
   type PotParams,
   type SignedAuthorization,
 } from "./gasless";
-export { createIntegration, listIntegrations, updateIntegration, authenticate, type Integration } from "./integrations";
-export { enqueueWebhooks, enqueuePing, deliverDueWebhooks, listDeliveries, signPayload, verifyWebhookSignature, EVENT_TYPES, type WebhookPayload } from "./webhooks";
 export { relayStatus, potRelayCost } from "./status";
 export { scopeToVault } from "./db";
 export { ARC_MEMO, ARC_MULTICALL3_FROM } from "./arc";
@@ -57,23 +53,6 @@ export {
   type JoinProof,
 } from "./guarantees";
 export { guaranteeBookAbi, batchGuardAbi, merkleBookAbi } from "./abi";
-export {
-  buildDropTree,
-  dropSalt,
-  prepareDrop,
-  createDrop,
-  replaceDropEntries,
-  dropDetail,
-  listDrops,
-  dropProofs,
-  processDrops,
-  LEAF_ENCODING,
-  CLAIM_BATCH,
-  type DropTerms,
-  type DropEntry,
-  type DropDto,
-  type DropProof,
-} from "./drops";
 export {
   verifyAssertion,
   executeDigest as passkeyExecuteDigest,

@@ -4,8 +4,6 @@ import { ARC_MEMO } from "../arc";
 import { getConfig } from "../config";
 import type { Db } from "../db";
 import { decodeMemoBody, decodeMemoLog } from "../memo";
-import { enqueueWebhooks, type IngestedEvent } from "../webhooks";
-import { applyMerkleEvent } from "../drops";
 
 /** A log in the shape both eth_getLogs and QuickNode Streams deliver (numbers already parsed). */
 export type RawLog = {
@@ -158,7 +156,6 @@ export async function ingestLogs(
 
   let inserted = 0;
   const affected = new Set<string>();
-  const fresh: IngestedEvent[] = [];
   for (const d of decoded) {
     // Book events other than GuaranteeOpened carry only the gid; map it to the pot.
     let potId = d.potId;
@@ -193,29 +190,11 @@ export async function ingestLogs(
         d.potId.toString(),
       ]);
     }
-    if (d.contract === "merkle" && d.eventName === "DropOpened" && d.gid !== null && d.potId !== null) {
-      await db.query(`UPDATE drops SET drop_id = $1, status = 'live' WHERE pot_id = $2 AND drop_id IS NULL`, [d.gid.toString(), d.potId.toString()]);
-    }
-    if (d.contract === "merkle") await applyMerkleEvent(db, d.eventName, d.args, d.transactionHash.toLowerCase());
-    if (rows.length) {
-      inserted++;
-      if (d.contract === "vault") {
-        fresh.push({
-          txHash: d.transactionHash.toLowerCase(),
-          logIndex: d.logIndex,
-          blockNumber: d.blockNumber,
-          blockTime: times.get(d.blockNumber) ?? null,
-          eventName: d.eventName,
-          potId: d.potId,
-          args: d.args,
-        });
-      }
-    }
+    // MerkleBook (retired drops) events are still stored above; its tables are read-only now.
+    if (rows.length) inserted++;
     if (d.contract === "vault" && d.potId !== null) affected.add(d.potId.toString());
   }
   for (const potId of affected) await projectPot(db, potId);
-  // After projection, so pot -> condition -> integration can be resolved for PotCreated too.
-  if (fresh.length) await enqueueWebhooks(db, fresh);
 
   const ours = new Set<string>([...decoded.map((d) => d.transactionHash.toLowerCase()), ...[...(opts.memoTxs ?? [])].map((t) => t.toLowerCase())]);
   const targets = new Set([vault, ...(book ? [book] : []), ...(merkle ? [merkle] : []), ...(opts.extraMemoTargets ?? [])].map((x) => getAddress(x)));

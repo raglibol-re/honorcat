@@ -11,7 +11,6 @@ import { getJson } from "@/lib/api";
 import { publicClient, txUrl, USDC_ADDRESS } from "@/lib/chain";
 import { formatUsdc } from "@/lib/format";
 import { cardState, toCard, type GuaranteeDetail } from "@/lib/guarantees";
-import { useNow } from "@/lib/useNow";
 import { deviceWallet } from "@/lib/wallet/device";
 import {
   createPasskey,
@@ -80,7 +79,6 @@ export function CustomerView() {
   const { id } = useParams<{ id: string }>();
   const { d, error, justSettled } = useGuarantee(id);
   const { passkey, setPasskey, device, setDevice, canPasskey } = useAccounts();
-  const now = useNow();
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
 
@@ -93,7 +91,8 @@ export function CustomerView() {
   const account = (me?.account as Address | undefined) ?? null;
   const accountKind: "passkey" | "device" = passkey && me && me.account.toLowerCase() === passkey.account.toLowerCase() ? "passkey" : "device";
   const state = cardState(d);
-  const open = state === "active" && now > 0 && now / 1000 < g.lockTime;
+  // Guarantees are retired (cleanup C1): pages stay readable until they settle; no new enrolments.
+  const open = false;
   const full = d.customers.length >= g.maxCustomers;
 
   async function join(kind: "passkey-new" | "passkey-existing" | "device") {
