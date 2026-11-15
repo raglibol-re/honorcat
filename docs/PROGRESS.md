@@ -19,6 +19,10 @@
 - Work in cycles per docs/improve.md, everything in the agreed priority order.
 
 ## Rubric cycle log
+- 2026-11-15: third browser review done (47e66ab): honest featured payout ("No crossing caught yet"
+  until a crossing exists), earlier-payout label with market, rail values from records, stamp clear
+  of the threshold, Guarantees out of the footer, animated hero number. Wallets from other chains
+  (05d0e6b): pay from six CCTP testnets, join and My money with any EVM wallet; passkey stays default.
 - 2026-11-15: HonorCat redesign to docs/design approved by the user and shipped (merge 0a33a55):
   landing, recipient-card pot page, /early/new, /live, /status, /account, /how; shared tokens and
   chrome on every other page. No radius/shadow/gradient anywhere (checked on production, 12 routes,

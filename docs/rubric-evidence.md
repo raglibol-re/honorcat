@@ -255,3 +255,31 @@ E2E PASSED. Paid early: -6jwVFL8X3 (pot #211), 2 min after creation, 3 recipient
   paid early to 3 recipients, 313 min before trading close; BmzsUQBKOp (pot #214) refunded the
   funder 0.3 USDC. A first attempt hit a one-off 504 on `/api/early/demo?fresh=1` (slow Gemini
   fetch); the same call answered in 14.5 s right after.
+
+## Third browser review (2026-11-15, commits 47e66ab, 05d0e6b)
+- Featured payout: `landingData()` prefers an early payout whose first valid sample is below its
+  threshold. None exists yet, so the landing says "No crossing caught yet" and explains that in the
+  featured payout (w10Xbf0wCg) the chance was above 85% from the first reading.
+- Heading area: "An earlier payout, Nov 15, 5:46 PM" plus the market (“$62,500 or above”, BTC price
+  on November 15), separate from the hero market.
+- Rail from records (`/api/landing` payout): lockedTotal 300000, checks 2, triggerSigners 2,
+  paidTotal 300000 to 3 people in 1 transaction, settleSeconds 10.1. Rail: "2 independent checks",
+  "2 of 3 signers"; caption: "as 2 independent checks recorded it".
+- Stamp: placed above the paw, or below the threshold label (centre at least ty + 73), never across
+  the line; checked in the production screenshot.
+- Footer: Guarantees removed; reachable in technical mode from the header.
+- Hero: digits roll (odometer columns, 900 ms), a new market wipes in, the % flashes in the signal
+  colour on each change, the cat and paw trail glide on the scale; off under reduced motion.
+
+## Wallets from other chains (2026-11-15, commit 05d0e6b)
+- CCTP V2 facts verified on chain: TokenMessengerV2 and MessageTransmitterV2 have code on Arc
+  testnet, Base Sepolia and Sepolia; Iris fees 6->26 fast 1.3 bps, 0->26 fast 1 bps.
+- Real burn Arc -> Base Sepolia with the app's encoding (tx 0x3e3f4a77…d9b6): attested by Iris in
+  0.2 s; `parseHeader` reads source 26, destination 6, recipient TokenMessengerV2.
+- `/api/cctp/receive` on production rejects that message with "not addressed to Arc" (400).
+- Browser with a wallet on Base Sepolia: "Pay from" defaults to Base Sepolia, shows both balances,
+  offers "Bring $9.90 from Base Sepolia" and holds the funding button until Arc covers the total.
+  My money: "Use a wallet instead" shows the wallet's Arc balance. Wallet join uses the existing
+  EOA join API (exercised by every e2e run).
+- Open: an inbound mint (burn on a source testnet -> relay mints on Arc) needs test USDC and gas on
+  a source chain; no key here has any (checked six chains).
