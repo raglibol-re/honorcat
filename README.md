@@ -12,22 +12,34 @@ priced from live Gemini markets, with the refunds locked on Arc, customers joini
 wallet, and payment the moment the market settles. See [HonorCat](#honorcat-the-product). Verdict
 remains the name of the engine: contracts, SDK, API and developer docs.
 
+**Next for HonorCat: early payouts** ("Paid before it happens."). Money is paid out the moment a
+Gemini market considers an event very likely, before it happens, and HonorCat records afterwards
+whether the market was right. The probability trigger (milestone M1) is built and tested; the
+funder flow, live view, recipient flow and samplers follow. See
+[Early payouts](#early-payouts-in-progress), the spec in
+[docs/early-payout-spec.md](docs/early-payout-spec.md) and the rule in
+[docs/early-payout-trigger.md](docs/early-payout-trigger.md).
+
 > Testnet only. Never use these keys or contracts on mainnet.
 
 **Live:** https://verdict-phi-livid.vercel.app ([status](https://verdict-phi-livid.vercel.app/status),
 [developers](https://verdict-phi-livid.vercel.app/developers)) · vault
 [`0xba7190441bc00fC1AC8597d68197039e1167E6D4`](https://explorer.testnet.arc.io/address/0xba7190441bc00fC1AC8597d68197039e1167E6D4)
-on Arc testnet (chainId 5042002). The scripted e2e run passes against this deployment in every
-mode (classic, gasless, integration API, multisig resolver, guarantees) for both outcomes.
+on Arc testnet (chainId 5042002). The scripted e2e run has passed against this deployment in every
+mode (classic, gasless, integration API, multisig resolver, guarantees, passkey accounts, Merkle
+payouts to 250 payees).
 
 ```
-contracts/   Foundry (Arc Foundry): VerdictVault, GuaranteeBook, BatchGuard, MultisigResolver,
-             unit/fuzz/invariant tests, deploy scripts
-relay/       TypeScript library: sources, signer, resolver, indexers, gasless relaying,
-             integrations, webhooks, gas accounting, read models, e2e script
+contracts/   Foundry (Arc Foundry): VerdictVault, GuaranteeBook, MerkleBook, BatchGuard,
+             MultisigResolver, PasskeyAccount(+Factory), unit/fuzz/invariant tests, deploy scripts
+relay/       TypeScript library: sources, signer, resolver, indexers, gasless relaying, drops,
+             passkeys, early-payout trigger engine (src/trigger), integrations, webhooks,
+             gas accounting, read models, e2e script
 web/         Next.js app on Vercel: UI + every HTTP API route (the relay runs inside it)
 sdk/         @verdict/sdk: typed client, gasless signing helpers, webhook verification
-deployments/ <chainId>.json written by the deploy script (vault address, deploy block)
+deployments/ <chainId>*.json written by the deploy scripts (addresses, deploy blocks)
+docs/        early-payout spec and trigger rule, PROGRESS.md, submission rubric and its evidence
+scripts/     check-secrets.mjs: secret values vs git history and the production bundle
 ```
 
 ## What you can build on it today
@@ -116,6 +128,34 @@ funded and filled on live markets; they settle when Gemini settles those markets
 | enrol one customer | 126k | 0.0025 |
 | settle two pots + refund three customers + three memos, one tx | 361k | 0.0072 |
 | gasless withdraw (memo'd transferWithAuthorization) | 137k | 0.0028 |
+
+## Early payouts (in progress)
+
+A funder picks a live Gemini contract, sets a probability threshold (85% by default) and locks USDC
+for a list of recipients. When the market's smoothed probability crosses the threshold, the pot pays
+everyone at once; after the market settles, HonorCat records whether the event happened. No vault
+change: the pot's resolver is a 2-of-3 `MultisigResolver` whose signers are independent samplers.
+
+**The trigger (built, M1).** `relay/src/trigger/`, rule and evidence format in
+[docs/early-payout-trigger.md](docs/early-payout-trigger.md):
+
+- Samples come from Gemini's public order book (`wss://ws.gemini.com`, `{symbol}@depth5`, a full
+  top-of-book snapshot every second). A sample counts only with a bounded spread, a minimum size on
+  both sides and fresh data. A raw tick never triggers: the time-weighted midpoint over the window
+  must be at or above the threshold, with a minimum number of valid samples and fresh data at the end.
+- Integer-only and deterministic. The trigger parameters, the contract, the side and the pot mode are
+  committed in the pot's `conditionId`, so they cannot change after creation.
+- Each signer publishes a canonical evidence record (every sample, the average, the decision) and
+  signs the vault result plus a `TriggerAttestation` over the record's hash. Two of three accepted
+  signers produce the resolver signature and an `evidenceRoot` for the payout memo. The vault does
+  not verify evidence: it makes each decision auditable, not enforced.
+- 30 tests, including replays of recorded Gemini feeds (a quiet weather book, a 5-minute crypto book).
+
+Parameters are provisional (demo template: 60 s window, a sample every 2 s, 25 valid samples, spread
+at most 0.04, 10 contracts per side, data at most 10 s old; other templates: 30 min, 10 s, 150, 0.05,
+50, 60 s). Next: funder flow and live view (M2), recipient flow, evidence on the proof page and the
+post-settlement record (M3), and an e2e run with one early payout and one refund (M4). Status and
+open points: [docs/PROGRESS.md](docs/PROGRESS.md).
 
 ## Architecture
 
@@ -336,8 +376,9 @@ cp .env.example .env      # fill in keys and tokens (see "Environment variables"
 
 ```bash
 cd contracts && arc-forge test --network arc     # 108 tests: unit, fuzz, 9 invariants, GuaranteeBook, passkeys, MerkleBook (WSL)
-pnpm --filter @verdict/relay test                # 38 relay tests (GEMINI_LIVE=1 adds a live check)
-pnpm --filter @verdict/sdk test                  # SDK tests
+pnpm --filter @verdict/relay test                # 68 relay tests incl. trigger replay tests (GEMINI_LIVE=1 adds a live check)
+pnpm --filter @verdict/sdk test                  # 4 SDK tests
+node scripts/check-secrets.mjs . https://verdict-phi-livid.vercel.app   # no secret values in git history or the production bundle
 ```
 
 ### 4. Fund the testnet wallets
@@ -434,6 +475,10 @@ environment settings (or the git-ignored `.env`), never committed.
 | `QUICKNODE_STREAMS_TOKEN` | Vercel | **yes** | Streams security token (webhook HMAC) |
 | `VAULT_ADDRESS` | Vercel | no | deployed vault (from `deployments/5042002.json`) |
 | `VAULT_DEPLOY_BLOCK` | Vercel | no | first block the poller scans |
+| `GUARANTEE_BOOK_ADDRESS`, `BATCH_GUARD_ADDRESS`, `GUARANTEES_DEPLOY_BLOCK` | Vercel | no | GuaranteeBook and BatchGuard (`deployments/5042002.guarantees.json`) |
+| `MERKLE_BOOK_ADDRESS` | Vercel | no | MerkleBook (`deployments/5042002.merkle.json`) |
+| `PASSKEY_FACTORY_ADDRESS` | Vercel | no | PasskeyAccountFactory (`deployments/5042002.passkeys.json`) |
+| `QUICKNODE_API_KEY`, `QUICKNODE_STREAM_ID` | local `.env` | **yes** (key) | `relay/scripts/quicknode-stream.ts` (batch size, filter, status) |
 | `ARC_RPC_URL` | Vercel, local | no | default `https://rpc.testnet.arc.io` |
 | `INDEXER_PRIMARY` | Vercel | no | `rpc` (default) or `streams` |
 | `TICK_MIN_INTERVAL_MS` | Vercel | no | default `4000` |

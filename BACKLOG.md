@@ -5,8 +5,8 @@ Effort S / M / L. Fixes and polish before features; one unfinished feature at a 
 
 | # | What | Rubric item | Effort | Risk | State |
 |---|---|---|---|---|---|
-| 1 | Unknown guarantee id (`/g/<bad>`) logs two 404s in the console; show the not-found page from the server instead of a client fetch error | No console errors; loading/empty/error states | S | low | open |
-| 2 | Secrets check of the repo history and the production browser bundle, with the command output as evidence | No secrets in repo or bundle | S | low | open |
+| 1 | Unknown guarantee id (`/g/<bad>`) logs two 404s in the console; show the not-found page from the server instead of a client fetch error | No console errors; loading/empty/error states | S | low | done (8f2acb6) |
+| 2 | Secrets check of the repo history and the production browser bundle, with the command output as evidence | No secrets in repo or bundle | S | low | done (scripts/check-secrets.mjs) |
 | 3 | CI on GitHub Actions: contract tests, relay/SDK tests, web typecheck/lint, Slither with every finding explained | Full suite green; static analysis in CI | M | low | open |
 | 4 | Threat model document (vault, books, passkeys, relay, trigger: spikes, thin books, spoofing, stale data, colluding signer, funder-chosen parameters) | Threat model current | M | low | open |
 | 5 | README: setup, architecture, every Arc-specific choice, early payouts, current test counts | README | M | low | open |

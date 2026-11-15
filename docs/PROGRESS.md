@@ -11,6 +11,11 @@
   aggregation with evidenceRoot. 30 tests incl. replays of recorded Gemini feeds; full suite green
   (contracts 108, relay 68 + 1 skipped, SDK 4, web typecheck and lint).
 
+## Rubric cycle log
+- 2026-11-15 audit of production (15 routes, desktop and phone): clean except `/g/<unknown>` console
+  404s. Fixed (8f2acb6), re-audited clean. Secrets check added (`scripts/check-secrets.mjs`): no
+  secret values in git history or the production bundle. BACKLOG.md and docs/rubric-evidence.md created.
+
 ## In progress
 - Rubric goal (docs/rubric.md), working by docs/improve.md. Evidence in docs/rubric-evidence.md, candidates in BACKLOG.md.
 
@@ -20,7 +25,11 @@
 - Then: phase I threat model and static analysis, minimal phase H, phase E only if time allows.
 
 ## Blocks current milestone
-(none)
+- The deployer wallet (0xb129…3228, funds every e2e run) has 0.18 test USDC; the e2e regression run
+  after 8f2acb6 stopped in the gasless mode with "transfer amount exceeds balance" (classic passed).
+  docs/improve.md requires a passing e2e before anything else. Needs a faucet top-up of the deployer
+  (about 5 USDC covers ~10 full runs). Moving test USDC from the relay wallet was refused by the
+  permission check, so this needs the user.
 
 ## Later
 - Samplers (needed for M2): three independent always-on workers on at least two providers, budget

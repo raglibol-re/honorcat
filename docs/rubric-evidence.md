@@ -8,6 +8,9 @@ Production: https://verdict-phi-livid.vercel.app
 ### [ ] Scripted run passes against production twice in a row: one early payout, one refund
 Not yet: the early-payout e2e mode (BACKLOG #13) does not exist yet. Existing modes (classic,
 gasless, api, multisig, guarantees, passkey, drops) passed on production earlier; see README.
+2026-11-15 regression run after 8f2acb6 (`--mode all --outcome no`): classic refund passed (pot
+#182); gasless stopped because the deployer wallet ran out of test USDC (0.18 USDC left; each run
+sends refunds to fresh addresses). Blocked on a faucet top-up, see docs/PROGRESS.md.
 
 ### [ ] A new user completes the recipient flow on a phone without help
 Not yet (needs the early-payout recipient flow, BACKLOG #12, and a human test).
@@ -15,7 +18,12 @@ Not yet (needs the early-payout recipient flow, BACKLOG #12, and a human test).
 ### [ ] No console errors and no failed requests on any page
 Audit 2026-11-15 (puppeteer, desktop 1280 px and phone 390 px, 15 routes incl. two unknown ids):
 no console errors, no failed requests, no horizontal overflow on every existing page, except
-`/g/<unknown id>`, which logs two 404s (BACKLOG #1).
+`/g/<unknown id>`, which logged two 404s (BACKLOG #1).
+Fixed in 8f2acb6 (server-side not-found for unknown guarantee ids). Re-audit on production after
+deploy: `/g/doesnotexist`, `/g/doesnotexist/proof`, `/d/doesnotexist`, `/g/TMS98ihdbH`,
+`/g/TMS98ihdbH/proof`: 0 console errors, 0 failed requests at both widths; they show "This page
+does not exist". (An unknown top-level route such as `/nothing-here` correctly answers HTTP 404.)
+Still unchecked: pages of the early-payout flow do not exist yet.
 
 ### [ ] Every page handles loading, empty and error states
 Partly: see BACKLOG #8.
@@ -47,12 +55,24 @@ p50 delivery latency 1,356 ms. The live view (`/live`) renders Streams batches.
 
 ## Honest and safe
 
-### [ ] Testnet banner and "not insurance" note on every page
+### [x] Testnet banner and "not insurance" note on every page
 Audit 2026-11-15: banner text ("Test version … Not insurance; no real hedge is placed.") present on
 all 15 routes at both widths (`banner=true` in the audit report).
 
 ### [ ] Terms screen matches actual behaviour for every edge case
-### [ ] No secrets in the repository or the browser bundle
+### [x] No secrets in the repository or the browser bundle
+`node scripts/check-secrets.mjs . https://verdict-phi-livid.vercel.app` (2026-11-15) compares every
+secret value in `.env` (never printed) with the full git history and every JS chunk production serves:
+
+```
+secret values checked: 6 (DEPLOYER_PRIVATE_KEY, RESOLVER_PRIVATE_KEY, ADMIN_TOKEN, CRON_SECRET, QUICKNODE_STREAMS_TOKEN, QUICKNODE_API_KEY)
+git history: 1706246 bytes, 212 tracked files, .env tracked: false
+git history hits: 0
+  env var NAME appears in bundle: QUICKNODE_STREAMS_TOKEN (/_next/static/immutable/chunks/103ny8yvey830.js)
+production bundle: 21 JS chunks, 1011342 bytes, secret value hits: 0
+```
+The one name in the bundle is the `/live` notice "QuickNode Streams is not configured on this
+deployment (QUICKNODE_STREAMS_TOKEN)", the variable's name, not its value.
 
 ## Submission
 
