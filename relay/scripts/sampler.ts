@@ -4,7 +4,7 @@
  * Actions (the Vercel app runs the third sampler itself).
  *
  * Usage:
- *   pnpm --filter @honorcat/relay sampler -- --api https://verdict-phi-livid.vercel.app --key-env SAMPLER_KEY_LOCAL
+ *   pnpm --filter @honorcat/relay sampler -- --api https://honorcat.vercel.app --key-env SAMPLER_KEY_LOCAL
  * Options: --idle-exit <s> (exit after this long without pots; default never), --max <s> (stop after).
  * Env: the key variable named by --key-env, ARC_RPC_URL (optional).
  */
@@ -17,7 +17,7 @@ import { httpIo, Sampler, WsBookSource } from "../src/sampler";
 const { values } = parseArgs({
   args: process.argv.slice(2).filter((a) => a !== "--"),
   options: {
-    api: { type: "string", default: "https://verdict-phi-livid.vercel.app" },
+    api: { type: "string", default: "https://honorcat.vercel.app" },
     "key-env": { type: "string", default: "SAMPLER_KEY_LOCAL" },
     "idle-exit": { type: "string" },
     max: { type: "string" },

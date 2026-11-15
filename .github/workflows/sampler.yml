@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 env:
-  API: https://verdict-phi-livid.vercel.app
+  API: https://honorcat.vercel.app
 
 jobs:
   sample:
