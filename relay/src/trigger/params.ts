@@ -41,6 +41,11 @@ export const PROVISIONAL_DEFAULTS = {
   demo: { thresholdBps: 8500, windowMs: 60_000, intervalMs: 2_000, minValidSamples: 25, maxSpreadUsd: "0.04", minSizeContracts: "10", maxStalenessMs: 10_000 },
 } as const;
 
+/** Which rule a market gets: under two hours to close the demo rule, otherwise the standard rule. */
+export const PROFILE_CUTOFF_MS = 2 * 3600_000;
+/** A pot needs time to be joined and one full window before trading closes. */
+export const MIN_LEAD_MS = 4 * 60_000;
+
 /** Exact decimal string -> integer units; null if the value has more precision than `decimals`. */
 export function toUnits(value: string, decimals: number): bigint | null {
   const m = /^(\d+)(?:\.(\d+))?$/.exec(value.trim());

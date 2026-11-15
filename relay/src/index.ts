@@ -96,3 +96,4 @@ export { Sampler, WsBookSource, RestBookSource, fetchMarketState, httpIo, type S
 export { runAppSampler } from "./samplerHost";
 export * as catalog from "./catalog";
 export type { CatalogRow, Quality, BookStats, CategorySummary, Profile } from "./catalog";
+export { readBook, depthSnapshot, DepthStream, GEMINI_REST, type RawBook, type MarketState } from "./gemini";

@@ -1,5 +1,5 @@
 import "server-only";
-import { catalog, type CatalogRow, type Db, type Quality } from "@verdict/relay";
+import { catalog, depthSnapshot, GEMINI_REST, readBook, type CatalogRow, type Db, type Quality } from "@verdict/relay";
 
 /**
  * Web side of the market catalogue (relay/src/catalog.ts): runs bounded refresh steps under a
@@ -7,14 +7,13 @@ import { catalog, type CatalogRow, type Db, type Quality } from "@verdict/relay"
  * client; the samplers need most of that, so one step (at most 4 list pages + 4 books) runs at most
  * every 15 s: about 32 requests a minute at the very most.
  */
-const BASE = process.env.GEMINI_API_BASE ?? "https://api.gemini.com";
 const LEASE = "catalog_lease";
 const STEP_EVERY_MS = 15_000;
 
 async function fetchJson(path: string): Promise<unknown> {
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const r = await fetch(BASE + path, { signal: AbortSignal.timeout(8000), cache: "no-store" });
+      const r = await fetch(GEMINI_REST + path, { signal: AbortSignal.timeout(8000), cache: "no-store" });
       if (r.status === 404) return null;
       if (r.status === 429) return null; // back off: the next step tries again
       const text = await r.text();
@@ -39,65 +38,9 @@ export async function catalogTick(db: Db) {
   // Events list over REST (a few pages); order books over one WebSocket (no REST budget used).
   const step = await catalog.refreshStep(db, fetchJson, { bookBudget: 0 });
   const queue = await catalog.bookQueue(db, Date.now(), 150);
-  const books = await depthOverWebSocket(queue.map((r) => r.symbol), 4000);
+  const books = await depthSnapshot(queue.map((r) => r.symbol), 4000);
   for (const [symbol, raw] of books) await catalog.saveBook(db, symbol, catalog.bookStats(raw, Date.now()));
   return { ...step, books: books.size };
-}
-
-type RawBook = { bids: { price: string; amount: string }[]; asks: { price: string; amount: string }[] };
-
-/**
- * Top five levels per side for many contracts at once from Gemini's public WebSocket
- * (`{symbol}@depth5`), the same feed the demo finder watches. Depth "within 5 cents" is therefore
- * measured over at most five levels a side, which understates very deep books slightly.
- */
-async function depthOverWebSocket(symbols: string[], ms: number): Promise<Map<string, RawBook>> {
-  const want = new Map(symbols.map((s) => [s.toLowerCase(), s] as const));
-  const out = new Map<string, RawBook>();
-  if (!symbols.length) return out;
-  await new Promise<void>((resolve) => {
-    let ws: WebSocket;
-    try {
-      ws = new WebSocket("wss://ws.gemini.com");
-    } catch {
-      return resolve();
-    }
-    const done = () => {
-      try {
-        ws.close();
-      } catch {
-        /* already closed */
-      }
-      resolve();
-    };
-    const timer = setTimeout(done, ms);
-    ws.onopen = () => {
-      for (let i = 0; i < symbols.length; i += 50)
-        ws.send(JSON.stringify({ id: String(i), method: "SUBSCRIBE", params: symbols.slice(i, i + 50).map((s) => `${s}@depth5`) }));
-    };
-    ws.onmessage = (m) => {
-      try {
-        const j = JSON.parse(String(m.data)) as { symbol?: string; bids?: [string, string][]; asks?: [string, string][] };
-        const sym = j.symbol ? want.get(j.symbol.toLowerCase()) : undefined;
-        if (!sym) return;
-        out.set(sym, {
-          bids: (j.bids ?? []).map(([price, amount]) => ({ price, amount })),
-          asks: (j.asks ?? []).map(([price, amount]) => ({ price, amount })),
-        });
-        if (out.size === want.size) {
-          clearTimeout(timer);
-          done();
-        }
-      } catch {
-        /* ignore */
-      }
-    };
-    ws.onerror = () => {
-      clearTimeout(timer);
-      done();
-    };
-  });
-  return out;
 }
 
 export type CatalogItem = CatalogRow & { quality: Quality };
@@ -145,7 +88,7 @@ export async function liveQuality(db: Db, symbol: string, fallback?: CatalogRow 
   const hit = quotes.get(symbol);
   let book = hit && Date.now() - hit.at < 5000 ? hit.book : null;
   if (!book) {
-    const raw = (await fetchJson(`/v1/book/${encodeURIComponent(symbol)}?limit_bids=0&limit_asks=0`)) as Parameters<typeof catalog.bookStats>[0] | null;
+    const raw = await readBook(symbol);
     if (raw) {
       book = catalog.bookStats(raw, Date.now());
       quotes.set(symbol, { at: Date.now(), book });
