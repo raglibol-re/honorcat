@@ -192,3 +192,47 @@ deployment (QUICKNODE_STREAMS_TOKEN)", the variable's name, not its value.
 
 ### [x] Devpost project description draft
 [docs/devpost.md](devpost.md).
+
+## Second browser review (2026-11-15, commit 40e2a3a)
+
+### [x] /live shows Streams deliveries, confirmed by a real delivery; neutral status for visitors
+Cause of "no deliveries yet": `/api/streams?since=<last seen id>` returned `lastBatch: null` whenever
+no newer batch existed, i.e. between every two deliveries (one every ~14 s, polled every 1.5 s). The
+stream itself was active (QuickNode API: `status: active`) with no delivery gap over 2 min since
+2026-11-14 22:46 UTC (SQL over `stream_batches`). Fix: `lastBatch` is the newest delivery regardless
+of `since`; test `relay/test/streams.test.ts` ("reports the last delivery even when a polling client
+has already seen every batch"). Real delivery with vault events: batch 13527, 2026-11-15 11:01:27 UTC,
+block 72424094, `PotResolved` + `Refund` for pot #20, 1,230 ms after the block. After deploy, headless
+Edge on /live: "streaming · last delivery 1.1 s ago", no "no deliveries yet", no "resume" text, no
+console errors. The operator hint (QuickNode pauses a stream after failed deliveries; resume in the
+dashboard or `scripts/quicknode-stream.ts --status active`) is in a new "QuickNode Streams" card on
+/status, shown only when there has been no delivery for over two minutes.
+
+### [x] Landing shows real current data or a labelled replay, plus the three steps
+`LiveEarly` shows an open or watched pot live ("Live now"); otherwise `/api/early/replay` (the latest
+real early payout with at least 20 valid samples) is played back over 14 s, labelled "Replay of a real
+payout" with its date, the chance updating, ending in "Paid early to everyone on the list". The three
+"How it works" steps are back below. Screenshots: scratchpad `shots/r2-home-a.png`, `r2-home-b.png`
+(replay of OZarDwqbIS: 95% now, pays at 85%, paid marker on the threshold line).
+
+### [x] Quick demo offers Instant and Watch it cross, both labelled
+/early/new: "Instant: Already above 85%. Pays about a minute after joining closes." and "Watch it
+cross: Just below 85% now. Pays only if it rises; otherwise the money comes back." Watch candidates:
+a healthy book over 12 s of WebSocket snapshots (90% valid), observed chance between threshold - 8
+points and the threshold. Browser run: "Picked: New England vs Detroit: Player Touchdowns, at 84% now."
+
+### [x] Quick demo picks a market without a 10 to 15 second wait
+Candidates are precomputed in `relay_state` (`demo_candidates`), refreshed from the Streams webhook at
+most every 90 s under a lease; `/api/early/demo` answers from that cache (`cached: true`): 1.29 s cold,
+0.20 s and 0.19 s warm (curl), 483 ms from click to "Picked" in the browser. `?fresh=1` computes live;
+the e2e uses it. (Filling the form afterwards still loads the category's markets and the trade chart:
+chart visible 8.9 s after the click.)
+
+### [x] Readable price chart with axes and threshold; dates in the page language
+Trade chart (create page) and probability chart: 480-unit viewBox (labels about 12-13 px at phone
+width), y axis with its range and a bold threshold label, dashed threshold line, three time ticks.
+Every date goes through `lib/format.ts` with `PAGE_LOCALE = "en-US"` (matches `<html lang="en">`);
+`grep toLocale` finds no call without it. Checked with Edge launched with `--lang=de-DE` and
+`Accept-Language: de-DE`: axis "5:05 AM / 10:02 AM / 3:00 PM", replay date "Nov 15, 4:05 AM".
+Screenshot `shots/r2-new.png`.
+

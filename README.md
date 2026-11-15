@@ -146,7 +146,7 @@ collapsed "Full rules" block, on the proof page, or behind "Show technical detai
 | Page | What it is |
 |---|---|
 | [`/`](https://verdict-phi-livid.vercel.app) | "Get paid before it happens.", one sentence, "Try it", and a real live payout card with its chart |
-| [`/early/new`](https://verdict-phi-livid.vercel.app/early/new) | funder flow: "Quick demo: pick an event for me" (picks the live contract whose book best meets the demo rule right now), or pick any Gemini event from a picture picker, the outcome and how likely (slider with the live chance and recent trade prices), name, amount, people; one signature, then a share link and QR code. "More options": refund vs pay-if-it-happens, minutes to join |
+| [`/early/new`](https://verdict-phi-livid.vercel.app/early/new) | funder flow: Quick demo with two labelled choices, "Instant" (already above the threshold) and "Watch it cross" (just below it), answered at once from candidates the server precomputes from the Streams webhook, or pick any Gemini event from a picture picker, the outcome and how likely (slider with the live chance and recent trade prices), name, amount, people; one signature, then a share link and QR code. "More options": refund vs pay-if-it-happens, minutes to join |
 | `/e/<id>` | recipient page: a short headline ("Paid when “X” hits 85%") with the event below, "You get", "Chance now", "Ends in", a three-step bar (Money in / Watching / Paid), one "Join" button (passkey), the chance chart, "Full rules" (every edge case in plain words); "Under the hood" in technical mode |
 | `/e/<id>/proof` | every sampler's samples and signatures, recomputed in the browser with the same engine; the evidence root vs the payout memo |
 | [`/how`](https://verdict-phi-livid.vercel.app/how) | the long explanation for people who want it: how it works, the rule, edge cases, how to check it, test-money note |
@@ -419,7 +419,7 @@ cp .env.example .env      # fill in keys and tokens (see "Environment variables"
 
 ```bash
 cd contracts && arc-forge test --network arc     # 108 tests: unit, fuzz, 9 invariants, GuaranteeBook, passkeys, MerkleBook (WSL)
-pnpm --filter @verdict/relay test                # 74 relay tests incl. trigger replays and samplers (GEMINI_LIVE=1 adds a live check)
+pnpm --filter @verdict/relay test                # 75 relay tests incl. trigger replays, samplers and streams (GEMINI_LIVE=1 adds a live check)
 pnpm --filter @verdict/sdk test                  # 4 SDK tests
 node scripts/check-secrets.mjs . https://verdict-phi-livid.vercel.app   # no secret values in git history or the production bundle
 ```

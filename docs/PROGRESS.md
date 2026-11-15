@@ -19,6 +19,9 @@
 - Work in cycles per docs/improve.md, everything in the agreed priority order.
 
 ## Rubric cycle log
+- 2026-11-15: second browser review, five items added to docs/rubric.md and done (40e2a3a): /live
+  status bug (API, not QuickNode), landing replay + steps, two demo choices, precomputed demo
+  candidates (0.2 s), readable charts and page-language dates. Banner keeps "Not insurance".
 - 2026-11-15: user feedback "too much text": consumer pages cut to one headline, one sentence and one
   button each (phone word counts: landing 54, create 50, join 52, account 15); the long explanation moved
   to /how, per-pot rules into a collapsed "Full rules", internals behind "Show technical details".
