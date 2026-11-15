@@ -110,7 +110,7 @@ export {
   type SamplerSubmission,
 } from "./early";
 
-// Early-payout probability trigger (docs/early-payout-trigger.md)
+// Early-payout probability trigger (docs/price-and-evidence.md)
 export * as trigger from "./trigger";
 
 export { Sampler, WsBookSource, RestBookSource, fetchMarketState, httpIo, type SamplerIo, type BookSource } from "./sampler";
