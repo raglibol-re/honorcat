@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { TechOnly } from "@/components/TechMode";
 import { useEffect, useState } from "react";
 import { isAddress, type Address, type Hex } from "viem";
 import { getJson, usePolling } from "@/lib/api";
@@ -55,7 +56,7 @@ export function AccountView() {
               Sign in with passkey
             </button>
             <p className="t-13" style={{ color: "var(--vg-muted)" }}>
-              Don&apos;t have one yet? You create it when you join a guarantee.
+              No passkey yet? You get one when you join.
             </p>
           </>
         ) : (
@@ -106,7 +107,7 @@ function Signed({ session, onSignOut }: { session: PasskeySession; onSignOut: ()
         deadline: p.deadline,
         assertion,
       });
-      setMsg({ text: "Sent. No fee was charged to you.", tx: r.tx });
+      setMsg({ text: "Sent.", tx: r.tx });
     } catch (err) {
       setMsg({ text: err instanceof Error ? err.message : String(err), error: true });
     } finally {
@@ -118,21 +119,23 @@ function Signed({ session, onSignOut }: { session: PasskeySession; onSignOut: ()
     <div className="space-y-6">
       <section className="vg-ticket px-5 py-5">
         <p className="t-13" style={{ color: "var(--vg-muted)" }}>
-          Balance, read from Arc
+          Your balance
         </p>
         <p className="mono t-36 mt-1 font-medium">{balance === null ? "…" : formatUsdc(balance)}</p>
-        <p className="t-13" style={{ color: "var(--vg-muted)" }}>
-          USDC in{" "}
-          <a href={addressUrl(session.account)} target="_blank" rel="noreferrer" className="mono hover:underline">
-            {session.account.slice(0, 8)}…{session.account.slice(-6)}
-          </a>
-          {data && !data.deployed ? ", an account that is created on its first withdrawal" : ""}
-        </p>
+        <TechOnly>
+          <p className="t-13" style={{ color: "var(--vg-muted)" }}>
+            USDC in{" "}
+            <a href={addressUrl(session.account)} target="_blank" rel="noreferrer" className="mono hover:underline">
+              {session.account.slice(0, 8)}…{session.account.slice(-6)}
+            </a>
+            {data && !data.deployed ? ", an account that is created on its first withdrawal" : ""}
+          </p>
+        </TechOnly>
         <form onSubmit={withdraw} className="mt-5 space-y-3">
           <input
             value={to}
             onChange={(e) => setTo(e.target.value.trim())}
-            placeholder="0x… destination address"
+            placeholder="Send to (0x… address)"
             aria-label="Destination address"
             className="mono t-15 w-full rounded-lg border px-3 py-2.5"
             style={{ borderColor: "var(--vg-rule)", background: "var(--vg-card)" }}
@@ -145,9 +148,6 @@ function Signed({ session, onSignOut }: { session: PasskeySession; onSignOut: ()
           >
             {busy ? "Sending…" : "Withdraw everything"}
           </button>
-          <p className="t-13" style={{ color: "var(--vg-muted)" }}>
-            You confirm with your passkey; HonorCat pays the fee.
-          </p>
           {msg && (
             <p className="t-13" style={{ color: msg.error ? "var(--negative)" : "var(--vg-muted)" }}>
               {msg.text}{" "}
@@ -161,17 +161,10 @@ function Signed({ session, onSignOut }: { session: PasskeySession; onSignOut: ()
         </form>
       </section>
 
+      {data && data.guarantees.length > 0 && (
       <section>
         <h2 className="t-17 font-medium">Your guarantees</h2>
-        {!data ? (
-          <p className="t-15 mt-2" style={{ color: "var(--vg-muted)" }}>
-            Loading…
-          </p>
-        ) : data.guarantees.length === 0 ? (
-          <p className="t-15 mt-2" style={{ color: "var(--vg-muted)" }}>
-            You have not joined a guarantee with this passkey yet.
-          </p>
-        ) : (
+        {(
           <ul className="mt-3 space-y-3">
             {data.guarantees.map((g) => (
               <li key={g.id}>
@@ -187,6 +180,7 @@ function Signed({ session, onSignOut }: { session: PasskeySession; onSignOut: ()
           </ul>
         )}
       </section>
+      )}
 
       <button type="button" onClick={onSignOut} className="t-13 underline underline-offset-4" style={{ color: "var(--vg-muted)" }}>
         Sign out on this device

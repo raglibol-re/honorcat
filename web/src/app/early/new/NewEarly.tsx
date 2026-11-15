@@ -29,8 +29,8 @@ const pct = (x: number | null) => (x === null ? "—" : `${Math.round(x * 100)}%
 function TradeChart({ symbol, side }: { symbol: string | null; side: "yes" | "no" }) {
   const { data } = usePolling<{ points: { t: number; price: number }[] }>(symbol ? `/api/early/history?symbol=${symbol}&tf=5m` : null, 60_000);
   const pts = (data?.points ?? []).map((p) => ({ t: p.t, v: side === "yes" ? p.price : 1 - p.price }));
-  if (symbol && !data) return <p className="t-13" style={{ color: "var(--vg-muted)" }}>Loading recent prices…</p>;
-  if (!symbol || pts.length < 2) return <p className="t-13" style={{ color: "var(--vg-muted)" }}>No recent trades to show.</p>;
+  if (symbol && !data) return <div className="h-16 animate-pulse rounded-lg" style={{ background: "var(--vg-rule)", opacity: 0.3 }} aria-hidden />;
+  if (!symbol || pts.length < 2) return null;
   const W = 300;
   const H = 60;
   const t0 = pts[0]!.t;
@@ -42,7 +42,7 @@ function TradeChart({ symbol, side }: { symbol: string | null; side: "yes" | "no
         <path d={d} fill="none" stroke="var(--vg-muted)" strokeWidth="1.5" />
       </svg>
       <figcaption className="t-13" style={{ color: "var(--vg-muted)" }}>
-        Recent price, based on trade prices (last {Math.round((t1 - t0) / 3_600_000) || 1} h). Not the rule that pays.
+        Recent trade prices
       </figcaption>
     </figure>
   );
@@ -69,11 +69,11 @@ export function NewEarly() {
   const chance = contract?.chanceYes == null ? null : side === "yes" ? contract.chanceYes : 1 - contract.chanceYes;
 
   async function useDemo() {
-    setDemoNote("Finding the live market that best fits a demo right now…");
+    setDemoNote("Finding one…");
     try {
       const d = await getJson<{ trigger: Demo[] }>("/api/early/demo");
       const c = d.trigger[0];
-      if (!c) throw new Error("No live market meets the demo rules right now. Pick one yourself or try again in a minute.");
+      if (!c) throw new Error("None right now. Pick an event below or try again in a minute.");
       const cat = c.category || (await findCategory(c.eventTicker));
       setCategory(cat);
       setInclude(c.eventTicker);
@@ -86,7 +86,7 @@ export function NewEarly() {
       setCount(3);
       setAmount("0.10");
       if (!name) setName("Demo");
-      setDemoNote(`Demo market: ${c.title}, “${c.label}” ${c.side === "no" ? "does not happen" : "happens"}, at ${Math.round(c.chance * 100)}% now. Its order book meets the demo rules.`);
+      setDemoNote(`Picked: ${c.title}. Now press the button.`);
       pendingDemo = c;
     } catch (e) {
       setDemoNote(e instanceof Error ? e.message : String(e));
@@ -108,19 +108,15 @@ export function NewEarly() {
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
       <div className="min-w-0 space-y-7">
-        <section className="vg-ticket space-y-2 px-5 py-4">
-          <h2 className="t-17 font-medium">Try it in two minutes</h2>
-          <p className="t-15" style={{ color: "var(--vg-muted)" }}>
-            Picks the live Gemini market whose order book best fits a quick demo, with test money and three places.
-          </p>
+        <section className="space-y-2">
           <button type="button" onClick={useDemo} className="t-15 rounded-xl px-4 py-2.5 font-medium" style={{ background: "var(--vg-accent)", color: "var(--vg-card)" }}>
-            Use the demo market
+            Quick demo: pick an event for me
           </button>
           {demoNote && <p className="t-13">{demoNote}</p>}
         </section>
 
         <section className="space-y-3">
-          <h2 className="t-17 font-medium">Which event?</h2>
+          <h2 className="t-17 font-medium">Pick an event</h2>
           <div className="t-13 flex flex-wrap gap-2" role="radiogroup" aria-label="Category">
             {(data?.categories ?? ["Crypto", "Weather", "Economics", "Commodities", "Sports", "Politics", "Culture"]).map((c) => (
               <button
@@ -141,8 +137,8 @@ export function NewEarly() {
             ))}
           </div>
           {error && !markets && <p className="t-15" style={{ color: "var(--negative)" }}>{error}</p>}
-          {!markets && !error && <p className="t-15" style={{ color: "var(--vg-muted)" }}>Loading live markets from Gemini…</p>}
-          {markets && markets.length === 0 && <p className="t-15">No open market in this category right now. Try another one.</p>}
+          {!markets && !error && <p className="t-15" style={{ color: "var(--vg-muted)" }}>Loading…</p>}
+          {markets && markets.length === 0 && <p className="t-15">Nothing open here right now. Try another one.</p>}
           {markets && markets.length > 0 && (
             <MarketPicker
               markets={markets}
@@ -159,7 +155,7 @@ export function NewEarly() {
         {contract && (
           <section className="space-y-4">
             <fieldset>
-              <legend className="t-15 font-medium">Pay everyone early when it becomes likely that…</legend>
+              <legend className="t-15 font-medium">Pay when this gets likely</legend>
               <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {(["yes", "no"] as const).map((s) => (
                   <label key={s} className="t-15 flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2.5" style={side === s ? { borderColor: "var(--vg-accent)", boxShadow: "0 0 0 1px var(--vg-accent)" } : { borderColor: "var(--vg-rule)" }}>
@@ -171,21 +167,23 @@ export function NewEarly() {
             </fieldset>
             <label className="block">
               <span className="t-15 font-medium">
-                …with a chance of at least <span className="mono">{threshold}%</span>
+                How likely: <span className="mono">{threshold}%</span>
               </span>
               <input type="range" min={60} max={99} value={threshold} onChange={(e) => setThreshold(Number(e.target.value))} className="mt-2 w-full" style={{ accentColor: "var(--vg-accent)" }} />
               <span className="t-13" style={{ color: "var(--vg-muted)" }}>
-                Now: {pct(chance)} (Gemini market estimate). Market closes {new Date(market!.expiry).toLocaleString()}.
+                Now {pct(chance)}
               </span>
             </label>
             <TradeChart symbol={contract.instrument} side={side} />
-            <fieldset>
+            <details>
+              <summary className="t-15 cursor-pointer" style={{ color: "var(--vg-muted)" }}>More options</summary>
+            <fieldset className="mt-3">
               <legend className="t-15 font-medium">If it never gets that likely</legend>
               <div className="mt-2 space-y-2">
                 {(
                   [
-                    ["early-only", "Give the money back to me when trading closes"],
-                    ["early-or-outcome", "Still pay everyone if the event happens; otherwise give it back"],
+                    ["early-only", "Give it back to me"],
+                    ["early-or-outcome", "Pay anyway if it happens"],
                   ] as const
                 ).map(([k, label]) => (
                   <label key={k} className="t-15 flex cursor-pointer items-center gap-2">
@@ -195,54 +193,39 @@ export function NewEarly() {
                 ))}
               </div>
             </fieldset>
+            <label className="mt-3 block">
+              <span className="t-13" style={{ color: "var(--vg-muted)" }}>
+                Minutes to join
+              </span>
+              <input className="mono t-15 mt-1 w-full rounded-lg border px-3 py-2.5 text-right" style={{ borderColor: "var(--vg-rule)", background: "var(--vg-card)" }} type="number" min={1} value={joinMin} onChange={(e) => setJoinMin(Math.max(1, Number(e.target.value) || 1))} />
+            </label>
+            </details>
           </section>
         )}
 
         <section className="grid gap-4 sm:grid-cols-2">
           <label className="block sm:col-span-2">
             <span className="t-13" style={{ color: "var(--vg-muted)" }}>
-              Your name, as recipients will see it
+              Your name
             </span>
             <input className="t-15 mt-1 w-full rounded-lg border px-3 py-2.5" style={{ borderColor: "var(--vg-rule)", background: "var(--vg-card)" }} value={name} maxLength={60} onChange={(e) => setName(e.target.value)} placeholder="e.g. Harbor Kayak Tours" />
           </label>
           <label className="block">
             <span className="t-13" style={{ color: "var(--vg-muted)" }}>
-              Each person gets (USDC)
+              Each person gets ($)
             </span>
             <input className="mono t-15 mt-1 w-full rounded-lg border px-3 py-2.5 text-right" style={{ borderColor: "var(--vg-rule)", background: "var(--vg-card)" }} inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
           </label>
           <label className="block">
             <span className="t-13" style={{ color: "var(--vg-muted)" }}>
-              People (max 50)
+              How many people
             </span>
             <input className="mono t-15 mt-1 w-full rounded-lg border px-3 py-2.5 text-right" style={{ borderColor: "var(--vg-rule)", background: "var(--vg-card)" }} type="number" min={1} max={50} value={count} onChange={(e) => setCount(Math.max(1, Math.min(50, Number(e.target.value) || 1)))} />
-          </label>
-          <label className="block sm:col-span-2">
-            <span className="t-13" style={{ color: "var(--vg-muted)" }}>
-              People can join for (minutes); watching starts after that
-            </span>
-            <input className="mono t-15 mt-1 w-full rounded-lg border px-3 py-2.5 text-right" style={{ borderColor: "var(--vg-rule)", background: "var(--vg-card)" }} type="number" min={1} value={joinMin} onChange={(e) => setJoinMin(Math.max(1, Number(e.target.value) || 1))} />
           </label>
         </section>
       </div>
 
       <aside className="space-y-4 lg:sticky lg:top-6 lg:self-start">
-        <section className="vg-ticket px-5 py-4">
-          <h2 className="t-17 font-medium">What it costs</h2>
-          <dl className="mt-3 space-y-2">
-            <div className="flex justify-between">
-              <dt className="t-15">Set aside now</dt>
-              <dd className="mono t-17">${((Number(amount) || 0) * count).toFixed(2)}</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="t-15">Chance it pays early, today’s estimate</dt>
-              <dd className="mono t-17">{chance === null ? "—" : chance >= threshold / 100 ? "likely" : pct(chance)}</dd>
-            </div>
-          </dl>
-          <p className="t-13 mt-2" style={{ color: "var(--vg-muted)" }}>
-            An early payout is final, even if the market turns out wrong. Unused places come back to you.
-          </p>
-        </section>
         <Fund market={market} contract={contract} side={side} threshold={threshold} mode={mode} name={name} amount={amount} count={count} joinMin={joinMin} demo={demo} />
       </aside>
     </div>
@@ -273,7 +256,7 @@ function Fund(p: { market: Market | null; contract: Contract | null; side: "yes"
       setBusy("Connect your wallet…");
       const funder = await connect();
       if (!funder) throw new Error("Wallet not connected");
-      setBusy("Preparing the terms…");
+      setBusy("One moment…");
       const prep = await post<Prepared>("/api/early/prepare", {
         name: p.name.trim(),
         funder,
@@ -287,7 +270,7 @@ function Fund(p: { market: Market | null; contract: Contract | null; side: "yes"
         joinSeconds: p.joinMin * 60,
         template: p.demo ? "demo" : undefined,
       });
-      setBusy("Confirm once in your wallet. No fees.");
+      setBusy("Confirm in your wallet.");
       const m = prep.typedData.message;
       const signature = await adapter.signTypedData({
         domain: { ...prep.typedData.domain, chainId: Number(prep.typedData.domain.chainId) },
@@ -295,7 +278,7 @@ function Fund(p: { market: Market | null; contract: Contract | null; side: "yes"
         primaryType: prep.typedData.primaryType,
         message: { ...m, value: BigInt(m.value!), validAfter: BigInt(m.validAfter!), validBefore: BigInt(m.validBefore!) },
       } as unknown as TypedDataDefinition);
-      setBusy("Setting the money aside…");
+      setBusy("Almost done…");
       const created = await post<{ id: string }>("/api/early", {
         terms: prep.terms,
         seal: prep.seal,
@@ -313,17 +296,17 @@ function Fund(p: { market: Market | null; contract: Contract | null; side: "yes"
   return (
     <section className="vg-ticket px-5 py-4">
       <button type="button" onClick={fund} disabled={!ready || busy !== null} className="t-15 w-full rounded-xl px-4 py-3 font-medium disabled:opacity-50" style={{ background: "var(--vg-accent)", color: "var(--vg-card)" }}>
-        Set aside ${((Number(p.amount) || 0) * p.count).toFixed(2)} and publish
+        Put in ${((Number(p.amount) || 0) * p.count).toFixed(2)} and get the link
       </button>
       <p className="t-13 mt-2" style={{ color: "var(--vg-muted)" }}>
-        {busy ?? (ready ? "You confirm once in your wallet. No approval step and no network fees." : "Choose a market, then enter your name and an amount (at least $0.10 in total).")}
+        {busy ?? (ready ? "No fees." : "Pick an event and add your name.")}
       </p>
       {err && <p className="t-13 mt-2" style={{ color: "var(--negative)" }}>{err}</p>}
     </section>
   );
 }
 
-function Share({ id, promise }: { id: string; promise: string }) {
+function Share({ id }: { id: string; promise: string }) {
   const url = useMemo(() => (typeof window === "undefined" ? `/e/${id}` : `${window.location.origin}/e/${id}`), [id]);
   const [qr, setQr] = useState<string | null>(null);
   useEffect(() => {
@@ -331,14 +314,11 @@ function Share({ id, promise }: { id: string; promise: string }) {
   }, [url]);
   return (
     <section className="vg-ticket space-y-3 px-5 py-4">
-      <h2 className="t-17 font-medium">It is live</h2>
-      <p className="t-13" style={{ color: "var(--vg-muted)" }}>
-        {promise}
-      </p>
+      <h2 className="t-17 font-medium">Done. Share this link.</h2>
       <input readOnly value={url} onFocus={(e) => e.target.select()} className="mono t-13 w-full rounded-lg border px-3 py-2" style={{ borderColor: "var(--vg-rule)", background: "var(--vg-page)" }} aria-label="Share link" />
       {qr && <div className="w-[180px] rounded-lg bg-white p-1" aria-label="QR code for the share link" dangerouslySetInnerHTML={{ __html: qr }} />}
       <a href={`/e/${id}`} className="t-15 block underline underline-offset-4">
-        Open the page people join
+        Open it
       </a>
     </section>
   );

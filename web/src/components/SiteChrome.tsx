@@ -6,12 +6,12 @@ import { LiveLine } from "@/components/LiveLine";
 import { TechToggle, useTechMode } from "@/components/TechMode";
 
 const primary = [
-  { href: "/early/new", label: "Pay early" },
-  { href: "/guarantees", label: "Guarantees" },
-  { href: "/guarantees/new", label: "Offer a guarantee" },
-  { href: "/account", label: "Your account" },
+  { href: "/early/new", label: "Start" },
+  { href: "/how", label: "How it works" },
+  { href: "/account", label: "My money" },
 ];
 const technical = [
+  { href: "/guarantees", label: "Guarantees" },
   { href: "/ledger", label: "Ledger" },
   { href: "/live", label: "Live" },
   { href: "/status", label: "Status" },
@@ -49,7 +49,7 @@ export function SiteFooter() {
             <LiveLine />
           ) : (
             <p className="t-13" style={{ color: "var(--vg-muted)" }}>
-              HonorCat, settled by Verdict. Test money only.
+              HonorCat. Test money only.
             </p>
           )}
           {!tech && (

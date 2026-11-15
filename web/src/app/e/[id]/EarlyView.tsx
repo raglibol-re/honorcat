@@ -79,25 +79,21 @@ export function useEarly(id: string) {
   return { d, error };
 }
 
-/** Locked → Armed → Triggered → Paid → Confirmed, from indexed facts. */
+/** Money in → Watching → Paid, from indexed facts. */
 function Rail({ d, now }: { d: EarlyDetail; now: number }) {
   const e = d.early;
-  const paidEarly = e.settledKind === "early";
   const steps = [
-    { label: "Locked", done: !!e.createdTx, note: "money set aside" },
-    { label: "Armed", done: now >= e.lockTime, note: "watching the market" },
-    { label: "Triggered", done: paidEarly || d.signatures.filter((s) => s.kind === "trigger").length >= 2, note: "2 of 3 checks agree" },
-    { label: "Paid", done: e.state === "paid", note: "to every recipient" },
-    { label: "Confirmed", done: !!e.record, note: e.record ? (e.record.status === "confirmed" ? "event happened" : e.record.status === "market_wrong" ? "market was wrong" : "market voided") : "after settlement" },
+    { label: "Money in", done: !!e.createdTx },
+    { label: "Watching", done: now >= e.lockTime },
+    { label: e.state === "refunded" ? "Returned" : "Paid", done: e.state === "paid" || e.state === "refunded" },
   ];
   return (
-    <ol className="grid grid-cols-5 gap-1" aria-label="Progress">
+    <ol className="grid grid-cols-3 gap-1" aria-label="Progress">
       {steps.map((s) => (
         <li key={s.label} className="min-w-0">
           <span className="block h-1.5 rounded-full" style={{ background: s.done ? "var(--vg-accent)" : "var(--vg-rule)" }} />
-          <span className="t-13 mt-1 block font-medium">{s.label}</span>
-          <span className="block text-[12px] leading-snug sm:text-[13px]" style={{ color: "var(--vg-muted)" }}>
-            {s.note}
+          <span className="t-13 mt-1 block" style={{ color: s.done ? "var(--vg-ink)" : "var(--vg-muted)" }}>
+            {s.label}
           </span>
         </li>
       ))}
@@ -110,8 +106,8 @@ export function EarlyTerms({ e }: { e: EarlyDetail["early"] }) {
   const unit = 10 ** p.priceDecimals;
   const what = e.side === "yes" ? `“${e.contractLabel}”` : `not “${e.contractLabel}”`;
   return (
-    <details className="vg-ticket px-5 py-4">
-      <summary className="t-15 cursor-pointer font-medium">Terms in plain words</summary>
+    <details className="t-15 px-1" style={{ color: "var(--vg-muted)" }}>
+      <summary className="t-15 cursor-pointer font-medium">Full rules</summary>
       <div className="t-15 mt-3 space-y-3">
         <p>
           <strong>What pays.</strong> {e.name} has set aside {formatMoney(e.amount)} for each person on this list. Everyone is paid at once,
@@ -154,6 +150,15 @@ export function EarlyTerms({ e }: { e: EarlyDetail["early"] }) {
           it later; it does not go back to the funder.
         </p>
         <p style={{ color: "var(--vg-muted)" }}>Test version on Arc testnet with test money. This is not insurance and no hedge is placed.</p>
+        <p>
+          <Link href={`/e/${e.id}/proof`} className="underline underline-offset-4">
+            See the proof
+          </Link>{" "}
+          ·{" "}
+          <Link href="/how" className="underline underline-offset-4">
+            How it works
+          </Link>
+        </p>
       </div>
     </details>
   );
@@ -212,14 +217,14 @@ export function EarlyView() {
       <section className="vg-ticket space-y-4 px-5 py-5">
         <div>
           <p className="t-13" style={{ color: "var(--vg-muted)" }}>
-            {e.name} · paid before it happens
+            From {e.name}
           </p>
           <h1 className="t-21 mt-1 font-semibold leading-snug">{e.promise}</h1>
         </div>
         <dl className="grid grid-cols-3 gap-3">
           <div>
             <dt className="t-13" style={{ color: "var(--vg-muted)" }}>
-              Each person gets
+              You get
             </dt>
             <dd className="mono t-21 font-medium">{formatMoney(e.amount)}</dd>
           </div>
@@ -234,7 +239,7 @@ export function EarlyView() {
           </div>
           <div>
             <dt className="t-13" style={{ color: "var(--vg-muted)" }}>
-              Market closes in
+              Ends in
             </dt>
             <dd className="mono t-21 font-medium">{now ? left(e.tradingClose - now) : "…"}</dd>
           </div>
@@ -248,17 +253,17 @@ export function EarlyView() {
           <p className="t-17 font-semibold">{e.settledKind === "early" ? "Paid early" : "Paid"}</p>
           <p className="t-15">
             {e.settledKind === "early"
-              ? `The market held at ${pct(threshold)} or more, so everyone on the list was paid${leadMin !== null ? `, ${leadMin >= 120 ? `${Math.round(leadMin / 60)} hours` : `${leadMin} minutes`} before trading closed` : ""}.`
-              : "The event happened, so everyone on the list was paid."}
+              ? `Everyone got the money${leadMin !== null ? `, ${leadMin >= 120 ? `${Math.round(leadMin / 60)} hours` : `${leadMin} minutes`} early` : ""}.`
+              : "It happened, so everyone got the money."}
           </p>
-          {e.settledKind === "early" && toPayS !== null && (
+          {tech && e.settledKind === "early" && toPayS !== null && (
             <p className="t-13" style={{ color: "var(--vg-muted)" }}>
               Money moved {toPayS < 90 ? `${toPayS.toFixed(1)} seconds` : `${Math.round(toPayS / 60)} minutes`} after the second independent check saw the rule met.
             </p>
           )}
           {e.record && (
             <p className="t-15">
-              {e.record.status === "confirmed" ? "Confirmed: the event happened." : e.record.status === "market_wrong" ? "The market was wrong: the event did not happen. The payout stands." : "The market was voided later. The payout stands."}
+              {e.record.status === "confirmed" ? "And it really happened." : e.record.status === "market_wrong" ? "It did not happen after all. You keep the money." : "The market was cancelled later. You keep the money."}
             </p>
           )}
         </section>
@@ -267,7 +272,7 @@ export function EarlyView() {
         <section className="vg-ticket px-5 py-4">
           <p className="t-17 font-semibold">No payout this time</p>
           <p className="t-15" style={{ color: "var(--vg-muted)" }}>
-            {e.settledKind === "void" ? "The market was voided, so the money went back to the funder." : "The chance never reached the threshold, so the money went back to the funder."}
+            {e.settledKind === "void" ? "The market was cancelled. The money went back." : "It never got likely enough. The money went back."}
           </p>
         </section>
       )}
@@ -276,10 +281,10 @@ export function EarlyView() {
       {e.state === "locked" && !joined && (
         <section className="vg-ticket space-y-2 px-5 py-4">
           <button type="button" onClick={join} disabled={joining} className="t-17 w-full rounded-xl px-4 py-3.5 font-medium disabled:opacity-60" style={{ background: "var(--vg-accent)", color: "var(--vg-card)" }}>
-            {joining ? "Joining…" : me ? "Join with your passkey" : "Join with a passkey"}
+            {joining ? "Joining…" : "Join"}
           </button>
-          <p className="t-13" style={{ color: "var(--vg-muted)" }}>
-            Free. No wallet, no forms. Joining closes in {now ? left(e.lockTime - now) : "…"}. {d.recipients.length} of {e.maxRecipients} places taken.
+          <p className="t-13 text-center" style={{ color: "var(--vg-muted)" }}>
+            Free. {Math.max(0, e.maxRecipients - d.recipients.length)} spots left.
           </p>
           {joinError && (
             <p className="t-13" style={{ color: "var(--negative)" }}>
@@ -290,14 +295,14 @@ export function EarlyView() {
       )}
       {joined && (
         <section className="vg-ticket px-5 py-4">
-          <p className="t-15 font-medium">{paidMe ? `${formatMoney(paidMe.amount)} is in your account.` : "You are on the list."}</p>
+          <p className="t-15 font-medium">{paidMe ? `${formatMoney(paidMe.amount)} is yours.` : "You’re in."}</p>
           <p className="t-13" style={{ color: "var(--vg-muted)" }}>
             {paidMe ? (
               <>
-                Moving it elsewhere is optional: <Link className="underline" href="/account">your account</Link>.
+                See it in <Link className="underline" href="/account">My money</Link>.
               </>
             ) : (
-              "If it pays, the money arrives in your account automatically."
+              "If it pays, the money comes to you by itself."
             )}
           </p>
         </section>
@@ -305,17 +310,20 @@ export function EarlyView() {
 
       <section className="vg-ticket space-y-2 px-5 py-4">
         <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-          <h2 className="t-15 font-medium">Chance over time</h2>
-          <span className="t-13" style={{ color: "var(--vg-muted)" }}>
-            thin: each independent check · thick: the average that decides · dashed: {pct(threshold)}
-          </span>
+          <h2 className="t-15 font-medium">Chance</h2>
+          {tech && (
+            <span className="t-13" style={{ color: "var(--vg-muted)" }}>
+              thin: each independent check · thick: the average that decides · dashed: {pct(threshold)}
+            </span>
+          )}
         </div>
         <ProbabilityChart samples={d.samples} threshold={threshold} windowMs={e.params.windowMs} armedAt={e.lockTime * 1000} triggeredAt={triggerAt} />
       </section>
 
       <EarlyTerms e={e} />
 
-      <details className="vg-ticket px-5 py-4" open={tech}>
+      {tech && (
+      <details className="vg-ticket px-5 py-4" open>
         <summary className="t-15 cursor-pointer font-medium">Under the hood</summary>
         <dl className="t-13 mt-3 space-y-1.5 break-all">
           <div>
@@ -349,6 +357,7 @@ export function EarlyView() {
           Public proof: every sample, signature and how to check them
         </Link>
       </details>
+      )}
     </div>
   );
 }

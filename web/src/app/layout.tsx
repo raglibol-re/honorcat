@@ -10,7 +10,7 @@ const plexMono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500"], var
 
 export const metadata: Metadata = {
   title: { default: "HonorCat · Promises that always land", template: "%s · HonorCat" },
-  description: "Refund promises backed by USDC locked on Arc and settled from live Gemini markets. HonorCat, settled by Verdict. Testnet demo.",
+  description: "Get paid before it happens: money set aside for a group, paid out the moment a live Gemini market says the event is very likely. Testnet demo.",
 };
 
 export const viewport: Viewport = {
@@ -27,7 +27,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <TechModeProvider>
           <WalletProvider>
             <p className="t-13 px-4 py-2 text-center" style={{ background: "var(--vg-warn-bg)", color: "var(--vg-warn-ink)" }}>
-              Test version with test money on Arc testnet. Not insurance; no real hedge is placed.
+              Test version. Test money only.
             </p>
             <SiteHeader />
             <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:py-10">{children}</main>

@@ -60,23 +60,23 @@ export function LiveEarly() {
   if (!e && failed) {
     return (
       <p className="vg-ticket t-15 w-full max-w-[420px] px-5 py-5" style={{ color: "var(--vg-muted)" }}>
-        The live example cannot be loaded right now. Retrying…
+        Could not load the example. Retrying…
       </p>
     );
   }
   if (!e) return <div className="vg-ticket h-[420px] w-full max-w-[420px] animate-pulse" aria-hidden />;
   const latest = d ? ([...d.samples].reverse().find((s) => s.status === 0 && s.mid !== null)?.mid ?? d.market?.chance ?? null) : null;
   return (
-    <div className="space-y-2">
+    <div>
       <Link href={`/e/${e.id}`} className="vg-ticket block w-full max-w-[420px] space-y-3 px-5 py-5">
         <p className="t-13" style={{ color: "var(--vg-muted)" }}>
-          Live example · {STATE[e.state] ?? e.state}
+          Live example: {STATE[e.state] ?? e.state}
         </p>
         <p className="t-17 font-semibold leading-snug">{e.promise}</p>
         <div className="flex items-baseline justify-between">
           <span className="mono t-27 font-medium">{formatMoney(e.amount)}</span>
           <span className="t-15">
-            chance now <span className="mono">{latest === null ? "—" : `${Math.round(latest * 100)}%`}</span>, pays at{" "}
+            <span className="mono">{latest === null ? "—" : `${Math.round(latest * 100)}%`}</span> now, pays at{" "}
             <span className="mono">{e.params.thresholdBps / 100}%</span>
           </span>
         </div>
@@ -86,12 +86,6 @@ export function LiveEarly() {
           <div className="h-[120px] animate-pulse rounded-lg" style={{ background: "var(--vg-rule)", opacity: 0.3 }} aria-hidden />
         )}
       </Link>
-      <p className="t-13" style={{ color: "var(--vg-muted)" }}>
-        A real early payout on this deployment.{" "}
-        <Link href={`/e/${e.id}/proof`} className="underline underline-offset-4">
-          See its proof
-        </Link>
-      </p>
     </div>
   );
 }
