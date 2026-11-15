@@ -19,6 +19,10 @@
 - Work in cycles per docs/improve.md, everything in the agreed priority order.
 
 ## Rubric cycle log
+- 2026-11-15: Forward spec (docs/forward-spec.md) milestone F0 done, no code changed: live weather
+  (49 cities, Nov 15-16 highs, 79% one-sided books) and economics (11 events, Fed the only one
+  traded) reported; docs/market-quality.md written; Gemini Market Data / API Agreement findings
+  reported to the user. F1 not started: "Blocks current milestone" has an open entry (phone test).
 - 2026-11-15: third browser review done (47e66ab): honest featured payout ("No crossing caught yet"
   until a crossing exists), earlier-payout label with market, rail values from records, stamp clear
   of the threshold, Guarantees out of the footer, animated hero number. Wallets from other chains
