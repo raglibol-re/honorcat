@@ -824,7 +824,14 @@ async function waitEarly(id: string, until: number, done: (d: EarlyDetailRespons
  */
 async function runEarly() {
   log("=== early payouts: one trigger, one refund, 3 recipients each ===");
-  const demo = await api<{ trigger: DemoCandidate[]; refund: DemoCandidate[] }>("/api/early/demo?fresh=1");
+  // Both legs need a market whose book passes the demo rule now (creation refuses the rest); the
+  // refund leg also needs one far below the line. Supply changes by the minute: retry for 10 min.
+  let demo = await api<{ trigger: DemoCandidate[]; refund: DemoCandidate[] }>("/api/early/demo?fresh=1");
+  for (let i = 0; i < 10 && (!demo.trigger[0] || !demo.refund[0]); i++) {
+    log(`waiting for suitable markets (trigger ${demo.trigger.length}, refund ${demo.refund.length})…`);
+    await new Promise((res) => setTimeout(res, 60_000));
+    demo = await api<{ trigger: DemoCandidate[]; refund: DemoCandidate[] }>("/api/early/demo?fresh=1");
+  }
   const t = demo.trigger[0];
   const r = demo.refund[0];
   if (!t) throw new Error("no live Gemini contract meets the demo trigger rules right now");

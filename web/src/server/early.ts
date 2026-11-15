@@ -282,9 +282,10 @@ export async function demoCandidates(thresholdBps = 8500): Promise<DemoCandidate
   // Refund demo: closes soonest, far below the threshold on its side.
   const ref = rows
     .map((r) => ({ ...r, side: (r.side === "yes" ? "no" : "yes") as "yes" | "no", chance: 1 - r.chance }))
-    .filter((r) => r.chance <= thr - 0.3 && new Date(r.closesAt).getTime() <= now + 45 * 60_000)
-    // Far below the threshold first (a coin-flip market could still cross), then soonest close.
-    .sort((a, b) => Number(b.chance <= 0.15) - Number(a.chance <= 0.15) || a.closesAt.localeCompare(b.closesAt))
+    // Far below the threshold: markets converge to 0% or 100% at close, so a coin-flip market could
+    // still cross. 15% or less on its side, closing within 45 minutes, soonest first.
+    .filter((r) => r.chance <= 0.15 && new Date(r.closesAt).getTime() <= now + 45 * 60_000)
+    .sort((a, b) => a.closesAt.localeCompare(b.closesAt))
     .slice(0, 12);
   // Pots are refused at creation when the book fails the rule: keep only candidates that pass now.
   const refund = (await Promise.all(ref.map((r) => check(r, 1)))).filter((c) => c.meetsRules);
