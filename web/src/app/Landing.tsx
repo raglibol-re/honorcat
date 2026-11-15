@@ -100,6 +100,7 @@ export function Landing({ initial }: { initial: LandingData | null }) {
       ]
     : [];
   const last = payout?.series.at(-1);
+  const startedAbove = !!payout && (payout.series[0]?.p ?? 0) >= payout.threshold;
 
   return (
     <div className="hc" style={{ background: C.page, color: C.ink, fontFamily: F.sans, minHeight: "100vh", boxSizing: "border-box" }}>
@@ -165,7 +166,12 @@ export function Landing({ initial }: { initial: LandingData | null }) {
       </section>
 
       <section style={{ padding: "28px 0 0" }}>
-        <CatScale chance={hero?.chance ?? null} threshold={hero?.threshold ?? 0.85} />
+        <div className="hc-wide">
+          <CatScale chance={hero?.chance ?? null} threshold={hero?.threshold ?? 0.85} />
+        </div>
+        <div className="hc-narrow hc-wrap">
+          <CatScale compact chance={hero?.chance ?? null} threshold={hero?.threshold ?? 0.85} />
+        </div>
       </section>
 
       <section className="hc-wrap" style={{ paddingTop: 72, display: "flex", flexWrap: "wrap", gap: "28px 56px", alignItems: "flex-start" }}>
@@ -173,7 +179,7 @@ export function Landing({ initial }: { initial: LandingData | null }) {
           <h2 style={{ margin: 0, ...cond, fontSize: 44, fontWeight: 600, lineHeight: 1 }}>The moment it pounced</h2>
           <p style={{ margin: 0, fontSize: 19, lineHeight: 1.45, color: C.body }}>
             {payout
-              ? `The line crossed ${pct(payout.threshold)} and held. ${people[0]!.toUpperCase()}${people.slice(1)} paid on the spot, before anyone knew the result.`
+              ? `${startedAbove ? `The line held above ${pct(payout.threshold)} for the full window.` : `The line crossed ${pct(payout.threshold)} and held.`} ${people[0]!.toUpperCase()}${people.slice(1)} paid on the spot, before anyone knew the result.`
               : loading
                 ? "Loading the latest payout…"
                 : "No early payout has happened yet. The first one will show here."}
@@ -183,6 +189,7 @@ export function Landing({ initial }: { initial: LandingData | null }) {
         {payout && (
           <div style={{ flex: "999 1 620px", minWidth: 0, display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={{ border: `1.5px solid ${C.ink}`, background: C.panel }}>
+<div className="hc-wide">
               <PounceChart
                 series={payout.series}
                 threshold={payout.threshold}
@@ -190,6 +197,17 @@ export function Landing({ initial }: { initial: LandingData | null }) {
                 endLabel={last ? `${pct(last.p)} last reading` : ""}
                 ariaLabel={`The chance over time for “${payout.contractLabel}”. It crosses the ${pct(payout.threshold)} line, where the payout fired${last ? `, and ends at ${pct(last.p)}` : ""}.`}
               />
+</div>
+<div className="hc-narrow">
+              <PounceChart
+                width={500}
+                series={payout.series}
+                threshold={payout.threshold}
+                paidAt={payout.paidAt}
+                endLabel={last ? `${pct(last.p)} last reading` : ""}
+                ariaLabel={`The chance over time for “${payout.contractLabel}”. It crosses the ${pct(payout.threshold)} line, where the payout fired${last ? `, and ends at ${pct(last.p)}` : ""}.`}
+              />
+</div>
             </div>
             <span style={{ fontSize: 14, color: C.muted }}>
               Real readings from this payout{payout.settledAt ? ` on ${formatDate(new Date(payout.settledAt).getTime())}` : ""}: the middle of Gemini’s best buy and sell

@@ -113,7 +113,7 @@ export async function landingData() {
       amount: e.amount,
       recipients: d.recipients.length,
       tradingClose: e.tradingClose,
-      settledAt: d.settledAt,
+      settledAt: d.settledAt ? new Date(d.settledAt).toISOString() : null,
       paidAt,
       record: e.record,
       vault: cfg.vault,

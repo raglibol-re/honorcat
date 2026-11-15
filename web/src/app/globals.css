@@ -154,3 +154,5 @@ body {
 .hc a:focus-visible, .hc button:focus-visible { outline: 2px solid #E8421A; outline-offset: 2px; }
 .hc-wrap { max-width: 1360px; margin: 0 auto; padding-left: 40px; padding-right: 40px; box-sizing: border-box; }
 @media (max-width: 600px) { .hc-wrap { padding-left: 20px; padding-right: 20px; } }
+.hc-narrow { display: none; }
+@media (max-width: 700px) { .hc-wide { display: none; } .hc-narrow { display: block; } }
