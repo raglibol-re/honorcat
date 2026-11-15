@@ -23,6 +23,7 @@ export function LiveEarly() {
   const [d, setD] = useState<EarlyDetail | null>(null);
   const [row, setRow] = useState<Row | null>(null);
   const [none, setNone] = useState(false);
+  const [failed, setFailed] = useState(false);
   useEffect(() => {
     let stop = false;
     let id: string | null = null;
@@ -39,9 +40,12 @@ export function LiveEarly() {
           if (!stop) setRow(pick); // render the card at once; the chart follows
         }
         const detail = await getJson<EarlyDetail>(`/api/early/${id}`);
-        if (!stop) setD(detail);
+        if (!stop) {
+          setD(detail);
+          setFailed(false);
+        }
       } catch {
-        /* keep the last good state */
+        if (!stop) setFailed(true); // keep the last good state; retry below
       }
       if (!stop) setTimeout(run, 5000);
     };
@@ -53,6 +57,13 @@ export function LiveEarly() {
 
   if (none) return <LiveExample />;
   const e = d?.early ?? row;
+  if (!e && failed) {
+    return (
+      <p className="vg-ticket t-15 w-full max-w-[420px] px-5 py-5" style={{ color: "var(--vg-muted)" }}>
+        The live example cannot be loaded right now. Retrying…
+      </p>
+    );
+  }
   if (!e) return <div className="vg-ticket h-[420px] w-full max-w-[420px] animate-pulse" aria-hidden />;
   const latest = d ? ([...d.samples].reverse().find((s) => s.status === 0 && s.mid !== null)?.mid ?? d.market?.chance ?? null) : null;
   return (
