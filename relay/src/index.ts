@@ -89,3 +89,6 @@ export {
   type WebAuthnAssertion,
   type PasskeyRecord,
 } from "./passkeys";
+
+// Early-payout probability trigger (docs/early-payout-trigger.md)
+export * as trigger from "./trigger";
