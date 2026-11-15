@@ -10,6 +10,7 @@ import { STATE_NAMES } from "@/components/cat/StateRail";
 import { C, F } from "@/components/cat/tokens";
 import { ProbabilityChart } from "@/components/early/ProbabilityChart";
 import { useTechMode } from "@/components/TechMode";
+import { useWallet } from "@/lib/wallet/context";
 import { getJson } from "@/lib/api";
 import { addressUrl, txUrl } from "@/lib/chain";
 import { formatDate, formatMoney } from "@/lib/format";
@@ -197,6 +198,7 @@ export function EarlyView() {
   const [me, setMe] = useState<PasskeySession | null>(null);
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
+  const wallet = useWallet();
 
   useEffect(() => {
     const tick = () => setNow(Math.floor(Date.now() / 1000));
@@ -214,8 +216,10 @@ export function EarlyView() {
   const threshold = e.params.thresholdBps / 10_000;
   const latest = [...d.samples].reverse().find((s) => s.status === 0 && s.mid !== null)?.mid ?? null;
   const chance = latest ?? d.market?.chance ?? null;
-  const joined = me ? d.recipients.some((r) => r.account.toLowerCase() === me.account.toLowerCase()) : false;
-  const paidMe = me ? d.payments.find((p) => p.account?.toLowerCase() === me.account.toLowerCase() && p.kind !== "LeftoverReturned") : undefined;
+  // "Me" is the passkey account or, for people who joined with a wallet, the connected wallet.
+  const mine = [me?.account, wallet.account].filter(Boolean).map((a) => a!.toLowerCase());
+  const joined = d.recipients.some((r) => mine.includes(r.account.toLowerCase()));
+  const paidMe = d.payments.find((p) => p.account && mine.includes(p.account.toLowerCase()) && p.kind !== "LeftoverReturned");
   const triggers = d.signatures.filter((s) => s.kind === "trigger");
   const triggerAt = triggers.map((s) => Number((s.record as { windowEnd?: string } | null)?.windowEnd ?? 0)).sort()[1] ?? null;
   const settledMs = d.settledAt ? new Date(d.settledAt).getTime() : null;
@@ -270,6 +274,22 @@ export function EarlyView() {
       setMe(session);
     } catch (err) {
       setJoinError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setJoining(false);
+    }
+  }
+
+  /** Crypto users: join with any EVM wallet, on any chain. One plain signature, no gas, no network switch. */
+  async function joinWithWallet() {
+    setJoining(true);
+    setJoinError(null);
+    try {
+      const account = await wallet.connect();
+      if (!account || !wallet.adapter.signMessage) throw new Error(wallet.error ?? "No wallet found in this browser.");
+      const signature = await wallet.adapter.signMessage(`Join HonorCat early payout ${id} as ${account}`);
+      await post(`/api/early/${id}/join`, { account, signature });
+    } catch (err) {
+      setJoinError(err instanceof Error ? err.message.split("\n")[0]! : String(err));
     } finally {
       setJoining(false);
     }
@@ -331,6 +351,16 @@ export function EarlyView() {
             See the proof
           </Link>
         </div>
+        {canJoin && (
+          <button
+            type="button"
+            onClick={joinWithWallet}
+            disabled={joining}
+            style={{ alignSelf: "flex-start", background: "none", border: 0, padding: "6px 0", fontFamily: F.sans, fontSize: 16, color: C.ink, textDecoration: "underline", textUnderlineOffset: 4, cursor: "pointer" }}
+          >
+            Join with a wallet instead
+          </button>
+        )}
         {joinError && <p style={{ margin: 0, fontSize: 14, color: C.signalInk }}>{joinError}</p>}
       </div>
 

@@ -1,4 +1,4 @@
-import type { Address, Hex, TypedDataDefinition } from "viem";
+import type { Address, Chain, Hex, TypedDataDefinition } from "viem";
 
 export type ContractCall = { to: Address; data: Hex };
 
@@ -11,7 +11,7 @@ export interface WalletAdapter {
   readonly id: string;
   readonly label: string;
   isAvailable(): boolean;
-  /** Prompts the user if needed; returns the active account on Arc testnet. */
+  /** Prompts the user if needed; returns the active account (any chain; Arc actions switch to Arc). */
   connect(): Promise<Address>;
   /** Returns the account if already connected, without prompting. */
   getAccount(): Promise<Address | null>;
@@ -23,4 +23,10 @@ export interface WalletAdapter {
    */
   signTypedData(data: TypedDataDefinition): Promise<Hex>;
   onAccountChange(cb: (account: Address | null) => void): () => void;
+  /** Signs a plain text message (EIP-191). Chain-independent: used to join with a wallet. */
+  signMessage?(message: string): Promise<Hex>;
+  /** The chain the wallet is on right now (EVM chain id). */
+  chainId?(): Promise<number | null>;
+  /** Switches the wallet to `chain` (adding it if needed), sends there and waits for the receipt. */
+  sendOn?(chain: Chain, call: ContractCall): Promise<Hex>;
 }

@@ -7,8 +7,9 @@ import { CatScale } from "@/components/cat/CatScale";
 import { C, F } from "@/components/cat/tokens";
 import { MarketPicker, type PickerMarket } from "@/components/guarantee/MarketPicker";
 import { getJson, usePolling } from "@/lib/api";
-import { formatAxis } from "@/lib/format";
+import { formatAxis, parseUsdc } from "@/lib/format";
 import { useWallet } from "@/lib/wallet/context";
+import { BridgeIn } from "@/components/cat/BridgeIn";
 
 type Contract = { ticker: string; label: string; chanceYes: number | null; instrument: string | null };
 type Market = PickerMarket & { contracts: Contract[] };
@@ -359,6 +360,8 @@ function Fund(p: { market: Market | null; contract: Contract | null; side: "yes"
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [done, setDone] = useState<{ id: string; promise: string } | null>(null);
+  // Whether the wallet already holds enough USDC on Arc (BridgeIn reports it; null until known).
+  const [onArc, setOnArc] = useState<boolean | null>(null);
   const ready = p.market && p.contract && p.name.trim() && Number(p.amount) >= 0.01 && Number(p.amount) * p.count >= 0.1;
 
   async function fund() {
@@ -406,11 +409,12 @@ function Fund(p: { market: Market | null; contract: Contract | null; side: "yes"
 
   if (done) return <Share id={done.id} promise={done.promise} />;
   const total = ((Number(p.amount) || 0) * p.count).toFixed(2);
-  const off = !ready || busy !== null;
+  const off = !ready || busy !== null || onArc === false;
   return (
     <section style={{ display: "flex", flexDirection: "column", gap: 12, borderTop: `1.5px solid ${C.ink}`, paddingTop: 16 }}>
       <span style={{ fontSize: 15, color: C.muted }}>Into the bowl</span>
       <span style={{ fontFamily: F.cond, fontSize: 88, fontWeight: 700, lineHeight: 0.92, letterSpacing: "-0.01em" }}>${total}</span>
+      <BridgeIn need={parseUsdc(total)} onReady={setOnArc} />
       <button
         type="button"
         onClick={fund}
@@ -419,7 +423,7 @@ function Fund(p: { market: Market | null; contract: Contract | null; side: "yes"
       >
         Put in ${total} and get the link
       </button>
-      <p style={{ margin: 0, fontSize: 15, color: C.muted }}>{busy ?? (ready ? "No fees." : "Pick an event and add your name.")}</p>
+      <p style={{ margin: 0, fontSize: 15, color: C.muted }}>{busy ?? (!ready ? "Pick an event and add your name." : onArc === false ? "Not enough USDC on Arc yet: bring it from another chain above." : "No fees.")}</p>
       {err && <p style={{ margin: 0, fontSize: 15, color: C.signalInk }}>{err}</p>}
     </section>
   );

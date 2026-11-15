@@ -6,11 +6,11 @@
  * the right, so 97 -> 100 rolls the units and tens and grows a hundreds column.
  * Motion is off under prefers-reduced-motion (globals.css: .hc-roll).
  */
-export function RollingNumber({ value, cell = "0.8em" }: { value: number | null; cell?: string }) {
+export function RollingNumber({ value, cell = "1em" }: { value: number | null; cell?: string }) {
   if (value === null) return <span>–</span>;
   const digits = String(Math.max(0, Math.round(value))).split("");
   return (
-    <span aria-label={String(Math.round(value))} style={{ display: "inline-flex" }}>
+    <span aria-label={String(Math.round(value))} style={{ display: "inline-flex", margin: "-0.1em 0 -0.12em" }}>
       {digits.map((d, i) => {
         const fromRight = digits.length - 1 - i;
         return (

@@ -1,4 +1,4 @@
-import { createWalletClient, custom, numberToHex, type Address, type EIP1193Provider, type TypedDataDefinition } from "viem";
+import { createPublicClient, createWalletClient, custom, http, numberToHex, type Address, type Chain, type EIP1193Provider, type Hex, type TypedDataDefinition } from "viem";
 import { arcTestnet } from "viem/chains";
 import { RPC_URL } from "../chain";
 import type { ContractCall, WalletAdapter } from "./types";
@@ -32,12 +32,18 @@ export class InjectedWallet implements WalletAdapter {
   async connect(): Promise<Address> {
     const accounts = (await this.provider.request({ method: "eth_requestAccounts" })) as Address[];
     if (!accounts[0]) throw new Error("No account authorised");
-    await this.ensureChain();
     return accounts[0];
   }
 
-  private async ensureChain() {
-    const chainIdHex = numberToHex(arcTestnet.id);
+  async chainId(): Promise<number | null> {
+    if (!this.isAvailable()) return null;
+    return Number(await this.provider.request({ method: "eth_chainId" }));
+  }
+
+  /** Switches to `chain`, adding it to the wallet first if the wallet does not know it. */
+  private async ensureChain(chain: Chain = arcTestnet) {
+    if ((await this.chainId()) === chain.id) return;
+    const chainIdHex = numberToHex(chain.id);
     try {
       await this.provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: chainIdHex }] });
     } catch (err) {
@@ -47,11 +53,11 @@ export class InjectedWallet implements WalletAdapter {
         params: [
           {
             chainId: chainIdHex,
-            chainName: arcTestnet.name,
+            chainName: chain.name,
             // Arc's native gas token is USDC with 18 decimals on the native interface.
-            nativeCurrency: arcTestnet.nativeCurrency,
-            rpcUrls: [RPC_URL],
-            blockExplorerUrls: [arcTestnet.blockExplorers.default.url],
+            nativeCurrency: chain.nativeCurrency,
+            rpcUrls: [chain.id === arcTestnet.id ? RPC_URL : chain.rpcUrls.default.http[0]!],
+            blockExplorerUrls: chain.blockExplorers ? [chain.blockExplorers.default.url] : undefined,
           },
         ],
       });
@@ -60,14 +66,32 @@ export class InjectedWallet implements WalletAdapter {
 
   async send(call: ContractCall) {
     const account = await this.connect();
+    await this.ensureChain();
     const client = createWalletClient({ account, chain: arcTestnet, transport: custom(this.provider) });
     return client.sendTransaction({ to: call.to, data: call.data });
   }
 
   async signTypedData(data: TypedDataDefinition) {
     const account = await this.connect();
+    // MetaMask refuses typed data whose domain chain differs from the active chain.
+    await this.ensureChain();
     const client = createWalletClient({ account, chain: arcTestnet, transport: custom(this.provider) });
     return client.signTypedData({ account, ...data } as never);
+  }
+
+  async signMessage(message: string): Promise<Hex> {
+    const account = await this.connect();
+    const client = createWalletClient({ account, transport: custom(this.provider) });
+    return client.signMessage({ account, message });
+  }
+
+  async sendOn(chain: Chain, call: ContractCall): Promise<Hex> {
+    const account = await this.connect();
+    await this.ensureChain(chain);
+    const client = createWalletClient({ account, chain, transport: custom(this.provider) });
+    const hash = await client.sendTransaction({ to: call.to, data: call.data });
+    await createPublicClient({ chain, transport: http() }).waitForTransactionReceipt({ hash, timeout: 180_000 });
+    return hash;
   }
 
   onAccountChange(cb: (account: Address | null) => void) {
