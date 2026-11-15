@@ -192,7 +192,8 @@ export async function demoCandidates(thresholdBps = 8500): Promise<{ trigger: De
   const ref = rows
     .map((r) => ({ ...r, side: (r.side === "yes" ? "no" : "yes") as "yes" | "no", chance: 1 - r.chance }))
     .filter((r) => r.chance <= thr - 0.3)
-    .sort((a, b) => a.closesAt.localeCompare(b.closesAt))
+    // Far below the threshold first (a coin-flip market could still cross), then soonest close.
+    .sort((a, b) => Number(b.chance <= 0.15) - Number(a.chance <= 0.15) || a.closesAt.localeCompare(b.closesAt))
     .slice(0, 3);
   const refund = await Promise.all(ref.map(check));
   return { trigger: trigger_, refund };
