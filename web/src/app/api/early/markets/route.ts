@@ -11,14 +11,18 @@ const CATEGORIES = ["Crypto", "Weather", "Economics", "Commodities", "Sports", "
 export async function GET(req: NextRequest) {
   await connection();
   const category = req.nextUrl.searchParams.get("category") ?? "Crypto";
+  // `include`: an event that must be in the list (the demo market), even if it closes later.
+  const include = req.nextUrl.searchParams.get("include");
   if (!CATEGORIES.includes(category)) return Response.json({ error: `category must be one of ${CATEGORIES.join(", ")}` }, { status: 400 });
   try {
     const now = Date.now();
     const events = await listActiveEvents(category, 200);
-    const markets = events
+    const open = events
       .filter((e) => e.status === "active" && e.expiryDate && new Date(e.expiryDate).getTime() > now + 4 * 60_000)
-      .sort((a, b) => (a.expiryDate ?? "").localeCompare(b.expiryDate ?? ""))
-      .slice(0, 80)
+      .sort((a, b) => (a.expiryDate ?? "").localeCompare(b.expiryDate ?? ""));
+    const top = open.slice(0, 80);
+    const extra = include && !top.some((e) => e.ticker === include) ? open.filter((e) => e.ticker === include) : [];
+    const markets = [...extra, ...top]
       .map(toMarket)
       .filter((m) => m.contracts.length > 0);
     return Response.json({ category, categories: CATEGORIES, markets, fetchedAt: new Date().toISOString() });

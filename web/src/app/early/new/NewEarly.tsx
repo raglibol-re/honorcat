@@ -49,7 +49,8 @@ function TradeChart({ symbol, side }: { symbol: string | null; side: "yes" | "no
 
 export function NewEarly() {
   const [category, setCategory] = useState("Crypto");
-  const { data, error } = usePolling<MarketsResponse>(`/api/early/markets?category=${category}`, 20_000);
+  const [include, setInclude] = useState<string | null>(null);
+  const { data, error } = usePolling<MarketsResponse>(`/api/early/markets?category=${category}${include ? `&include=${encodeURIComponent(include)}` : ""}`, 20_000);
   const markets = data?.category === category ? data.markets : null;
   const [picked, setPicked] = useState<{ ticker: string; idx: number } | null>(null);
   const [side, setSide] = useState<"yes" | "no">("yes");
@@ -74,6 +75,7 @@ export function NewEarly() {
       if (!c) throw new Error("No live market meets the demo rules right now. Pick one yourself or try again in a minute.");
       const cat = c.category || (await findCategory(c.eventTicker));
       setCategory(cat);
+      setInclude(c.eventTicker);
       setPicked({ ticker: c.eventTicker, idx: -1 });
       setDemo(true);
       setSide(c.side);
