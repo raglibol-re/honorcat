@@ -20,7 +20,7 @@ const short = (h: string) => `${h.slice(0, 8)}…${h.slice(-4)}`;
  * The verdict, as three real steps: the relay saw Gemini's result, the vault verified the
  * resolver's EIP-712 signature on Arc, and the money moved. Timings are measured, not decorative.
  */
-export function VerdictMoment(p: Props) {
+export function SettlementMoment(p: Props) {
   const { tech } = useTechMode();
   const steps = [
     {
@@ -45,26 +45,26 @@ export function VerdictMoment(p: Props) {
         },
   ];
   return (
-    <section aria-label="Verdict" className="vg-ticket px-5 py-4">
+    <section aria-label="Settlement" className="hc-ticket px-5 py-4">
       <ol className="space-y-3">
         {steps.map((s, i) => (
           <li
             key={s.title}
-            className={`flex items-start gap-3 ${p.play ? "vg-chip-in" : ""}`}
+            className={`flex items-start gap-3 ${p.play ? "hc-chip-in" : ""}`}
             style={p.play ? { animationDelay: `${i * 450}ms` } : undefined}
           >
             <span
               aria-hidden
               className="mt-1 inline-flex h-4 w-4 shrink-0 items-center justify-center"
-              style={{ background: "var(--vg-accent)" }}
+              style={{ background: "var(--hc-accent)" }}
             >
               <svg width="8" height="8" viewBox="0 0 10 10" fill="none">
-                <path d="M2 5.2 4.1 7.3 8 3" stroke="var(--vg-card)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M2 5.2 4.1 7.3 8 3" stroke="var(--hc-card)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </span>
             <span className="flex-1">
               <span className="t-15 block font-medium">{s.title}</span>
-              <span className="t-13 block" style={{ color: "var(--vg-muted)" }}>
+              <span className="t-13 block" style={{ color: "var(--hc-muted)" }}>
                 {s.detail}
                 {tech && s.tx && (
                   <>
@@ -80,8 +80,8 @@ export function VerdictMoment(p: Props) {
         ))}
       </ol>
       {p.resultToPaymentMs !== null && (
-        <p className="t-13 mt-4 border-t pt-3" style={{ borderColor: "var(--vg-rule)", color: "var(--vg-muted)" }}>
-          {p.triggered ? "From result to refund" : "From result to close"}: <span className="mono" style={{ color: "var(--vg-ink)" }}>{(p.resultToPaymentMs / 1000).toFixed(1)} s</span>
+        <p className="t-13 mt-4 border-t pt-3" style={{ borderColor: "var(--hc-rule)", color: "var(--hc-muted)" }}>
+          {p.triggered ? "From result to refund" : "From result to close"}: <span className="mono" style={{ color: "var(--hc-ink)" }}>{(p.resultToPaymentMs / 1000).toFixed(1)} s</span>
         </p>
       )}
     </section>

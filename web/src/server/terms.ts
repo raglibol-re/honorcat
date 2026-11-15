@@ -1,7 +1,7 @@
 import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { getAddress } from "viem";
-import { getConfig, type GuaranteeTerms } from "@verdict/relay";
+import { getConfig, type GuaranteeTerms } from "@honorcat/relay";
 
 /**
  * The merchant signs an authorization whose nonce commits to the exact pot terms (deadline

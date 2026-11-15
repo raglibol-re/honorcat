@@ -3,9 +3,9 @@ import { timingSafeEqual } from "node:crypto";
 import { after } from "next/server";
 import { getAddress, type Address, type Hex } from "viem";
 import { z } from "zod";
-import { GaslessError, getDb, runTick, runAppSampler } from "@verdict/relay";
+import { GaslessError, getDb, runTick, runAppSampler } from "@honorcat/relay";
 
-export * from "@verdict/relay";
+export * from "@honorcat/relay";
 
 /**
  * Runs a relay tick after the response is sent. Called from API reads (e.g. the live ledger

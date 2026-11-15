@@ -75,7 +75,7 @@ export type Config = {
   gaslessMaxPerHour: number;
   lowBalance: bigint;
   httpSourceAllowInsecure: boolean;
-  /** GuaranteeBook + BatchGuard (Verdict Guarantees); null if not deployed/configured. */
+  /** GuaranteeBook + BatchGuard (HonorCat guarantees (retired)); null if not deployed/configured. */
   guarantees: { book: Address; guard: Address; deployBlock: bigint } | null;
   /** PasskeyAccountFactory for payee passkey accounts; null if not configured. */
   passkeys: { factory: Address } | null;

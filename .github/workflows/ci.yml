@@ -56,8 +56,8 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @verdict/relay typecheck
-      - run: pnpm --filter @verdict/relay test
+      - run: pnpm --filter @honorcat/relay typecheck
+      - run: pnpm --filter @honorcat/relay test
 
   web:
     runs-on: ubuntu-latest

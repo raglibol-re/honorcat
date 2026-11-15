@@ -216,13 +216,13 @@ CREATE TABLE IF NOT EXISTS relay_tx_pots (
   PRIMARY KEY (tx_hash, pot_id)
 );
 
--- What the relay signed, and when it first saw the outcome ("Verdict moment").
+-- What the relay signed, and when it first saw the outcome ("settlement moment").
 ALTER TABLE resolutions ADD COLUMN IF NOT EXISTS outcome_seen_at TIMESTAMPTZ;
 ALTER TABLE resolutions ADD COLUMN IF NOT EXISTS signature TEXT;
 ALTER TABLE resolutions ADD COLUMN IF NOT EXISTS digest TEXT;
 ALTER TABLE resolutions ADD COLUMN IF NOT EXISTS reason TEXT;
 
--- Verdict Guarantees: product metadata for a pot that pays into the GuaranteeBook.
+-- HonorCat guarantees (retired): product metadata for a pot that pays into the GuaranteeBook.
 CREATE TABLE IF NOT EXISTS guarantees (
   id              TEXT PRIMARY KEY,           -- short public id used in /g/[id]
   gid             BIGINT UNIQUE,              -- GuaranteeBook id (set once opened on-chain)
@@ -393,16 +393,16 @@ CREATE TABLE IF NOT EXISTS market_catalog (
 CREATE INDEX IF NOT EXISTS market_catalog_cat_idx ON market_catalog (category, close_ms);
 `;
 
-type GlobalWithDb = typeof globalThis & { __verdictDb?: Promise<Db> };
+type GlobalWithDb = typeof globalThis & { __honorcatDb?: Promise<Db> };
 
 /** Returns a process-wide database handle, creating the schema on first use. */
 export function getDb(): Promise<Db> {
   const g = globalThis as GlobalWithDb;
-  g.__verdictDb ??= open().catch((err) => {
-    g.__verdictDb = undefined;
+  g.__honorcatDb ??= open().catch((err) => {
+    g.__honorcatDb = undefined;
     throw err;
   });
-  return g.__verdictDb;
+  return g.__honorcatDb;
 }
 
 async function open(): Promise<Db> {

@@ -4,7 +4,7 @@ import { CustomerView } from "./CustomerView";
 
 export const metadata = { title: "Your guarantee" };
 
-const loading = <p className="t-15" style={{ color: "var(--vg-muted)" }}>Loading…</p>;
+const loading = <p className="t-15" style={{ color: "var(--hc-muted)" }}>Loading…</p>;
 
 export default function GuaranteePage({ params }: PageProps<"/g/[id]">) {
   return (

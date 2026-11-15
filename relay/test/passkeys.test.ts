@@ -4,7 +4,7 @@ import { rpIdHashOf, verifyAssertion } from "../src/passkeys";
 import { softPasskey } from "../src/softPasskey";
 
 const RP = "verdict-phi-livid.vercel.app";
-const challenge = keccak256(stringToBytes("Join Verdict guarantee abc as 0x1234"));
+const challenge = keccak256(stringToBytes("Join HonorCat guarantee abc as 0x1234"));
 
 describe("off-chain WebAuthn verification (mirrors PasskeyAccount)", () => {
   it("accepts a browser-shaped assertion from the right key", async () => {

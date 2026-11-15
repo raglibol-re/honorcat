@@ -1,5 +1,5 @@
 import "server-only";
-import { catalog, depthSnapshot, GEMINI_REST, readBook, type CatalogRow, type Db, type Quality } from "@verdict/relay";
+import { catalog, depthSnapshot, GEMINI_REST, readBook, type CatalogRow, type Db, type Quality } from "@honorcat/relay";
 
 /**
  * Web side of the market catalogue (relay/src/catalog.ts): runs bounded refresh steps under a

@@ -1,15 +1,15 @@
 @import "tailwindcss";
 
-/* App-wide palette = the approved Verdict Guarantees tokens (.vg is set on <html>). The older
-   names stay so existing pages pick up the new palette (HonorCat palette, light only). */
+/* App-wide palette: the HonorCat tokens below (.hc-root is set on <html>), exposed to Tailwind as
+   background/surface/foreground/muted/border/accent. Light only. */
 :root {
-  --background: var(--vg-page);
-  --surface: var(--vg-card);
-  --foreground: var(--vg-ink);
-  --muted: var(--vg-muted);
-  --border: var(--vg-rule);
-  --accent: var(--vg-accent);
-  --positive: var(--vg-accent);
+  --background: var(--hc-page);
+  --surface: var(--hc-card);
+  --foreground: var(--hc-ink);
+  --muted: var(--hc-muted);
+  --border: var(--hc-rule);
+  --accent: var(--hc-accent);
+  --positive: var(--hc-accent);
   --negative: #B8320F;
 }
 
@@ -48,7 +48,7 @@ body {
   100% { left: 75%; opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
 }
 @keyframes stage-ping {
-  0% { outline: 3px solid var(--vg-signal); outline-offset: 0; }
+  0% { outline: 3px solid var(--hc-signal); outline-offset: 0; }
   100% { outline: 3px solid transparent; outline-offset: 10px; }
 }
 @keyframes tile-in {
@@ -69,54 +69,52 @@ body {
   .packet, .stage-ping, .tile-in, .chip-pop { animation-duration: 1ms !important; }
 }
 
-/* ================================================================ Verdict Guarantees tokens
-   Scoped to .vg until the design is approved. One accent (ink teal), cool paper, Plex Sans for
-   Now the HonorCat tokens from docs/design. */
-.vg {
+/* ================================================================ HonorCat tokens (docs/design) */
+.hc-root {
   /* HonorCat tokens (docs/design): one light palette, one signal colour. */
-  --vg-page: #ECEAE4;
-  --vg-card: #F6F4EE;
-  --vg-ink: #111111;
-  --vg-body: #33312D;
-  --vg-muted: #55534E;
-  --vg-rule: #C9C6BE;
-  --vg-accent: #B8320F;
-  --vg-accent-soft: rgba(232, 66, 26, 0.18);
-  --vg-signal: #E8421A;
-  --vg-warn-ink: #B8320F;
-  --vg-warn-bg: #ECEAE4;
-  --vg-focus: #E8421A;
+  --hc-page: #ECEAE4;
+  --hc-card: #F6F4EE;
+  --hc-ink: #111111;
+  --hc-body: #33312D;
+  --hc-muted: #55534E;
+  --hc-rule: #C9C6BE;
+  --hc-accent: #B8320F;
+  --hc-accent-soft: rgba(232, 66, 26, 0.18);
+  --hc-signal: #E8421A;
+  --hc-warn-ink: #B8320F;
+  --hc-warn-bg: #ECEAE4;
+  --hc-focus: #E8421A;
   color-scheme: light;
-  color: var(--vg-ink);
-  background: var(--vg-page);
+  color: var(--hc-ink);
+  background: var(--hc-page);
   font-family: var(--font-barlow), "Helvetica Neue", Arial, sans-serif;
 }
 /* No rounded corners, shadows or gradients anywhere (design rule). */
-.vg *, .vg *::before, .vg *::after { border-radius: 0 !important; box-shadow: none !important; }
-.vg a:hover { color: #B8320F; }
-.vg h1, .vg h2, .vg .hc-cond { font-family: var(--font-barlow-condensed), "Arial Narrow", sans-serif; font-weight: 600; letter-spacing: 0; }
-.vg .mono { font-family: var(--font-plex-mono), ui-monospace, monospace; font-feature-settings: "tnum" 1, "zero" 1; }
-.vg :focus-visible { outline: 2px solid var(--vg-focus); outline-offset: 2px; }
+.hc-root *, .hc-root *::before, .hc-root *::after { border-radius: 0 !important; box-shadow: none !important; }
+.hc-root a:hover { color: #B8320F; }
+.hc-root h1, .hc-root h2, .hc-root .hc-cond { font-family: var(--font-barlow-condensed), "Arial Narrow", sans-serif; font-weight: 600; letter-spacing: 0; }
+.hc-root .mono { font-family: var(--font-plex-mono), ui-monospace, monospace; font-feature-settings: "tnum" 1, "zero" 1; }
+.hc-root :focus-visible { outline: 2px solid var(--hc-focus); outline-offset: 2px; }
 
 /* type scale: 13 / 15 / 17 / 21 / 27 / 36 */
-.vg .t-13 { font-size: 13px; line-height: 18px; }
-.vg .t-15 { font-size: 15px; line-height: 22px; }
-.vg .t-17 { font-size: 17px; line-height: 25px; }
-.vg .t-21 { font-size: 21px; line-height: 28px; }
-.vg .t-27 { font-size: 27px; line-height: 34px; letter-spacing: -0.01em; }
-.vg .t-36 { font-size: 36px; line-height: 40px; letter-spacing: -0.02em; }
+.hc-root .t-13 { font-size: 13px; line-height: 18px; }
+.hc-root .t-15 { font-size: 15px; line-height: 22px; }
+.hc-root .t-17 { font-size: 17px; line-height: 25px; }
+.hc-root .t-21 { font-size: 21px; line-height: 28px; }
+.hc-root .t-27 { font-size: 27px; line-height: 34px; letter-spacing: -0.01em; }
+.hc-root .t-36 { font-size: 36px; line-height: 40px; letter-spacing: -0.02em; }
 
 /* the ticket: a perforation splits promise (top) from proof (bottom) */
-.vg-ticket { position: relative; background: transparent; border-top: 1.5px solid var(--vg-ink); border-bottom: 1.5px solid var(--vg-ink); }
-.vg-perf { position: relative; height: 0; border-top: 1.5px dashed var(--vg-rule); margin: 0 18px; }
+.hc-ticket { position: relative; background: transparent; border-top: 1.5px solid var(--hc-ink); border-bottom: 1.5px solid var(--hc-ink); }
+.hc-perf { position: relative; height: 0; border-top: 1.5px dashed var(--hc-rule); margin: 0 18px; }
 
 
 /* settlement rail: motion only when a step completes */
-@keyframes vg-step-done { from { transform: scale(0.4); opacity: 0.2; } to { transform: none; opacity: 1; } }
-@keyframes vg-chip-in { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
-.vg-step-done { animation: vg-step-done 260ms cubic-bezier(.2,.8,.2,1) both; }
-.vg-chip-in { animation: vg-chip-in 220ms ease-out 80ms both; }
-@media (prefers-reduced-motion: reduce) { .vg-step-done, .vg-chip-in { animation: none; } }
+@keyframes hc-step-done { from { transform: scale(0.4); opacity: 0.2; } to { transform: none; opacity: 1; } }
+@keyframes hc-chip-in { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+.hc-step-done { animation: hc-step-done 260ms cubic-bezier(.2,.8,.2,1) both; }
+.hc-chip-in { animation: hc-chip-in 220ms ease-out 80ms both; }
+@media (prefers-reduced-motion: reduce) { .hc-step-done, .hc-chip-in { animation: none; } }
 
 /* HonorCat design reference (docs/design/*.html): links, focus, page gutters. */
 .hc { color-scheme: light; font-feature-settings: normal; }
@@ -128,9 +126,9 @@ body {
 .hc-narrow { display: none; }
 @media (max-width: 700px) { .hc-wide { display: none; } .hc-narrow { display: block; } }
 /* Inner pages: headings at the reference sizes unless a page sets its own inline. */
-.vg .hc main h1 { font-size: clamp(44px, 6vw, 64px); line-height: 0.95; font-weight: 600; }
-.vg .hc main h2 { font-size: 30px; line-height: 1.05; font-weight: 600; }
-.vg .hc main h1.hc-long { font-size: clamp(30px, 4vw, 44px); line-height: 1.05; }
+.hc-root .hc main h1 { font-size: clamp(44px, 6vw, 64px); line-height: 0.95; font-weight: 600; }
+.hc-root .hc main h2 { font-size: 30px; line-height: 1.05; font-weight: 600; }
+.hc-root .hc main h1.hc-long { font-size: clamp(30px, 4vw, 44px); line-height: 1.05; }
 
 /* Landing hero: digits roll to a new chance, a new market wipes in, the cat glides along the scale. */
 .hc-roll { transition: transform 900ms cubic-bezier(.2, .8, .2, 1); will-change: transform; }

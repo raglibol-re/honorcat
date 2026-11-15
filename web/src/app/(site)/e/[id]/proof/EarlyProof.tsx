@@ -2,7 +2,7 @@
 
 import { useParams } from "next/navigation";
 import { useMemo } from "react";
-import { evidenceHash, evidenceRootOf, recordFromJson, STATUS_NAME, verifyRecord, type EvidenceRecord } from "@verdict/relay/trigger";
+import { evidenceHash, evidenceRootOf, recordFromJson, STATUS_NAME, verifyRecord, type EvidenceRecord } from "@honorcat/relay/trigger";
 import { GeminiCredit } from "@/components/cat/Markets";
 import { CatHead } from "@/components/cat/shapes";
 import { C, F } from "@/components/cat/tokens";

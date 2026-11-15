@@ -21,7 +21,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${plexMono.variable} ${barlow.variable} ${barlowCondensed.variable} vg h-full antialiased`}>
+    <html lang="en" className={`${plexMono.variable} ${barlow.variable} ${barlowCondensed.variable} hc-root h-full antialiased`}>
       <body className="flex min-h-full flex-col">
         <TechModeProvider>
           <WalletProvider>

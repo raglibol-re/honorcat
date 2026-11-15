@@ -1,5 +1,5 @@
 import { getAddress, type Address, type Hex, type LocalAccount, type PublicClient } from "viem";
-import { verdictVaultAbi } from "./abi";
+import { vaultAbi } from "./abi";
 import { resolutionDomain, resolutionTypes } from "./signer";
 import { buildRecord, recordToJson, signTrigger } from "./trigger/evidence";
 import { classify, evaluate, type Sample } from "./trigger/engine";
@@ -108,7 +108,7 @@ export class Sampler {
     const expected = conditionIdForTrigger({ instrument: p.instrument, side: p.side, mode: p.mode, params: p.params });
     if (expected !== p.conditionId) return false;
     try {
-      const pot = await this.client.readContract({ address: p.vault, abi: verdictVaultAbi, functionName: "getPot", args: [BigInt(p.potId)] });
+      const pot = await this.client.readContract({ address: p.vault, abi: vaultAbi, functionName: "getPot", args: [BigInt(p.potId)] });
       return pot.conditionId.toLowerCase() === expected.toLowerCase() && getAddress(pot.resolver) === getAddress(p.resolver) && pot.status === 1;
     } catch {
       return false;

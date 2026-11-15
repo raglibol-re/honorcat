@@ -16,7 +16,7 @@ export const RAIL_LABELS: Record<RailStep["key"], string> = {
   locked: "Locked",
   enrolled: "Enrolled",
   event: "Event",
-  verdict: "Verdict",
+  verdict: "Settled",
   paid: "Paid",
 };
 
@@ -41,25 +41,25 @@ export function SettlementRail({ steps, compact = false }: { steps: RailStep[]; 
             <span
               aria-hidden
               className="absolute left-[9px] right-0 top-[9px] h-px"
-              style={{ background: i < lastDone ? "var(--vg-accent)" : "var(--vg-rule)" }}
+              style={{ background: i < lastDone ? "var(--hc-accent)" : "var(--hc-rule)" }}
             />
           )}
           <span
             key={`${s.key}-${s.done}`}
             aria-hidden
-            className={`relative z-10 flex h-[19px] w-[19px] items-center justify-center border ${s.done ? "vg-step-done" : ""}`}
+            className={`relative z-10 flex h-[19px] w-[19px] items-center justify-center border ${s.done ? "hc-step-done" : ""}`}
             style={{
-              borderColor: s.done ? "var(--vg-accent)" : "var(--vg-rule)",
-              background: s.done ? "var(--vg-accent)" : "var(--vg-card)",
+              borderColor: s.done ? "var(--hc-accent)" : "var(--hc-rule)",
+              background: s.done ? "var(--hc-accent)" : "var(--hc-card)",
             }}
           >
             {s.done && (
               <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                <path d="M2 5.2 4.1 7.3 8 3" stroke="var(--vg-card)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M2 5.2 4.1 7.3 8 3" stroke="var(--hc-card)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             )}
           </span>
-          <span className="t-13 mt-2 font-medium" style={{ color: s.done ? "var(--vg-ink)" : "var(--vg-muted)" }}>
+          <span className="t-13 mt-2 font-medium" style={{ color: s.done ? "var(--hc-ink)" : "var(--hc-muted)" }}>
             {s.label}
             <span className="sr-only">{s.done ? " (done)" : " (pending)"}</span>
           </span>
@@ -69,8 +69,8 @@ export function SettlementRail({ steps, compact = false }: { steps: RailStep[]; 
               href={txUrl(s.tx)}
               target="_blank"
               rel="noreferrer"
-              className="vg-chip-in mono mt-1 block max-w-full truncate text-[10px] leading-4 hover:underline sm:text-[11px]"
-              style={{ color: "var(--vg-muted)" }}
+              className="hc-chip-in mono mt-1 block max-w-full truncate text-[10px] leading-4 hover:underline sm:text-[11px]"
+              style={{ color: "var(--hc-muted)" }}
               title={`Transaction ${s.tx}${s.block ? `, block ${s.block}` : ""}`}
             >
               <span className="block truncate sm:hidden">{s.tx.slice(2, 6)}…</span>

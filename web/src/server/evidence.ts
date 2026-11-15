@@ -1,7 +1,7 @@
 import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { getAddress, verifyMessage, type Address, type Hex } from "viem";
-import { earlyDetail, getConfig, verifyPasskeyJoin, type Db } from "@verdict/relay";
+import { earlyDetail, getConfig, verifyPasskeyJoin, type Db } from "@honorcat/relay";
 import { evidenceMessage } from "@/lib/evidence";
 
 /**

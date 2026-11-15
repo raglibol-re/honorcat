@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { erc20Abi, isAddress, type Address, type Hex, type TypedDataDefinition } from "viem";
 import { GuaranteeCard } from "@/components/guarantee/GuaranteeCard";
 import { UnderTheHood } from "@/components/guarantee/UnderTheHood";
-import { VerdictMoment } from "@/components/guarantee/VerdictMoment";
+import { SettlementMoment } from "@/components/guarantee/SettlementMoment";
 import { getJson } from "@/lib/api";
 import { publicClient, txUrl, USDC_ADDRESS } from "@/lib/chain";
 import { formatUsdc } from "@/lib/format";
@@ -83,7 +83,7 @@ export function CustomerView() {
   const [joinError, setJoinError] = useState<string | null>(null);
 
   if (error && !d) return <p className="t-15" style={{ color: "var(--negative)" }}>{error === "guarantee not found" ? "This guarantee does not exist." : error}</p>;
-  if (!d) return <p className="t-15" style={{ color: "var(--vg-muted)" }}>Loading your guarantee…</p>;
+  if (!d) return <p className="t-15" style={{ color: "var(--hc-muted)" }}>Loading your guarantee…</p>;
 
   const g = d.guarantee;
   const isMe = (a?: string | null) => (a ? d.customers.find((c) => c.account.toLowerCase() === a.toLowerCase()) : undefined);
@@ -102,7 +102,7 @@ export function CustomerView() {
       if (kind === "device") {
         const w = deviceWallet();
         const acct = await w.connect();
-        const signature = await w.signMessage(`Join Verdict guarantee ${id} as ${acct}`);
+        const signature = await w.signMessage(`Join HonorCat guarantee ${id} as ${acct}`);
         await post(`/api/guarantees/${id}/join`, { account: acct, signature });
         setDevice(acct);
       } else {
@@ -110,7 +110,7 @@ export function CustomerView() {
         // refund before it is deployed. The passkey signs keccak256 of the join message.
         const session = kind === "passkey-existing" ? await signInWithPasskey() : (passkey ?? (await createPasskey()));
         setPasskey(session);
-        const assertion = await signChallenge(session, await joinChallenge(`Join Verdict guarantee ${id} as ${session.account}`));
+        const assertion = await signChallenge(session, await joinChallenge(`Join HonorCat guarantee ${id} as ${session.account}`));
         await post(`/api/guarantees/${id}/join`, { account: session.account, passkey: assertion });
       }
     } catch (err) {
@@ -124,25 +124,25 @@ export function CustomerView() {
     <div className="mx-auto max-w-[460px] space-y-6">
       {!me && (
         <section className="space-y-4">
-          <p className="t-15" style={{ color: "var(--vg-muted)" }}>
-            A guarantee from <span style={{ color: "var(--vg-ink)" }}>{g.merchantName}</span>
+          <p className="t-15" style={{ color: "var(--hc-muted)" }}>
+            A guarantee from <span style={{ color: "var(--hc-ink)" }}>{g.merchantName}</span>
           </p>
           <h1 className="hc-long t-27 font-medium" style={{ textWrap: "pretty" }}>
             {g.promise}
           </h1>
           <dl className="grid grid-cols-2 gap-4">
             <div>
-              <dt className="t-13" style={{ color: "var(--vg-muted)" }}>
+              <dt className="t-13" style={{ color: "var(--hc-muted)" }}>
                 Refund
               </dt>
               <dd className="mono t-21">{formatUsdc(g.refund)} USDC</dd>
             </div>
             <div>
-              <dt className="t-13" style={{ color: "var(--vg-muted)" }}>
+              <dt className="t-13" style={{ color: "var(--hc-muted)" }}>
                 Chance of a refund
               </dt>
               <dd className="mono t-21">{d.market?.chanceOfRefund === null || d.market?.chanceOfRefund === undefined ? "—" : `${Math.round(d.market.chanceOfRefund * 100)}%`}</dd>
-              <dd className="t-13" style={{ color: "var(--vg-muted)" }}>
+              <dd className="t-13" style={{ color: "var(--hc-muted)" }}>
                 estimate from the market price
               </dd>
             </div>
@@ -160,7 +160,7 @@ export function CustomerView() {
                   >
                     {joining ? "Joining…" : passkey ? "Join with your passkey" : "Join with a passkey"}
                   </button>
-                  <p className="t-13" style={{ color: "var(--vg-muted)" }}>
+                  <p className="t-13" style={{ color: "var(--hc-muted)" }}>
                     No wallet needed. Your passkey (Face ID, Touch ID, Windows Hello or a security key) controls the account that receives
                     your refund; HonorCat pays every fee.
                   </p>
@@ -175,7 +175,7 @@ export function CustomerView() {
                       disabled={joining}
                       onClick={() => join("device")}
                       className="underline underline-offset-4"
-                      style={{ color: "var(--vg-muted)" }}
+                      style={{ color: "var(--hc-muted)" }}
                     >
                       Use a key stored in this browser instead
                     </button>
@@ -192,13 +192,13 @@ export function CustomerView() {
                   >
                     {joining ? "Joining…" : "Join with this browser"}
                   </button>
-                  <p className="t-13" style={{ color: "var(--vg-muted)" }}>
+                  <p className="t-13" style={{ color: "var(--hc-muted)" }}>
                     This browser does not support passkeys, so joining creates an account stored in it; HonorCat pays every fee. Clearing
                     this browser&apos;s data removes the account, so withdraw a refund once it arrives.
                   </p>
                 </>
               )}
-              <p className="t-13" style={{ color: "var(--vg-muted)" }}>
+              <p className="t-13" style={{ color: "var(--hc-muted)" }}>
                 Enrolment closes {new Date(g.lockTime * 1000).toLocaleString("en-US", { weekday: "short", hour: "2-digit", minute: "2-digit" })}.{" "}
                 {g.maxCustomers - d.customers.length} of {g.maxCustomers} places left.
               </p>
@@ -220,7 +220,7 @@ export function CustomerView() {
         <>
           <GuaranteeCard g={toCard(d, account)} />
           {state !== "active" && d.verdict && (
-            <VerdictMoment
+            <SettlementMoment
               play={justSettled}
               resultSeenAt={d.verdict.resultSeenAt}
               resolvedTx={d.verdict.resolvedTx}
@@ -326,12 +326,12 @@ function Withdraw({
   }
 
   return (
-    <form onSubmit={withdraw} className="vg-ticket space-y-3 px-5 py-4">
+    <form onSubmit={withdraw} className="hc-ticket space-y-3 px-5 py-4">
       <div className="flex items-baseline justify-between">
         <h2 className="t-17 font-medium">Withdraw your refund</h2>
         <span className="mono t-15">{balance === null ? "…" : `${formatUsdc(balance)} USDC`}</span>
       </div>
-      <p className="t-13" style={{ color: "var(--vg-muted)" }}>
+      <p className="t-13" style={{ color: "var(--hc-muted)" }}>
         Balance read from Arc. Send it to any address; HonorCat pays the fee.
       </p>
       <input
@@ -339,7 +339,7 @@ function Withdraw({
         onChange={(e) => setTo(e.target.value.trim())}
         placeholder="0x… destination address"
         className="mono t-15 w-full border px-3 py-2.5"
-        style={{ borderColor: "var(--vg-rule)", background: "var(--vg-card)" }}
+        style={{ borderColor: "var(--hc-rule)", background: "var(--hc-card)" }}
         aria-label="Destination address"
       />
       <button
@@ -351,7 +351,7 @@ function Withdraw({
         {busy ? "Sending…" : "Withdraw"}
       </button>
       {msg && (
-        <p className="t-13" style={{ color: msg.error ? "var(--negative)" : "var(--vg-muted)" }}>
+        <p className="t-13" style={{ color: msg.error ? "var(--negative)" : "var(--hc-muted)" }}>
           {msg.text}{" "}
           {msg.tx && (
             <a className="mono hover:underline" href={txUrl(msg.tx)} target="_blank" rel="noreferrer">

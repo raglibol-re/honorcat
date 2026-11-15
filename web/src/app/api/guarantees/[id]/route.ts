@@ -1,5 +1,5 @@
 import { connection } from "next/server";
-import { getDb, guaranteeBookAbi, guaranteeDetail, nudgeRelay, publicClient, verdictVaultAbi } from "@/server/relay";
+import { getDb, guaranteeBookAbi, guaranteeDetail, nudgeRelay, publicClient, vaultAbi } from "@/server/relay";
 import { marketByTicker, toMarket } from "@/server/guarantees";
 
 export const maxDuration = 60;
@@ -22,7 +22,7 @@ export async function GET(_req: Request, ctx: RouteContext<"/api/guarantees/[id]
   const [onchain, market] = await Promise.all([
     g.potId
       ? Promise.all([
-          client.readContract({ address: detail.chain.vault, abi: verdictVaultAbi, functionName: "getPot", args: [BigInt(g.potId)] }),
+          client.readContract({ address: detail.chain.vault, abi: vaultAbi, functionName: "getPot", args: [BigInt(g.potId)] }),
           detail.chain.book && g.gid
             ? client.readContract({ address: detail.chain.book, abi: guaranteeBookAbi, functionName: "getGuarantee", args: [BigInt(g.gid)] })
             : null,

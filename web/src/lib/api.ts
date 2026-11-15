@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Address } from "viem";
 
-/** Client-side types mirroring @verdict/relay's DTOs (kept separate to avoid bundling server code). */
+/** Client-side types mirroring @honorcat/relay's DTOs (kept separate to avoid bundling server code). */
 export type Pot = {
   potId: number;
   conditionId: string;

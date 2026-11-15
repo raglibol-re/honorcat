@@ -1,5 +1,5 @@
 import { decodeEventLog, getAddress, type Address, type Hex } from "viem";
-import { guaranteeBookAbi, merkleBookAbi, verdictVaultAbi } from "../abi";
+import { guaranteeBookAbi, merkleBookAbi, vaultAbi } from "../abi";
 import { ARC_MEMO } from "../arc";
 import { getConfig } from "../config";
 import type { Db } from "../db";
@@ -43,7 +43,7 @@ export function decodeVaultLogs(logs: RawLog[], vault: Address, book?: Address |
     if (!contract) continue;
     try {
       const ev = decodeEventLog({
-        abi: (contract === "vault" ? verdictVaultAbi : contract === "book" ? guaranteeBookAbi : merkleBookAbi) as typeof verdictVaultAbi,
+        abi: (contract === "vault" ? vaultAbi : contract === "book" ? guaranteeBookAbi : merkleBookAbi) as typeof vaultAbi,
         topics: log.topics as [Hex, ...Hex[]],
         data: log.data,
       });

@@ -10,7 +10,7 @@ const body = z.union([
 ]);
 
 /**
- * Enrols a customer, who proves control of `account` over "Join Verdict guarantee <id> as <account>":
+ * Enrols a customer, who proves control of `account` over "Join HonorCat guarantee <id> as <account>":
  * an EOA signature (device key or browser wallet), or a passkey assertion over keccak256 of that
  * message for a passkey account. The relay pays gas for the enrolment.
  */

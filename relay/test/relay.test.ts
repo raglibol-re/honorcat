@@ -13,7 +13,7 @@ import {
   type Hex,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { verdictVaultAbi } from "../src/abi";
+import { vaultAbi } from "../src/abi";
 import { conditionIdFor, registerCondition } from "../src/conditions";
 import { memoryDb } from "../src/db";
 import { ingestLogs, type RawLog } from "../src/indexer/ingest";
@@ -33,10 +33,10 @@ let logCounter = 0;
 
 /** Encodes a VerdictVault event the way the chain would emit it. */
 function makeLog(eventName: string, args: Record<string, unknown>, blockNumber: bigint, tx?: Hex): RawLog {
-  const item = getAbiItem({ abi: verdictVaultAbi, name: eventName as never }) as unknown as {
+  const item = getAbiItem({ abi: vaultAbi, name: eventName as never }) as unknown as {
     inputs: { name: string; type: string; indexed?: boolean }[];
   };
-  const topics = encodeEventTopics({ abi: verdictVaultAbi, eventName: eventName as never, args: args as never });
+  const topics = encodeEventTopics({ abi: vaultAbi, eventName: eventName as never, args: args as never });
   const nonIndexed = item.inputs.filter((i) => !i.indexed);
   const data = encodeAbiParameters(nonIndexed as never, nonIndexed.map((i) => args[i.name]) as never);
   const idx = logCounter++;

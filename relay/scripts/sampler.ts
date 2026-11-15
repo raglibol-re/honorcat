@@ -4,7 +4,7 @@
  * Actions (the Vercel app runs the third sampler itself).
  *
  * Usage:
- *   pnpm --filter @verdict/relay sampler -- --api https://verdict-phi-livid.vercel.app --key-env SAMPLER_KEY_LOCAL
+ *   pnpm --filter @honorcat/relay sampler -- --api https://verdict-phi-livid.vercel.app --key-env SAMPLER_KEY_LOCAL
  * Options: --idle-exit <s> (exit after this long without pots; default never), --max <s> (stop after).
  * Env: the key variable named by --key-env, ARC_RPC_URL (optional).
  */

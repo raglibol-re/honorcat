@@ -1,6 +1,6 @@
 // ABIs of the retired contracts (VerdictVault, GuaranteeBook, BatchGuard, MerkleBook), frozen: they
 // are deployed on Arc testnet and only read or settled now. Sources: contracts/archive/src. Not regenerated.
-export const verdictVaultAbi = [
+export const vaultAbi = [
   {
     "type": "constructor",
     "inputs": [

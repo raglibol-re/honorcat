@@ -1,4 +1,4 @@
-export { verdictVaultAbi } from "./abi";
+export { vaultAbi } from "./abi";
 export { getConfig, type Config } from "./config";
 export { publicClient, resolverAccount, arcTestnet } from "./chain";
 export { getDb, getState, memoryDb, type Db } from "./db";
