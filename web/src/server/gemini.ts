@@ -31,6 +31,9 @@ export type GeminiContract = {
   expiryDate?: string | null;
   resolutionSide?: "yes" | "no" | null;
   termsAndConditionsUrl?: string;
+  instrumentSymbol?: string;
+  priceIncrement?: string;
+  quantityIncrement?: string;
 };
 export type GeminiEvent = {
   ticker: string;

@@ -47,6 +47,7 @@ export type MarketContract = {
   askYes: number | null; // price to buy one YES contract (USD)
   askNo: number | null;
   strike: { type: string; value: string | null } | null;
+  instrument: string | null; // Gemini instrumentSymbol
 };
 export type Market = {
   ticker: string;
@@ -82,6 +83,7 @@ function toContract(c: GeminiContract): MarketContract {
     askYes: n(c.prices?.bestAsk) ?? n(c.prices?.buy?.yes),
     askNo: n(c.prices?.buy?.no),
     strike: c.strike ? { type: c.strike.type, value: c.strike.value } : null,
+    instrument: c.instrumentSymbol ?? null,
   };
 }
 

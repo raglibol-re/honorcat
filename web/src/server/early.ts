@@ -39,7 +39,7 @@ const pct = (bps: number) => `${(bps / 100).toFixed(bps % 100 ? 1 : 0)}%`;
 /** One plain sentence; the exact rule is on the terms screen. */
 export function earlyPromise(name: string, label: string, title: string, side: "yes" | "no", bps: number, amount: string) {
   const what = side === "yes" ? `“${label}”` : `not “${label}”`;
-  return `${name} pays you $${Number(amount).toFixed(2)} as soon as the market gives ${what} a ${pct(bps)} chance or more (${title.replace(/\?$/, "")}).`;
+  return `${name} pays you $${Number(amount).toFixed(2)} as soon as the market puts the chance of ${what} at ${pct(bps)} or more (${title.replace(/\?$/, "")}).`;
 }
 
 export async function earlyTermsFrom(input: EarlyInput): Promise<EarlyTermsJson> {
@@ -171,23 +171,36 @@ export async function demoCandidates(thresholdBps = 8500): Promise<{ trigger: De
   }
   const maxSpread = p.maxSpreadUnits / 10 ** p.priceDecimals;
   const minSize = p.minSizeUnits / 10 ** p.sizeDecimals;
-  const check = async (r: Row): Promise<DemoCandidate> => {
-    const b = await topOfBook(r.instrument);
-    const spread = b ? b.ask - b.bid : r.estSpread;
-    return {
-      ...r,
-      spread,
-      bidSize: b?.bidSize ?? 0,
-      askSize: b?.askSize ?? 0,
-      meetsRules: !!b && spread <= maxSpread + 1e-9 && b.bidSize >= minSize && b.askSize >= minSize,
-    };
+  // A thin book can flip to one-sided between snapshots: require several consecutive snapshots,
+  // ~1.5 s apart, to all meet the rules, and report the weakest one.
+  const check = async (r: Row, snapshots = 4): Promise<DemoCandidate> => {
+    let worst: { spread: number; bidSize: number; askSize: number } | null = null;
+    let ok = true;
+    for (let i = 0; i < snapshots; i++) {
+      if (i) await new Promise((res) => setTimeout(res, 1500));
+      const b = await topOfBook(r.instrument);
+      const good = !!b && b.ask - b.bid <= maxSpread + 1e-9 && b.bidSize >= minSize && b.askSize >= minSize;
+      ok &&= good;
+      if (!b) {
+        worst = { spread: 1, bidSize: 0, askSize: 0 };
+        break;
+      }
+      worst = worst
+        ? { spread: Math.max(worst.spread, b.ask - b.bid), bidSize: Math.min(worst.bidSize, b.bidSize), askSize: Math.min(worst.askSize, b.askSize) }
+        : { spread: b.ask - b.bid, bidSize: b.bidSize, askSize: b.askSize };
+      if (!good) break;
+    }
+    return { ...r, spread: worst?.spread ?? r.estSpread, bidSize: worst?.bidSize ?? 0, askSize: worst?.askSize ?? 0, meetsRules: ok };
   };
   // Trigger demo: already well above the threshold, tight book, closing soonest first.
   const trig = rows
     .filter((r) => r.chance >= thr + 0.03 && r.estSpread <= maxSpread + 1e-9)
     .sort((a, b) => a.closesAt.localeCompare(b.closesAt))
-    .slice(0, 6);
-  const trigger_ = (await Promise.all(trig.map(check))).filter((c) => c.meetsRules);
+    .slice(0, 8);
+  // Stable books first, then the deepest (smaller of the two best-level sizes), then soonest close.
+  const trigger_ = (await Promise.all(trig.map((r) => check(r))))
+    .filter((c) => c.meetsRules)
+    .sort((a, b) => Math.min(b.bidSize, b.askSize) - Math.min(a.bidSize, a.askSize) || a.closesAt.localeCompare(b.closesAt));
   // Refund demo: closes soonest, far below the threshold on its side.
   const ref = rows
     .map((r) => ({ ...r, side: (r.side === "yes" ? "no" : "yes") as "yes" | "no", chance: 1 - r.chance }))
@@ -195,6 +208,6 @@ export async function demoCandidates(thresholdBps = 8500): Promise<{ trigger: De
     // Far below the threshold first (a coin-flip market could still cross), then soonest close.
     .sort((a, b) => Number(b.chance <= 0.15) - Number(a.chance <= 0.15) || a.closesAt.localeCompare(b.closesAt))
     .slice(0, 3);
-  const refund = await Promise.all(ref.map(check));
+  const refund = await Promise.all(ref.map((r) => check(r, 1)));
   return { trigger: trigger_, refund };
 }
