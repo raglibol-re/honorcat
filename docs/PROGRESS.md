@@ -19,6 +19,8 @@
 - Work in cycles per docs/improve.md, everything in the agreed priority order.
 
 ## Rubric cycle log
+- 2026-11-15: forward-spec.md replaced with the category-neutral version; guard-spec.md recorded as
+  shelved (it never existed in the repo); phone test moved to "Later" (user decision).
 - 2026-11-15: Forward spec (docs/forward-spec.md) milestone F0 done, no code changed: live weather
   (49 cities, Nov 15-16 highs, 79% one-sided books) and economics (11 events, Fed the only one
   traded) reported; docs/market-quality.md written; Gemini Market Data / API Agreement findings
@@ -59,13 +61,16 @@
 - Then: phase I threat model and static analysis, minimal phase H, phase E only if time allows.
 
 ## Blocks current milestone
-- Rubric item "A new user completes the recipient flow on a phone without help" needs a real person
+- F1 (docs/forward-spec.md, category-neutral): plan proposed 2026-11-15, waiting for the user's
+  answers on the profile cut-off, public charts under section 7, the price used for the cost view,
+  and sign-in for raw evidence. No F1 code until then.
+
+## Later
+- (Moved from Blocks, 2026-11-15, user decision.) Rubric item "A new user completes the recipient flow on a phone without help" needs a real person
   on a real phone. Automated stand-in passed (phone emulation + virtual passkey, joined in 5.5 s).
   Please hand a phone to someone who has not seen HonorCat, open
   https://verdict-phi-livid.vercel.app/e/G25xt3gjrG (listed, open to join until ~04:15 UTC) or a new
   pot, and note whether they joined without help.
-
-## Later
 - GitHub Actions sampler needs the repository secret `SAMPLER_KEY_GITHUB` (setting it from here
   was refused by the permission check). Until then two samplers (Vercel, local machine) carry the
   2-of-3; if this machine's sampler stops, pots cannot trigger and refund only at the deadline.
