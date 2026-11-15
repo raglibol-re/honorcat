@@ -8,7 +8,7 @@ import { formatMoney } from "@/lib/format";
 import type { EarlyDetail } from "./e/[id]/EarlyView";
 import { LiveExample } from "./LiveExample";
 
-type Row = { id: string; state: string };
+type Row = EarlyDetail["early"];
 
 const STATE: Record<string, string> = {
   locked: "Open to join",
@@ -21,6 +21,7 @@ const STATE: Record<string, string> = {
 /** One real early payout from this deployment, live; falls back to a live guarantee. */
 export function LiveEarly() {
   const [d, setD] = useState<EarlyDetail | null>(null);
+  const [row, setRow] = useState<Row | null>(null);
   const [none, setNone] = useState(false);
   useEffect(() => {
     let stop = false;
@@ -35,6 +36,7 @@ export function LiveEarly() {
             return;
           }
           id = pick.id;
+          if (!stop) setRow(pick); // render the card at once; the chart follows
         }
         const detail = await getJson<EarlyDetail>(`/api/early/${id}`);
         if (!stop) setD(detail);
@@ -50,9 +52,9 @@ export function LiveEarly() {
   }, []);
 
   if (none) return <LiveExample />;
-  if (!d) return <div className="vg-ticket h-[420px] w-full max-w-[420px] animate-pulse" aria-hidden />;
-  const e = d.early;
-  const latest = [...d.samples].reverse().find((s) => s.status === 0 && s.mid !== null)?.mid ?? d.market?.chance ?? null;
+  const e = d?.early ?? row;
+  if (!e) return <div className="vg-ticket h-[420px] w-full max-w-[420px] animate-pulse" aria-hidden />;
+  const latest = d ? ([...d.samples].reverse().find((s) => s.status === 0 && s.mid !== null)?.mid ?? d.market?.chance ?? null) : null;
   return (
     <div className="space-y-2">
       <Link href={`/e/${e.id}`} className="vg-ticket block w-full max-w-[420px] space-y-3 px-5 py-5">
@@ -67,7 +69,11 @@ export function LiveEarly() {
             <span className="mono">{e.params.thresholdBps / 100}%</span>
           </span>
         </div>
-        <ProbabilityChart samples={d.samples} threshold={e.params.thresholdBps / 10_000} windowMs={e.params.windowMs} armedAt={e.lockTime * 1000} height={120} />
+        {d ? (
+          <ProbabilityChart samples={d.samples} threshold={e.params.thresholdBps / 10_000} windowMs={e.params.windowMs} armedAt={e.lockTime * 1000} height={120} />
+        ) : (
+          <div className="h-[120px] animate-pulse rounded-lg" style={{ background: "var(--vg-rule)", opacity: 0.3 }} aria-hidden />
+        )}
       </Link>
       <p className="t-13" style={{ color: "var(--vg-muted)" }}>
         A real early payout on this deployment.{" "}

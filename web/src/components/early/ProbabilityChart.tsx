@@ -25,7 +25,7 @@ export function ProbabilityChart({
 }) {
   const W = 640;
   const H = height;
-  const pad = { l: 36, r: 8, t: 10, b: 20 };
+  const pad = { l: 56, r: 8, t: 14, b: 28 };
   const valid = samples.filter((s) => s.status === 0 && s.mid !== null);
   if (samples.length < 2) {
     return (
@@ -80,7 +80,7 @@ export function ProbabilityChart({
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={`Probability chart, threshold ${Math.round(threshold * 100)}%`}>
       {ticks.map((p) => (
-        <text key={p} x={pad.l - 6} y={y(p / 100) + 4} textAnchor="end" fontSize="11" fill="var(--vg-muted)">
+        <text key={p} x={pad.l - 8} y={y(p / 100) + 6} textAnchor="end" fontSize="20" fill="var(--vg-muted)">
           {p}%
         </text>
       ))}
@@ -88,7 +88,7 @@ export function ProbabilityChart({
       {armedAt > t0 && armedAt < t1 && (
         <g>
           <line x1={x(armedAt)} x2={x(armedAt)} y1={pad.t} y2={H - pad.b} stroke="var(--vg-rule)" strokeWidth="1" />
-          <text x={x(armedAt) + 4} y={H - 6} fontSize="11" fill="var(--vg-muted)">
+          <text x={x(armedAt) + 6} y={H - 6} fontSize="20" fill="var(--vg-muted)">
             armed
           </text>
         </g>

@@ -96,7 +96,7 @@ function Rail({ d, now }: { d: EarlyDetail; now: number }) {
         <li key={s.label} className="min-w-0">
           <span className="block h-1.5 rounded-full" style={{ background: s.done ? "var(--vg-accent)" : "var(--vg-rule)" }} />
           <span className="t-13 mt-1 block font-medium">{s.label}</span>
-          <span className="t-13 block truncate" style={{ color: "var(--vg-muted)" }}>
+          <span className="t-13 hidden leading-snug sm:block" style={{ color: "var(--vg-muted)" }}>
             {s.note}
           </span>
         </li>
@@ -248,7 +248,7 @@ export function EarlyView() {
           <p className="t-17 font-semibold">{e.settledKind === "early" ? "Paid early" : "Paid"}</p>
           <p className="t-15">
             {e.settledKind === "early"
-              ? `The market held at ${pct(threshold)} or more, so everyone on the list was paid${leadMin !== null ? `, ${leadMin} minutes before trading closed` : ""}.`
+              ? `The market held at ${pct(threshold)} or more, so everyone on the list was paid${leadMin !== null ? `, ${leadMin >= 120 ? `${Math.round(leadMin / 60)} hours` : `${leadMin} minutes`} before trading closed` : ""}.`
               : "The event happened, so everyone on the list was paid."}
           </p>
           {e.settledKind === "early" && toPayS !== null && (
@@ -307,7 +307,7 @@ export function EarlyView() {
         <div className="flex items-baseline justify-between">
           <h2 className="t-15 font-medium">Chance over time</h2>
           <span className="t-13" style={{ color: "var(--vg-muted)" }}>
-            thin: each sampler · thick: the average that decides · dashed: {pct(threshold)}
+            thin: each independent check · thick: the average that decides · dashed: {pct(threshold)}
           </span>
         </div>
         <ProbabilityChart samples={d.samples} threshold={threshold} windowMs={e.params.windowMs} armedAt={e.lockTime * 1000} triggeredAt={triggerAt} />
