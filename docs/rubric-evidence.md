@@ -239,3 +239,19 @@ Screenshot `shots/r2-new.png`.
 
 ### e2e `early` after the second review (2026-11-15 14:08-14:15 UTC, code 40e2a3a)
 E2E PASSED. Paid early: -6jwVFL8X3 (pot #211), 2 min after creation, 3 recipients 0.10 USDC each, evidenceRoot matches the memo (signers Vercel + local). Refund: OOFFQYVJ_b (pot #212) refunded 0.30 USDC at trading close, recipients got nothing.
+
+## Design (2026-11-15, merge 0a33a55)
+### [x] Landing, pot page and all other pages in the HonorCat design
+- Tokens, fonts and SVG shapes copied from docs/design into `web/src/components/cat/`
+  (tokens, shapes, CatScale, PounceChart, StateRail, Chrome). Global rule in globals.css:
+  border-radius 0 and no box-shadow on every element; light palette only.
+- Production check (headless Edge, 1440 px and 390 px): /, /early/new, /e/-6jwVFL8X3,
+  /live, /status, /account, /how, /ledger, /e/-6jwVFL8X3/proof, /guarantees, /developers
+  and an unknown URL: 0 elements with a border radius, 0 with a shadow, 0 with a gradient,
+  no horizontal overflow, no console errors (the unknown URL logs its expected 404).
+- Pot page: recipient card with ears, eyes, amount, compact cat scale at the latest sampled
+  chance, five state rows from indexed facts; chart of the sampled order-book midpoints.
+- e2e `early` on production after the redesign (16:44-17:00 UTC): PASSED. w10Xbf0wCg (pot #213)
+  paid early to 3 recipients, 313 min before trading close; BmzsUQBKOp (pot #214) refunded the
+  funder 0.3 USDC. A first attempt hit a one-off 504 on `/api/early/demo?fresh=1` (slow Gemini
+  fetch); the same call answered in 14.5 s right after.

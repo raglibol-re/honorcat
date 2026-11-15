@@ -19,6 +19,10 @@
 - Work in cycles per docs/improve.md, everything in the agreed priority order.
 
 ## Rubric cycle log
+- 2026-11-15: HonorCat redesign to docs/design approved by the user and shipped (merge 0a33a55):
+  landing, recipient-card pot page, /early/new, /live, /status, /account, /how; shared tokens and
+  chrome on every other page. No radius/shadow/gradient anywhere (checked on production, 12 routes,
+  desktop and phone).
 - 2026-11-15: second browser review, five items added to docs/rubric.md and done (40e2a3a): /live
   status bug (API, not QuickNode), landing replay + steps, two demo choices, precomputed demo
   candidates (0.2 s), readable charts and page-language dates. Banner keeps "Not insurance".

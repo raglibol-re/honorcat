@@ -51,6 +51,14 @@ name, a screenshot path or a command output. No evidence, not done.
 - [x] The price chart has a readable size, axes and the threshold line;
       dates are formatted in the page language, not the browser locale.
 
+## Design (docs/design, approved 2026-11-15)
+- [x] Landing page matches docs/design/landing.html with live data: the cat at
+      the real chance, the bowl at the real threshold, the real payout series.
+- [x] Pot page matches docs/design/recipient-card.html; state names Locked,
+      Armed, Triggered, Paid, Confirmed with the cat phrases underneath.
+- [x] Same tokens on /early/new, /live, /status and every other page: no
+      rounded corners, shadows, gradients or bordered card grids; no emoji.
+
 ## Submission
 - [ ] A written demo script for a three-minute video.
 - [ ] A project description draft for Devpost.
