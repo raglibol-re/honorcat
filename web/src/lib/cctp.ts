@@ -24,6 +24,11 @@ export const SOURCES: SourceChain[] = [
   { chain: polygonAmoy, domain: 7, usdc: "0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582", short: "Polygon Amoy" },
 ];
 
+/** Solana Devnet (burn built in lib/solana.ts). */
+export const SOLANA_DOMAIN = 5;
+/** Every source domain the relay will finish a transfer from. */
+export const SOURCE_DOMAINS = [...SOURCES.map((s) => s.domain), SOLANA_DOMAIN];
+
 export const sourceById = (chainId: number | null | undefined) => SOURCES.find((s) => s.chain.id === chainId) ?? null;
 
 export const tokenMessengerAbi = parseAbi([
@@ -61,7 +66,7 @@ export function depositForBurnData(amount: bigint, recipient: Address, usdc: Add
 export type IrisMessage = { status: string; message: Hex; attestation: Hex };
 
 /** The attested message for a burn transaction, or null while Circle has not signed it yet. */
-export async function irisMessage(domain: number, txHash: Hex): Promise<IrisMessage | null> {
+export async function irisMessage(domain: number, txHash: string): Promise<IrisMessage | null> {
   const r = await fetch(`${IRIS}/v2/messages/${domain}?transactionHash=${txHash}`);
   if (r.status === 404) return null;
   if (!r.ok) throw new Error(`attestation lookup failed (${r.status})`);

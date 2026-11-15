@@ -10,7 +10,8 @@ import { STATE_NAMES } from "@/components/cat/StateRail";
 import { C, F } from "@/components/cat/tokens";
 import { ProbabilityChart } from "@/components/early/ProbabilityChart";
 import { useTechMode } from "@/components/TechMode";
-import { useWallet } from "@/lib/wallet/context";
+import { useWallet, type WalletKind } from "@/lib/wallet/context";
+import { WalletChoice } from "@/components/cat/WalletChoice";
 import { getJson } from "@/lib/api";
 import { addressUrl, txUrl } from "@/lib/chain";
 import { formatDate, formatMoney } from "@/lib/format";
@@ -280,13 +281,16 @@ export function EarlyView() {
   }
 
   /** Crypto users: join with any EVM wallet, on any chain. One plain signature, no gas, no network switch. */
-  async function joinWithWallet() {
+  async function joinWithWallet(kind: WalletKind) {
     setJoining(true);
     setJoinError(null);
     try {
-      const account = await wallet.connect();
-      if (!account || !wallet.adapter.signMessage) throw new Error(wallet.error ?? "No wallet found in this browser.");
-      const signature = await wallet.adapter.signMessage(`Join HonorCat early payout ${id} as ${account}`);
+      // Use the chosen adapter directly: the context switch below only lands on the next render.
+      const ad = kind === "solana" ? wallet.solana : wallet.evm;
+      wallet.setKind(kind);
+      const account = await ad.connect();
+      if (!ad.signMessage) throw new Error("This wallet cannot sign messages.");
+      const signature = await ad.signMessage(`Join HonorCat early payout ${id} as ${account}`);
       await post(`/api/early/${id}/join`, { account, signature });
     } catch (err) {
       setJoinError(err instanceof Error ? err.message.split("\n")[0]! : String(err));
@@ -352,14 +356,7 @@ export function EarlyView() {
           </Link>
         </div>
         {canJoin && (
-          <button
-            type="button"
-            onClick={joinWithWallet}
-            disabled={joining}
-            style={{ alignSelf: "flex-start", background: "none", border: 0, padding: "6px 0", fontFamily: F.sans, fontSize: 16, color: C.ink, textDecoration: "underline", textUnderlineOffset: 4, cursor: "pointer" }}
-          >
-            Join with a wallet instead
-          </button>
+          <WalletChoice label="Join with a wallet instead" onPick={(k) => void joinWithWallet(k)} busy={joining} />
         )}
         {joinError && <p style={{ margin: 0, fontSize: 14, color: C.signalInk }}>{joinError}</p>}
       </div>

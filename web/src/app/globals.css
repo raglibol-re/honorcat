@@ -140,3 +140,5 @@ body {
 @keyframes hc-tick { 0% { color: #E8421A; } 100% { color: inherit; } }
 .hc-tick { animation: hc-tick 1200ms ease-out both; }
 @media (prefers-reduced-motion: reduce) { .hc-roll, .hc-glide { transition: none; } .hc-swap, .hc-tick { animation: none; } }
+/* Choice rows (wallet menu): an ink wash on hover, no shadow, no radius. */
+.hc-row:hover:not(:disabled) { background: #F6F4EE !important; }
