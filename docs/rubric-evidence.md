@@ -283,3 +283,18 @@ E2E PASSED. Paid early: -6jwVFL8X3 (pot #211), 2 min after creation, 3 recipient
   EOA join API (exercised by every e2e run).
 - Open: an inbound mint (burn on a source testnet -> relay mints on Arc) needs test USDC and gas on
   a source chain; no key here has any (checked six chains).
+
+## Pay with Solana, payment design, favicon (2026-11-15)
+- Solana burn: `deposit_for_burn` built from Circle's V2 IDL (discriminator, params, 18 accounts in
+  IDL order). Devnet PDAs exist (message_transmitter, token_messenger, remote_token_messenger "26",
+  token_minter, local_token). Simulated on devnet as a real USDC holder (sigVerify off): the program
+  burns, MessageTransmitterV2 `SendMessage` runs, `err: null`. Iris fee 5->26 fast: 1 bps.
+- Arc account for Solana users: keccak256 of the wallet's ed25519 signature over a fixed HonorCat
+  message (deterministic, so the same wallet re-opens it anywhere). Signs joins and the EIP-3009
+  funding; gasless on Arc. `/api/cctp/receive` accepts source domain 5.
+- Browser test on production with simulated wallets: "Pay with" list (Arc, Base Sepolia, Ethereum
+  Sepolia, Solana Devnet, 4 more), selected row inverted with a signal cat head, balances per row;
+  Solana connect shows "Your Solana wallet's Arc account: $0.00" and "Bring $10.00 from Solana
+  Devnet"; My money wallet menu lists Browser wallet / Solana wallet with found/not installed; the
+  Solana Arc account page renders. No horizontal overflow at 390 px.
+- Open: a real Solana -> Arc transfer needs devnet USDC (faucet.circle.com) and a little SOL.

@@ -241,8 +241,14 @@ export function PayFrom({ need, onReady }: { need: bigint; onReady: (ready: bool
     setNote(null);
     try {
       setPhase(0);
-      const me = account ?? (await connect());
-      if (!me) throw new Error("Wallet not connected");
+      if (!account) {
+        // Connecting is its own click: show the balances first, move money on the next.
+        const a = await connect();
+        if (!a) throw new Error("Wallet not connected");
+        setPhase(-1);
+        return;
+      }
+      const me = account;
       const have = (await arcUsdc(me).catch(() => 0n)) ?? 0n;
       const missing = need > have ? need - have : 0n;
       if (missing === 0n) {
@@ -254,6 +260,8 @@ export function PayFrom({ need, onReady }: { need: bigint; onReady: (ready: bool
         const provider = solanaProvider();
         if (!provider || !solana.owner) throw new Error("No Solana wallet found. Install Phantom or Solflare.");
         const { amount, maxFee } = burnFor(missing, await fastFeeBps(SOLANA_DOMAIN));
+        const { solanaUsdc } = await import("@/lib/solana");
+        if ((await solanaUsdc(solana.owner)) < amount) throw new Error(`Not enough USDC on Solana Devnet (${formatMoney(amount)} needed). Get test USDC at faucet.circle.com.`);
         setPhase(1);
         setNote(`Approve sending ${formatMoney(amount)} from Solana Devnet in your wallet.`);
         const tx = await sendBurn(provider, solana.owner, amount, maxFee, me);
@@ -265,6 +273,8 @@ export function PayFrom({ need, onReady }: { need: bigint; onReady: (ready: bool
       const s = pick.source;
       const { amount, maxFee } = burnFor(missing, await fastFeeBps(s.domain));
       const c = createPublicClient({ chain: s.chain, transport: http() });
+      const held = await c.readContract({ address: s.usdc, abi: erc20Abi, functionName: "balanceOf", args: [me] });
+      if (held < amount) throw new Error(`Not enough USDC on ${s.short} (${formatMoney(amount)} needed). Get test USDC at faucet.circle.com.`);
       const allowance = await c.readContract({ address: s.usdc, abi: erc20Abi, functionName: "allowance", args: [me, TOKEN_MESSENGER_V2] });
       if (allowance < amount) {
         setNote(`Allow ${formatMoney(amount)} on ${s.short} in your wallet.`);

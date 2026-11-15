@@ -77,6 +77,11 @@ name, a screenshot path or a command output. No evidence, not done.
 - [ ] Passkey stays the default; crypto users can register and pay with a
       wallet instead, from any supported chain: USDC on another testnet
       moves to Arc through Circle CCTP V2 and funds the pot.
+- [ ] Pay with Solana: a Phantom/Solflare wallet burns devnet USDC with CCTP V2;
+      it lands in an Arc account the wallet controls (derived from one signature).
+- [x] Payment choices and wallet menus are designed in the HonorCat style
+      (ruled option list with marks and balances, cat-head step rail).
+- [x] Favicon is the HonorCat cat head.
 
 ## Submission
 - [ ] A written demo script for a three-minute video.

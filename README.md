@@ -109,7 +109,8 @@ submits, so they never need gas.
 the relay pays gas. Crypto users can skip the passkey: they join with any EVM wallet (one plain
 signature, on whatever chain the wallet is on) and payouts land in that address on Arc. Funders
 pay from Arc or from USDC on Base Sepolia, Ethereum Sepolia, Arbitrum Sepolia, OP Sepolia, Avalanche
-Fuji or Polygon Amoy: the wallet burns it there with Circle CCTP V2 (Fast Transfer), Circle attests
+Fuji, Polygon Amoy or Solana Devnet (Phantom/Solflare; the Solana wallet controls an Arc account derived
+from one signature, `web/src/lib/solana.ts`): the wallet burns it there with Circle CCTP V2 (Fast Transfer), Circle attests
 the burn, `/api/cctp/receive` submits the attestation on Arc (relay pays the gas, only USDC burns
 addressed to Arc are accepted) and the same address receives the USDC, ready for the one-signature
 funding (`web/src/lib/cctp.ts`, `components/cat/BridgeIn.tsx`).
