@@ -127,7 +127,7 @@ export async function processOpenPots(db: Db, sources: Record<string, ResultSour
 
   const pots = await db.query<OpenPot>(
     `SELECT p.pot_id::text AS pot_id, p.condition_id, p.deadline::text AS deadline, p.total
-     FROM pots p LEFT JOIN resolutions r ON r.pot_id = p.pot_id
+     FROM vault_pots p LEFT JOIN resolutions r ON r.pot_id = p.pot_id
      WHERE p.status = 'open' AND lower(p.resolver) = $1
        AND (r.status IS NULL OR r.status NOT IN ('confirmed', 'already_settled'))
      ORDER BY p.pot_id`,
@@ -195,7 +195,7 @@ export async function processOpenPots(db: Db, sources: Record<string, ResultSour
   if (book) {
     const pending = await db.query<{ id: string; gid: string; pot_id: string; refund: string }>(
       `SELECT g.id, g.gid::text AS gid, g.pot_id::text AS pot_id, g.refund::text AS refund
-       FROM guarantees g JOIN pots p ON p.pot_id = g.pot_id
+       FROM guarantees g JOIN vault_pots p ON p.pot_id = g.pot_id
        WHERE g.gid IS NOT NULL AND p.status = 'resolved' AND p.outcome = true`,
     );
     for (const g of pending) {

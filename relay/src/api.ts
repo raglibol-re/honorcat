@@ -62,7 +62,7 @@ function toPot(r: PotRow): PotDto {
 }
 
 const POT_SELECT = `SELECT p.*, c.source AS c_source, c.key AS c_key, c.label AS c_label
-  FROM pots p LEFT JOIN conditions c ON c.condition_id = p.condition_id`;
+  FROM vault_pots p LEFT JOIN conditions c ON c.condition_id = p.condition_id`;
 
 /** Product views show only pots behind a listed guarantee (always a live Gemini market). */
 const LISTED = "p.pot_id IN (SELECT g.pot_id FROM guarantees g WHERE g.listed AND g.pot_id IS NOT NULL)";

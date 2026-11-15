@@ -254,7 +254,7 @@ export async function projectPot(db: Db, potId: string): Promise<void> {
   }
 
   await db.query(
-    `INSERT INTO pots (pot_id, condition_id, creator, resolver, refund_to, deadline, payees, shares_bps, status,
+    `INSERT INTO vault_pots (pot_id, condition_id, creator, resolver, refund_to, deadline, payees, shares_bps, status,
                        outcome, total, funding_count, created_block, created_tx, created_time, settled_tx, settled_time, updated_at)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17, now())
      ON CONFLICT (pot_id) DO UPDATE SET

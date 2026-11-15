@@ -6,6 +6,20 @@ export interface Db {
   exec(sql: string): Promise<void>;
 }
 
+/**
+ * Startup migrations, idempotent, run before SCHEMA.
+ * 001 (2026-11-16, cleanup C1): the retired vault's table `pots` becomes `vault_pots`, so the name is
+ * free for the two-sided pots. Rollback: relay/scripts/migrations/001-vault-pots.down.sql.
+ */
+export const MIGRATIONS = /* sql */ `
+DO $$ BEGIN
+  IF to_regclass('public.pots') IS NOT NULL AND to_regclass('public.vault_pots') IS NULL THEN
+    ALTER TABLE pots RENAME TO vault_pots;
+    ALTER INDEX IF EXISTS pots_status_idx RENAME TO vault_pots_status_idx;
+  END IF;
+END $$;
+`;
+
 const SCHEMA = /* sql */ `
 CREATE TABLE IF NOT EXISTS chain_events (
   tx_hash      TEXT    NOT NULL,
@@ -22,7 +36,7 @@ CREATE TABLE IF NOT EXISTS chain_events (
 CREATE INDEX IF NOT EXISTS chain_events_pot_idx ON chain_events (pot_id, block_number, log_index);
 CREATE INDEX IF NOT EXISTS chain_events_block_idx ON chain_events (block_number DESC, log_index DESC);
 
-CREATE TABLE IF NOT EXISTS pots (
+CREATE TABLE IF NOT EXISTS vault_pots (
   pot_id        BIGINT PRIMARY KEY,
   condition_id  TEXT    NOT NULL,
   creator       TEXT    NOT NULL,
@@ -42,7 +56,7 @@ CREATE TABLE IF NOT EXISTS pots (
   settled_time  BIGINT,
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS pots_status_idx ON pots (status);
+CREATE INDEX IF NOT EXISTS vault_pots_status_idx ON vault_pots (status);
 
 -- Book (GuaranteeBook) events share chain_events; contract tells them apart.
 ALTER TABLE chain_events ADD COLUMN IF NOT EXISTS contract TEXT NOT NULL DEFAULT 'vault';
@@ -379,25 +393,6 @@ CREATE TABLE IF NOT EXISTS market_catalog (
 CREATE INDEX IF NOT EXISTS market_catalog_cat_idx ON market_catalog (category, close_ms);
 `;
 
-/** Tables derived from one vault's chain history. Cleared when VAULT_ADDRESS changes. */
-const VAULT_SCOPED = [
-  "chain_events",
-  "pots",
-  "resolutions",
-  "relay_txs",
-  "relay_tx_pots",
-  "memos",
-  "guarantees",
-  "drop_entries",
-  "drops",
-  "early_samples",
-  "early_signatures",
-  "early_pots",
-  "webhook_deliveries",
-  "gasless_requests",
-  "stream_batches",
-];
-
 type GlobalWithDb = typeof globalThis & { __verdictDb?: Promise<Db> };
 
 /** Returns a process-wide database handle, creating the schema on first use. */
@@ -413,23 +408,21 @@ export function getDb(): Promise<Db> {
 async function open(): Promise<Db> {
   const { databaseUrl, pgliteDir } = getConfig();
   const db = databaseUrl ? await openPg(databaseUrl) : await openPglite(pgliteDir);
+  await db.exec(MIGRATIONS);
   await db.exec(SCHEMA);
   await scopeToVault(db, getConfig().vault);
   return db;
 }
 
 /**
- * The read models describe exactly one vault. After a redeploy (new VAULT_ADDRESS) the indexed
- * history of the old vault is dropped and the poller restarts from VAULT_DEPLOY_BLOCK.
- * Conditions, outcomes and integrations are kept: they are not tied to a contract.
+ * Records which vault the read models describe. Data is never dropped here: the retired vault's
+ * tables stay as they are (read-only), whatever VAULT_ADDRESS says.
  */
 export async function scopeToVault(db: Db, vault: string): Promise<boolean> {
   const current = await getState(db, "vault");
   if (current?.toLowerCase() === vault.toLowerCase()) return false;
-  if (current) {
-    await db.exec(`TRUNCATE ${VAULT_SCOPED.join(", ")}`);
-    await db.query("DELETE FROM relay_state WHERE key <> 'vault'");
-  }
+  // Never truncate: the retired contracts' data stays, read-only (user decision, 2026-11-16).
+  if (current) console.warn(`[db] VAULT_ADDRESS changed from ${current} to ${vault}; existing data kept`);
   await setState(db, "vault", vault.toLowerCase());
   return current !== undefined;
 }

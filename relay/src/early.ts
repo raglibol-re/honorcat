@@ -271,7 +271,7 @@ const SELECT = `
   SELECT e.*, e.pot_id::text AS pot_id, e.gid::text AS gid, e.amount::text AS amount, e.lock_time::text AS lock_time,
          e.trading_close::text AS trading_close, e.deadline::text AS deadline, e.created_at::text AS created_at,
          e.record_at::text AS record_at, p.status AS pot_status, p.outcome AS pot_outcome
-  FROM early_pots e LEFT JOIN pots p ON p.pot_id = e.pot_id`;
+  FROM early_pots e LEFT JOIN vault_pots p ON p.pot_id = e.pot_id`;
 
 export type ArmedPot = {
   id: string;

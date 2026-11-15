@@ -406,7 +406,7 @@ export async function listGuarantees(db: Db) {
     `SELECT ${COLS_G},
        (SELECT count(*) FROM chain_events e WHERE e.contract = 'book' AND e.event_name = 'Enrolled' AND e.gid = g.gid)::text AS enrolled,
        p.status AS pot_status, p.outcome, p.total
-     FROM guarantees g LEFT JOIN pots p ON p.pot_id = g.pot_id
+     FROM guarantees g LEFT JOIN vault_pots p ON p.pot_id = g.pot_id
      WHERE g.status <> 'failed' AND g.listed ORDER BY g.created_at DESC LIMIT 200`,
   );
   return rows.map((r) => ({ ...toDto(r), enrolled: Number(r.enrolled), potStatus: r.pot_status, outcome: r.outcome, lockedTotal: r.total }));
@@ -439,7 +439,7 @@ export async function guaranteeDetail(db: Db, id: string) {
     : [];
   const pot = potId
     ? (await db.query<{ status: string; outcome: boolean | null; total: string; settled_tx: string | null }>(
-        "SELECT status, outcome, total, settled_tx FROM pots WHERE pot_id = $1",
+        "SELECT status, outcome, total, settled_tx FROM vault_pots WHERE pot_id = $1",
         [potId],
       ))[0] ?? null
     : null;
@@ -556,7 +556,7 @@ export async function accountGuarantees(db: Db, account: Address) {
     `SELECT ${COLS_G}, (e.args->>'seat') AS seat, p.status AS pot_status, p.outcome
      FROM chain_events e
      JOIN guarantees g ON g.gid = e.gid
-     LEFT JOIN pots p ON p.pot_id = g.pot_id
+     LEFT JOIN vault_pots p ON p.pot_id = g.pot_id
      WHERE e.contract = 'book' AND e.event_name = 'Enrolled' AND e.args->>'account' = $1
      ORDER BY e.block_number DESC`,
     [account.toLowerCase()],
