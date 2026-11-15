@@ -242,6 +242,42 @@ through OpenZeppelin `SignatureChecker`. Signature = `threshold` 65-byte ECDSA s
 resolution digest, concatenated in strictly increasing signer-address order (rejects duplicates
 without storage). Exercised on testnet by the e2e `multisig` mode (1 of 3 rejected, 2 of 3 settle).
 
+### `MerkleBook`: one pot, thousands of payees
+
+A pot whose only payee is the `MerkleBook` and whose `refundTo` is the funder. The book stores a
+Merkle root over `(index, account, amount)` (OpenZeppelin standard double-hashed leaves); the list
+itself stays off-chain and every proof is public (`GET /api/drops/{id}/proof?account=…`).
+
+- `open(potId, lockTime, claimDeadline, root, rootTotal)` and `setRoot(dropId, root, rootTotal)`:
+  funder or operator, only while the pot is open and before `lockTime` (which must be before the
+  pot's deadline). Every change emits `RootSet` with an increasing version; then the root is final.
+- `claim(dropId, index, account, amount, proof)`: anyone may submit after a positive result; the
+  money always goes to `account`. A bitmap blocks double claims. Claims can never exceed the
+  root's declared total nor the pot, so a bad tree cannot drain the book.
+- Negative result or expiry: the vault refunds the funder directly, as for any pot.
+- `sweep(dropId)` after `claimDeadline` (set after the last possible resolution) returns what was
+  not claimed to the funder. A blocklisted payee's claim is deferred (`ClaimDeferred`) and
+  withdrawn later with `withdrawDeferred()`; it never blocks other payees.
+- The relay pushes the claims in batches of 120 through Multicall3From, so payees never act.
+  The funder's EIP-3009 signature commits to the list: its salt is `keccak256(root ++ entropy)`.
+
+Gas per payee (`MerkleBookTest.test_gasReport`, Foundry; push model = `GuaranteeBook.payout`):
+
+| Model | Payees | Proof length | Gas per payee |
+|---|---|---|---|
+| Merkle claim | 10 | 4 | ~57,000 |
+| Merkle claim | 1,000 | 10 | ~59,000 |
+| Merkle claim | 10,000 | 14 | ~86,000 (cold bitmap words) |
+| Push (`GuaranteeBook`) | 50 (its cap) | none | ~30,600, plus ~50,000 to enrol each payee on-chain beforehand |
+
+The push model is cheaper per payout but stores every payee on-chain first and is capped at 50 per
+pot; the Merkle model stores 32 bytes for any number of payees and pays ~1 KB of calldata per
+claim.
+
+Measured on Arc testnet by the e2e `drops` run (250 payees, proof length 8, relay batches of 120
+through Multicall3From): **~73,600 gas per payee** including calldata and batching, three
+transactions for all 250 payees, about 0.0015 USDC per payee at Arc's 20 gwei base fee floor.
+
 ## Relay
 
 - **Sources** (`ResultSource { getOutcome(conditionId) → true | false | null }`; `null` never acts):
@@ -299,8 +335,8 @@ cp .env.example .env      # fill in keys and tokens (see "Environment variables"
 ### 3. Tests
 
 ```bash
-cd contracts && arc-forge test --network arc     # 80 tests: unit, fuzz, 9 invariants, GuaranteeBook (WSL)
-pnpm --filter @verdict/relay test                # 31 relay tests (GEMINI_LIVE=1 adds a live check)
+cd contracts && arc-forge test --network arc     # 108 tests: unit, fuzz, 9 invariants, GuaranteeBook, passkeys, MerkleBook (WSL)
+pnpm --filter @verdict/relay test                # 38 relay tests (GEMINI_LIVE=1 adds a live check)
 pnpm --filter @verdict/sdk test                  # SDK tests
 ```
 
@@ -345,6 +381,9 @@ pnpm --filter @verdict/relay e2e -- --api https://verdict-phi-livid.vercel.app -
 | `gasless` | a fresh payer that never sends a transaction (nonce stays 0) creates and tops up a pot by signature; Arc USDC marks the 3009 nonce used; a replay is rejected |
 | `api` | an integration registers an owned `api` condition, funds gaslessly, reports the outcome itself; 401 without a key, 403 for another integration, 409 on flipping. `--webhook <url>` also checks delivery |
 | `multisig` | deploys a 2-of-3 `MultisigResolver`; one owner signature is rejected on-chain, two settle the pot |
+| `guarantees` | HonorCat guarantees on live Gemini markets: refund-on-YES and refund-on-NO on one 5-minute market, customers refunded in the resolution transaction, gasless withdrawal |
+| `passkey` | software passkey registers, joins, and withdraws: the relay deploys the account and WebAuthn is verified on Arc |
+| `drops` | two drops of 250 payees on one live 5-minute market; list replaced before lock (root v2); a list the funder did not sign is refused; the relay pushes every claim in batches; all payee balances and the funder's return checked on-chain |
 
 Every mode checks recipient balances on-chain, the payments in `/api/payments` (what `/ledger`
 shows), the relay's gas per pot, and prints the relay's balance and runway. The script reads

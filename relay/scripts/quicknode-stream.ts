@@ -54,8 +54,11 @@ if (values.batch || values.status || values.filter) {
     // Fill in our addresses (lowercase) from the env and upload base64-encoded, as the API requires.
     const vault = process.env.VAULT_ADDRESS?.toLowerCase();
     const book = process.env.GUARANTEE_BOOK_ADDRESS?.toLowerCase();
-    if (!vault || !book) throw new Error("VAULT_ADDRESS and GUARANTEE_BOOK_ADDRESS must be set");
-    const code = STREAMS_FILTER_TEMPLATE.replace("<VAULT_ADDRESS_LOWERCASE>", vault).replace("<GUARANTEE_BOOK_ADDRESS_LOWERCASE>", book);
+    const merkle = process.env.MERKLE_BOOK_ADDRESS?.toLowerCase();
+    if (!vault || !book || !merkle) throw new Error("VAULT_ADDRESS, GUARANTEE_BOOK_ADDRESS and MERKLE_BOOK_ADDRESS must be set");
+    const code = STREAMS_FILTER_TEMPLATE.replace("<VAULT_ADDRESS_LOWERCASE>", vault)
+      .replace("<GUARANTEE_BOOK_ADDRESS_LOWERCASE>", book)
+      .replace("<MERKLE_BOOK_ADDRESS_LOWERCASE>", merkle);
     patch.filter_function = Buffer.from(code, "utf8").toString("base64");
   }
   if (values.batch) {

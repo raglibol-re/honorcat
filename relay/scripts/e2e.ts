@@ -625,12 +625,22 @@ async function createDropViaApi(market: MarketsResponse["markets"][number], cont
   return created;
 }
 
+/** Public RPC rate-limits bursts (HTTP 429): small paced chunks, each read retried with backoff. */
 async function balancesOf(accounts: Address[]) {
+  const read = async (a: Address) => {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await pub.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [a] });
+      } catch (err) {
+        if (attempt >= 5) throw err;
+        await sleep(500 * 2 ** attempt);
+      }
+    }
+  };
   const out: bigint[] = [];
-  for (let i = 0; i < accounts.length; i += 25) {
-    out.push(
-      ...(await Promise.all(accounts.slice(i, i + 25).map((a) => pub.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [a] })))),
-    );
+  for (let i = 0; i < accounts.length; i += 5) {
+    out.push(...(await Promise.all(accounts.slice(i, i + 5).map(read))));
+    await sleep(150);
   }
   return out;
 }
