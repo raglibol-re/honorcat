@@ -1,5 +1,4 @@
 import { after } from "next/server";
-import { refreshDemo } from "@/server/early";
 import { catalogTick } from "@/server/catalog";
 import {
   blockTimeFromRpc,
@@ -69,10 +68,6 @@ export async function POST(req: Request) {
   }).catch((err) => console.error("[streams] could not record batch", err));
 
   nudgeRelay("streams", { samplerBudgetMs: 270_000 });
-  // Keep the quick-demo candidates fresh so the demo button answers at once.
-  after(async () => {
-    await refreshDemo(await getDb()).catch((e) => console.error("[demo] refresh", e));
-  });
   // And one bounded step of the market catalogue (lease-guarded, at most every 15 s).
   after(async () => {
     await catalogTick(await getDb()).catch((e) => console.error("[catalog] step", e));

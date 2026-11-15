@@ -3,19 +3,9 @@ import { timingSafeEqual } from "node:crypto";
 import { after } from "next/server";
 import { getAddress, type Address, type Hex } from "viem";
 import { z } from "zod";
-import {
-  authenticate,
-  buildSources,
-  GaslessError,
-  getDb,
-  registerCondition,
-  runTick,
-  runAppSampler,
-  type Db,
-  type Integration,
-} from "@verdict/relay";
+import { GaslessError, getDb, runTick, runAppSampler } from "@honorcat/relay";
 
-export * from "@verdict/relay";
+export * from "@honorcat/relay";
 
 /**
  * Runs a relay tick after the response is sent. Called from API reads (e.g. the live ledger
@@ -55,11 +45,6 @@ export function jsonError(status: number, message: string) {
 // ---------------------------------------------------------------- shared request helpers
 
 
-/** The integration behind `Authorization: Bearer vk_…`, or null (no/unknown/revoked key). */
-export async function integrationFrom(req: Request): Promise<Integration | null> {
-  return authenticate(await getDb(), req.headers.get("authorization"));
-}
-
 /** Maps thrown errors (with an optional numeric `status`) to JSON responses. */
 export function errorResponse(err: unknown) {
   const status =
@@ -75,37 +60,6 @@ export const address = z
   .regex(/^0x[0-9a-fA-F]{40}$/)
   .transform((s) => getAddress(s) as Address);
 export const uint = z.union([z.string().regex(/^\d+$/), z.number().int().nonnegative()]).transform((v) => BigInt(v));
-
-export const conditionBody = z.object({
-  source: z.string(),
-  key: z.string().min(1).max(1000),
-  label: z.string().max(200).optional(),
-});
-
-/**
- * Registers a condition for a source: canonicalises the key, lets the source validate it and
- * propose a label, and records the owning integration (required for sources like `api`).
- */
-export async function registerFor(db: Db, input: z.infer<typeof conditionBody>, owner: Integration | null) {
-  const source = buildSources(db)[input.source];
-  if (!source) throw Object.assign(new Error(`unknown source '${input.source}'`), { status: 400 });
-  if (source.requiresOwner && !owner) {
-    throw Object.assign(new Error(`source '${input.source}' needs an API key (Authorization: Bearer vk_…)`), { status: 401 });
-  }
-  const key = source.normalizeKey ? source.normalizeKey(input.key) : input.key;
-  let label = input.label?.trim() || undefined;
-  if (source.describe) label ??= await source.describe(key);
-  return registerCondition(db, input.source, key, label, owner?.id ?? null);
-}
-
-export const potParamsBody = z.object({
-  conditionId: hex32,
-  resolver: address,
-  payees: z.array(address).min(1).max(20),
-  sharesBps: z.array(z.number().int().min(1).max(10_000)).min(1).max(20),
-  refundTo: address,
-  deadline: uint,
-});
 
 export const authorizationBody = z.object({
   from: address,

@@ -1,5 +1,5 @@
 import { encodeFunctionData, hashTypedData, type Hex } from "viem";
-import { guaranteeBookAbi, verdictVaultAbi } from "./abi";
+import { guaranteeBookAbi, vaultAbi } from "./abi";
 import { publicClient, resolverAccount } from "./chain";
 import { getCondition, type Condition } from "./conditions";
 import { getConfig } from "./config";
@@ -26,7 +26,7 @@ let graceCache: bigint | undefined;
 async function gracePeriod(): Promise<bigint> {
   graceCache ??= await publicClient().readContract({
     address: getConfig().vault,
-    abi: verdictVaultAbi,
+    abi: vaultAbi,
     functionName: "gracePeriod",
   });
   return graceCache;
@@ -127,7 +127,7 @@ export async function processOpenPots(db: Db, sources: Record<string, ResultSour
 
   const pots = await db.query<OpenPot>(
     `SELECT p.pot_id::text AS pot_id, p.condition_id, p.deadline::text AS deadline, p.total
-     FROM pots p LEFT JOIN resolutions r ON r.pot_id = p.pot_id
+     FROM vault_pots p LEFT JOIN resolutions r ON r.pot_id = p.pot_id
      WHERE p.status = 'open' AND lower(p.resolver) = $1
        AND (r.status IS NULL OR r.status NOT IN ('confirmed', 'already_settled'))
      ORDER BY p.pot_id`,
@@ -146,7 +146,7 @@ export async function processOpenPots(db: Db, sources: Record<string, ResultSour
 
     if (now > closesAt) {
       if (!cfg.autoExpire) continue;
-      const data = encodeFunctionData({ abi: verdictVaultAbi, functionName: "expire", args: [BigInt(pot.pot_id)] });
+      const data = encodeFunctionData({ abi: vaultAbi, functionName: "expire", args: [BigInt(pot.pot_id)] });
       const body: MemoBody = { v: 1, t: "expire", ref, pot: pot.pot_id, why: "No result before the deadline; the full amount went back to the funder" };
       planned.push({ call: { ...memoCall(cfg.vault, data, ref, body), potIds: [pot.pot_id], label: `expire ${pot.pot_id}` }, potId: pot.pot_id, action: "expire" });
       continue;
@@ -178,7 +178,7 @@ export async function processOpenPots(db: Db, sources: Record<string, ResultSour
     const reason = await reasonFor(condition, outcome, sources);
     await record(db, pot.pot_id, "resolve", { outcome, status: "signed", signature, digest, reason: reason.why, seen: true });
 
-    const data = encodeFunctionData({ abi: verdictVaultAbi, functionName: "resolve", args: [message.potId, outcome, signature] });
+    const data = encodeFunctionData({ abi: vaultAbi, functionName: "resolve", args: [message.potId, outcome, signature] });
     const body: MemoBody = { v: 1, t: outcome ? "payout" : "refund", ref, pot: pot.pot_id, ...reason };
     planned.push({ call: { ...memoCall(cfg.vault, data, ref, body), potIds: [pot.pot_id], label: `resolve ${pot.pot_id}` }, potId: pot.pot_id, action: "resolve", outcome });
 
@@ -195,7 +195,7 @@ export async function processOpenPots(db: Db, sources: Record<string, ResultSour
   if (book) {
     const pending = await db.query<{ id: string; gid: string; pot_id: string; refund: string }>(
       `SELECT g.id, g.gid::text AS gid, g.pot_id::text AS pot_id, g.refund::text AS refund
-       FROM guarantees g JOIN pots p ON p.pot_id = g.pot_id
+       FROM guarantees g JOIN vault_pots p ON p.pot_id = g.pot_id
        WHERE g.gid IS NOT NULL AND p.status = 'resolved' AND p.outcome = true`,
     );
     for (const g of pending) {

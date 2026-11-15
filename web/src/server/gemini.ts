@@ -1,7 +1,7 @@
 import "server-only";
 
 /**
- * Gemini prediction-market reads for Verdict Guarantees. Field meanings verified against
+ * Gemini prediction-market reads for HonorCat guarantees (retired). Field meanings verified against
  * developer.gemini.com (list-events, get-event, ~schemas, core-concepts):
  * - prices.bestBid / prices.bestAsk / prices.lastTradePrice / prices.buy.yes: USD decimal strings
  *   in 0..1; a winning contract pays $1.00, so the YES price approximates the market-implied

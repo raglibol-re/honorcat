@@ -19,7 +19,7 @@ import { ARC_MEMO } from "./arc";
  *   target sees the submitting EOA as msg.sender, and logs BeforeMemo(memoIndex) … target logs …
  *   Memo(sender, target, callDataHash, memoId, memo, memoIndex).
  *
- * Verdict's convention:
+ * HonorCat's convention:
  *   memoId   = the external reference (order / promotion / guarantee id) as bytes32: readable
  *              ASCII when it fits in 32 bytes, otherwise keccak256 of it.
  *   memoData = UTF-8 JSON, versioned: {"v":1,"t":"fund|payout|refund|expire|refunds|withdraw",

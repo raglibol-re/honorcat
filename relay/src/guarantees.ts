@@ -9,7 +9,7 @@ import {
   type Address,
   type Hex,
 } from "viem";
-import { batchGuardAbi, guaranteeBookAbi, verdictVaultAbi } from "./abi";
+import { batchGuardAbi, guaranteeBookAbi, vaultAbi } from "./abi";
 import { ARC_USDC, usdcDomain } from "./arc";
 import { publicClient, resolverAccount } from "./chain";
 import { conditionIdFor, registerCondition } from "./conditions";
@@ -32,7 +32,7 @@ import { verifyPasskeyJoin, type WebAuthnAssertion } from "./passkeys";
 import { sendRelayCalls } from "./txs";
 
 /**
- * Verdict Guarantees: a merchant promises customers a refund if a Gemini market settles a given
+ * HonorCat guarantees (retired): a merchant promises customers a refund if a Gemini market settles a given
  * way. On-chain shape (no vault change): one VerdictVault pot whose only payee is the
  * GuaranteeBook and whose refundTo is the merchant, plus a GuaranteeBook entry with the refund per
  * customer, the seat cap and the enrolment lock time.
@@ -157,13 +157,13 @@ export async function createGuarantee(db: Db, t: GuaranteeTerms, auth: SignedAut
   );
 
   const createData = encodeFunctionData({
-    abi: verdictVaultAbi,
+    abi: vaultAbi,
     functionName: "createPotWithAuthorization",
     args: [params, amount, toContractAuth(auth)],
   });
   let lastError = "";
   for (let attempt = 0; attempt < 3; attempt++) {
-    const count = await publicClient().readContract({ address: cfg.vault, abi: verdictVaultAbi, functionName: "potCount" });
+    const count = await publicClient().readContract({ address: cfg.vault, abi: vaultAbi, functionName: "potCount" });
     const potId = count + 1n;
     await db.query("UPDATE guarantees SET pot_id = $2 WHERE id = $1", [id, potId.toString()]);
     const res = await sendRelayCalls(
@@ -206,7 +206,7 @@ export async function createGuarantee(db: Db, t: GuaranteeTerms, auth: SignedAut
   throw new GaslessError(`could not create the guarantee: ${lastError}`, 502);
 }
 
-export const joinMessage = (id: string, account: Address) => `Join Verdict guarantee ${id} as ${getAddress(account)}`;
+export const joinMessage = (id: string, account: Address) => `Join HonorCat guarantee ${id} as ${getAddress(account)}`;
 
 export type JoinProof = { kind: "eoa"; signature: Hex } | { kind: "passkey"; assertion: WebAuthnAssertion };
 
@@ -406,7 +406,7 @@ export async function listGuarantees(db: Db) {
     `SELECT ${COLS_G},
        (SELECT count(*) FROM chain_events e WHERE e.contract = 'book' AND e.event_name = 'Enrolled' AND e.gid = g.gid)::text AS enrolled,
        p.status AS pot_status, p.outcome, p.total
-     FROM guarantees g LEFT JOIN pots p ON p.pot_id = g.pot_id
+     FROM guarantees g LEFT JOIN vault_pots p ON p.pot_id = g.pot_id
      WHERE g.status <> 'failed' AND g.listed ORDER BY g.created_at DESC LIMIT 200`,
   );
   return rows.map((r) => ({ ...toDto(r), enrolled: Number(r.enrolled), potStatus: r.pot_status, outcome: r.outcome, lockedTotal: r.total }));
@@ -439,7 +439,7 @@ export async function guaranteeDetail(db: Db, id: string) {
     : [];
   const pot = potId
     ? (await db.query<{ status: string; outcome: boolean | null; total: string; settled_tx: string | null }>(
-        "SELECT status, outcome, total, settled_tx FROM pots WHERE pot_id = $1",
+        "SELECT status, outcome, total, settled_tx FROM vault_pots WHERE pot_id = $1",
         [potId],
       ))[0] ?? null
     : null;
@@ -484,12 +484,12 @@ export async function guaranteeDetail(db: Db, id: string) {
       return { account, seat: Number(e.args.seat), enrolled: { tx: e.txHash, block: e.block, time: e.time }, refund: paid ? { tx: paid.txHash, block: paid.block, time: paid.time, deferred: paid.name === "RefundDeferred" } : null };
     });
 
-  // Verdict moment: result seen by the relay -> resolution signed and verified on-chain -> refunds paid.
+  // Settlement moment: result seen by the relay -> resolution signed and verified on-chain -> refunds paid.
   const resolved = ev.find((e) => e.name === "PotResolved" || e.name === "PotExpired");
   const firstRefund = ev.find((e) => e.name === "RefundPaid");
   const settleTx = txs.find((t) => t.tx_hash === resolved?.txHash);
   const seenAt = resolution?.outcome_seen_at ? new Date(resolution.outcome_seen_at).getTime() : null;
-  const verdict = resolved
+  const settlement = resolved
     ? {
         resultSeenAt: seenAt,
         resolvedTx: resolved.txHash,
@@ -545,7 +545,7 @@ export async function guaranteeDetail(db: Db, id: string) {
         : null,
     },
     relayTxs: txs.map((t) => ({ txHash: t.tx_hash, kind: t.kind, latencyMs: t.latency_ms, feeWei: t.fee_wei, block: t.block_number ? Number(t.block_number) : null })),
-    verdict,
+    settlement,
   };
 }
 export type GuaranteeDetail = NonNullable<Awaited<ReturnType<typeof guaranteeDetail>>>;
@@ -556,7 +556,7 @@ export async function accountGuarantees(db: Db, account: Address) {
     `SELECT ${COLS_G}, (e.args->>'seat') AS seat, p.status AS pot_status, p.outcome
      FROM chain_events e
      JOIN guarantees g ON g.gid = e.gid
-     LEFT JOIN pots p ON p.pot_id = g.pot_id
+     LEFT JOIN vault_pots p ON p.pot_id = g.pot_id
      WHERE e.contract = 'book' AND e.event_name = 'Enrolled' AND e.args->>'account' = $1
      ORDER BY e.block_number DESC`,
     [account.toLowerCase()],

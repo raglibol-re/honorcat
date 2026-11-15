@@ -1,7 +1,7 @@
 import { C, F } from "@/components/cat/tokens";
 import { StatusView } from "./StatusView";
 
-export const metadata = { title: { absolute: "Relay status · Verdict" } };
+export const metadata = { title: { absolute: "Relay status · HonorCat" } };
 
 export default function StatusPage() {
   return (

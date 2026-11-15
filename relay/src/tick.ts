@@ -4,12 +4,8 @@ import { getConfig } from "./config";
 import { getDb, setState, type Db } from "./db";
 import { pollLogs } from "./indexer/rpcPoller";
 import { processOpenPots, type ActionReport } from "./resolver";
-import { processDrops, type DropAction } from "./drops";
 import { processEarly, type EarlyAction } from "./early";
-import { ApiSource } from "./sources/api";
 import { GeminiSource } from "./sources/gemini";
-import { HttpSource } from "./sources/http";
-import { deliverDueWebhooks } from "./webhooks";
 import { ManualSource } from "./sources/manual";
 import type { ResultSource } from "./sources/types";
 
@@ -17,9 +13,7 @@ export type TickReport = {
   ran: boolean;
   reason: string;
   indexed?: { from: string; to: string; inserted: number } | null;
-  webhooks?: { delivered: number; failed: number };
   actions?: ActionReport[];
-  drops?: DropAction[];
   early?: EarlyAction[];
   errors: string[];
   ms: number;
@@ -30,9 +24,7 @@ export function buildSources(db: Db): Record<string, ResultSource> {
   const cfg = getConfig();
   const sources: ResultSource[] = [
     new ManualSource(db),
-    new ApiSource(db),
     new GeminiSource(db, cfg.geminiBase),
-    new HttpSource(db, { allowInsecure: cfg.httpSourceAllowInsecure }),
   ];
   return Object.fromEntries(sources.map((s) => [s.name, s]));
 }
@@ -82,16 +74,6 @@ export async function runTick(opts: { reason: string; force?: boolean; skipIndex
       } catch (err) {
         report.errors.push(`early: ${(err as Error).message.split("\n")[0]}`);
       }
-      try {
-        report.drops = await processDrops(db);
-      } catch (err) {
-        report.errors.push(`drops: ${(err as Error).message.split("\n")[0]}`);
-      }
-    }
-    try {
-      report.webhooks = await deliverDueWebhooks(db, { deadlineMs: 15_000 });
-    } catch (err) {
-      report.errors.push(`webhooks: ${(err as Error).message.split("\n")[0]}`);
     }
     await setState(db, "last_tick", JSON.stringify({ at: new Date().toISOString(), reason: opts.reason }));
   } finally {

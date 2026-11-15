@@ -26,7 +26,7 @@ export async function relayStatus(db: Db) {
        FROM relay_txs GROUP BY kind ORDER BY kind`,
     ),
     db.query<{ settled: string; open: string }>(
-      `SELECT count(*) FILTER (WHERE status <> 'open')::text AS settled, count(*) FILTER (WHERE status = 'open')::text AS open FROM pots`,
+      `SELECT count(*) FILTER (WHERE status <> 'open')::text AS settled, count(*) FILTER (WHERE status = 'open')::text AS open FROM vault_pots`,
     ),
     db.query<{ pending: string; failed: string; delivered: string }>(
       `SELECT count(*) FILTER (WHERE delivered_at IS NULL AND attempts = 0)::text AS pending,

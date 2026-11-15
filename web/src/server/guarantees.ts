@@ -2,7 +2,7 @@ import "server-only";
 import { getEvent, impliedChance, listActiveEvents, type GeminiContract, type GeminiEvent } from "./gemini";
 
 /**
- * Verdict Guarantees templates. Each one maps to live Gemini events read from the public API;
+ * HonorCat guarantees (retired) templates. Each one maps to live Gemini events read from the public API;
  * nothing is hardcoded. Contract terms are rendered from the API fields `title`, `label`,
  * `strike` and `expiryDate` (field meanings verified against developer.gemini.com).
  */
@@ -177,7 +177,7 @@ export function defaultTimes(t: Template, expiry: number) {
 
 /**
  * Information only: what a merchant would buy to offset the refunds (one contract pays $1).
- * Never placed by Verdict.
+ * Never placed by HonorCat.
  */
 export function hedgeFor(c: MarketContract, side: "yes" | "no", totalRefundsUsd: number) {
   const price = side === "yes" ? c.askYes : c.askNo;

@@ -47,7 +47,7 @@ export type GuaranteeDetail = {
     signedPayload: unknown;
   } | null;
   relayTxs: { txHash: string; kind: string; latencyMs: number | null; feeWei: string | null; block: number | null }[];
-  verdict: {
+  settlement: {
     resultSeenAt: number | null;
     resolvedTx: string;
     resolvedBlock: number;
@@ -104,7 +104,7 @@ export function railFor(d: GuaranteeDetail, account: string | null): RailStep[] 
     { key: "enrolled", label: RAIL_LABELS.enrolled, done: Boolean(enrolled), ...chip(enrolled) },
     // The event happens off-chain (Gemini settles); the relay records when it saw the result.
     { key: "event", label: RAIL_LABELS.event, done: Boolean(settled) || d.market?.status === "settled" },
-    { key: "verdict", label: RAIL_LABELS.verdict, done: Boolean(settled), ...chip(settled) },
+    { key: "settlement", label: RAIL_LABELS.settlement, done: Boolean(settled), ...chip(settled) },
     {
       key: "paid",
       label: state === "not_triggered" ? "Closed" : RAIL_LABELS.paid,

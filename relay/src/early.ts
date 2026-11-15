@@ -9,7 +9,7 @@ import {
   type Address,
   type Hex,
 } from "viem";
-import { batchGuardAbi, guaranteeBookAbi, verdictVaultAbi } from "./abi";
+import { batchGuardAbi, guaranteeBookAbi, vaultAbi } from "./abi";
 import { publicClient } from "./chain";
 import { registerCondition } from "./conditions";
 import { getConfig } from "./config";
@@ -155,10 +155,10 @@ export async function createEarly(db: Db, t: EarlyTerms, auth: SignedAuthorizati
     ],
   );
 
-  const createData = encodeFunctionData({ abi: verdictVaultAbi, functionName: "createPotWithAuthorization", args: [params, amount, toContractAuth(auth)] });
+  const createData = encodeFunctionData({ abi: vaultAbi, functionName: "createPotWithAuthorization", args: [params, amount, toContractAuth(auth)] });
   let lastError = "";
   for (let attempt = 0; attempt < 3; attempt++) {
-    const potId = (await publicClient().readContract({ address: cfg.vault, abi: verdictVaultAbi, functionName: "potCount" })) + 1n;
+    const potId = (await publicClient().readContract({ address: cfg.vault, abi: vaultAbi, functionName: "potCount" })) + 1n;
     const res = await sendRelayCalls(
       db,
       "early_create",
@@ -271,7 +271,7 @@ const SELECT = `
   SELECT e.*, e.pot_id::text AS pot_id, e.gid::text AS gid, e.amount::text AS amount, e.lock_time::text AS lock_time,
          e.trading_close::text AS trading_close, e.deadline::text AS deadline, e.created_at::text AS created_at,
          e.record_at::text AS record_at, p.status AS pot_status, p.outcome AS pot_outcome
-  FROM early_pots e LEFT JOIN pots p ON p.pot_id = e.pot_id`;
+  FROM early_pots e LEFT JOIN vault_pots p ON p.pot_id = e.pot_id`;
 
 export type ArmedPot = {
   id: string;
@@ -417,7 +417,7 @@ export async function processEarly(db: Db): Promise<EarlyAction[]> {
   const e = requireEarly();
   const out: EarlyAction[] = [];
   const rows = await db.query<EarlyRow>(`${SELECT} WHERE e.status = 'live' AND e.pot_id IS NOT NULL AND e.settled_tx IS NULL ORDER BY e.created_at`);
-  const grace = await publicClient().readContract({ address: cfg.vault, abi: verdictVaultAbi, functionName: "gracePeriod" });
+  const grace = await publicClient().readContract({ address: cfg.vault, abi: vaultAbi, functionName: "gracePeriod" });
   const now = Math.floor(Date.now() / 1000);
 
   for (const r of rows) {
@@ -461,7 +461,7 @@ export async function processEarly(db: Db): Promise<EarlyAction[]> {
           why: `Paid early: ${a.signers.length} independent samplers saw the market average ${pct === null ? "?" : pct.toFixed(1)}% over ${(r.params && parseParams(r.params).windowMs / 1000) || "?"} s, at or above ${(parseParams(r.params).thresholdBps / 100).toFixed(0)}%`,
         };
         calls = [
-          { ...memoCall(cfg.vault, encodeFunctionData({ abi: verdictVaultAbi, functionName: "resolve", args: [potId, true, a.resolverSignature] }), ref, body), potIds: [r.pot_id!], label: "resolve" },
+          { ...memoCall(cfg.vault, encodeFunctionData({ abi: vaultAbi, functionName: "resolve", args: [potId, true, a.resolverSignature] }), ref, body), potIds: [r.pot_id!], label: "resolve" },
           { ...memoCall(e.book, encodeFunctionData({ abi: guaranteeBookAbi, functionName: "payout", args: [BigInt(r.gid!), 50n] }), ref, { v: 1, t: "refunds", ref, pot: r.pot_id!, root, why: "Early payout to every recipient" }), potIds: [r.pot_id!], label: "payout" },
         ];
       }
@@ -482,7 +482,7 @@ export async function processEarly(db: Db): Promise<EarlyAction[]> {
                 ? "The event occurred (settled market); every recipient is paid"
                 : "The event did not occur; the funder gets everything back";
         const body: MemoBody = { v: 1, t: want ? "payout" : "refund", ref, pot: r.pot_id!, src: "gemini", mkt: r.instrument, why };
-        calls = [{ ...memoCall(cfg.vault, encodeFunctionData({ abi: verdictVaultAbi, functionName: "resolve", args: [potId, want, sig] }), ref, body), potIds: [r.pot_id!], label: "resolve" }];
+        calls = [{ ...memoCall(cfg.vault, encodeFunctionData({ abi: vaultAbi, functionName: "resolve", args: [potId, want, sig] }), ref, body), potIds: [r.pot_id!], label: "resolve" }];
         if (want) {
           calls.push({ ...memoCall(e.book, encodeFunctionData({ abi: guaranteeBookAbi, functionName: "payout", args: [BigInt(r.gid!), 50n] }), ref, { v: 1, t: "refunds", ref, pot: r.pot_id!, why: "Payment to every recipient" }), potIds: [r.pot_id!], label: "payout" });
         }
@@ -491,7 +491,7 @@ export async function processEarly(db: Db): Promise<EarlyAction[]> {
     }
     if (!calls && BigInt(now) > BigInt(r.deadline) + grace) {
       kind = "expire";
-      calls = [{ ...memoCall(cfg.vault, encodeFunctionData({ abi: verdictVaultAbi, functionName: "expire", args: [potId] }), ref, { v: 1, t: "expire", ref, pot: r.pot_id!, why: "No result before the deadline; the funder gets everything back" }), potIds: [r.pot_id!], label: "expire" }];
+      calls = [{ ...memoCall(cfg.vault, encodeFunctionData({ abi: vaultAbi, functionName: "expire", args: [potId] }), ref, { v: 1, t: "expire", ref, pot: r.pot_id!, why: "No result before the deadline; the funder gets everything back" }), potIds: [r.pot_id!], label: "expire" }];
     }
     if (!calls) continue;
     const res = await sendRelayCalls(db, "early_settle", calls, { atomic: true });
@@ -556,7 +556,7 @@ export async function recordEarlyOutcome(db: Db, id: string, observed: { occurre
         ? "Market settled: the event did not occur. The market was wrong; the early payout stands."
         : "The market was voided after the early payout; the payout stands.";
   const res = await sendRelayCalls(db, "early_record", [
-    { ...memoCall(cfg.vault, encodeFunctionData({ abi: verdictVaultAbi, functionName: "getPot", args: [BigInt(r.pot_id)] }), ref, { v: 1, t: "record", ref, pot: r.pot_id, src: "gemini", mkt: r.instrument, res: observed.resolutionSide === "yes" ? "YES" : observed.resolutionSide === "no" ? "NO" : undefined, why }), potIds: [r.pot_id], label: "record" },
+    { ...memoCall(cfg.vault, encodeFunctionData({ abi: vaultAbi, functionName: "getPot", args: [BigInt(r.pot_id)] }), ref, { v: 1, t: "record", ref, pot: r.pot_id, src: "gemini", mkt: r.instrument, res: observed.resolutionSide === "yes" ? "YES" : observed.resolutionSide === "no" ? "NO" : undefined, why }), potIds: [r.pot_id], label: "record" },
   ]);
   if (!res.ok) return { id, error: res.error };
   await db.query("UPDATE early_pots SET record_occurred = $2, record_status = $3, record_tx = $4, record_at = now() WHERE id = $1", [id, observed.occurred, observed.status, res.tx]);

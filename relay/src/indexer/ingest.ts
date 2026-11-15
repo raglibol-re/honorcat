@@ -1,11 +1,9 @@
 import { decodeEventLog, getAddress, type Address, type Hex } from "viem";
-import { guaranteeBookAbi, merkleBookAbi, verdictVaultAbi } from "../abi";
+import { guaranteeBookAbi, merkleBookAbi, vaultAbi } from "../abi";
 import { ARC_MEMO } from "../arc";
 import { getConfig } from "../config";
 import type { Db } from "../db";
 import { decodeMemoBody, decodeMemoLog } from "../memo";
-import { enqueueWebhooks, type IngestedEvent } from "../webhooks";
-import { applyMerkleEvent } from "../drops";
 
 /** A log in the shape both eth_getLogs and QuickNode Streams deliver (numbers already parsed). */
 export type RawLog = {
@@ -45,7 +43,7 @@ export function decodeVaultLogs(logs: RawLog[], vault: Address, book?: Address |
     if (!contract) continue;
     try {
       const ev = decodeEventLog({
-        abi: (contract === "vault" ? verdictVaultAbi : contract === "book" ? guaranteeBookAbi : merkleBookAbi) as typeof verdictVaultAbi,
+        abi: (contract === "vault" ? vaultAbi : contract === "book" ? guaranteeBookAbi : merkleBookAbi) as typeof vaultAbi,
         topics: log.topics as [Hex, ...Hex[]],
         data: log.data,
       });
@@ -158,7 +156,6 @@ export async function ingestLogs(
 
   let inserted = 0;
   const affected = new Set<string>();
-  const fresh: IngestedEvent[] = [];
   for (const d of decoded) {
     // Book events other than GuaranteeOpened carry only the gid; map it to the pot.
     let potId = d.potId;
@@ -193,29 +190,11 @@ export async function ingestLogs(
         d.potId.toString(),
       ]);
     }
-    if (d.contract === "merkle" && d.eventName === "DropOpened" && d.gid !== null && d.potId !== null) {
-      await db.query(`UPDATE drops SET drop_id = $1, status = 'live' WHERE pot_id = $2 AND drop_id IS NULL`, [d.gid.toString(), d.potId.toString()]);
-    }
-    if (d.contract === "merkle") await applyMerkleEvent(db, d.eventName, d.args, d.transactionHash.toLowerCase());
-    if (rows.length) {
-      inserted++;
-      if (d.contract === "vault") {
-        fresh.push({
-          txHash: d.transactionHash.toLowerCase(),
-          logIndex: d.logIndex,
-          blockNumber: d.blockNumber,
-          blockTime: times.get(d.blockNumber) ?? null,
-          eventName: d.eventName,
-          potId: d.potId,
-          args: d.args,
-        });
-      }
-    }
+    // MerkleBook (retired drops) events are still stored above; its tables are read-only now.
+    if (rows.length) inserted++;
     if (d.contract === "vault" && d.potId !== null) affected.add(d.potId.toString());
   }
   for (const potId of affected) await projectPot(db, potId);
-  // After projection, so pot -> condition -> integration can be resolved for PotCreated too.
-  if (fresh.length) await enqueueWebhooks(db, fresh);
 
   const ours = new Set<string>([...decoded.map((d) => d.transactionHash.toLowerCase()), ...[...(opts.memoTxs ?? [])].map((t) => t.toLowerCase())]);
   const targets = new Set([vault, ...(book ? [book] : []), ...(merkle ? [merkle] : []), ...(opts.extraMemoTargets ?? [])].map((x) => getAddress(x)));
@@ -275,7 +254,7 @@ export async function projectPot(db: Db, potId: string): Promise<void> {
   }
 
   await db.query(
-    `INSERT INTO pots (pot_id, condition_id, creator, resolver, refund_to, deadline, payees, shares_bps, status,
+    `INSERT INTO vault_pots (pot_id, condition_id, creator, resolver, refund_to, deadline, payees, shares_bps, status,
                        outcome, total, funding_count, created_block, created_tx, created_time, settled_tx, settled_time, updated_at)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17, now())
      ON CONFLICT (pot_id) DO UPDATE SET

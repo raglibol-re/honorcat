@@ -261,7 +261,7 @@ export async function submitGaslessFund(
   integration: string | null,
 ) {
   const cfg = getConfig();
-  const pot = await db.query<{ resolver: string; status: string }>("SELECT resolver, status FROM pots WHERE pot_id = $1", [
+  const pot = await db.query<{ resolver: string; status: string }>("SELECT resolver, status FROM vault_pots WHERE pot_id = $1", [
     input.potId.toString(),
   ]);
   if (!pot[0]) throw new GaslessError("pot not found (not indexed yet?)", 404);

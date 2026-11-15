@@ -1,5 +1,5 @@
 import "server-only";
-import { cachedDemo } from "./early";
+import { catalogList } from "./catalog";
 import { getEvent, impliedChance } from "./gemini";
 import { earlyDetail, getConfig, getDb, listEarly } from "./relay";
 
@@ -55,19 +55,20 @@ export async function landingData() {
       instrument: open.instrument,
     };
   } else {
-    const demo = await cachedDemo(db);
-    const c = demo?.trigger[0] ?? demo?.watch[0];
-    if (c) {
-      const yes = await liveYes(c.eventTicker, c.contractTicker);
+    // No open pot: the best-quoted contract that works right now, from the market catalogue.
+    const best = (await catalogList(db, { usable: true, limit: 20 })).items.find((m) => m.book?.bid != null && m.book?.ask != null);
+    if (best) {
+      const mid = (best.book!.bid! + best.book!.ask!) / 2;
+      const side = mid >= 0.5 ? "yes" : "no";
       hero = {
         source: "market",
         potId: null,
-        chance: yes === null ? c.chance : c.side === "yes" ? yes : 1 - yes,
+        chance: side === "yes" ? mid : 1 - mid,
         threshold: 0.85,
-        side: c.side,
-        label: c.label,
-        title: c.title,
-        instrument: c.instrument,
+        side,
+        label: best.label,
+        title: best.eventTitle,
+        instrument: best.symbol,
       };
     }
   }

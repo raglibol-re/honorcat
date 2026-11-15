@@ -1,10 +1,11 @@
 import { getAddress, type Address, type Hex, type LocalAccount, type PublicClient } from "viem";
-import { verdictVaultAbi } from "./abi";
+import { vaultAbi } from "./abi";
 import { resolutionDomain, resolutionTypes } from "./signer";
 import { buildRecord, recordToJson, signTrigger } from "./trigger/evidence";
 import { classify, evaluate, type Sample } from "./trigger/engine";
 import { conditionIdForTrigger } from "./trigger/params";
 import type { ArmedPot, SamplerSubmission } from "./early";
+import { DepthStream, fetchMarketState, readBook, type MarketState, type RawBook } from "./gemini";
 
 /**
  * An independent sampler. It reads Gemini's public order book itself, keeps its own samples,
@@ -22,106 +23,43 @@ export interface BookSource {
   readonly name: string;
 }
 
-const GEMINI = "https://api.gemini.com";
+const top = (b: RawBook | null, recv: number): Book | null =>
+  b ? { recv, bid: b.bids[0]?.price ?? null, bidSize: b.bids[0]?.amount ?? null, ask: b.asks[0]?.price ?? null, askSize: b.asks[0]?.amount ?? null } : null;
 
-/** Gemini public WebSocket, `{symbol}@depth5` (a full top-5 snapshot every second). */
+/** Gemini public WebSocket, `{symbol}@depth5` (a full top-5 snapshot every second), via gemini.ts. */
 export class WsBookSource implements BookSource {
   readonly name = "gemini:wss://ws.gemini.com:depth5";
-  private ws: WebSocket | null = null;
-  private latest = new Map<string, Book>();
-  private wanted = new Set<string>();
-  private subscribed = new Set<string>();
-  private closed = false;
-  private id = 1;
+  private readonly stream: DepthStream;
 
-  constructor(private url = "wss://ws.gemini.com") {}
-
-  private connect() {
-    if (this.closed || this.ws) return;
-    const ws = new WebSocket(this.url);
-    this.ws = ws;
-    this.subscribed.clear();
-    ws.onopen = () => this.sync();
-    ws.onmessage = (m) => {
-      try {
-        const j = JSON.parse(String(m.data)) as { symbol?: string; bids?: [string, string][]; asks?: [string, string][] };
-        if (!j.symbol) return;
-        const b = j.bids?.[0];
-        const a = j.asks?.[0];
-        this.latest.set(j.symbol.toLowerCase(), { recv: Date.now(), bid: b?.[0] ?? null, bidSize: b?.[1] ?? null, ask: a?.[0] ?? null, askSize: a?.[1] ?? null });
-      } catch {
-        /* ignore non-JSON frames */
-      }
-    };
-    ws.onclose = () => {
-      this.ws = null;
-      if (!this.closed) setTimeout(() => this.connect(), 2000);
-    };
-    ws.onerror = () => ws.close();
-  }
-
-  private sync() {
-    const ws = this.ws;
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
-    const add = [...this.wanted].filter((s) => !this.subscribed.has(s));
-    const drop = [...this.subscribed].filter((s) => !this.wanted.has(s));
-    if (add.length) ws.send(JSON.stringify({ id: String(this.id++), method: "SUBSCRIBE", params: add.map((s) => `${s}@depth5`) }));
-    if (drop.length) ws.send(JSON.stringify({ id: String(this.id++), method: "UNSUBSCRIBE", params: drop.map((s) => `${s}@depth5`) }));
-    add.forEach((s) => this.subscribed.add(s));
-    drop.forEach((s) => {
-      this.subscribed.delete(s);
-      this.latest.delete(s.toLowerCase());
-    });
+  constructor(url?: string) {
+    this.stream = new DepthStream(url);
   }
 
   watch(instruments: string[]) {
-    this.wanted = new Set(instruments);
-    if (!this.ws) this.connect();
-    else this.sync();
+    this.stream.watch(instruments);
   }
 
   async snapshot(instrument: string) {
-    return this.latest.get(instrument.toLowerCase()) ?? null;
+    const l = this.stream.latest(instrument);
+    return l ? top(l.book, l.recv) : null;
   }
 
   close() {
-    this.closed = true;
-    this.ws?.close();
+    this.stream.close();
   }
 }
 
-/** Gemini public REST order book, polled at sampling time (for short-lived hosts). */
+/** Gemini public REST order book, polled at sampling time (for short-lived hosts), via gemini.ts. */
 export class RestBookSource implements BookSource {
   readonly name = "gemini:https://api.gemini.com/v1/book";
   watch() {}
   async snapshot(instrument: string): Promise<Book | null> {
-    try {
-      const r = await fetch(`${GEMINI}/v1/book/${encodeURIComponent(instrument)}?limit_bids=1&limit_asks=1`, { signal: AbortSignal.timeout(4000) });
-      if (!r.ok) return null;
-      const j = (await r.json()) as { bids?: { price: string; amount: string }[]; asks?: { price: string; amount: string }[] };
-      return { recv: Date.now(), bid: j.bids?.[0]?.price ?? null, bidSize: j.bids?.[0]?.amount ?? null, ask: j.asks?.[0]?.price ?? null, askSize: j.asks?.[0]?.amount ?? null };
-    } catch {
-      return null;
-    }
+    return top(await readBook(instrument, { levels: 1, timeoutMs: 4000 }), Date.now());
   }
   close() {}
 }
 
-export type MarketState = { status: string; marketState: string | null; resolutionSide: "yes" | "no" | null; at: number };
-
-/** Contract status from Gemini's public events endpoint. */
-export async function fetchMarketState(eventTicker: string, contractTicker: string): Promise<MarketState | null> {
-  try {
-    const r = await fetch(`${GEMINI}/v1/prediction-markets/events/${encodeURIComponent(eventTicker)}`, { signal: AbortSignal.timeout(6000) });
-    if (!r.ok) return null;
-    const e = (await r.json()) as { status: string; contracts: { ticker: string; status: string; marketState?: string | null; resolutionSide?: "yes" | "no" | null }[] };
-    const c = e.contracts.find((x) => x.ticker === contractTicker);
-    if (!c) return null;
-    return { status: c.status, marketState: c.marketState ?? null, resolutionSide: c.resolutionSide ?? null, at: Date.now() };
-  } catch {
-    return null;
-  }
-}
+export { fetchMarketState, type MarketState } from "./gemini";
 
 export type SamplerIo = {
   armed(signer: Address): Promise<ArmedPot[]>;
@@ -170,7 +108,7 @@ export class Sampler {
     const expected = conditionIdForTrigger({ instrument: p.instrument, side: p.side, mode: p.mode, params: p.params });
     if (expected !== p.conditionId) return false;
     try {
-      const pot = await this.client.readContract({ address: p.vault, abi: verdictVaultAbi, functionName: "getPot", args: [BigInt(p.potId)] });
+      const pot = await this.client.readContract({ address: p.vault, abi: vaultAbi, functionName: "getPot", args: [BigInt(p.potId)] });
       return pot.conditionId.toLowerCase() === expected.toLowerCase() && getAddress(pot.resolver) === getAddress(p.resolver) && pot.status === 1;
     } catch {
       return false;

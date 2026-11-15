@@ -45,7 +45,7 @@ jobs:
           cat slither.md >> "$GITHUB_STEP_SUMMARY"
           python3 slither-gate.py slither.json slither-triage.json
 
-  relay-sdk:
+  relay:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -56,9 +56,8 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @verdict/relay typecheck
-      - run: pnpm --filter @verdict/relay test
-      - run: pnpm --filter @verdict/sdk test
+      - run: pnpm --filter @honorcat/relay typecheck
+      - run: pnpm --filter @honorcat/relay test
 
   web:
     runs-on: ubuntu-latest

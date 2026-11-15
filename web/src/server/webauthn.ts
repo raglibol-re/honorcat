@@ -1,6 +1,6 @@
 import "server-only";
 import { z } from "zod";
-import type { WebAuthnAssertion } from "@verdict/relay";
+import type { WebAuthnAssertion } from "@honorcat/relay";
 
 /** A WebAuthn assertion as the browser sends it (hex fields, JSON string, indexes). */
 export const assertionBody = z

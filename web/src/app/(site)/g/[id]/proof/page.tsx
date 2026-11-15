@@ -4,7 +4,7 @@ import { ProofView } from "./ProofView";
 
 export const metadata = { title: "Public proof" };
 
-const loading = <p className="t-15" style={{ color: "var(--vg-muted)" }}>Loading…</p>;
+const loading = <p className="t-15" style={{ color: "var(--hc-muted)" }}>Loading…</p>;
 
 export default function ProofPage({ params }: PageProps<"/g/[id]/proof">) {
   return (

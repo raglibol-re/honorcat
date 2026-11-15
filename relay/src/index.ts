@@ -1,4 +1,4 @@
-export { verdictVaultAbi } from "./abi";
+export { vaultAbi } from "./abi";
 export { getConfig, type Config } from "./config";
 export { publicClient, resolverAccount, arcTestnet } from "./chain";
 export { getDb, getState, memoryDb, type Db } from "./db";
@@ -13,8 +13,6 @@ export { verifyStreamsSignature, decodeBody, extractStreamsLogs, extractBatchRan
 export { recordBatch, streamsOverview } from "./streams";
 export { runTick, buildSources, type TickReport } from "./tick";
 export { listPots, getPotDetail, listPayments, type PotDto, type PaymentDto } from "./api";
-export { ApiSource } from "./sources/api";
-export { HttpSource, parseHttpKey, canonicalHttpKey, readPath, outcomeFromValue, isPrivateAddress } from "./sources/http";
 export { ARC_USDC, ARC_MIN_BASE_FEE, NATIVE_PER_USDC_UNIT, nativeToUsdcUnits, arcFees, usdcDomain, usdcBalances } from "./arc";
 export { sendVaultTx, revertName, type TxKind } from "./txs";
 export {
@@ -30,8 +28,6 @@ export {
   type PotParams,
   type SignedAuthorization,
 } from "./gasless";
-export { createIntegration, listIntegrations, updateIntegration, authenticate, type Integration } from "./integrations";
-export { enqueueWebhooks, enqueuePing, deliverDueWebhooks, listDeliveries, signPayload, verifyWebhookSignature, EVENT_TYPES, type WebhookPayload } from "./webhooks";
 export { relayStatus, potRelayCost } from "./status";
 export { scopeToVault } from "./db";
 export { ARC_MEMO, ARC_MULTICALL3_FROM } from "./arc";
@@ -57,23 +53,6 @@ export {
   type JoinProof,
 } from "./guarantees";
 export { guaranteeBookAbi, batchGuardAbi, merkleBookAbi } from "./abi";
-export {
-  buildDropTree,
-  dropSalt,
-  prepareDrop,
-  createDrop,
-  replaceDropEntries,
-  dropDetail,
-  listDrops,
-  dropProofs,
-  processDrops,
-  LEAF_ENCODING,
-  CLAIM_BATCH,
-  type DropTerms,
-  type DropEntry,
-  type DropDto,
-  type DropProof,
-} from "./drops";
 export {
   verifyAssertion,
   executeDigest as passkeyExecuteDigest,
@@ -110,10 +89,11 @@ export {
   type SamplerSubmission,
 } from "./early";
 
-// Early-payout probability trigger (docs/early-payout-trigger.md)
+// Early-payout probability trigger (docs/price-and-evidence.md)
 export * as trigger from "./trigger";
 
 export { Sampler, WsBookSource, RestBookSource, fetchMarketState, httpIo, type SamplerIo, type BookSource } from "./sampler";
 export { runAppSampler } from "./samplerHost";
 export * as catalog from "./catalog";
 export type { CatalogRow, Quality, BookStats, CategorySummary, Profile } from "./catalog";
+export { readBook, depthSnapshot, DepthStream, GEMINI_REST, type RawBook, type MarketState } from "./gemini";

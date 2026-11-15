@@ -50,7 +50,7 @@ export function GuaranteeCard({
   g: GuaranteeCardData;
   canWithdraw?: boolean;
   onWithdraw?: () => void;
-  /** HonorCat branding (mark in the header, "HonorCat, settled by Verdict" at the foot). */
+  /** HonorCat branding (mark in the header, "HonorCat" at the foot). */
   brand?: boolean;
 }) {
   const now = useNow();
@@ -58,18 +58,18 @@ export function GuaranteeCard({
   const settled = g.state !== "active";
 
   return (
-    <article className="vg-ticket w-full max-w-[420px] overflow-hidden" aria-label="Your guarantee">
+    <article className="hc-ticket w-full max-w-[420px] overflow-hidden" aria-label="Your guarantee">
       {/* ---------------------------------------------------------------- promise */}
       <div className="px-6 pb-6 pt-5">
         <div className="flex items-baseline justify-between gap-4">
           <span className="t-15 font-medium">{g.merchant}</span>
           {brand ? (
-            <span className="t-13 inline-flex items-center gap-1.5 font-medium" style={{ color: "var(--vg-accent)" }}>
+            <span className="t-13 inline-flex items-center gap-1.5 font-medium" style={{ color: "var(--hc-accent)" }}>
               <HonorCatMark size={15} />
               HonorCat
             </span>
           ) : (
-            <span className="t-13" style={{ color: "var(--vg-muted)" }}>
+            <span className="t-13" style={{ color: "var(--hc-muted)" }}>
               Guarantee
             </span>
           )}
@@ -82,46 +82,46 @@ export function GuaranteeCard({
         {!settled ? (
           <dl className="mt-6 grid grid-cols-2 gap-y-4">
             <div className="col-span-2">
-              <dt className="t-13" style={{ color: "var(--vg-muted)" }}>
+              <dt className="t-13" style={{ color: "var(--hc-muted)" }}>
                 Your refund
               </dt>
               <dd className="mono t-36 mt-1 font-medium">{formatMoney(g.refundUsdc)}</dd>
-              <dd className="t-13" style={{ color: "var(--vg-muted)" }}>
+              <dd className="t-13" style={{ color: "var(--hc-muted)" }}>
                 in USDC, already set aside for you
               </dd>
             </div>
             <div>
-              <dt className="t-13" style={{ color: "var(--vg-muted)" }}>
+              <dt className="t-13" style={{ color: "var(--hc-muted)" }}>
                 Chance of a refund
               </dt>
               <dd className="mono t-21 mt-0.5">{g.chance === null ? "—" : `${Math.round(g.chance * 100)}%`}</dd>
-              <dd className="t-13" style={{ color: "var(--vg-muted)" }}>
+              <dd className="t-13" style={{ color: "var(--hc-muted)" }}>
                 {g.chance === null ? "no live market price" : "estimate from the market price"}
               </dd>
             </div>
             <div>
-              <dt className="t-13" style={{ color: "var(--vg-muted)" }}>
+              <dt className="t-13" style={{ color: "var(--hc-muted)" }}>
                 Settles in
               </dt>
               <dd className="mono t-21 mt-0.5" suppressHydrationWarning>
                 {now ? countdown(settleMs - now) : "—"}
               </dd>
-              <dd className="t-13" style={{ color: "var(--vg-muted)" }} suppressHydrationWarning>
+              <dd className="t-13" style={{ color: "var(--hc-muted)" }} suppressHydrationWarning>
                 {now ? new Date(settleMs).toLocaleString("en-US", { weekday: "short", hour: "2-digit", minute: "2-digit" }) : ""}
               </dd>
             </div>
           </dl>
         ) : (
           <div className="mt-6">
-            <p className="t-13" style={{ color: "var(--vg-muted)" }}>
+            <p className="t-13" style={{ color: "var(--hc-muted)" }}>
               {g.state === "refunded" ? "Refunded" : "Not triggered"}
             </p>
-            <p className="mono t-36 mt-1 font-medium" style={{ color: g.state === "refunded" ? "var(--vg-accent)" : "var(--vg-muted)" }}>
+            <p className="mono t-36 mt-1 font-medium" style={{ color: g.state === "refunded" ? "var(--hc-accent)" : "var(--hc-muted)" }}>
               {g.state === "refunded" ? formatMoney(g.refundUsdc) : "$0.00"}
               <span className="t-15 ml-2 font-normal">in USDC</span>
             </p>
             {g.reason && (
-              <p className="t-15 mt-3" style={{ color: "var(--vg-ink)" }}>
+              <p className="t-15 mt-3" style={{ color: "var(--hc-ink)" }}>
                 {g.reason}
               </p>
             )}
@@ -140,14 +140,14 @@ export function GuaranteeCard({
       </div>
 
       {/* ---------------------------------------------------------------- perforation */}
-      <div className="vg-perf" aria-hidden />
+      <div className="hc-perf" aria-hidden />
 
       {/* ---------------------------------------------------------------- proof */}
       <div className="space-y-5 px-6 pb-5 pt-5">
         <SettlementRail steps={g.steps} />
         <div className="flex flex-wrap items-start justify-between gap-3">
           <LockedBadge lockedUsdc={g.lockedUsdc} potId={g.potId} vault={g.vault} released={settled} />
-          <div className="t-13 text-right" style={{ color: "var(--vg-muted)" }}>
+          <div className="t-13 text-right" style={{ color: "var(--hc-muted)" }}>
             {g.account ? (
               <>
                 <div>
@@ -165,8 +165,8 @@ export function GuaranteeCard({
           </div>
         </div>
         {brand && (
-          <p className="t-13 border-t pt-3" style={{ borderColor: "var(--vg-rule)", color: "var(--vg-muted)" }}>
-            HonorCat, settled by Verdict on Arc
+          <p className="t-13 border-t pt-3" style={{ borderColor: "var(--hc-rule)", color: "var(--hc-muted)" }}>
+            HonorCat on Arc testnet
           </p>
         )}
       </div>

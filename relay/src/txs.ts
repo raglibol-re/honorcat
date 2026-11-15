@@ -8,7 +8,7 @@ import {
   type Hex,
   type TransactionReceipt,
 } from "viem";
-import { batchGuardAbi, guaranteeBookAbi, merkleBookAbi, verdictVaultAbi } from "./abi";
+import { batchGuardAbi, guaranteeBookAbi, merkleBookAbi, vaultAbi } from "./abi";
 import { arcFees, ARC_MULTICALL3_FROM } from "./arc";
 import { publicClient, resolverAccount, resolverWallet } from "./chain";
 import { getConfig } from "./config";
@@ -51,7 +51,7 @@ export const multicall3FromAbi = parseAbi([
   "function aggregate3(Call3[] calls) returns (Result[] returnData)",
 ]);
 
-const errorAbis = [verdictVaultAbi, guaranteeBookAbi, merkleBookAbi, batchGuardAbi, memoAbi, parseAbi(["error Error(string)"])] as const;
+const errorAbis = [vaultAbi, guaranteeBookAbi, merkleBookAbi, batchGuardAbi, memoAbi, parseAbi(["error Error(string)"])] as const;
 
 /** Name of a revert from raw return data; unwraps Arc's Memo `MemoFailed(bytes)` wrapper. */
 export function decodeRevert(data: Hex | undefined, depth = 0): string {
@@ -210,7 +210,7 @@ export async function sendVaultTx(
   potId?: string,
 ): Promise<TxResult> {
   const { vault } = getConfig();
-  const callData = encodeFunctionData({ abi: verdictVaultAbi, functionName, args: args as never });
+  const callData = encodeFunctionData({ abi: vaultAbi, functionName, args: args as never });
   const res = await sendRelayCalls(db, kind, [{ target: vault, callData, potIds: potId ? [potId] : [], label: functionName }]);
   if (!res.ok && res.dropped.length && !res.revert) return { ...res, revert: res.dropped[0]!.error, error: res.dropped[0]!.error };
   return res;

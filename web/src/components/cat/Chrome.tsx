@@ -54,7 +54,7 @@ export function HcFooterLinks() {
       style={{ borderTop: `1px solid ${C.muted}`, paddingTop: 20, display: "flex", flexWrap: "wrap", gap: "8px 32px", justifyContent: "space-between", alignItems: "center", fontSize: 15, color: C.faint }}
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        <span>HonorCat, settled by Verdict.</span>
+        <span>HonorCat on Arc testnet.</span>
         {tech && <LiveLine />}
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 28px", alignItems: "center" }}>

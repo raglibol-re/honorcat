@@ -12,15 +12,13 @@
  * Quality uses exactly the rule a pot on that contract would get (the profile chosen from its time
  * to close), so "works" here means the samplers' checks can pass on the book as it is now.
  */
-import { PROVISIONAL_DEFAULTS } from "./trigger/params";
+import { MIN_LEAD_MS, PROFILE_CUTOFF_MS, PROVISIONAL_DEFAULTS } from "./trigger/params";
 import type { Db } from "./db";
 
 export type Profile = keyof typeof PROVISIONAL_DEFAULTS;
 
-/** Under two hours to close: the demo rule (60 s window); otherwise the standard rule (30 min). */
-export const PROFILE_CUTOFF_MS = 2 * 3600_000;
-/** A pot needs time to be joined and one full window before trading closes. */
-export const MIN_LEAD_MS = 4 * 60_000;
+// Rule constants live with the trigger rules (trigger/params.ts).
+export { PROFILE_CUTOFF_MS, MIN_LEAD_MS };
 /** Depth counts resting size within this distance of the midpoint (USD per contract). */
 export const DEPTH_BAND = 0.05;
 
@@ -64,7 +62,7 @@ export type Quality = { status: Status; profile: Profile; reasons: string[]; spr
 const cents = (x: number) => `${Math.round(x * 100)}¢`;
 
 /**
- * The verdict for one contract at `now`. Uses the order book when it was read within `bookMaxAgeMs`,
+ * The quality of one contract at `now`. Uses the order book when it was read within `bookMaxAgeMs`,
  * otherwise only the listed prices (and then size is unknown: "unmeasured" at best).
  */
 export function classify(r: CatalogRow, now: number, opts: { bookMaxAgeMs?: number; profile?: Profile } = {}): Quality {

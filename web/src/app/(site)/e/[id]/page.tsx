@@ -6,7 +6,7 @@ import { EarlyView } from "./EarlyView";
 
 export const metadata = { title: "Paid before it happens" };
 
-const loading = <p className="t-15" style={{ color: "var(--vg-muted)" }}>Loading…</p>;
+const loading = <p className="t-15" style={{ color: "var(--hc-muted)" }}>Loading…</p>;
 
 export default function EarlyPage({ params }: PageProps<"/e/[id]">) {
   return (

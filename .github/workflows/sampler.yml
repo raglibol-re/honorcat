@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 env:
-  API: https://verdict-phi-livid.vercel.app
+  API: https://honorcat.vercel.app
 
 jobs:
   sample:
@@ -40,7 +40,7 @@ jobs:
           cache: pnpm
       - name: Install
         if: steps.check.outputs.armed != '0' || github.event_name == 'workflow_dispatch'
-        run: pnpm install --frozen-lockfile --filter "@verdict/relay..."
+        run: pnpm install --frozen-lockfile --filter "@honorcat/relay..."
       - name: Sample until no pot is armed (or 5.5 h)
         if: steps.check.outputs.armed != '0' || github.event_name == 'workflow_dispatch'
         working-directory: relay

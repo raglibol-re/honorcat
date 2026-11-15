@@ -13,7 +13,6 @@ import { useTechMode } from "@/components/TechMode";
 import { useWallet, type WalletKind } from "@/lib/wallet/context";
 import { WalletChoice } from "@/components/cat/WalletChoice";
 import { getJson, usePolling } from "@/lib/api";
-import { CostView } from "@/components/cat/CostView";
 import { GeminiCredit, QualityMark, type MarketQuality } from "@/components/cat/Markets";
 import { addressUrl, txUrl } from "@/lib/chain";
 import { formatDate, formatMoney } from "@/lib/format";
@@ -393,13 +392,7 @@ export function EarlyView() {
             </span>
           )}
           <GeminiCredit />
-          {open && wallet.account && wallet.account.toLowerCase() === e.funder.toLowerCase() && (
-            <CostView
-              total={(Number(e.amount) / 1e6) * e.maxRecipients}
-              chance={quote?.mid == null ? null : e.side === "yes" ? quote.mid : 1 - quote.mid}
-              side={e.side}
-            />
-          )}
+
         </section>
 
         <EarlyTerms e={e} />

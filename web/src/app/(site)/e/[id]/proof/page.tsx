@@ -6,7 +6,7 @@ import { EarlyProof } from "./EarlyProof";
 
 export const metadata = { title: "Public proof" };
 
-const loading = <p className="t-15" style={{ color: "var(--vg-muted)" }}>Loading…</p>;
+const loading = <p className="t-15" style={{ color: "var(--hc-muted)" }}>Loading…</p>;
 
 export default function EarlyProofPage({ params }: PageProps<"/e/[id]/proof">) {
   return (

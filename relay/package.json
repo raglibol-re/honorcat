@@ -1,5 +1,5 @@
 {
-  "name": "@verdict/relay",
+  "name": "@honorcat/relay",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -9,7 +9,6 @@
     "./trigger": "./src/trigger/index.ts"
   },
   "scripts": {
-    "abi": "tsx scripts/gen-abi.ts",
     "e2e": "tsx --env-file-if-exists=../.env scripts/e2e.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
