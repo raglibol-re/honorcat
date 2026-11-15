@@ -10,9 +10,8 @@ const schema = z.object({
   VAULT_ADDRESS: z.string().optional(),
   NEXT_PUBLIC_VAULT_ADDRESS: z.string().optional(),
   VAULT_DEPLOY_BLOCK: z.coerce.bigint().optional(),
-  // The relay's sending key. RELAY_PRIVATE_KEY is the new name; RESOLVER_PRIVATE_KEY is read until the switch is confirmed.
+  // The relay's sending key.
   RELAY_PRIVATE_KEY: hexKey.optional(),
-  RESOLVER_PRIVATE_KEY: hexKey.optional(),
   DATABASE_URL: z.string().optional(),
   PGLITE_DIR: z.string().default(".data/pglite"),
   INDEXER_PRIMARY: z.enum(["rpc", "streams"]).default("rpc"),
@@ -31,11 +30,9 @@ const schema = z.object({
   GUARANTEES_DEPLOY_BLOCK: z.coerce.bigint().optional(),
   PASSKEY_FACTORY_ADDRESS: z.string().optional(),
   MERKLE_BOOK_ADDRESS: z.string().optional(),
-  // The samplers' M-of-N resolver and the sampler addresses. New names first; EARLY_* read until the switch.
+  // The samplers' M-of-N resolver and the sampler addresses (default: deployments/<chain>.samplers.json).
   RESOLVER_ADDRESS: z.string().optional(),
   SAMPLERS: z.string().optional(), // comma-separated sampler addresses
-  EARLY_RESOLVER_ADDRESS: z.string().optional(),
-  EARLY_SAMPLERS: z.string().optional(),
   SAMPLER_KEY: z.string().optional(), // the Vercel app's own sampler key
   /** Smallest amount (USDC, decimal) the relay will sponsor gas for. */
   GASLESS_MIN_AMOUNT: z.string().regex(/^\d+(\.\d{1,6})?$/).default("0.10"),
@@ -107,7 +104,7 @@ export function getConfig(): Config {
     chainId: env.ARC_CHAIN_ID,
     vault: getAddress(vault),
     deployBlock: deployBlock ?? 0n,
-    resolverKey: (env.RELAY_PRIVATE_KEY ?? env.RESOLVER_PRIVATE_KEY) as Hex | undefined,
+    resolverKey: env.RELAY_PRIVATE_KEY as Hex | undefined,
     databaseUrl: env.DATABASE_URL,
     pgliteDir: env.PGLITE_DIR,
     indexerPrimary: env.INDEXER_PRIMARY,
@@ -162,8 +159,8 @@ function earlyConfig(env: z.infer<typeof schema>): Config["early"] {
   const f = readJson<{ resolver: string; samplerVercel: string; samplerGithub: string; samplerLocal: string; threshold: number }>(
     `deployments/${env.ARC_CHAIN_ID}.samplers.json`,
   );
-  const resolver = env.RESOLVER_ADDRESS ?? env.EARLY_RESOLVER_ADDRESS ?? f?.resolver;
-  const samplerList = env.SAMPLERS ?? env.EARLY_SAMPLERS;
+  const resolver = env.RESOLVER_ADDRESS ?? f?.resolver;
+  const samplerList = env.SAMPLERS;
   const samplers = samplerList ? samplerList.split(",").map((s) => s.trim()) : f ? [f.samplerVercel, f.samplerGithub, f.samplerLocal] : [];
   if (!resolver || !isAddress(resolver) || samplers.length < 2 || !samplers.every((s) => isAddress(s))) return null;
   return { resolver: getAddress(resolver), samplers: samplers.map((s) => getAddress(s)), threshold: f?.threshold ?? 2 };

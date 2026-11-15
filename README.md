@@ -131,8 +131,8 @@ CI (`.github/workflows/ci.yml`) runs all of these plus Slither on the contracts.
 |---|---|---|
 | `ARC_RPC_URL`, `ARC_CHAIN_ID`, `USDC_ADDRESS` | Vercel, local | Arc testnet access |
 | `DATABASE_URL` | Vercel, local (optional) | Neon Postgres; empty = PGlite |
-| `RELAY_PRIVATE_KEY` (old name `RESOLVER_PRIVATE_KEY`) | Vercel, local | The relay's sending key |
-| `RESOLVER_ADDRESS`, `SAMPLERS` (old names `EARLY_RESOLVER_ADDRESS`, `EARLY_SAMPLERS`) | Vercel | The samplers' resolver and addresses |
+| `RELAY_PRIVATE_KEY` | Vercel, local | The relay's sending key |
+| `RESOLVER_ADDRESS`, `SAMPLERS` | Vercel | The samplers' resolver and addresses |
 | `SAMPLER_KEY` / `SAMPLER_KEY_LOCAL` / `SAMPLER_KEY_GITHUB` | Vercel / local / GitHub secret | Each sampler's own key |
 | `ADMIN_TOKEN`, `CRON_SECRET` | Vercel | Admin and cron auth; evidence session keys derive from them |
 | `INDEXER_PRIMARY`, `QUICKNODE_STREAMS_TOKEN`, `QUICKNODE_API_KEY`, `QUICKNODE_STREAM_ID` | Vercel / local | Indexer source, webhook verification, stream management |

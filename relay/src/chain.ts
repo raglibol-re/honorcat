@@ -22,7 +22,7 @@ export function publicClient(): PublicClient {
 
 export function resolverAccount(): PrivateKeyAccount {
   const key = getConfig().resolverKey;
-  if (!key) throw new Error("RELAY_PRIVATE_KEY (or the old name RESOLVER_PRIVATE_KEY) is not set");
+  if (!key) throw new Error("RELAY_PRIVATE_KEY is not set");
   return privateKeyToAccount(key);
 }
 
