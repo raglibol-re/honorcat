@@ -827,7 +827,8 @@ async function runEarly() {
   log(`trigger market: ${t.title} — ${t.label} (${t.side.toUpperCase()} at ${(t.chance * 100).toFixed(1)}%, spread ${t.spread.toFixed(2)}), closes ${t.closesAt}`);
   log(`refund market:  ${r.title} — ${r.label} (${r.side.toUpperCase()} at ${(r.chance * 100).toFixed(1)}%), closes ${r.closesAt}`);
 
-  const stop = startLocalSampler();
+  // E2E_EXTERNAL_LOCAL_SAMPLER=1: the local sampler already runs as its own process (pnpm sampler).
+  const stop = process.env.E2E_EXTERNAL_LOCAL_SAMPLER === "1" ? async () => {} : startLocalSampler();
   try {
     const before = await pub.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [funder.address] });
     const a = await createEarlyViaApi(t, 40, "early payout");
