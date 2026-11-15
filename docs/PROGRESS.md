@@ -19,6 +19,8 @@
 - Work in cycles per docs/improve.md, everything in the agreed priority order.
 
 ## Rubric cycle log
+- 2026-11-15: new direction "HonorCat: money in the air" (two-sided pots on a Gemini market,
+  forward-priced exits). Replaces guarantees, early payouts and forward. C0 inventory written.
 - 2026-11-15: F1 built and deployed (655dbc3 … b053595): catalogue of every active Gemini contract
   (14,782 contracts, 1,140 events, 9 categories on the first sweep) with quality under the rule its
   pot would get; quality-sorted picker with reasons; /markets; profile by time to close; live book
@@ -69,7 +71,9 @@
 - Then: phase I threat model and static analysis, minimal phase H, phase E only if time allows.
 
 ## Blocks current milestone
-- (none)
+- C0 (new spec "HonorCat: money in the air", 2026-11-15): docs/cleanup-plan.md written, waiting for
+  approval and answers to its five questions (open pots on old contracts, old tables, renaming the
+  old pots table, the SDK, env var renames). No changes until then.
 
 ## Decisions 2026-11-15 (F1; the user asked me to decide)
 - Trigger profile by time to close: under 2 hours the demo rule, otherwise the standard rule. Quick
