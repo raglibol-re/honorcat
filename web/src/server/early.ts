@@ -285,9 +285,9 @@ export async function demoCandidates(thresholdBps = 8500): Promise<DemoCandidate
     .filter((r) => r.chance <= thr - 0.3 && new Date(r.closesAt).getTime() <= now + 45 * 60_000)
     // Far below the threshold first (a coin-flip market could still cross), then soonest close.
     .sort((a, b) => Number(b.chance <= 0.15) - Number(a.chance <= 0.15) || a.closesAt.localeCompare(b.closesAt))
-    .slice(0, 6);
-  // Pots are refused at creation when the book fails the rule, so candidates that pass come first.
-  const refund = (await Promise.all(ref.map((r) => check(r, 1)))).sort((a, b) => Number(b.meetsRules) - Number(a.meetsRules));
+    .slice(0, 12);
+  // Pots are refused at creation when the book fails the rule: keep only candidates that pass now.
+  const refund = (await Promise.all(ref.map((r) => check(r, 1)))).filter((c) => c.meetsRules);
   const watch = near
     .map(observe)
     .filter((c) => c.meetsRules && c.observedChance !== null && c.observedChance < thr && c.observedChance >= thr - 0.08)
