@@ -1,5 +1,6 @@
 "use client";
 
+import { C, F } from "@/components/cat/tokens";
 import { formatAxis } from "@/lib/format";
 
 type Pt = { t: number; mid: number | null; status: number; signer: string };
@@ -39,7 +40,7 @@ export function ProbabilityChart({
   const valid = samples.filter((s) => s.status === 0 && s.mid !== null);
   if (samples.length < 2) {
     return (
-      <div className="t-13 flex items-center justify-center rounded-lg border" style={{ height, borderColor: "var(--vg-rule)", color: "var(--vg-muted)" }}>
+      <div className="flex items-center justify-center" style={{ height, fontSize: 15, background: C.panel, border: `1.5px solid ${C.ink}`, color: C.muted }}>
         Waiting for the first samples…
       </div>
     );
@@ -88,38 +89,48 @@ export function ProbabilityChart({
 
   const ticks = [...new Set([lo, hi].map((p) => Math.round(p * 100)))].filter((p) => Math.abs(p - threshold * 100) >= 3);
   const xTicks = [t0, (t0 + t1) / 2, t1];
+  const grid: number[] = [];
+  for (let g = Math.ceil(lo * 20) / 20; g <= hi; g += 0.05) grid.push(g);
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={`Probability chart, threshold ${Math.round(threshold * 100)}%`}>
-      <line x1={pad.l} x2={pad.l} y1={pad.t} y2={H - pad.b} stroke="var(--vg-rule)" strokeWidth="1" />
-      <line x1={pad.l} x2={W - pad.r} y1={H - pad.b} y2={H - pad.b} stroke="var(--vg-rule)" strokeWidth="1" />
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      style={{ width: "100%", height: "auto", display: "block", background: C.panel, border: `1.5px solid ${C.ink}` }}
+      role="img"
+      aria-label={`Probability chart, threshold ${Math.round(threshold * 100)}%`}
+    >
+      {grid.map((g) => (
+        <line key={g} x1={pad.l} x2={W - pad.r} y1={y(g)} y2={y(g)} stroke={C.grid} strokeWidth="1" />
+      ))}
+      <line x1={pad.l} x2={pad.l} y1={pad.t} y2={H - pad.b} stroke={C.ink} strokeWidth="1.5" />
+      <line x1={pad.l} x2={W - pad.r} y1={H - pad.b} y2={H - pad.b} stroke={C.ink} strokeWidth="1.5" />
       {ticks.map((p) => (
-        <text key={p} x={pad.l - 6} y={y(p / 100) + 6} textAnchor="end" fontSize={FS} fill="var(--vg-muted)">
+        <text key={p} x={pad.l - 6} y={y(p / 100) + 6} textAnchor="end" fontSize={FS} style={{ fontFamily: F.cond }} fill={C.muted}>
           {p}%
         </text>
       ))}
       {xTicks.map((t, i) => (
-        <text key={i} x={x(t)} y={H - 10} textAnchor={i === 0 ? "start" : i === 2 ? "end" : "middle"} fontSize={FS} fill="var(--vg-muted)">
+        <text key={i} x={x(t)} y={H - 10} textAnchor={i === 0 ? "start" : i === 2 ? "end" : "middle"} fontSize={FS} style={{ fontFamily: F.cond }} fill={C.muted}>
           {formatAxis(t, t1 - t0)}
         </text>
       ))}
-      <line x1={pad.l} x2={W - pad.r} y1={y(threshold)} y2={y(threshold)} stroke="var(--vg-ink)" strokeDasharray="5 4" strokeWidth="1.2" opacity="0.8" />
-      <text x={pad.l - 6} y={y(threshold) + 6} textAnchor="end" fontSize={FS} fontWeight="600" fill="var(--vg-ink)">
+      <line x1={pad.l} x2={W - pad.r} y1={y(threshold)} y2={y(threshold)} stroke={C.signal} strokeWidth="3" />
+      <text x={pad.l - 6} y={y(threshold) + 6} textAnchor="end" fontSize={FS} fontWeight="600" style={{ fontFamily: F.sans }} fill={C.signalInk}>
         {Math.round(threshold * 100)}%
       </text>
       {armedAt > t0 && armedAt < t1 && (
         <g>
-          <line x1={x(armedAt)} x2={x(armedAt)} y1={pad.t} y2={H - pad.b} stroke="var(--vg-rule)" strokeWidth="1" />
-          <text x={x(armedAt) + 5} y={pad.t + FS} fontSize={FS} fill="var(--vg-muted)">
+          <line x1={x(armedAt)} x2={x(armedAt)} y1={pad.t} y2={H - pad.b} stroke={C.dash} strokeWidth="1.5" strokeDasharray="4 4" />
+          <text x={x(armedAt) + 5} y={pad.t + FS} fontSize={FS} style={{ fontFamily: F.cond }} fill={C.muted}>
             watching
           </text>
         </g>
       )}
       {rawPaths.map((d, i) => (
-        <path key={i} d={d} fill="none" stroke="var(--vg-muted)" strokeWidth="1" opacity="0.6" />
+        <path key={i} d={d} fill="none" stroke={C.dash} strokeWidth="1" opacity="0.7" />
       ))}
-      <path d={smooth} fill="none" stroke="var(--vg-accent)" strokeWidth="2.5" />
+      <path d={smooth} fill="none" stroke={C.ink} strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
       {triggeredAt && triggeredAt > t0 && (
-        <circle cx={x(Math.min(triggeredAt, t1))} cy={y(threshold)} r="5" fill="var(--vg-accent)" stroke="var(--vg-card)" strokeWidth="2" />
+        <circle cx={x(Math.min(triggeredAt, t1))} cy={y(threshold)} r="6" fill={C.signal} stroke={C.ink} strokeWidth="2" />
       )}
     </svg>
   );

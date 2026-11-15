@@ -129,8 +129,8 @@ export function GuaranteeCard({
               <button
                 type="button"
                 onClick={onWithdraw}
-                className="t-15 mt-5 w-full rounded-xl px-4 py-3 font-medium"
-                style={{ background: "var(--vg-accent)", color: "var(--vg-card)" }}
+                className="t-15 mt-5 w-full px-4 py-3 font-medium"
+                style={{ background: "#111111", color: "#ECEAE4" }}
               >
                 Withdraw refund
               </button>

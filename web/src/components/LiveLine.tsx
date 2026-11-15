@@ -14,7 +14,7 @@ export function LiveLine() {
     <p className="t-13 flex items-center gap-2" style={{ color: "var(--vg-muted)" }} aria-live="off">
       <span
         aria-hidden
-        className="inline-block h-1.5 w-1.5 rounded-full"
+        className="inline-block h-1.5 w-1.5"
         style={{ background: data?.block ? "var(--vg-accent)" : "var(--vg-rule)" }}
       />
       <span>

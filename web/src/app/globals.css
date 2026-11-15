@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* App-wide palette = the approved Verdict Guarantees tokens (.vg is set on <html>). The older
-   names stay so existing pages pick up the new palette in light and dark mode. */
+   names stay so existing pages pick up the new palette (HonorCat palette, light only). */
 :root {
   --background: var(--vg-page);
   --surface: var(--vg-card);
@@ -10,10 +10,7 @@
   --border: var(--vg-rule);
   --accent: var(--vg-accent);
   --positive: var(--vg-accent);
-  --negative: #b42318;
-}
-@media (prefers-color-scheme: dark) {
-  :root { --negative: #f08a7e; }
+  --negative: #B8320F;
 }
 
 @theme inline {
@@ -25,14 +22,14 @@
   --color-accent: var(--accent);
   --color-positive: var(--positive);
   --color-negative: var(--negative);
-  --font-sans: var(--font-plex-sans);
+  --font-sans: var(--font-barlow);
   --font-mono: var(--font-plex-mono);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-plex-sans), system-ui, sans-serif;
+  font-family: var(--font-barlow), "Helvetica Neue", Arial, sans-serif;
   font-feature-settings: "tnum";
 }
 
@@ -51,8 +48,8 @@ body {
   100% { left: 75%; opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
 }
 @keyframes stage-ping {
-  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent); }
-  100% { box-shadow: 0 0 0 14px color-mix(in srgb, var(--accent) 0%, transparent); }
+  0% { outline: 3px solid var(--vg-signal); outline-offset: 0; }
+  100% { outline: 3px solid transparent; outline-offset: 10px; }
 }
 @keyframes tile-in {
   from { transform: translateX(14px) scale(0.85); opacity: 0; }
@@ -74,52 +71,32 @@ body {
 
 /* ================================================================ Verdict Guarantees tokens
    Scoped to .vg until the design is approved. One accent (ink teal), cool paper, Plex Sans for
-   text, Plex Mono for amounts/hashes. Light by default, dark by media query or data-theme. */
+   Now the HonorCat tokens from docs/design. */
 .vg {
-  --vg-page: #f4f6f5;
-  --vg-card: #ffffff;
-  --vg-ink: #111615;
-  --vg-muted: #58625f;
-  --vg-rule: #d5dcd9;
-  --vg-accent: #0a6a62;
-  --vg-accent-soft: #e2f0ed;
-  --vg-warn-ink: #7a4e00;
-  --vg-warn-bg: #fff4d6;
-  --vg-focus: #0a6a62;
+  /* HonorCat tokens (docs/design): one light palette, one signal colour. */
+  --vg-page: #ECEAE4;
+  --vg-card: #F6F4EE;
+  --vg-ink: #111111;
+  --vg-body: #33312D;
+  --vg-muted: #55534E;
+  --vg-rule: #C9C6BE;
+  --vg-accent: #B8320F;
+  --vg-accent-soft: rgba(232, 66, 26, 0.18);
+  --vg-signal: #E8421A;
+  --vg-warn-ink: #B8320F;
+  --vg-warn-bg: #ECEAE4;
+  --vg-focus: #E8421A;
+  color-scheme: light;
   color: var(--vg-ink);
   background: var(--vg-page);
-  font-family: var(--font-plex-sans), system-ui, sans-serif;
-  font-feature-settings: "tnum" 1;
+  font-family: var(--font-barlow), "Helvetica Neue", Arial, sans-serif;
 }
-.vg-dark,
-.vg[data-theme="dark"] {
-  --vg-page: #0d1110;
-  --vg-card: #151a19;
-  --vg-ink: #ecf1ef;
-  --vg-muted: #9ba6a2;
-  --vg-rule: #29312f;
-  --vg-accent: #5cc6b6;
-  --vg-accent-soft: #12302c;
-  --vg-warn-ink: #f2c66b;
-  --vg-warn-bg: #2b2210;
-  --vg-focus: #5cc6b6;
-}
-@media (prefers-color-scheme: dark) {
-  .vg:not([data-theme="light"]):not(.vg-light) {
-    --vg-page: #0d1110;
-    --vg-card: #151a19;
-    --vg-ink: #ecf1ef;
-    --vg-muted: #9ba6a2;
-    --vg-rule: #29312f;
-    --vg-accent: #5cc6b6;
-    --vg-accent-soft: #12302c;
-    --vg-warn-ink: #f2c66b;
-    --vg-warn-bg: #2b2210;
-    --vg-focus: #5cc6b6;
-  }
-}
+/* No rounded corners, shadows or gradients anywhere (design rule). */
+.vg *, .vg *::before, .vg *::after { border-radius: 0 !important; box-shadow: none !important; }
+.vg a:hover { color: #B8320F; }
+.vg h1, .vg h2, .vg .hc-cond { font-family: var(--font-barlow-condensed), "Arial Narrow", sans-serif; font-weight: 600; letter-spacing: 0; }
 .vg .mono { font-family: var(--font-plex-mono), ui-monospace, monospace; font-feature-settings: "tnum" 1, "zero" 1; }
-.vg :focus-visible { outline: 2px solid var(--vg-focus); outline-offset: 2px; border-radius: 4px; }
+.vg :focus-visible { outline: 2px solid var(--vg-focus); outline-offset: 2px; }
 
 /* type scale: 13 / 15 / 17 / 21 / 27 / 36 */
 .vg .t-13 { font-size: 13px; line-height: 18px; }
@@ -130,15 +107,9 @@ body {
 .vg .t-36 { font-size: 36px; line-height: 40px; letter-spacing: -0.02em; }
 
 /* the ticket: a perforation splits promise (top) from proof (bottom) */
-.vg-ticket { position: relative; background: var(--vg-card); border: 1px solid var(--vg-rule); border-radius: 16px; }
+.vg-ticket { position: relative; background: transparent; border-top: 1.5px solid var(--vg-ink); border-bottom: 1.5px solid var(--vg-ink); }
 .vg-perf { position: relative; height: 0; border-top: 1.5px dashed var(--vg-rule); margin: 0 18px; }
-.vg-perf::before,
-.vg-perf::after {
-  content: ""; position: absolute; top: -12px; width: 22px; height: 22px; border-radius: 999px;
-  background: var(--vg-page); border: 1px solid var(--vg-rule);
-}
-.vg-perf::before { left: -30px; clip-path: inset(0 0 0 50%); }
-.vg-perf::after { right: -30px; clip-path: inset(0 50% 0 0); }
+
 
 /* settlement rail: motion only when a step completes */
 @keyframes vg-step-done { from { transform: scale(0.4); opacity: 0.2; } to { transform: none; opacity: 1; } }
@@ -146,3 +117,17 @@ body {
 .vg-step-done { animation: vg-step-done 260ms cubic-bezier(.2,.8,.2,1) both; }
 .vg-chip-in { animation: vg-chip-in 220ms ease-out 80ms both; }
 @media (prefers-reduced-motion: reduce) { .vg-step-done, .vg-chip-in { animation: none; } }
+
+/* HonorCat design reference (docs/design/*.html): links, focus, page gutters. */
+.hc { color-scheme: light; font-feature-settings: normal; }
+.hc a { color: #111111; }
+.hc a:hover { color: #B8320F; }
+.hc a:focus-visible, .hc button:focus-visible { outline: 2px solid #E8421A; outline-offset: 2px; }
+.hc-wrap { max-width: 1360px; margin: 0 auto; padding-left: 40px; padding-right: 40px; box-sizing: border-box; }
+@media (max-width: 600px) { .hc-wrap { padding-left: 20px; padding-right: 20px; } }
+.hc-narrow { display: none; }
+@media (max-width: 700px) { .hc-wide { display: none; } .hc-narrow { display: block; } }
+/* Inner pages: headings at the reference sizes unless a page sets its own inline. */
+.vg .hc main h1 { font-size: clamp(44px, 6vw, 64px); line-height: 0.95; font-weight: 600; }
+.vg .hc main h2 { font-size: 30px; line-height: 1.05; font-weight: 600; }
+.vg .hc main h1.hc-long { font-size: clamp(30px, 4vw, 44px); line-height: 1.05; }

@@ -56,8 +56,8 @@ function Art({ m, className }: { m: PickerMarket; className: string }) {
 
 function ChanceBar({ value }: { value: number | null }) {
   return (
-    <span aria-hidden className="block h-1.5 w-full overflow-hidden rounded-full" style={{ background: "var(--vg-rule)" }}>
-      <span className="block h-full rounded-full" style={{ width: `${Math.round((value ?? 0) * 100)}%`, background: "var(--vg-accent)" }} />
+    <span aria-hidden className="block h-1.5 w-full overflow-hidden" style={{ background: "var(--vg-rule)" }}>
+      <span className="block h-full" style={{ width: `${Math.round((value ?? 0) * 100)}%`, background: "var(--vg-accent)" }} />
     </span>
   );
 }
@@ -103,7 +103,7 @@ export function MarketPicker(p: {
       >
         {p.market ? (
           <>
-            <Art m={p.market} className="h-14 w-14 shrink-0 rounded-lg" />
+            <Art m={p.market} className="h-14 w-14 shrink-0" />
             <span className="min-w-0 flex-1">
               <span className="t-15 line-clamp-2 block font-medium">{p.market.title}</span>
               <span className="t-13 block" style={{ color: "var(--vg-muted)" }}>
@@ -128,13 +128,13 @@ export function MarketPicker(p: {
         ref={dialog}
         aria-label="Choose a market"
         onClick={(e) => e.target === dialog.current && close()}
-        className="fixed inset-0 m-0 h-dvh max-h-none w-screen max-w-none p-0 backdrop:bg-black/50 sm:m-auto sm:h-[85vh] sm:w-[min(48rem,calc(100vw-2rem))] sm:rounded-2xl"
+        className="fixed inset-0 m-0 h-dvh max-h-none w-screen max-w-none p-0 backdrop:bg-black/50 sm:m-auto sm:h-[85vh] sm:w-[min(48rem,calc(100vw-2rem))] sm:"
         style={{ background: "var(--vg-page)", color: "var(--vg-ink)" }}
       >
         <div className="flex h-full flex-col">
           <header className="flex items-center gap-3 border-b px-4 py-3" style={{ borderColor: "var(--vg-rule)", background: "var(--vg-card)" }}>
             {detail && (
-              <button type="button" onClick={() => setOpen(null)} className="t-15 rounded-lg px-2 py-1" aria-label="Back to all markets">
+              <button type="button" onClick={() => setOpen(null)} className="t-15 px-2 py-1" aria-label="Back to all markets">
                 ‹ All
               </button>
             )}
@@ -144,7 +144,7 @@ export function MarketPicker(p: {
                 {detail ? `Settles ${settlesAt(detail.expiry)}` : `${list.length} live on Gemini. Chances are market estimates.`}
               </p>
             </div>
-            <button type="button" onClick={close} className="t-21 h-9 w-9 rounded-lg" aria-label="Close">
+            <button type="button" onClick={close} className="t-21 h-9 w-9" aria-label="Close">
               ×
             </button>
           </header>
@@ -156,10 +156,10 @@ export function MarketPicker(p: {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search city, coin or threshold"
-                className="t-15 min-w-0 flex-1 rounded-lg border px-3 py-2"
+                className="t-15 min-w-0 flex-1 border px-3 py-2"
                 style={{ borderColor: "var(--vg-rule)", background: "var(--vg-card)" }}
               />
-              <div className="t-13 flex rounded-lg border p-0.5" role="radiogroup" aria-label="Sort" style={{ borderColor: "var(--vg-rule)", background: "var(--vg-card)" }}>
+              <div className="t-13 flex border p-0.5" role="radiogroup" aria-label="Sort" style={{ borderColor: "var(--vg-rule)", background: "var(--vg-card)" }}>
                 {(
                   [
                     ["soon", "Settles soonest"],
@@ -172,7 +172,7 @@ export function MarketPicker(p: {
                     role="radio"
                     aria-checked={sort === k}
                     onClick={() => setSort(k)}
-                    className="rounded-md px-2.5 py-1.5"
+                    className="px-2.5 py-1.5"
                     style={sort === k ? { background: "var(--vg-accent-soft)", color: "var(--vg-accent)" } : undefined}
                   >
                     {label}
@@ -206,7 +206,7 @@ export function MarketPicker(p: {
                         className="vg-ticket flex w-full items-start gap-3 p-3 text-left"
                         style={selected ? { borderColor: "var(--vg-accent)", boxShadow: "0 0 0 1px var(--vg-accent)" } : undefined}
                       >
-                        <Art m={m} className="h-16 w-16 shrink-0 rounded-lg" />
+                        <Art m={m} className="h-16 w-16 shrink-0" />
                         <span className="block min-w-0 flex-1 space-y-1.5">
                           <span className="t-15 block font-medium leading-snug">{m.title}</span>
                           <span className="t-13 flex flex-wrap gap-x-3" style={{ color: "var(--vg-muted)" }}>
@@ -238,7 +238,7 @@ export function MarketPicker(p: {
             {detail && (
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
-                  <Art m={detail} className="h-20 w-20 shrink-0 rounded-xl" />
+                  <Art m={detail} className="h-20 w-20 shrink-0" />
                   <p className="t-13" style={{ color: "var(--vg-muted)" }}>
                     Pick the threshold your promise depends on. Next, you choose whether customers are refunded if it happens or if it does not.
                     {traded(detail.volume) ? ` ${traded(detail.volume)} on Gemini.` : ""}
