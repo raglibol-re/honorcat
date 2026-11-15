@@ -19,6 +19,11 @@
 - Work in cycles per docs/improve.md, everything in the agreed priority order.
 
 ## Rubric cycle log
+- 2026-11-15: user feedback "too much text": consumer pages cut to one headline, one sentence and one
+  button each (phone word counts: landing 54, create 50, join 52, account 15); the long explanation moved
+  to /how, per-pot rules into a collapsed "Full rules", internals behind "Show technical details".
+  Header: Start / How it works / My money. Checked on production at phone width: no overflow, no console
+  errors (commits 27a9ad6, b09fd39).
 - 2026-11-15 (night): early payouts M2-M4 built and deployed (samplers resolver 0x81d1...36c9,
   sampler on Vercel/GitHub Actions/local, funder flow, live view, recipient card, proof page,
   post-settlement record, landing). e2e `early` passed twice in a row on production (02:01-02:15
