@@ -146,3 +146,11 @@ body {
 .vg-step-done { animation: vg-step-done 260ms cubic-bezier(.2,.8,.2,1) both; }
 .vg-chip-in { animation: vg-chip-in 220ms ease-out 80ms both; }
 @media (prefers-reduced-motion: reduce) { .vg-step-done, .vg-chip-in { animation: none; } }
+
+/* HonorCat design reference (docs/design/*.html): links, focus, page gutters. */
+.hc { color-scheme: light; font-feature-settings: normal; }
+.hc a { color: #111111; }
+.hc a:hover { color: #B8320F; }
+.hc a:focus-visible, .hc button:focus-visible { outline: 2px solid #E8421A; outline-offset: 2px; }
+.hc-wrap { max-width: 1360px; margin: 0 auto; padding-left: 40px; padding-right: 40px; box-sizing: border-box; }
+@media (max-width: 600px) { .hc-wrap { padding-left: 20px; padding-right: 20px; } }

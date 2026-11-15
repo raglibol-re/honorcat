@@ -1,12 +1,15 @@
 import type { Metadata, Viewport } from "next";
-import { IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
+import { Barlow, Barlow_Condensed, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
 import { WalletProvider } from "@/lib/wallet/context";
-import { SiteFooter, SiteHeader } from "@/components/SiteChrome";
+
 import { TechModeProvider } from "@/components/TechMode";
 import "./globals.css";
 
 const plexSans = IBM_Plex_Sans({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-plex-sans" });
 const plexMono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-plex-mono" });
+// HonorCat design reference (docs/design): Barlow 400/500/600, Barlow Condensed 500/600/700, IBM Plex Mono 400/500.
+const barlow = Barlow({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-barlow" });
+const barlowCondensed = Barlow_Condensed({ subsets: ["latin"], weight: ["500", "600", "700"], variable: "--font-barlow-condensed" });
 
 export const metadata: Metadata = {
   title: { default: "HonorCat · Promises that always land", template: "%s · HonorCat" },
@@ -22,16 +25,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${plexSans.variable} ${plexMono.variable} vg h-full antialiased`}>
+    <html lang="en" className={`${plexSans.variable} ${plexMono.variable} ${barlow.variable} ${barlowCondensed.variable} vg h-full antialiased`}>
       <body className="flex min-h-full flex-col">
         <TechModeProvider>
           <WalletProvider>
-            <p className="t-13 px-4 py-2 text-center" style={{ background: "var(--vg-warn-bg)", color: "var(--vg-warn-ink)" }}>
-              Test version with test money. Not insurance.
-            </p>
-            <SiteHeader />
-            <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:py-10">{children}</main>
-            <SiteFooter />
+            {children}
           </WalletProvider>
         </TechModeProvider>
       </body>

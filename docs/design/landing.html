@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HonorCat landing page (design reference)</title>
+<!-- HonorCat design reference. Static mockup: copy tokens, layout and SVG shapes from here. Signal colour: #E8421A. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&amp;family=Barlow+Condensed:wght@500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#111111}a:hover{color:#B8320F}
+</style>
+</head>
+<body>
+<div style="background: #ECEAE4; color: #111111; font-family: 'Barlow', 'Helvetica Neue', Arial, sans-serif; min-height: 2620px; box-sizing: border-box">
+
+<header style="max-width: 1360px; margin: 0 auto; padding: 22px 40px; display: flex; flex-wrap: wrap; gap: 12px 40px; align-items: center; justify-content: space-between">
+<div style="display: flex; align-items: center; gap: 10px">
+<svg width="30" height="28" viewBox="0 0 20 20" aria-hidden="true"><path d="M2 3 L6 7 L14 7 L18 3 L18 13 L15 17 L5 17 L2 13 Z" fill="#111111"></path><ellipse cx="7.4" cy="11" rx="1.1" ry="1.7" fill="#E8421A"></ellipse><ellipse cx="12.6" cy="11" rx="1.1" ry="1.7" fill="#E8421A"></ellipse></svg>
+<span style="font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-size: 28px; font-weight: 600; letter-spacing: 0.01em">HonorCat</span>
+</div>
+<nav style="display: flex; flex-wrap: wrap; gap: 4px 36px; font-size: 17px; font-weight: 500">
+<a href="#demo" style="text-decoration: none; padding: 12px 0">Start</a>
+<a href="#how" style="text-decoration: none; padding: 12px 0">How it works</a>
+<a href="#money" style="text-decoration: none; padding: 12px 0">My money</a>
+</nav>
+<span style="font-size: 15px; color: #55534E">Test version on Arc testnet. Test money only.</span>
+</header>
+
+<section style="max-width: 1360px; margin: 0 auto; padding: 36px 40px 0; display: flex; flex-wrap: wrap; gap: 32px 72px; align-items: flex-end">
+<div style="flex: 1 1 480px; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; align-items: flex-start; gap: 8px">
+<span style="font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-weight: 700; font-size: clamp(190px, 27vw, 400px); line-height: 0.78; letter-spacing: -0.02em">92</span>
+<span style="font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-weight: 600; font-size: clamp(56px, 7vw, 104px); line-height: 1">%</span>
+</div>
+<p style="margin: 20px 0 0; font-size: 19px; line-height: 1.4; color: #55534E; max-width: 440px">is how sure a live Gemini market is that Bitcoin closes at $64,000 or above on November 15. The cat is already past the bowl.</p>
+</div>
+<div style="flex: 1 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 22px; padding-bottom: 6px">
+<h1 style="margin: 0; font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-size: clamp(52px, 6vw, 88px); line-height: 0.96; font-weight: 600; letter-spacing: -0.005em; text-wrap: balance">Get paid before it happens.</h1>
+<p style="margin: 0; font-size: 21px; line-height: 1.45; color: #33312D; max-width: 520px">Cats know first. When a market says an event is very likely, everyone on the list gets the money. Automatically, with nothing to file.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 12px 28px; align-items: center">
+<a id="demo" href="#demo" style="display: inline-flex; align-items: center; gap: 14px; min-height: 68px; padding: 8px 28px 8px 22px; background: #111111; color: #ECEAE4; text-decoration: none">
+<svg width="34" height="32" viewBox="0 0 20 20" aria-hidden="true" style="flex: none"><path d="M2 3 L6 7 L14 7 L18 3 L18 13 L15 17 L5 17 L2 13 Z" fill="#ECEAE4"></path><ellipse cx="7.4" cy="11" rx="1.1" ry="1.7" fill="#111111"></ellipse><ellipse cx="12.6" cy="11" rx="1.1" ry="1.7" fill="#111111"></ellipse></svg>
+<span style="display: flex; flex-direction: column; gap: 1px">
+<span style="font-size: 20px; font-weight: 600; line-height: 1.15">Let the cat out</span>
+<span style="font-size: 15px; font-weight: 500; line-height: 1.2; color: #C9C6BE">Run the demo</span>
+</span>
+</a>
+<a href="#how" style="font-size: 19px; font-weight: 500; padding: 14px 0">How it works</a>
+</div>
+</div>
+</section>
+
+<section style="padding: 28px 0 0">
+<svg viewBox="0 0 1440 260" style="width: 100%; height: auto; display: block" role="img" aria-label="A scale from 0 to 100 percent. A food bowl stands at 85 percent, where payouts fire. A black cat has walked along the scale, past the bowl, and sits at 92 percent.">
+<rect x="1196.0" y="150" width="204.0" height="62" fill="#E8421A" opacity="0.18"></rect>
+<line x1="40" y1="212" x2="1400" y2="212" stroke="#111111" stroke-width="2"></line>
+<line x1="40.0" y1="178" x2="40.0" y2="212" stroke="#111111" stroke-width="2"></line>
+<text x="40.0" y="242" text-anchor="middle" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-size="22" font-weight="500" fill="#111111">0</text>
+<line x1="53.6" y1="198" x2="53.6" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="67.2" y1="198" x2="67.2" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="80.8" y1="198" x2="80.8" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="94.4" y1="198" x2="94.4" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="108.0" y1="188" x2="108.0" y2="212" stroke="#111111" stroke-width="1.5"></line>
+<line x1="121.6" y1="198" x2="121.6" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="135.2" y1="198" x2="135.2" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="148.8" y1="198" x2="148.8" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="162.4" y1="198" x2="162.4" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="176.0" y1="178" x2="176.0" y2="212" stroke="#111111" stroke-width="2"></line>
+<text x="176.0" y="242" text-anchor="middle" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-size="22" font-weight="500" fill="#111111">10</text>
+<line x1="189.6" y1="198" x2="189.6" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="203.2" y1="198" x2="203.2" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="216.8" y1="198" x2="216.8" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="230.4" y1="198" x2="230.4" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="244.0" y1="188" x2="244.0" y2="212" stroke="#111111" stroke-width="1.5"></line>
+<line x1="257.6" y1="198" x2="257.6" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="271.2" y1="198" x2="271.2" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="284.8" y1="198" x2="284.8" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="298.4" y1="198" x2="298.4" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="312.0" y1="178" x2="312.0" y2="212" stroke="#111111" stroke-width="2"></line>
+<text x="312.0" y="242" text-anchor="middle" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-size="22" font-weight="500" fill="#111111">20</text>
+<line x1="325.6" y1="198" x2="325.6" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="339.2" y1="198" x2="339.2" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="352.8" y1="198" x2="352.8" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="366.4" y1="198" x2="366.4" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="380.0" y1="188" x2="380.0" y2="212" stroke="#111111" stroke-width="1.5"></line>
+<line x1="393.6" y1="198" x2="393.6" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="407.2" y1="198" x2="407.2" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="420.8" y1="198" x2="420.8" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="434.4" y1="198" x2="434.4" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="448.0" y1="178" x2="448.0" y2="212" stroke="#111111" stroke-width="2"></line>
+<text x="448.0" y="242" text-anchor="middle" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-size="22" font-weight="500" fill="#111111">30</text>
+<line x1="461.6" y1="198" x2="461.6" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="475.2" y1="198" x2="475.2" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="488.8" y1="198" x2="488.8" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="502.4" y1="198" x2="502.4" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="516.0" y1="188" x2="516.0" y2="212" stroke="#111111" stroke-width="1.5"></line>
+<line x1="529.6" y1="198" x2="529.6" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="543.2" y1="198" x2="543.2" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="556.8" y1="198" x2="556.8" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="570.4" y1="198" x2="570.4" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="584.0" y1="178" x2="584.0" y2="212" stroke="#111111" stroke-width="2"></line>
+<text x="584.0" y="242" text-anchor="middle" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-size="22" font-weight="500" fill="#111111">40</text>
+<line x1="597.6" y1="198" x2="597.6" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="611.2" y1="198" x2="611.2" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="624.8" y1="198" x2="624.8" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="638.4" y1="198" x2="638.4" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="652.0" y1="188" x2="652.0" y2="212" stroke="#111111" stroke-width="1.5"></line>
+<line x1="665.6" y1="198" x2="665.6" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="679.2" y1="198" x2="679.2" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="692.8" y1="198" x2="692.8" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="706.4" y1="198" x2="706.4" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="720.0" y1="178" x2="720.0" y2="212" stroke="#111111" stroke-width="2"></line>
+<text x="720.0" y="242" text-anchor="middle" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-size="22" font-weight="500" fill="#111111">50</text>
+<line x1="733.6" y1="198" x2="733.6" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="747.2" y1="198" x2="747.2" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="760.8" y1="198" x2="760.8" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="774.4" y1="198" x2="774.4" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="788.0" y1="188" x2="788.0" y2="212" stroke="#111111" stroke-width="1.5"></line>
+<line x1="801.6" y1="198" x2="801.6" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="815.2" y1="198" x2="815.2" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="828.8" y1="198" x2="828.8" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="842.4" y1="198" x2="842.4" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="856.0" y1="178" x2="856.0" y2="212" stroke="#111111" stroke-width="2"></line>
+<text x="856.0" y="242" text-anchor="middle" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-size="22" font-weight="500" fill="#111111">60</text>
+<line x1="869.6" y1="198" x2="869.6" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="883.2" y1="198" x2="883.2" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="896.8" y1="198" x2="896.8" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="910.4" y1="198" x2="910.4" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="924.0" y1="188" x2="924.0" y2="212" stroke="#111111" stroke-width="1.5"></line>
+<line x1="937.6" y1="198" x2="937.6" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="951.2" y1="198" x2="951.2" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="964.8" y1="198" x2="964.8" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="978.4" y1="198" x2="978.4" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="992.0" y1="178" x2="992.0" y2="212" stroke="#111111" stroke-width="2"></line>
+<text x="992.0" y="242" text-anchor="middle" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-size="22" font-weight="500" fill="#111111">70</text>
+<line x1="1005.6" y1="198" x2="1005.6" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="1019.2" y1="198" x2="1019.2" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="1032.8" y1="198" x2="1032.8" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="1046.4" y1="198" x2="1046.4" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="1060.0" y1="188" x2="1060.0" y2="212" stroke="#111111" stroke-width="1.5"></line>
+<line x1="1073.6" y1="198" x2="1073.6" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="1087.2" y1="198" x2="1087.2" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="1100.8" y1="198" x2="1100.8" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="1114.4" y1="198" x2="1114.4" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="1128.0" y1="178" x2="1128.0" y2="212" stroke="#111111" stroke-width="2"></line>
+<text x="1128.0" y="242" text-anchor="middle" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-size="22" font-weight="500" fill="#111111">80</text>
+<line x1="1141.6" y1="198" x2="1141.6" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="1155.2" y1="198" x2="1155.2" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="1168.8" y1="198" x2="1168.8" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="1182.4" y1="198" x2="1182.4" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="1196.0" y1="188" x2="1196.0" y2="212" stroke="#111111" stroke-width="1.5"></line>
+<line x1="1209.6" y1="198" x2="1209.6" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="1223.2" y1="198" x2="1223.2" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="1236.8" y1="198" x2="1236.8" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="1250.4" y1="198" x2="1250.4" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="1264.0" y1="178" x2="1264.0" y2="212" stroke="#111111" stroke-width="2"></line>
+<text x="1264.0" y="242" text-anchor="middle" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-size="22" font-weight="500" fill="#111111">90</text>
+<line x1="1277.6" y1="198" x2="1277.6" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="1291.2" y1="198" x2="1291.2" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="1304.8" y1="198" x2="1304.8" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="1318.4" y1="198" x2="1318.4" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="1332.0" y1="188" x2="1332.0" y2="212" stroke="#111111" stroke-width="1.5"></line>
+<line x1="1345.6" y1="198" x2="1345.6" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="1359.2" y1="198" x2="1359.2" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="1372.8" y1="198" x2="1372.8" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="1386.4" y1="198" x2="1386.4" y2="212" stroke="#111111" stroke-width="1"></line>
+<line x1="1400.0" y1="178" x2="1400.0" y2="212" stroke="#111111" stroke-width="2"></line>
+<text x="1400.0" y="242" text-anchor="middle" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-size="22" font-weight="500" fill="#111111">100</text>
+<g transform="translate(828.8 150.0) rotate(90) scale(1.15)" fill="#111111"><ellipse cx="0" cy="3" rx="6" ry="5"></ellipse><circle cx="-6.2" cy="-4" r="2.4"></circle><circle cx="-2.2" cy="-7.6" r="2.4"></circle><circle cx="2.4" cy="-7.6" r="2.4"></circle><circle cx="6.4" cy="-4" r="2.4"></circle></g>
+<g transform="translate(876.4 166.0) rotate(90) scale(1.15)" fill="#111111"><ellipse cx="0" cy="3" rx="6" ry="5"></ellipse><circle cx="-6.2" cy="-4" r="2.4"></circle><circle cx="-2.2" cy="-7.6" r="2.4"></circle><circle cx="2.4" cy="-7.6" r="2.4"></circle><circle cx="6.4" cy="-4" r="2.4"></circle></g>
+<g transform="translate(924.0 150.0) rotate(90) scale(1.15)" fill="#111111"><ellipse cx="0" cy="3" rx="6" ry="5"></ellipse><circle cx="-6.2" cy="-4" r="2.4"></circle><circle cx="-2.2" cy="-7.6" r="2.4"></circle><circle cx="2.4" cy="-7.6" r="2.4"></circle><circle cx="6.4" cy="-4" r="2.4"></circle></g>
+<g transform="translate(971.6 166.0) rotate(90) scale(1.15)" fill="#111111"><ellipse cx="0" cy="3" rx="6" ry="5"></ellipse><circle cx="-6.2" cy="-4" r="2.4"></circle><circle cx="-2.2" cy="-7.6" r="2.4"></circle><circle cx="2.4" cy="-7.6" r="2.4"></circle><circle cx="6.4" cy="-4" r="2.4"></circle></g>
+<g transform="translate(1019.2 150.0) rotate(90) scale(1.15)" fill="#111111"><ellipse cx="0" cy="3" rx="6" ry="5"></ellipse><circle cx="-6.2" cy="-4" r="2.4"></circle><circle cx="-2.2" cy="-7.6" r="2.4"></circle><circle cx="2.4" cy="-7.6" r="2.4"></circle><circle cx="6.4" cy="-4" r="2.4"></circle></g>
+<g transform="translate(1066.8 166.0) rotate(90) scale(1.15)" fill="#111111"><ellipse cx="0" cy="3" rx="6" ry="5"></ellipse><circle cx="-6.2" cy="-4" r="2.4"></circle><circle cx="-2.2" cy="-7.6" r="2.4"></circle><circle cx="2.4" cy="-7.6" r="2.4"></circle><circle cx="6.4" cy="-4" r="2.4"></circle></g>
+<g transform="translate(1114.4 150.0) rotate(90) scale(1.15)" fill="#111111"><ellipse cx="0" cy="3" rx="6" ry="5"></ellipse><circle cx="-6.2" cy="-4" r="2.4"></circle><circle cx="-2.2" cy="-7.6" r="2.4"></circle><circle cx="2.4" cy="-7.6" r="2.4"></circle><circle cx="6.4" cy="-4" r="2.4"></circle></g>
+<g transform="translate(1162.0 166.0) rotate(90) scale(1.15)" fill="#111111"><ellipse cx="0" cy="3" rx="6" ry="5"></ellipse><circle cx="-6.2" cy="-4" r="2.4"></circle><circle cx="-2.2" cy="-7.6" r="2.4"></circle><circle cx="2.4" cy="-7.6" r="2.4"></circle><circle cx="6.4" cy="-4" r="2.4"></circle></g>
+<path d="M1166.0 212 L1226.0 212 L1218.0 188 L1174.0 188 Z" fill="#E8421A"></path><path d="M1178.0 188 Q1196.0 170 1214.0 188 Z" fill="#111111"></path>
+<text x="1222.0" y="128" text-anchor="end" font-family="Barlow, Arial, sans-serif" font-size="19" font-weight="600" fill="#B8320F">the bowl: pays at 85% or more</text>
+<line x1="1196.0" y1="136" x2="1196.0" y2="168" stroke="#B8320F" stroke-width="1.5"></line>
+<g transform="translate(1239.2 72.0) scale(1.0)"><path d="M94 122 C 128 122, 126 80, 104 74" fill="none" stroke="#111111" stroke-width="11" stroke-linecap="round"></path><ellipse cx="64" cy="98" rx="34" ry="40" fill="#111111"></ellipse><circle cx="44" cy="46" r="25" fill="#111111"></circle><polygon points="22,38 26,6 44,26" fill="#111111"></polygon><polygon points="46,24 62,6 66,38" fill="#111111"></polygon><ellipse cx="44" cy="135" rx="13" ry="6" fill="#111111"></ellipse><ellipse cx="70" cy="135" rx="13" ry="6" fill="#111111"></ellipse><ellipse cx="35" cy="46" rx="3.6" ry="5.2" fill="#E8421A"></ellipse><ellipse cx="52" cy="46" rx="3.6" ry="5.2" fill="#E8421A"></ellipse></g>
+<text x="1361.2" y="58" text-anchor="end" font-family="Barlow, Arial, sans-serif" font-size="19" font-weight="600" fill="#111111">the cat: 92% now</text>
+</svg>
+</section>
+
+<section style="max-width: 1360px; margin: 0 auto; padding: 72px 40px 0; display: flex; flex-wrap: wrap; gap: 28px 56px; align-items: flex-start">
+<div style="flex: 1 1 280px; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+<h2 style="margin: 0; font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-size: 44px; font-weight: 600; line-height: 1">The moment it pounced</h2>
+<p style="margin: 0; font-size: 19px; line-height: 1.45; color: #33312D">The line crossed 85% and held. Three people were paid on the spot, before anyone knew the result.</p>
+<span style="font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 13px; color: #55534E; overflow-wrap: anywhere">Gemini · GEMI-BTC2611152200-HI64000</span>
+</div>
+<div style="flex: 999 1 620px; min-width: 0; display: flex; flex-direction: column; gap: 10px">
+<div style="border: 1.5px solid #111111; background: #F6F4EE">
+<svg viewBox="0 0 1000 340" style="width: 100%; height: auto; display: block" role="img" aria-label="The chance over time. It rises from 73 percent, crosses the 85 percent line, where the payout fires and a paw print marks the spot, and reaches 92 percent.">
+<line x1="40" y1="0" x2="40" y2="340" stroke="#DDDAD2" stroke-width="1"></line>
+<line x1="80" y1="0" x2="80" y2="340" stroke="#DDDAD2" stroke-width="1"></line>
+<line x1="120" y1="0" x2="120" y2="340" stroke="#DDDAD2" stroke-width="1"></line>
+<line x1="160" y1="0" x2="160" y2="340" stroke="#DDDAD2" stroke-width="1"></line>
+<line x1="200" y1="0" x2="200" y2="340" stroke="#DDDAD2" stroke-width="1"></line>
+<line x1="240" y1="0" x2="240" y2="340" stroke="#DDDAD2" stroke-width="1"></line>
+<line x1="280" y1="0" x2="280" y2="340" stroke="#DDDAD2" stroke-width="1"></line>
+<line x1="320" y1="0" x2="320" y2="340" stroke="#DDDAD2" stroke-width="1"></line>
+<line x1="360" y1="0" x2="360" y2="340" stroke="#DDDAD2" stroke-width="1"></line>
+<line x1="400" y1="0" x2="400" y2="340" stroke="#DDDAD2" stroke-width="1"></line>
+<line x1="440" y1="0" x2="440" y2="340" stroke="#DDDAD2" stroke-width="1"></line>
+<line x1="480" y1="0" x2="480" y2="340" stroke="#DDDAD2" stroke-width="1"></line>
+<line x1="520" y1="0" x2="520" y2="340" stroke="#DDDAD2" stroke-width="1"></line>
+<line x1="560" y1="0" x2="560" y2="340" stroke="#DDDAD2" stroke-width="1"></line>
+<line x1="600" y1="0" x2="600" y2="340" stroke="#DDDAD2" stroke-width="1"></line>
+<line x1="640" y1="0" x2="640" y2="340" stroke="#DDDAD2" stroke-width="1"></line>
+<line x1="680" y1="0" x2="680" y2="340" stroke="#DDDAD2" stroke-width="1"></line>
+<line x1="720" y1="0" x2="720" y2="340" stroke="#DDDAD2" stroke-width="1"></line>
+<line x1="760" y1="0" x2="760" y2="340" stroke="#DDDAD2" stroke-width="1"></line>
+<line x1="800" y1="0" x2="800" y2="340" stroke="#DDDAD2" stroke-width="1"></line>
+<line x1="840" y1="0" x2="840" y2="340" stroke="#DDDAD2" stroke-width="1"></line>
+<line x1="880" y1="0" x2="880" y2="340" stroke="#DDDAD2" stroke-width="1"></line>
+<line x1="920" y1="0" x2="920" y2="340" stroke="#DDDAD2" stroke-width="1"></line>
+<line x1="960" y1="0" x2="960" y2="340" stroke="#DDDAD2" stroke-width="1"></line>
+<line x1="0" y1="20" x2="1000" y2="20" stroke="#DDDAD2" stroke-width="1"></line>
+<line x1="0" y1="55" x2="1000" y2="55" stroke="#DDDAD2" stroke-width="1"></line>
+<line x1="0" y1="90" x2="1000" y2="90" stroke="#DDDAD2" stroke-width="1"></line>
+<line x1="0" y1="125" x2="1000" y2="125" stroke="#DDDAD2" stroke-width="1"></line>
+<line x1="0" y1="160" x2="1000" y2="160" stroke="#DDDAD2" stroke-width="1"></line>
+<line x1="0" y1="195" x2="1000" y2="195" stroke="#DDDAD2" stroke-width="1"></line>
+<line x1="0" y1="230" x2="1000" y2="230" stroke="#DDDAD2" stroke-width="1"></line>
+<line x1="0" y1="265" x2="1000" y2="265" stroke="#DDDAD2" stroke-width="1"></line>
+<line x1="0" y1="300" x2="1000" y2="300" stroke="#DDDAD2" stroke-width="1"></line>
+<line x1="0" y1="335" x2="1000" y2="335" stroke="#DDDAD2" stroke-width="1"></line>
+<text x="10" y="26" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-size="18" fill="#55534E">100</text>
+<text x="10" y="96" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-size="18" fill="#55534E">90</text>
+<text x="10" y="166" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-size="18" fill="#55534E">80</text>
+<text x="10" y="236" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-size="18" fill="#55534E">70</text>
+<line x1="0" y1="125" x2="1000" y2="125" stroke="#E8421A" stroke-width="3"></line>
+<text x="990" y="148" text-anchor="end" font-family="Barlow, Arial, sans-serif" font-size="17" font-weight="600" fill="#B8320F">85%</text>
+<polyline fill="none" stroke="#111111" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" points="44,209 110,203 180,214 260,196 340,188 420,196 500,170 560,152 600,138 640,125 700,112 760,118 820,98 880,92 940,82 966,78"></polyline>
+<circle cx="640" cy="125" r="17" fill="#F6F4EE" stroke="#111111" stroke-width="2"></circle>
+<g transform="translate(640.0 126.0) rotate(20) scale(1.25)" fill="#111111"><ellipse cx="0" cy="3" rx="6" ry="5"></ellipse><circle cx="-6.2" cy="-4" r="2.4"></circle><circle cx="-2.2" cy="-7.6" r="2.4"></circle><circle cx="2.4" cy="-7.6" r="2.4"></circle><circle cx="6.4" cy="-4" r="2.4"></circle></g>
+<line x1="640" y1="106" x2="640" y2="78" stroke="#111111" stroke-width="1.5"></line>
+<g transform="rotate(-5 640 50)">
+<rect x="526" y="26" width="228" height="50" fill="#F6F4EE" stroke="#E8421A" stroke-width="3.5"></rect>
+<g transform="translate(556.0 52.0) rotate(-15) scale(1.2)" fill="#B8320F"><ellipse cx="0" cy="3" rx="6" ry="5"></ellipse><circle cx="-6.2" cy="-4" r="2.4"></circle><circle cx="-2.2" cy="-7.6" r="2.4"></circle><circle cx="2.4" cy="-7.6" r="2.4"></circle><circle cx="6.4" cy="-4" r="2.4"></circle></g>
+<text x="656" y="61" text-anchor="middle" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-size="30" font-weight="700" fill="#B8320F" letter-spacing="2.5">PAID EARLY</text>
+</g>
+<g transform="translate(962 58) scale(1.8)"><path d="M2 3 L6 7 L14 7 L18 3 L18 13 L15 17 L5 17 L2 13 Z" fill="#111111"></path></g>
+<text x="954" y="56" text-anchor="end" font-family="Barlow, Arial, sans-serif" font-size="17" font-weight="600" fill="#111111">92% now</text>
+</svg>
+</div>
+<span style="font-size: 14px; color: #55534E">Illustrative curve. The values 73%, 85% and 92% are taken from the live example on the current site.</span>
+</div>
+</section>
+
+<section id="money" style="max-width: 1360px; margin: 0 auto; padding: 64px 40px 0">
+<div style="display: flex; flex-wrap: wrap; gap: 28px 0">
+<div style="flex: 1 1 190px; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: center; height: 22px"><svg width="24" height="22" viewBox="0 0 20 20" aria-hidden="true" style="flex: none"><path d="M2 3 L6 7 L14 7 L18 3 L18 13 L15 17 L5 17 L2 13 Z" fill="#111111"></path></svg><span style="flex: 1; height: 2px; background: #111111"></span></div>
+<div style="display: flex; flex-direction: column; gap: 4px; padding-right: 20px">
+<span style="font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-size: 30px; font-weight: 600; line-height: 1">Locked</span>
+<span style="font-size: 16px; line-height: 1.4; color: #55534E">The cat sits on $0.30 in the vault</span>
+<span style="font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 13px; color: #55534E">0xba71…E6D4</span>
+</div>
+</div>
+<div style="flex: 1 1 190px; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: center; height: 22px"><svg width="24" height="22" viewBox="0 0 20 20" aria-hidden="true" style="flex: none"><path d="M2 3 L6 7 L14 7 L18 3 L18 13 L15 17 L5 17 L2 13 Z" fill="#111111"></path></svg><span style="flex: 1; height: 2px; background: #111111"></span></div>
+<div style="display: flex; flex-direction: column; gap: 4px; padding-right: 20px">
+<span style="font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-size: 30px; font-weight: 600; line-height: 1">Armed</span>
+<span style="font-size: 16px; line-height: 1.4; color: #55534E">Ears up: three checks, a sample every 2 seconds</span>
+
+</div>
+</div>
+<div style="flex: 1 1 190px; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: center; height: 22px"><svg width="24" height="22" viewBox="0 0 20 20" aria-hidden="true" style="flex: none"><path d="M2 3 L6 7 L14 7 L18 3 L18 13 L15 17 L5 17 L2 13 Z" fill="#111111"></path></svg><span style="flex: 1; height: 2px; background: #111111"></span></div>
+<div style="display: flex; flex-direction: column; gap: 4px; padding-right: 20px">
+<span style="font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-size: 30px; font-weight: 600; line-height: 1">Triggered</span>
+<span style="font-size: 16px; line-height: 1.4; color: #55534E">Pounce: two of three saw it hold above 85%</span>
+
+</div>
+</div>
+<div style="flex: 1 1 190px; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: center; height: 22px"><svg width="24" height="22" viewBox="0 0 20 20" aria-hidden="true" style="flex: none"><path d="M2 3 L6 7 L14 7 L18 3 L18 13 L15 17 L5 17 L2 13 Z" fill="#E8421A"></path></svg><span style="flex: 1; height: 0; border-top: 2px dashed #8A877F"></span></div>
+<div style="display: flex; flex-direction: column; gap: 4px; padding-right: 20px">
+<span style="font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-size: 30px; font-weight: 600; line-height: 1">Paid</span>
+<span style="font-size: 16px; line-height: 1.4; color: #55534E">Everyone fed: 3 people in one transaction</span>
+
+</div>
+</div>
+<div style="flex: 1 1 190px; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: center; height: 22px"><svg width="24" height="22" viewBox="0 0 20 20" aria-hidden="true" style="flex: none"><path d="M2 3 L6 7 L14 7 L18 3 L18 13 L15 17 L5 17 L2 13 Z" fill="none" stroke="#111111" stroke-width="1.6" stroke-linejoin="round"></path></svg><span style="flex: 1"></span></div>
+<div style="display: flex; flex-direction: column; gap: 4px; padding-right: 20px">
+<span style="font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-size: 30px; font-weight: 600; line-height: 1">Confirmed</span>
+<span style="font-size: 16px; line-height: 1.4; color: #55534E">Nap time until the result on Nov 15 at 23:00</span>
+
+</div>
+</div>
+</div>
+</section>
+
+<section id="how" style="max-width: 1360px; margin: 0 auto; padding: 104px 40px 0; display: flex; flex-wrap: wrap; gap: 24px 56px; align-items: flex-start">
+<div style="flex: 1 1 280px; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+<h2 style="margin: 0; font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-size: 64px; font-weight: 600; line-height: 0.95">How it works</h2>
+<p style="margin: 0; font-size: 19px; color: #55534E">Three steps. No hairballs.</p>
+</div>
+<div style="flex: 999 1 620px; min-width: 0; display: flex; flex-direction: column; border-bottom: 1px solid #111111">
+<div style="display: flex; gap: 32px; padding: 28px 0; border-top: 1px solid #111111; align-items: flex-start">
+<span style="font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-size: 84px; font-weight: 600; line-height: 0.85; flex: 0 0 56px">1</span>
+<div style="display: flex; flex-direction: column; gap: 8px; min-width: 0">
+<h3 style="margin: 0; font-size: 26px; font-weight: 600; line-height: 1.15">Fill the bowl</h3>
+<p style="margin: 0; font-size: 18px; line-height: 1.5; color: #33312D; max-width: 620px">Pick any live Gemini market and how likely the event must be, say 85%. Sign once. The money is held on Arc, where anyone can see it.</p>
+</div>
+</div>
+<div style="display: flex; gap: 32px; padding: 28px 0; border-top: 1px solid #111111; align-items: flex-start">
+<span style="font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-size: 84px; font-weight: 600; line-height: 0.85; flex: 0 0 56px">2</span>
+<div style="display: flex; flex-direction: column; gap: 8px; min-width: 0">
+<h3 style="margin: 0; font-size: 26px; font-weight: 600; line-height: 1.15">Call your people</h3>
+<p style="margin: 0; font-size: 18px; line-height: 1.5; color: #33312D; max-width: 620px">They open a link and join with a passkey. No wallet, no fees, nothing to fill in.</p>
+</div>
+</div>
+<div style="display: flex; gap: 32px; padding: 28px 0; border-top: 1px solid #111111; align-items: flex-start">
+<span style="font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-size: 84px; font-weight: 600; line-height: 0.85; flex: 0 0 56px">3</span>
+<div style="display: flex; flex-direction: column; gap: 8px; min-width: 0">
+<h3 style="margin: 0; font-size: 26px; font-weight: 600; line-height: 1.15">The cat pounces</h3>
+<p style="margin: 0; font-size: 18px; line-height: 1.5; color: #33312D; max-width: 620px">Three independent checks read the market every few seconds. When two of them see the chance hold above the line, everyone is paid at once.</p>
+</div>
+</div>
+</div>
+</section>
+
+<div style="margin-top: 96px">
+<svg viewBox="0 0 1440 120" style="width: 100%; height: auto; display: block" aria-hidden="true">
+<polygon points="150,121 270,6 390,121" fill="#111111"></polygon>
+<polygon points="1050,121 1170,6 1290,121" fill="#111111"></polygon>
+</svg>
+</div>
+<section style="background: #111111; color: #ECEAE4">
+<div style="max-width: 1360px; margin: 0 auto; padding: 40px 40px 40px; display: flex; flex-direction: column; gap: 36px">
+<svg viewBox="0 0 520 150" style="width: min(520px, 100%); height: auto; display: block; align-self: center" aria-hidden="true">
+<ellipse cx="130" cy="60" rx="78" ry="46" fill="#E8421A"></ellipse>
+<ellipse cx="130" cy="60" rx="11" ry="42" fill="#111111"></ellipse>
+<ellipse cx="390" cy="60" rx="78" ry="46" fill="#E8421A"></ellipse>
+<ellipse cx="390" cy="60" rx="11" ry="42" fill="#111111"></ellipse>
+<polygon points="244,122 276,122 260,140" fill="#ECEAE4"></polygon>
+<line x1="214" y1="130" x2="110" y2="122" stroke="#ECEAE4" stroke-width="2"></line>
+<line x1="214" y1="138" x2="112" y2="146" stroke="#ECEAE4" stroke-width="2"></line>
+<line x1="306" y1="130" x2="410" y2="122" stroke="#ECEAE4" stroke-width="2"></line>
+<line x1="306" y1="138" x2="408" y2="146" stroke="#ECEAE4" stroke-width="2"></line>
+</svg>
+<div style="display: flex; flex-wrap: wrap; gap: 28px 56px; align-items: flex-end; justify-content: space-between">
+<div style="display: flex; flex-direction: column; gap: 16px; min-width: 0">
+<p style="margin: 0; font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-size: clamp(56px, 8vw, 120px); font-weight: 600; line-height: 0.92; max-width: 820px; text-wrap: balance">Promises that always land.</p>
+<p style="margin: 0; font-size: 21px; line-height: 1.4; color: #DEDBD3">A cat always lands on its feet. So does your money.</p>
+</div>
+<a href="#demo" style="display: inline-flex; align-items: center; gap: 14px; min-height: 68px; padding: 8px 28px 8px 22px; background: #ECEAE4; color: #111111; text-decoration: none">
+<svg width="34" height="32" viewBox="0 0 20 20" aria-hidden="true" style="flex: none"><path d="M2 3 L6 7 L14 7 L18 3 L18 13 L15 17 L5 17 L2 13 Z" fill="#111111"></path><ellipse cx="7.4" cy="11" rx="1.1" ry="1.7" fill="#ECEAE4"></ellipse><ellipse cx="12.6" cy="11" rx="1.1" ry="1.7" fill="#ECEAE4"></ellipse></svg>
+<span style="display: flex; flex-direction: column; gap: 1px">
+<span style="font-size: 20px; font-weight: 600; line-height: 1.15">Let the cat out</span>
+<span style="font-size: 15px; font-weight: 500; line-height: 1.2; color: #55534E">Run the demo</span>
+</span>
+</a>
+</div>
+<p style="margin: 0; font-size: 16px; line-height: 1.5; color: #C9C6BE; max-width: 720px">This is a testnet demo, not insurance. Chances come from Gemini market prices, which can be wrong. An early payout is final.</p>
+<div style="border-top: 1px solid #55534E; padding-top: 20px; display: flex; flex-wrap: wrap; gap: 8px 32px; justify-content: space-between; font-size: 15px; color: #C9C6BE">
+<span>HonorCat, settled by Verdict.</span>
+<div style="display: flex; flex-wrap: wrap; gap: 4px 28px">
+<a href="#ledger" style="color: #ECEAE4; padding: 12px 0">Ledger</a>
+<a href="#live" style="color: #ECEAE4; padding: 12px 0">Live</a>
+<a href="#status" style="color: #ECEAE4; padding: 12px 0">Status</a>
+<a href="#developers" style="color: #ECEAE4; padding: 12px 0">Developers</a>
+</div>
+</div>
+</div>
+</section>
+
+</div>
+</body>
+</html>
