@@ -109,6 +109,7 @@ export type DemoCandidate = {
   title: string;
   label: string;
   image: string | null;
+  category: string;
   side: "yes" | "no";
   chance: number; // for that side
   spread: number;
@@ -202,6 +203,7 @@ export async function demoCandidates(thresholdBps = 8500): Promise<{ trigger: De
         title: e.title,
         label: c.label,
         image: (e as { imageUrl?: string | null }).imageUrl ?? null,
+        category: e.category,
         side,
         chance: side === "yes" ? yes : 1 - yes,
         closesAt: new Date(close).toISOString(),

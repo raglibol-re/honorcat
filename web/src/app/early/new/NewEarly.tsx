@@ -11,7 +11,7 @@ import { useWallet } from "@/lib/wallet/context";
 type Contract = { ticker: string; label: string; chanceYes: number | null; instrument: string | null };
 type Market = PickerMarket & { contracts: Contract[] };
 type MarketsResponse = { category: string; categories: string[]; markets: Market[] };
-type Demo = { eventTicker: string; contractTicker: string; title: string; label: string; image: string | null; side: "yes" | "no"; chance: number; closesAt: string };
+type Demo = { eventTicker: string; contractTicker: string; title: string; label: string; image: string | null; category: string; side: "yes" | "no"; chance: number; closesAt: string };
 type Prepared = {
   terms: Record<string, unknown> & { promise: string; template: string; lockTime: number };
   seal: string;
@@ -72,7 +72,7 @@ export function NewEarly() {
       const d = await getJson<{ trigger: Demo[] }>("/api/early/demo");
       const c = d.trigger[0];
       if (!c) throw new Error("No live market meets the demo rules right now. Pick one yourself or try again in a minute.");
-      const cat = await findCategory(c.eventTicker);
+      const cat = c.category || (await findCategory(c.eventTicker));
       setCategory(cat);
       setPicked({ ticker: c.eventTicker, idx: -1 });
       setDemo(true);
