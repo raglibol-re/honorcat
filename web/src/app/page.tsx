@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LiveExample } from "./LiveExample";
+import { LiveEarly } from "./LiveEarly";
 
 export default function Home() {
   return (
@@ -7,35 +7,35 @@ export default function Home() {
       <section className="grid items-start gap-10 lg:grid-cols-[1fr_420px]">
         <div className="space-y-5 lg:pt-6">
           <h1 className="t-36 max-w-xl font-semibold" style={{ textWrap: "balance" }}>
-            Promises that always land.
+            Promises that always land. Paid before it happens.
           </h1>
-          <p className="t-17 max-w-xl" style={{ color: "var(--vg-muted)" }}>
-            Promise your customers a refund if the world turns against them: &ldquo;If it&apos;s hotter than 95°F on your tour day, you get
-            your money back.&rdquo; HonorCat prices the promise from live Gemini markets, locks the refunds in USDC on Arc, lets customers join
-            without a wallet, and pays them the moment the market settles.
+          <p className="t-17 max-w-xl">
+            HonorCat sets money aside for a list of people and pays all of them the moment a live Gemini market considers an event very
+            likely, before it happens, so they can prepare.
           </p>
           <p className="t-15 max-w-xl" style={{ color: "var(--vg-muted)" }}>
-            A cat always lands on its feet, and so does your money.
+            Afterwards it records publicly whether the market was right. Nobody fills in a form or files a claim. A cat always lands on its
+            feet, and so does your money.
           </p>
           <div className="flex flex-wrap gap-3">
-            <Link href="/guarantees/new" className="t-15 rounded-xl px-5 py-3 font-medium" style={{ background: "var(--vg-accent)", color: "var(--vg-card)" }}>
-              Offer a guarantee
+            <Link href="/early/new" className="t-15 rounded-xl px-5 py-3 font-medium" style={{ background: "var(--vg-accent)", color: "var(--vg-card)" }}>
+              Try the demo
             </Link>
             <Link href="/guarantees" className="t-15 rounded-xl border px-5 py-3 font-medium" style={{ borderColor: "var(--vg-rule)" }}>
-              See live guarantees
+              Refund guarantees
             </Link>
           </div>
         </div>
-        <LiveExample />
+        <LiveEarly />
       </section>
 
       <section>
-        <h2 className="t-21 font-medium">How a guarantee works</h2>
+        <h2 className="t-21 font-medium">How it works</h2>
         <ol className="mt-5 grid gap-6 sm:grid-cols-3">
           {[
-            ["The merchant locks the refunds", "Pick a live market, set the refund and the number of customers, and sign once. The full amount is locked in USDC on Arc, visible to anyone."],
-            ["Customers join in seconds", "They open a link or scan a code and join. No wallet, no fees: HonorCat submits everything."],
-            ["The market decides, the money moves", "When Gemini settles the market, a signed result is verified on Arc and every customer is refunded in the same transaction."],
+            ["Set money aside", "Pick any live Gemini market and how likely the event must be, say 85%. Sign once; the money is held on Arc, visible to anyone."],
+            ["People join in seconds", "They open a link and join with a passkey. No wallet, no fees, nothing to fill in."],
+            ["Paid when it becomes likely", "Three independent checks read the market every few seconds. When two of them see the chance hold above the line, everyone is paid at once."],
           ].map(([title, body], i) => (
             <li key={title} className="border-t pt-4" style={{ borderColor: "var(--vg-rule)" }}>
               <span className="mono t-13" style={{ color: "var(--vg-muted)" }}>
@@ -52,8 +52,8 @@ export default function Home() {
 
       <section className="t-15 max-w-2xl space-y-2" style={{ color: "var(--vg-muted)" }}>
         <p>
-          This is a testnet demo of conditional refunds, not insurance. Chances shown are estimates from Gemini market prices. HonorCat shows
-          the hedge a merchant could buy but never places orders.
+          This is a testnet demo, not insurance. Chances come from Gemini market prices, which can be wrong; an early payout is final. No
+          hedge is placed.
         </p>
         <p>
           HonorCat is settled by Verdict. Building on Verdict? The vault, relay API and SDK are documented under{" "}
