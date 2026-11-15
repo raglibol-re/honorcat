@@ -33,7 +33,7 @@ export default function Home() {
         <h2 className="t-21 font-medium">How it works</h2>
         <ol className="mt-5 grid gap-6 sm:grid-cols-3">
           {[
-            ["Set money aside", "Pick any live Gemini market and how likely the event must be, say 85%. Sign once; the money is held on Arc, visible to anyone."],
+            ["Set money aside", "Pick any live Gemini market and how likely the event must be, say 85%. Sign once; the money is held on Arc, a public payment network where anyone can see it."],
             ["People join in seconds", "They open a link and join with a passkey. No wallet, no fees, nothing to fill in."],
             ["Paid when it becomes likely", "Three independent checks read the market every few seconds. When two of them see the chance hold above the line, everyone is paid at once."],
           ].map(([title, body], i) => (

@@ -96,7 +96,7 @@ function Rail({ d, now }: { d: EarlyDetail; now: number }) {
         <li key={s.label} className="min-w-0">
           <span className="block h-1.5 rounded-full" style={{ background: s.done ? "var(--vg-accent)" : "var(--vg-rule)" }} />
           <span className="t-13 mt-1 block font-medium">{s.label}</span>
-          <span className="t-13 hidden leading-snug sm:block" style={{ color: "var(--vg-muted)" }}>
+          <span className="block text-[12px] leading-snug sm:text-[13px]" style={{ color: "var(--vg-muted)" }}>
             {s.note}
           </span>
         </li>
