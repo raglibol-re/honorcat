@@ -15,6 +15,10 @@
  *            memos and a gasless withdrawal; for the other templates create, fund and enrol.
  *   passkey  registers a passkey (software authenticator), joins a guarantee with it, and withdraws
  *            from the counterfactual account: the relay deploys it and WebAuthn is verified on Arc.
+ *   early    HonorCat early payouts on the live Gemini contracts best suited right now: one pot
+ *            that triggers (two of three samplers sign evidence; recipients paid before the
+ *            event) and one that closes without crossing (funder refunded); 3 recipients each.
+ *            Runs the local sampler in-process (SAMPLER_KEY_LOCAL). E2E_EARLY_RUNS=2 repeats it.
  *   drops    MerkleBook payouts: two drops of 250 payees on a live 5-minute market (pay on YES /
  *            NO), list replaced before lock, inclusion proofs via the API, the relay pushes every
  *            claim in batches; every payee balance and the funder's return are checked on-chain.
@@ -51,6 +55,8 @@ import { verdictVaultAbi } from "../src/abi";
 import { signResolution } from "../src/signer";
 import { passkeyFactoryAbi } from "../src/passkeys";
 import { softPasskey } from "../src/softPasskey";
+import { httpIo, Sampler, WsBookSource } from "../src/sampler";
+import * as trigger from "../src/trigger";
 
 // `pnpm run e2e -- --api ...` forwards the literal "--"; drop it.
 const { values } = parseArgs({
@@ -726,6 +732,151 @@ async function runDrops() {
   log(`page: ${API}/d/${paidDrop.drop.id}`);
 }
 
+// ------------------------------------------------------------------ early payouts (M4)
+
+type DemoCandidate = { eventTicker: string; contractTicker: string; instrument: string; title: string; label: string; side: "yes" | "no"; chance: number; spread: number; closesAt: string; meetsRules: boolean };
+type EarlyPrepared = Prepared & { terms: { lockTime: number; tradingClose: number; promise: string; template: string; params: { windowMs: number } }; seal: string; amount: string };
+type EarlyDetailResponse = {
+  early: { id: string; potId: string | null; state: string; settledKind: string | null; settledTx: string | null; evidenceRoot: string | null; lockTime: number; tradingClose: number; conditionId: Hex };
+  signatures: { signer: Address; kind: string; outcome: boolean; evidenceHash: string | null; record: Record<string, unknown> | null; attestation: string | null }[];
+  recipients: { account: Address }[];
+  payments: { account: Address | null; amount: string; tx: string; kind: string }[];
+  settledAt: string | null;
+};
+
+const EARLY_AMOUNT = 100_000n; // 0.10 USDC per recipient
+const EARLY_RECIPIENTS = 3;
+
+/** Runs the local machine's sampler inside this process (one of the three independent signers). */
+function startLocalSampler() {
+  const key = process.env.SAMPLER_KEY_LOCAL;
+  if (!key) throw new Error("SAMPLER_KEY_LOCAL is not set");
+  const source = new WsBookSource();
+  const sampler = new Sampler(privateKeyToAccount(key as Hex), source, httpIo(API), pub as never, (m) => log(`  [local sampler] ${m}`));
+  let running = true;
+  const loop = (async () => {
+    while (running) {
+      try {
+        await sampler.step();
+      } catch (err) {
+        log(`  [local sampler] step failed: ${(err as Error).message.split("\n")[0]}`);
+      }
+      await sleep(250);
+    }
+  })();
+  return async () => {
+    running = false;
+    await loop;
+    source.close();
+  };
+}
+
+async function createEarlyViaApi(c: DemoCandidate, joinSeconds: number, label: string) {
+  const prep = await api<EarlyPrepared>("/api/early/prepare", {
+    json: {
+      name: `E2E ${label}`,
+      funder: funder.address,
+      eventTicker: c.eventTicker,
+      contractTicker: c.contractTicker,
+      side: c.side,
+      mode: "early-only",
+      amount: (Number(EARLY_AMOUNT) / 1e6).toFixed(2),
+      maxRecipients: EARLY_RECIPIENTS,
+      joinSeconds,
+      listed: false,
+    },
+  });
+  const authorization = await signPrepared(funder, prep);
+  const created = await api<{ id: string; potId: string; tx: Hex }>("/api/early", { json: { terms: prep.terms, seal: prep.seal, authorization } });
+  log(`early payout ${created.id} (${label}) pot #${created.potId}, ${prep.terms.template} rule: "${prep.terms.promise}"  ${EXPLORER}/tx/${created.tx}`);
+  return { ...created, lockTime: prep.terms.lockTime, tradingClose: prep.terms.tradingClose };
+}
+
+async function joinEarlyRecipients(id: string) {
+  const people = Array.from({ length: EARLY_RECIPIENTS }, () => privateKeyToAccount(generatePrivateKey()));
+  for (const p of people) {
+    const signature = await p.signMessage({ message: `Join HonorCat early payout ${id} as ${p.address}` });
+    await api(`/api/early/${id}/join`, { json: { account: p.address, signature } });
+  }
+  log(`  ${EARLY_RECIPIENTS} recipients joined ${id}`);
+  return people;
+}
+
+async function waitEarly(id: string, until: number, done: (d: EarlyDetailResponse) => boolean, what: string) {
+  for (;;) {
+    const d = await api<EarlyDetailResponse>(`/api/early/${id}`).catch(() => null);
+    if (d && done(d)) return d;
+    if (Date.now() > until) throw new Error(`${what}: timed out (state ${d?.early.state}, signatures ${d?.signatures.map((s) => `${s.kind}:${s.signer.slice(0, 6)}`).join(",")})`);
+    await sleep(3000);
+  }
+}
+
+/**
+ * One early payout and one refund, three recipients each, on the live Gemini contracts best
+ * suited right now (/api/early/demo). The local sampler runs in this process; the Vercel app
+ * samples in bursts while the run polls; the GitHub Actions sampler joins if dispatched.
+ * Checks on-chain balances, the 2-of-3 signatures, the evidence (recomputed here) and the memo root.
+ */
+async function runEarly() {
+  log("=== early payouts: one trigger, one refund, 3 recipients each ===");
+  const demo = await api<{ trigger: DemoCandidate[]; refund: DemoCandidate[] }>("/api/early/demo");
+  const t = demo.trigger[0];
+  const r = demo.refund[0];
+  if (!t) throw new Error("no live Gemini contract meets the demo trigger rules right now");
+  if (!r) throw new Error("no live Gemini contract suitable for the refund run");
+  log(`trigger market: ${t.title} — ${t.label} (${t.side.toUpperCase()} at ${(t.chance * 100).toFixed(1)}%, spread ${t.spread.toFixed(2)}), closes ${t.closesAt}`);
+  log(`refund market:  ${r.title} — ${r.label} (${r.side.toUpperCase()} at ${(r.chance * 100).toFixed(1)}%), closes ${r.closesAt}`);
+
+  const stop = startLocalSampler();
+  try {
+    const before = await pub.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [funder.address] });
+    const a = await createEarlyViaApi(t, 40, "early payout");
+    const b = await createEarlyViaApi(r, 30, "refund");
+    const pa = await joinEarlyRecipients(a.id);
+    const pb = await joinEarlyRecipients(b.id);
+
+    const da = await waitEarly(a.id, Date.now() + 12 * 60_000, (d) => d.early.state === "paid", `early payout ${a.id}`);
+    const lead = Math.round((da.early.tradingClose * 1000 - new Date(da.settledAt ?? Date.now()).getTime()) / 60_000);
+    log(`PAID EARLY: ${a.id} settled ${da.early.settledKind} ${EXPLORER}/tx/${da.early.settledTx} (${lead} min before trading closes)`);
+    for (const p of pa) {
+      const bal = await pub.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [p.address] });
+      if (bal !== EARLY_AMOUNT) throw new Error(`recipient ${p.address} has ${usdc(bal)}, expected ${usdc(EARLY_AMOUNT)}`);
+      if ((await pub.getTransactionCount({ address: p.address })) !== 0) throw new Error("a recipient sent a transaction");
+    }
+    log(`on-chain: ${EARLY_RECIPIENTS} recipients received ${usdc(EARLY_AMOUNT)} each; none sent a transaction`);
+
+    // Evidence: every trigger record recomputes to its decision; the memo root matches.
+    const triggers = da.signatures.filter((s) => s.kind === "trigger");
+    if (triggers.length < 2) throw new Error(`expected 2 trigger signatures, got ${triggers.length}`);
+    const recs = triggers.map((s) => trigger.recordFromJson(s.record!));
+    for (const rec of recs) {
+      const d = trigger.verifyRecord(rec);
+      if (!d.triggered || trigger.evidenceHash(rec) !== triggers.find((s) => s.signer === rec.signer)!.evidenceHash) throw new Error("evidence does not recompute");
+    }
+    const ordered = [...recs].sort((x, y) => (BigInt(x.signer) < BigInt(y.signer) ? -1 : 1)).slice(0, 2);
+    const root = trigger.evidenceRootOf(ordered.map((x) => trigger.evidenceHash(x)));
+    if (root !== da.early.evidenceRoot) throw new Error(`evidence root ${root} != published ${da.early.evidenceRoot}`);
+    log(`evidence: ${recs.length} signer records recompute; evidenceRoot ${root.slice(0, 14)}… matches the payout memo; signers ${recs.map((x) => x.signer.slice(0, 8)).join(", ")}`);
+
+    const waitB = Math.max(0, b.tradingClose * 1000 - Date.now()) + 6 * 60_000;
+    log(`waiting for ${b.id} to close without crossing (up to ${Math.round(waitB / 60_000)} min)…`);
+    const db_ = await waitEarly(b.id, Date.now() + waitB, (d) => d.early.state === "refunded", `refund ${b.id}`);
+    log(`REFUNDED: ${b.id} settled ${db_.early.settledKind} ${EXPLORER}/tx/${db_.early.settledTx}`);
+    for (const p of pb) {
+      const bal = await pub.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [p.address] });
+      if (bal !== 0n) throw new Error(`refund-run recipient ${p.address} received ${usdc(bal)}`);
+    }
+    const after = await pub.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [funder.address] });
+    const spent = before - after;
+    const expected = EARLY_AMOUNT * BigInt(EARLY_RECIPIENTS); // run A paid out; run B came back in full
+    if (spent !== expected) throw new Error(`funder spent ${usdc(spent)}, expected ${usdc(expected)}`);
+    log(`on-chain: refund-run recipients got nothing; the funder got ${usdc(EARLY_AMOUNT * BigInt(EARLY_RECIPIENTS))} back`);
+    log(`pages: ${API}/e/${a.id} (paid early), ${API}/e/${b.id} (refunded)`);
+  } finally {
+    await stop();
+  }
+}
+
 // ------------------------------------------------------------------ passkey accounts (Phase B)
 
 /**
@@ -812,6 +963,15 @@ async function main() {
 
   if (values.mode === "passkey") {
     await runPasskey();
+    log("E2E PASSED");
+    return;
+  }
+  if (values.mode === "early") {
+    const runs = Number(process.env.E2E_EARLY_RUNS ?? 1);
+    for (let i = 1; i <= runs; i++) {
+      if (runs > 1) log(`--- early run ${i} of ${runs} ---`);
+      await runEarly();
+    }
     log("E2E PASSED");
     return;
   }

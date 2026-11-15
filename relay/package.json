@@ -11,7 +11,8 @@
     "abi": "tsx scripts/gen-abi.ts",
     "e2e": "tsx --env-file-if-exists=../.env scripts/e2e.ts",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "sampler": "tsx --env-file-if-exists=../.env scripts/sampler.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.16",

@@ -10,6 +10,7 @@ import {
   getDb,
   registerCondition,
   runTick,
+  runAppSampler,
   type Db,
   type Integration,
 } from "@verdict/relay";
@@ -25,9 +26,12 @@ export function nudgeRelay(reason: string) {
   after(async () => {
     try {
       const report = await runTick({ reason });
-      if (report.ran && (report.actions?.length || report.errors.length || report.indexed?.inserted)) {
+      if (report.ran && (report.actions?.length || report.early?.length || report.errors.length || report.indexed?.inserted)) {
         console.log("[relay] tick", JSON.stringify(report));
       }
+      // The app's own early-payout sampler (one of three); a lease keeps it to one burst at a time.
+      const s = await runAppSampler(await getDb(), { budgetMs: 40_000 });
+      if (s.ran && s.pots) console.log("[sampler:vercel] burst", JSON.stringify(s));
     } catch (err) {
       console.error("[relay] tick failed", err);
     }

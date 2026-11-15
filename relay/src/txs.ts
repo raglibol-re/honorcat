@@ -30,7 +30,11 @@ export type TxKind =
   | "drop_create"
   | "drop_root"
   | "drop_claims"
-  | "drop_sweep";
+  | "drop_sweep"
+  | "early_create"
+  | "early_join"
+  | "early_settle"
+  | "early_record";
 
 type VaultFunction = "resolve" | "expire" | "fundWithAuthorization" | "createPotWithAuthorization";
 

@@ -90,5 +90,28 @@ export {
   type PasskeyRecord,
 } from "./passkeys";
 
+export {
+  prepareEarly,
+  createEarly,
+  joinEarly,
+  earlyJoinMessage,
+  armedPots,
+  submitEarlySignature,
+  submitEarlySamples,
+  processEarly,
+  recordEarlyOutcome,
+  listEarly,
+  earlyDetail,
+  earlyConditionId,
+  requireEarly,
+  type EarlyTerms,
+  type EarlyDto,
+  type ArmedPot,
+  type SamplerSubmission,
+} from "./early";
+
 // Early-payout probability trigger (docs/early-payout-trigger.md)
 export * as trigger from "./trigger";
+
+export { Sampler, WsBookSource, RestBookSource, fetchMarketState, httpIo, type SamplerIo, type BookSource } from "./sampler";
+export { runAppSampler } from "./samplerHost";

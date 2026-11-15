@@ -305,6 +305,66 @@ CREATE TABLE IF NOT EXISTS drop_entries (
 );
 CREATE INDEX IF NOT EXISTS drop_entries_account_idx ON drop_entries (drop_id, account);
 CREATE INDEX IF NOT EXISTS drop_entries_pending_idx ON drop_entries (drop_id, idx) WHERE claimed_tx IS NULL;
+
+-- HonorCat early payouts: pots resolved by the samplers' 2-of-3 MultisigResolver.
+CREATE TABLE IF NOT EXISTS early_pots (
+  id              TEXT PRIMARY KEY,
+  pot_id          BIGINT UNIQUE,
+  gid             BIGINT,                     -- GuaranteeBook id holding the recipients
+  name            TEXT NOT NULL,
+  funder          TEXT NOT NULL,
+  event_ticker    TEXT NOT NULL,
+  contract_ticker TEXT NOT NULL,
+  instrument      TEXT NOT NULL,              -- Gemini instrumentSymbol
+  side            TEXT NOT NULL,              -- yes | no
+  mode            TEXT NOT NULL,              -- early-only | early-or-outcome
+  template        TEXT NOT NULL,              -- demo | standard
+  params          JSONB NOT NULL,             -- trigger parameters (committed in condition_id)
+  amount          NUMERIC(78,0) NOT NULL,     -- per recipient
+  max_recipients  INTEGER NOT NULL,
+  lock_time       BIGINT NOT NULL,            -- joining closes, arming starts
+  trading_close   BIGINT NOT NULL,            -- arming ends
+  deadline        BIGINT NOT NULL,
+  event_title     TEXT NOT NULL,
+  contract_label  TEXT NOT NULL,
+  promise         TEXT NOT NULL,
+  condition_id    TEXT NOT NULL,
+  resolver        TEXT NOT NULL,
+  listed          BOOLEAN NOT NULL DEFAULT true,
+  status          TEXT NOT NULL DEFAULT 'pending', -- pending | live | failed
+  error           TEXT,
+  created_tx      TEXT,
+  settled_kind    TEXT,                       -- early | close | void | settle | expire | external
+  settled_outcome BOOLEAN,
+  settled_tx      TEXT,
+  settled_at      TIMESTAMPTZ,
+  evidence_root   TEXT,
+  record_occurred BOOLEAN,
+  record_status   TEXT,                       -- confirmed | market_wrong | voided
+  record_tx       TEXT,
+  record_at       TIMESTAMPTZ,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS early_signatures (
+  early_id      TEXT NOT NULL REFERENCES early_pots(id) ON DELETE CASCADE,
+  signer        TEXT NOT NULL,
+  kind          TEXT NOT NULL,                -- trigger | close | void | settle
+  outcome       BOOLEAN NOT NULL,
+  evidence_hash TEXT,
+  record        JSONB,
+  attestation   TEXT,
+  resolution    TEXT NOT NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (early_id, signer, kind)
+);
+CREATE TABLE IF NOT EXISTS early_samples (
+  early_id  TEXT NOT NULL REFERENCES early_pots(id) ON DELETE CASCADE,
+  signer    TEXT NOT NULL,
+  t         BIGINT NOT NULL,                  -- ms
+  mid_micro BIGINT,                           -- probability x 10^6 for the pot's side, null if no book
+  status    SMALLINT NOT NULL,
+  PRIMARY KEY (early_id, signer, t)
+);
 `;
 
 /** Tables derived from one vault's chain history. Cleared when VAULT_ADDRESS changes. */
@@ -318,6 +378,9 @@ const VAULT_SCOPED = [
   "guarantees",
   "drop_entries",
   "drops",
+  "early_samples",
+  "early_signatures",
+  "early_pots",
   "webhook_deliveries",
   "gasless_requests",
   "stream_batches",

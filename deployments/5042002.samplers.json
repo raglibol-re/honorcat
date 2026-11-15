@@ -1,0 +1,9 @@
+{
+  "chainId": 5042002,
+  "deployBlock": 72373933,
+  "resolver": "0x81d1194069E1aD3a22C17356065d8dF6A4D436c9",
+  "samplerGithub": "0x495E8D129013C586f0F285f7DDaDcA396d574557",
+  "samplerLocal": "0x75E23319786FF759A5210C638C4F33c230Ac9CD7",
+  "samplerVercel": "0x5342D175f4d94803A15D8263631619F0a87Ce7d9",
+  "threshold": 2
+}

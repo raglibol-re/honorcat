@@ -29,6 +29,9 @@ const schema = z.object({
   GUARANTEES_DEPLOY_BLOCK: z.coerce.bigint().optional(),
   PASSKEY_FACTORY_ADDRESS: z.string().optional(),
   MERKLE_BOOK_ADDRESS: z.string().optional(),
+  EARLY_RESOLVER_ADDRESS: z.string().optional(),
+  EARLY_SAMPLERS: z.string().optional(), // comma-separated sampler addresses
+  SAMPLER_KEY: z.string().optional(), // the Vercel app's own sampler key
   /** Smallest amount (USDC, decimal) the relay will sponsor gas for. */
   GASLESS_MIN_AMOUNT: z.string().regex(/^\d+(\.\d{1,6})?$/).default("0.10"),
   /** Sponsored submissions per funder address per hour (API-key callers are exempt). */
@@ -72,6 +75,8 @@ export type Config = {
   /** PasskeyAccountFactory for payee passkey accounts; null if not configured. */
   passkeys: { factory: Address } | null;
   merkle: { book: Address } | null;
+  early: { resolver: Address; samplers: Address[]; threshold: number } | null;
+  samplerKey: string | undefined;
 };
 
 let cached: Config | undefined;
@@ -114,6 +119,8 @@ export function getConfig(): Config {
     guarantees: guaranteesConfig(env),
     passkeys: passkeysConfig(env),
     merkle: merkleConfig(env),
+    early: earlyConfig(env),
+    samplerKey: env.SAMPLER_KEY,
   };
   return cached;
 }
@@ -144,6 +151,16 @@ function passkeysConfig(env: z.infer<typeof schema>): Config["passkeys"] {
 function merkleConfig(env: z.infer<typeof schema>): Config["merkle"] {
   const b = env.MERKLE_BOOK_ADDRESS ?? readJson<{ merkleBook: string }>(`deployments/${env.ARC_CHAIN_ID}.merkle.json`)?.merkleBook;
   return b && isAddress(b) ? { book: getAddress(b) } : null;
+}
+
+function earlyConfig(env: z.infer<typeof schema>): Config["early"] {
+  const f = readJson<{ resolver: string; samplerVercel: string; samplerGithub: string; samplerLocal: string; threshold: number }>(
+    `deployments/${env.ARC_CHAIN_ID}.samplers.json`,
+  );
+  const resolver = env.EARLY_RESOLVER_ADDRESS ?? f?.resolver;
+  const samplers = env.EARLY_SAMPLERS ? env.EARLY_SAMPLERS.split(",").map((s) => s.trim()) : f ? [f.samplerVercel, f.samplerGithub, f.samplerLocal] : [];
+  if (!resolver || !isAddress(resolver) || samplers.length < 2 || !samplers.every((s) => isAddress(s))) return null;
+  return { resolver: getAddress(resolver), samplers: samplers.map((s) => getAddress(s)), threshold: f?.threshold ?? 2 };
 }
 
 function readJson<T>(relative: string | undefined): T | undefined {
