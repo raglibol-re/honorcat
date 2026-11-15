@@ -62,7 +62,7 @@ export type Quality = { status: Status; profile: Profile; reasons: string[]; spr
 const cents = (x: number) => `${Math.round(x * 100)}¢`;
 
 /**
- * The verdict for one contract at `now`. Uses the order book when it was read within `bookMaxAgeMs`,
+ * The quality of one contract at `now`. Uses the order book when it was read within `bookMaxAgeMs`,
  * otherwise only the listed prices (and then size is unknown: "unmeasured" at best).
  */
 export function classify(r: CatalogRow, now: number, opts: { bookMaxAgeMs?: number; profile?: Profile } = {}): Quality {

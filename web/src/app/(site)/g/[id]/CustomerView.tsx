@@ -219,15 +219,15 @@ export function CustomerView() {
       {me && (
         <>
           <GuaranteeCard g={toCard(d, account)} />
-          {state !== "active" && d.verdict && (
+          {state !== "active" && d.settlement && (
             <SettlementMoment
               play={justSettled}
-              resultSeenAt={d.verdict.resultSeenAt}
-              resolvedTx={d.verdict.resolvedTx}
-              resolvedBlock={d.verdict.resolvedBlock}
-              refundTx={me.refund?.tx ?? d.verdict.refundTx}
-              refundBlock={me.refund?.block ?? d.verdict.refundBlock}
-              resultToPaymentMs={d.verdict.resultToPaymentMs}
+              resultSeenAt={d.settlement.resultSeenAt}
+              resolvedTx={d.settlement.resolvedTx}
+              resolvedBlock={d.settlement.resolvedBlock}
+              refundTx={me.refund?.tx ?? d.settlement.refundTx}
+              refundBlock={me.refund?.block ?? d.settlement.refundBlock}
+              resultToPaymentMs={d.settlement.resultToPaymentMs}
               triggered={state === "refunded"}
             />
           )}

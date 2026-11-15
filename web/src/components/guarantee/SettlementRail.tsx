@@ -4,7 +4,7 @@ import { txUrl } from "@/lib/chain";
 import { useTechMode } from "@/components/TechMode";
 
 export type RailStep = {
-  key: "locked" | "enrolled" | "event" | "verdict" | "paid";
+  key: "locked" | "enrolled" | "event" | "settlement" | "paid";
   label: string;
   done: boolean;
   tx?: string;
@@ -16,7 +16,7 @@ export const RAIL_LABELS: Record<RailStep["key"], string> = {
   locked: "Locked",
   enrolled: "Enrolled",
   event: "Event",
-  verdict: "Settled",
+  settlement: "Settled",
   paid: "Paid",
 };
 

@@ -489,7 +489,7 @@ export async function guaranteeDetail(db: Db, id: string) {
   const firstRefund = ev.find((e) => e.name === "RefundPaid");
   const settleTx = txs.find((t) => t.tx_hash === resolved?.txHash);
   const seenAt = resolution?.outcome_seen_at ? new Date(resolution.outcome_seen_at).getTime() : null;
-  const verdict = resolved
+  const settlement = resolved
     ? {
         resultSeenAt: seenAt,
         resolvedTx: resolved.txHash,
@@ -545,7 +545,7 @@ export async function guaranteeDetail(db: Db, id: string) {
         : null,
     },
     relayTxs: txs.map((t) => ({ txHash: t.tx_hash, kind: t.kind, latencyMs: t.latency_ms, feeWei: t.fee_wei, block: t.block_number ? Number(t.block_number) : null })),
-    verdict,
+    settlement,
   };
 }
 export type GuaranteeDetail = NonNullable<Awaited<ReturnType<typeof guaranteeDetail>>>;

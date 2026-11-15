@@ -17,7 +17,7 @@ type Props = {
 const short = (h: string) => `${h.slice(0, 8)}…${h.slice(-4)}`;
 
 /**
- * The verdict, as three real steps: the relay saw Gemini's result, the vault verified the
+ * The settlement, as three real steps: the relay saw Gemini's result, the vault verified the
  * resolver's EIP-712 signature on Arc, and the money moved. Timings are measured, not decorative.
  */
 export function SettlementMoment(p: Props) {
