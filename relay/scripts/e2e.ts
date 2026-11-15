@@ -868,11 +868,16 @@ async function runEarly() {
       const bal = await pub.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [p.address] });
       if (bal !== 0n) throw new Error(`refund-run recipient ${p.address} received ${usdc(bal)}`);
     }
-    const after = await pub.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [funder.address] });
-    const spent = before - after;
-    const expected = EARLY_AMOUNT * BigInt(EARLY_RECIPIENTS); // run A paid out; run B came back in full
-    if (spent !== expected) throw new Error(`funder spent ${usdc(spent)}, expected ${usdc(expected)}`);
-    log(`on-chain: refund-run recipients got nothing; the funder got ${usdc(EARLY_AMOUNT * BigInt(EARLY_RECIPIENTS))} back`);
+    // Only this run's pots: other pots of the same funder may settle meanwhile, so the funder's
+    // balance is not a reliable check. Read the refund from the vault's own events for pot B, and
+    // check that pot A paid every place (no leftover back to the funder).
+    const potB = await api<PotDetail>(`/api/pots/${db_.early.potId}`);
+    const refund = potB.payments.filter((x) => x.kind === "refund" && getAddress(x.recipient) === funder.address).reduce((s, x) => s + BigInt(x.amount), 0n);
+    const full = EARLY_AMOUNT * BigInt(EARLY_RECIPIENTS);
+    if (refund !== full) throw new Error(`refund pot returned ${usdc(refund)} to the funder, expected ${usdc(full)}`);
+    if (da.payments.some((x) => x.kind === "LeftoverReturned")) throw new Error("the early payout returned a leftover although every place was taken");
+    log(`on-chain: refund-run recipients got nothing; the vault refunded the funder ${usdc(full)} (pot #${db_.early.potId})`);
+    void before;
     log(`pages: ${API}/e/${a.id} (paid early), ${API}/e/${b.id} (refunded)`);
   } finally {
     await stop();
