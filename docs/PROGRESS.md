@@ -19,6 +19,18 @@
 - Work in cycles per docs/improve.md, everything in the agreed priority order.
 
 ## Rubric cycle log
+- 2026-11-16: C1 cleanup merged and deployed (0d03952). Open pots on retired contracts listed
+  (vault 19, 22, 176, 177 guarantees, last deadline 2026-12-14; 26-31 past deadline, 0.01 each;
+  early payouts all settled, one outcome record pending; drops fully claimed). Creation of early
+  payouts, guarantees and drops removed; enrolment closed; read-only pages kept. Removed: integrator
+  API and webhooks, admin and conditions routes, gasless vault pots, SDK, demo finder, cost view,
+  unused components. Retired contracts, tests and deploy scripts in contracts/archive;
+  MultisigResolver has its own tests. One Gemini order-book reader (relay/src/gemini.ts); rule
+  constants in trigger/params. Migration 001 pots -> vault_pots: 217 rows (10 open) before and after;
+  a relay tick on the new deployment read the open pots with no errors. Data truncation on a vault
+  change removed (old data stays). Names: @honorcat/*, --hc-* tokens, no "Verdict" outside the
+  retired contracts' on-chain names and stored keys. New address honorcat.vercel.app (old kept).
+  Tests: contracts 20, relay 74 (+1 skipped), web typecheck/lint/build.
 - 2026-11-15: new direction "HonorCat: money in the air" (two-sided pots on a Gemini market,
   forward-priced exits). Replaces guarantees, early payouts and forward. C0 inventory written.
 - 2026-11-15: F1 built and deployed (655dbc3 … b053595): catalogue of every active Gemini contract
@@ -71,21 +83,20 @@
 - Then: phase I threat model and static analysis, minimal phase H, phase E only if time allows.
 
 ## Blocks current milestone
-- C0 (new spec "HonorCat: money in the air", 2026-11-15): docs/cleanup-plan.md written, waiting for
-  approval and answers to its five questions (open pots on old contracts, old tables, renaming the
-  old pots table, the SDK, env var renames). No changes until then.
-
-## Decisions 2026-11-15 (F1; the user asked me to decide)
-- Trigger profile by time to close: under 2 hours the demo rule, otherwise the standard rule. Quick
-  demo keeps the demo rule and stays labelled as a demo.
-- Public charts stay, as averages across the samplers per 5 seconds, with "Data provided by Gemini";
-  raw bid/ask/size readings only for the funder and recipients after one signature (1-hour session,
-  key derived from the existing ADMIN_TOKEN/CRON_SECRET, no new secret).
-- Cost view: payout total × midpoint of the side's best bid and ask, labelled as an estimate.
-- /markets ("Markets that work today") is public, with attribution.
-- No real money: testnet only (user, 2026-11-15).
+- C1 done except one step that needs you: switch the environment variables in Vercel
+  (RESOLVER_PRIVATE_KEY -> RELAY_PRIVATE_KEY, EARLY_RESOLVER_ADDRESS -> RESOLVER_ADDRESS,
+  EARLY_SAMPLERS -> SAMPLERS; Production and Preview; same values). Then tell me, and I remove the
+  old names in a separate commit and update .env.example. Next milestone: D0 (design document).
 
 ## Later
+- Vault pots 26-31 ($0.01 each) are past their deadline and only need the public `expire` call
+  (refunds their creator). Calling it from here was blocked by the permission check; either allow it
+  or set AUTO_EXPIRE=true in Vercel and the relay does it.
+- QuickNode Stream still posts to https://verdict-phi-livid.vercel.app/api/webhooks/quicknode (same
+  deployment, works). Switch the destination to https://honorcat.vercel.app/... in the QuickNode
+  dashboard when convenient.
+- Retired contracts: last open pot is guarantee d__stswg5M (vault pot 19), deadline 2026-12-14 05:00
+  UTC (+1 h grace). After that the retired env vars can go.
 - (Moved from Blocks, 2026-11-15, user decision.) Rubric item "A new user completes the recipient flow on a phone without help" needs a real person
   on a real phone. Automated stand-in passed (phone emulation + virtual passkey, joined in 5.5 s).
   Please hand a phone to someone who has not seen HonorCat, open
