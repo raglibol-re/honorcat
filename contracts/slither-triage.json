@@ -1,0 +1,65 @@
+{
+  "_about": "Every Slither finding on contracts/src, reviewed. CI (slither-gate.py) fails on any finding not listed here. Keys are the detector plus the finding's first line with source locations removed.",
+  "findings": [
+    {
+      "key": "arbitrary-send-eth: PasskeyAccount.execute(address,uint256,bytes,uint64,WebAuthn.WebAuthnAuth) sends eth to arbitrary user",
+      "reason": "Intended: execute is the account owner's generic call. It runs only after a WebAuthn signature by the account's passkey over (chainId, account, nonce, target, value, dataHash, deadline), verified on-chain; the nonce prevents replay."
+    },
+    {
+      "key": "low-level-calls: Low level call in PasskeyAccount.execute(address,uint256,bytes,uint64,WebAuthn.WebAuthnAuth):",
+      "reason": "Same call as above; a generic account must use a low-level call. The success flag is checked and the revert data is bubbled up."
+    },
+    {
+      "key": "missing-zero-check: PasskeyAccount.execute(address,uint256,bytes,uint64,WebAuthn.WebAuthnAuth).target lacks a zero-check on :",
+      "reason": "The target is chosen and signed by the passkey owner; a call to address(0) only wastes the owner's own transaction and moves nothing it did not sign."
+    },
+    {
+      "key": "uninitialized-local: VerdictVault._createPot(address,bytes32,address,address[],uint16[],address,uint64).sum is a local variable never initialized",
+      "reason": "False positive: a uint256 accumulator that starts at its default 0 by design (sum of shares, checked == 10,000)."
+    },
+    {
+      "key": "uninitialized-local: MultisigResolver.isValidSignature(bytes32,bytes).last is a local variable never initialized",
+      "reason": "False positive: starts at address(0) on purpose so the first recovered signer passes the strictly-increasing check."
+    },
+    {
+      "key": "unused-return: PasskeyAccountFactory.createAccount(bytes32,bytes32,bytes32) ignores return value by Clones.cloneDeterministic(address(implementation),salt(qx,qy,rpIdHash))",
+      "reason": "The clone address is computed beforehand with predictDeterministicAddress and is the same value; the call reverts if deployment fails."
+    },
+    {
+      "key": "unused-return: MultisigResolver.isValidSignature(bytes32,bytes) ignores return value by (signer,err,None) = ECDSA.tryRecover(digest,sig)",
+      "reason": "Only the third value (the raw signature-s error detail) is ignored; signer and err are both checked."
+    },
+    {
+      "key": "reentrancy-benign: Reentrancy in MerkleBook.claim(uint256,uint256,address,uint256,bytes32[]):",
+      "reason": "The external call is to the trusted, immutable VerdictVault (claim of the book's own balance), the function is nonReentrant, and the claim bit and claimed total are written before any call."
+    },
+    {
+      "key": "reentrancy-benign: Reentrancy in GuaranteeBook.payout(uint256,uint256):",
+      "reason": "External calls are to the immutable vault and USDC (trySafeTransfer); payout is nonReentrant and the cursor/settled state is the only control flow state."
+    },
+    {
+      "key": "reentrancy-benign: Reentrancy in MerkleBook.sweep(uint256):",
+      "reason": "swept is set before any external call; nonReentrant; calls go to the immutable vault and USDC only."
+    },
+    {
+      "key": "reentrancy-events: Reentrancy in PasskeyAccountFactory.createAccount(bytes32,bytes32,bytes32):",
+      "reason": "The call is to the freshly deployed clone's initialize; the event order has no security effect."
+    },
+    {
+      "key": "costly-loop: GuaranteeBook._send(uint256,address,uint256,bool) has costly operations inside a loop:",
+      "reason": "totalClaimable is updated only when a transfer fails (blocklisted customer), at most 50 customers per guarantee and paid in batches."
+    },
+    { "key": "timestamp: GuaranteeBook.open(uint256,uint128,uint32,uint64) uses timestamp for comparisons", "reason": "Lock times and deadlines are minutes to days apart; validator timestamp drift (seconds) cannot change an outcome." },
+    { "key": "timestamp: GuaranteeBook.enrol(uint256,address) uses timestamp for comparisons", "reason": "Enrolment lock time; seconds of drift are irrelevant at this granularity." },
+    { "key": "timestamp: MerkleBook.open(uint256,uint64,uint64,bytes32,uint256) uses timestamp for comparisons", "reason": "Root lock and claim deadlines; coarse windows." },
+    { "key": "timestamp: MerkleBook._setRoot(uint256,MerkleBook.Drop,VerdictVault.Pot,bytes32,uint256) uses timestamp for comparisons", "reason": "Root lock time; coarse window." },
+    { "key": "timestamp: MerkleBook.claim(uint256,uint256,address,uint256,bytes32[]) uses timestamp for comparisons", "reason": "Claim deadline 30 days after resolution; coarse window." },
+    { "key": "timestamp: MerkleBook.sweep(uint256) uses timestamp for comparisons", "reason": "Sweep after the claim deadline; coarse window." },
+    { "key": "timestamp: VerdictVault._createPot(address,bytes32,address,address[],uint16[],address,uint64) uses timestamp for comparisons", "reason": "Rejects deadlines in the past." },
+    { "key": "timestamp: VerdictVault.fund(uint256,uint256) uses timestamp for comparisons", "reason": "No funding after the deadline; coarse window." },
+    { "key": "timestamp: VerdictVault.fundWithAuthorization(uint256,uint256,VerdictVault.Authorization) uses timestamp for comparisons", "reason": "Same as fund." },
+    { "key": "timestamp: VerdictVault.resolve(uint256,bool,bytes) uses timestamp for comparisons", "reason": "Resolution allowed until deadline + grace (1 h); seconds of drift do not matter." },
+    { "key": "timestamp: VerdictVault.expire(uint256) uses timestamp for comparisons", "reason": "Expiry after deadline + grace; the complement of resolve." },
+    { "key": "timestamp: PasskeyAccount.execute(address,uint256,bytes,uint64,WebAuthn.WebAuthnAuth) uses timestamp for comparisons", "reason": "Signature deadline (minutes); drift cannot extend it meaningfully." }
+  ]
+}

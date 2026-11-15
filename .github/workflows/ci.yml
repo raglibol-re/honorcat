@@ -33,17 +33,17 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - uses: crytic/slither-action@v0.4.1
-        id: slither
+      - uses: foundry-rs/foundry-toolchain@v1
+      - uses: actions/setup-python@v5
         with:
-          target: contracts
-          slither-config: contracts/slither.config.json
-          fail-on: none
-          slither-args: --checklist --markdown-root ${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/
-      - name: Findings
-        run: echo "$STDOUT" >> "$GITHUB_STEP_SUMMARY"
-        env:
-          STDOUT: ${{ steps.slither.outputs.stdout }}
+          python-version: "3.12"
+      - run: pip install slither-analyzer==0.11.3
+      - name: Slither (fails on any finding not explained in contracts/slither-triage.json)
+        working-directory: contracts
+        run: |
+          slither . --config-file slither.config.json --json slither.json --checklist > slither.md || true
+          cat slither.md >> "$GITHUB_STEP_SUMMARY"
+          python3 slither-gate.py slither.json slither-triage.json
 
   relay-sdk:
     runs-on: ubuntu-latest
