@@ -13,6 +13,7 @@ const body = z.object({
   amount: z.string().regex(/^\d+(\.\d{1,6})?$/),
   maxRecipients: z.number().int().min(1).max(50),
   joinSeconds: z.number().int().min(30).max(7 * 86400).optional(),
+  template: z.enum(["demo", "standard"]).optional(),
   listed: z.boolean().optional(),
 });
 

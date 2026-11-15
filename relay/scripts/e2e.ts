@@ -783,6 +783,7 @@ async function createEarlyViaApi(c: DemoCandidate, joinSeconds: number, label: s
       amount: (Number(EARLY_AMOUNT) / 1e6).toFixed(2),
       maxRecipients: EARLY_RECIPIENTS,
       joinSeconds,
+      template: "demo",
       listed: false,
     },
   });

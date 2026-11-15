@@ -60,6 +60,7 @@ export function NewEarly() {
   const [count, setCount] = useState(10);
   const [joinMin, setJoinMin] = useState(2);
   const [demoNote, setDemoNote] = useState<string | null>(null);
+  const [demo, setDemo] = useState(false);
 
   const market = markets?.find((m) => m.ticker === picked?.ticker) ?? null;
   const contract = market ? (market.contracts[picked?.idx ?? 0] ?? null) : null;
@@ -74,6 +75,7 @@ export function NewEarly() {
       const cat = await findCategory(c.eventTicker);
       setCategory(cat);
       setPicked({ ticker: c.eventTicker, idx: -1 });
+      setDemo(true);
       setSide(c.side);
       setThreshold(85);
       setMode("early-only");
@@ -126,6 +128,7 @@ export function NewEarly() {
                 onClick={() => {
                   setCategory(c);
                   setPicked(null);
+                  setDemo(false);
                 }}
                 className="rounded-full border px-3 py-1.5"
                 style={category === c ? { borderColor: "var(--vg-accent)", color: "var(--vg-accent)", background: "var(--vg-accent-soft)" } : { borderColor: "var(--vg-rule)" }}
@@ -138,7 +141,15 @@ export function NewEarly() {
           {!markets && !error && <p className="t-15" style={{ color: "var(--vg-muted)" }}>Loading live markets from Gemini…</p>}
           {markets && markets.length === 0 && <p className="t-15">No open market in this category right now. Try another one.</p>}
           {markets && markets.length > 0 && (
-            <MarketPicker markets={markets} market={market} contract={contract} onPick={(ticker, idx) => setPicked({ ticker, idx })} />
+            <MarketPicker
+              markets={markets}
+              market={market}
+              contract={contract}
+              onPick={(ticker, idx) => {
+                setPicked({ ticker, idx });
+                setDemo(false);
+              }}
+            />
           )}
         </section>
 
@@ -229,7 +240,7 @@ export function NewEarly() {
             An early payout is final, even if the market turns out wrong. Unused places come back to you.
           </p>
         </section>
-        <Fund market={market} contract={contract} side={side} threshold={threshold} mode={mode} name={name} amount={amount} count={count} joinMin={joinMin} />
+        <Fund market={market} contract={contract} side={side} threshold={threshold} mode={mode} name={name} amount={amount} count={count} joinMin={joinMin} demo={demo} />
       </aside>
     </div>
   );
@@ -245,7 +256,7 @@ async function findCategory(eventTicker: string): Promise<string> {
   return "Crypto";
 }
 
-function Fund(p: { market: Market | null; contract: Contract | null; side: "yes" | "no"; threshold: number; mode: "early-only" | "early-or-outcome"; name: string; amount: string; count: number; joinMin: number }) {
+function Fund(p: { market: Market | null; contract: Contract | null; side: "yes" | "no"; threshold: number; mode: "early-only" | "early-or-outcome"; name: string; amount: string; count: number; joinMin: number; demo: boolean }) {
   const { connect, adapter } = useWallet();
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -271,6 +282,7 @@ function Fund(p: { market: Market | null; contract: Contract | null; side: "yes"
         amount: Number(p.amount).toFixed(2),
         maxRecipients: p.count,
         joinSeconds: p.joinMin * 60,
+        template: p.demo ? "demo" : undefined,
       });
       setBusy("Confirm once in your wallet. No fees.");
       const m = prep.typedData.message;

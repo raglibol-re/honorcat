@@ -23,6 +23,8 @@ export type EarlyInput = {
   amount: string; // "1.25" USDC per recipient
   maxRecipients: number;
   joinSeconds?: number; // how long recipients can join (arming starts after)
+  /** "demo" forces the demo parameters (the demo template); otherwise they follow the horizon. */
+  template?: "demo" | "standard";
   listed?: boolean;
 };
 
@@ -51,7 +53,7 @@ export async function earlyTermsFrom(input: EarlyInput): Promise<EarlyTermsJson>
   if (!instrument) throw Object.assign(new Error("Gemini did not return an instrument symbol for this contract"), { status: 502 });
   const now = Math.floor(Date.now() / 1000);
   const close = Math.floor(new Date((c.expiryDate ?? ev.expiryDate) || 0).getTime() / 1000);
-  const template = close - now <= SHORT_HORIZON_S ? "demo" : "standard";
+  const template = input.template ?? (close - now <= SHORT_HORIZON_S ? "demo" : "standard");
   const params = trigger.paramsFor(template, {
     priceDecimals: decimals((c as { priceIncrement?: string }).priceIncrement),
     sizeDecimals: decimals((c as { quantityIncrement?: string }).quantityIncrement),
@@ -204,7 +206,7 @@ export async function demoCandidates(thresholdBps = 8500): Promise<{ trigger: De
   // Refund demo: closes soonest, far below the threshold on its side.
   const ref = rows
     .map((r) => ({ ...r, side: (r.side === "yes" ? "no" : "yes") as "yes" | "no", chance: 1 - r.chance }))
-    .filter((r) => r.chance <= thr - 0.3)
+    .filter((r) => r.chance <= thr - 0.3 && new Date(r.closesAt).getTime() <= now + 45 * 60_000)
     // Far below the threshold first (a coin-flip market could still cross), then soonest close.
     .sort((a, b) => Number(b.chance <= 0.15) - Number(a.chance <= 0.15) || a.closesAt.localeCompare(b.closesAt))
     .slice(0, 3);
