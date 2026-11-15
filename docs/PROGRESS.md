@@ -19,6 +19,12 @@
 - Work in cycles per docs/improve.md, everything in the agreed priority order.
 
 ## Rubric cycle log
+- 2026-11-16: env vars switched (user asked me to do it): RELAY_PRIVATE_KEY (Production, Preview),
+  RESOLVER_ADDRESS and SAMPLERS (Production) set in Vercel with the same values (key piped from the
+  local .env, never printed; it derives to the production relay 0x3692…20D6; addresses from
+  deployments/5042002.samplers.json, matching production's resolver). Old-name fallbacks removed
+  (17e3f94), deployed (dpl_Dg9U9G…, by CLI: the push did not trigger a build), relay checked
+  (same address, sampler endpoint 200, tick at 23:58:49 UTC), then the old names deleted in Vercel.
 - 2026-11-16: C1 cleanup merged and deployed (0d03952). Open pots on retired contracts listed
   (vault 19, 22, 176, 177 guarantees, last deadline 2026-12-14; 26-31 past deadline, 0.01 each;
   early payouts all settled, one outcome record pending; drops fully claimed). Creation of early
@@ -83,10 +89,7 @@
 - Then: phase I threat model and static analysis, minimal phase H, phase E only if time allows.
 
 ## Blocks current milestone
-- C1 done except one step that needs you: switch the environment variables in Vercel
-  (RESOLVER_PRIVATE_KEY -> RELAY_PRIVATE_KEY, EARLY_RESOLVER_ADDRESS -> RESOLVER_ADDRESS,
-  EARLY_SAMPLERS -> SAMPLERS; Production and Preview; same values). Then tell me, and I remove the
-  old names in a separate commit and update .env.example. Next milestone: D0 (design document).
+- (none) C1 complete. Next: D0 design document.
 
 ## Later
 - Vault pots 26-31 ($0.01 each) are past their deadline and only need the public `expire` call

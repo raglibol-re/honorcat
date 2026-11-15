@@ -13,7 +13,7 @@ output). Order follows the spec's sections. Milestones: C0, C1, D0 to D5.
       choice from the catalogue.
 - [x] Old `pots` table renamed to `vault_pots` by one migration with a rollback; row counts equal
       before and after; old pots still settle afterwards.
-- [ ] Environment variables switched to the new names in Vercel; old names removed in a separate
+- [x] Environment variables switched to the new names in Vercel; old names removed in a separate
       commit; .env.example updated.
 - [x] README: what it is, architecture, setup, run, test, deploy, build log.
 - [x] Tests green after every cleanup step.
