@@ -6,6 +6,7 @@ import { LiveLine } from "@/components/LiveLine";
 import { TechToggle, useTechMode } from "@/components/TechMode";
 
 const primary = [
+  { href: "/early/new", label: "Pay early" },
   { href: "/guarantees", label: "Guarantees" },
   { href: "/guarantees/new", label: "Offer a guarantee" },
   { href: "/account", label: "Your account" },
