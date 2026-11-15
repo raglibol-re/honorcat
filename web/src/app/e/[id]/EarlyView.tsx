@@ -54,10 +54,16 @@ const post = <T,>(path: string, body: unknown) => getJson<T>(path, { method: "PO
 const pct = (x: number | null | undefined, d = 0) => (x === null || x === undefined ? "—" : `${(x * 100).toFixed(d)}%`);
 
 function left(s: number) {
-  if (s <= 0) return "closed";
+  if (s <= 0) return "ended";
   if (s < 3600) return `${Math.floor(s / 60)} min ${s % 60} s`;
   if (s < 172_800) return `${Math.floor(s / 3600)} h ${Math.floor((s % 3600) / 60)} min`;
   return `${Math.floor(s / 86400)} days`;
+}
+
+/** "Paid when “46°F to 47°F” hits 85%": the promise in a few words; the event title goes below. */
+export function headline(e: Pick<EarlyDetail["early"], "side" | "contractLabel" | "params">) {
+  const what = e.side === "yes" ? `“${e.contractLabel}”` : `“not ${e.contractLabel}”`;
+  return `Paid when ${what} hits ${e.params.thresholdBps / 100}%`;
 }
 
 export function useEarly(id: string) {
@@ -219,7 +225,10 @@ export function EarlyView() {
           <p className="t-13" style={{ color: "var(--vg-muted)" }}>
             From {e.name}
           </p>
-          <h1 className="t-21 mt-1 font-semibold leading-snug">{e.promise}</h1>
+          <h1 className="t-21 mt-1 font-semibold leading-snug">{headline(e)}</h1>
+          <p className="t-15 mt-1" style={{ color: "var(--vg-muted)" }}>
+            {e.eventTitle}
+          </p>
         </div>
         <dl className="grid grid-cols-3 gap-3">
           <div>

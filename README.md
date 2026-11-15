@@ -147,7 +147,7 @@ collapsed "Full rules" block, on the proof page, or behind "Show technical detai
 |---|---|
 | [`/`](https://verdict-phi-livid.vercel.app) | "Get paid before it happens.", one sentence, "Try it", and a real live payout card with its chart |
 | [`/early/new`](https://verdict-phi-livid.vercel.app/early/new) | funder flow: "Quick demo: pick an event for me" (picks the live contract whose book best meets the demo rule right now), or pick any Gemini event from a picture picker, the outcome and how likely (slider with the live chance and recent trade prices), name, amount, people; one signature, then a share link and QR code. "More options": refund vs pay-if-it-happens, minutes to join |
-| `/e/<id>` | recipient page: the promise in one sentence, "You get", "Chance now", "Ends in", a three-step bar (Money in / Watching / Paid), one "Join" button (passkey), the chance chart, "Full rules" (every edge case in plain words); "Under the hood" in technical mode |
+| `/e/<id>` | recipient page: a short headline ("Paid when “X” hits 85%") with the event below, "You get", "Chance now", "Ends in", a three-step bar (Money in / Watching / Paid), one "Join" button (passkey), the chance chart, "Full rules" (every edge case in plain words); "Under the hood" in technical mode |
 | `/e/<id>/proof` | every sampler's samples and signatures, recomputed in the browser with the same engine; the evidence root vs the payout memo |
 | [`/how`](https://verdict-phi-livid.vercel.app/how) | the long explanation for people who want it: how it works, the rule, edge cases, how to check it, test-money note |
 | [`/account`](https://verdict-phi-livid.vercel.app/account) | "My money": balance, sign in with the passkey, withdraw everything |

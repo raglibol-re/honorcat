@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { ProbabilityChart } from "@/components/early/ProbabilityChart";
 import { getJson } from "@/lib/api";
 import { formatMoney } from "@/lib/format";
-import type { EarlyDetail } from "./e/[id]/EarlyView";
+import { headline, type EarlyDetail } from "./e/[id]/EarlyView";
 import { LiveExample } from "./LiveExample";
 
 type Row = EarlyDetail["early"];
@@ -72,7 +72,12 @@ export function LiveEarly() {
         <p className="t-13" style={{ color: "var(--vg-muted)" }}>
           Live example: {STATE[e.state] ?? e.state}
         </p>
-        <p className="t-17 font-semibold leading-snug">{e.promise}</p>
+        <div>
+          <p className="t-17 font-semibold leading-snug">{headline(e)}</p>
+          <p className="t-13" style={{ color: "var(--vg-muted)" }}>
+            {e.eventTitle}
+          </p>
+        </div>
         <div className="flex items-baseline justify-between">
           <span className="mono t-27 font-medium">{formatMoney(e.amount)}</span>
           <span className="t-15">
