@@ -19,6 +19,10 @@
 - Work in cycles per docs/improve.md, everything in the agreed priority order.
 
 ## Rubric cycle log
+- 2026-11-16: pots started together by two friends (user decisions: one against one, starting at the
+  market price, no contract change). Shared draft (relay drafts.ts, /api/hc/drafts), pages
+  /pots/together and /pots/together/<id>, never listed among open offers. E2E "together" passed on
+  production (pot 10).
 - 2026-11-16 (improvements): sampler health (heartbeat, /api/health/samplers 503 below 2 of 3,
   notice on pot pages, list on /status); MedianResolver (0x62FB...3c62) computes the price on-chain
   from each sampler's signed average, samplers include Gemini's market status in their own

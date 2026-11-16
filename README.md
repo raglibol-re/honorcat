@@ -22,6 +22,7 @@ fair-value reader and end-to-end runs against production. Open items are listed 
 | [`/`](https://honorcat.vercel.app) | One live pot on the rope (or an example on a liquid market) |
 | [`/pots/new`](https://honorcat.vercel.app/pots/new) | Start a pot: market, side, size (cap from the order book), band, grace |
 | [`/pots`](https://honorcat.vercel.app/pots) | Your pots and open offers to join |
+| [`/pots/together`](https://honorcat.vercel.app/pots/together) | Start a pot with a friend: a shared draft both edit (question, sides, size), then each puts in a side with one confirmation; starts at the market price; never offered to others |
 | `/pots/<id>` | The rope view (shares in dollars, the cat at the 30-second price, nets and bowls, the exit countdown and stamp), every action for your role, every measured window with each sampler's average |
 | `/pots/<id>/tv`, `/terms`, `/proof` | Big-screen view; the pot's terms with its own numbers; contract, rule, evidence hashes |
 | `/record/<address>` | Honor record: pots played, held to the end, exits (own, net, bowl), handshakes, takeovers, results |
@@ -40,6 +41,7 @@ End-to-end runs (`relay/scripts/pots-e2e.ts --scenario …`, against production,
 | bowl | 6 | YES set a bowl below the price; the samplers saw it hold and filed the exit; divided |
 | hold | 7 | held to the end on a BTC 15-minute market; Gemini settled YES, samplers co-signed, the pot paid YES at 09:30 UTC (tx 0xc5ecfc86...9dc1; the event arrived through QuickNode Streams) |
 | quote | 2 | `pots-quote.ts`: a signed quote valued both sides on-chain through HonorCatFairValue |
+| together | 10 | two friends: shared draft, guest agreed, host opened, guest put in; not listed among open offers; live at 68.5% (median of three, checked on-chain) |
 | exit, rule on-chain | 8, 9 | join and exit priced by the MedianResolver from three signed averages; pot 9 ran while Streams was paused (docs/streams-backfill.md) |
 
 ## Architecture
