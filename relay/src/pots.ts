@@ -462,7 +462,7 @@ export async function submitReady(db: Db, requestId: string) {
     { ...memoCall(address, data, ref, { v: 1, t: "pot", ref, pot: String(req.pot_id), why }), potIds: [], label: `${req.kind} ${requestId}` },
   ]);
   if (res.ok) {
-    await db.query("UPDATE att_requests SET status = 'submitted', tx = $2, updated_at = now() WHERE id = $1", [requestId, res.tx]);
+    await db.query("UPDATE att_requests SET status = 'submitted', tx = $2, error = NULL, updated_at = now() WHERE id = $1", [requestId, res.tx]);
     if (req.pot_id) await syncPot(db, BigInt(String(req.pot_id))).catch(() => {});
     return res.tx;
   }
