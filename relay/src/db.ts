@@ -429,6 +429,20 @@ CREATE TABLE IF NOT EXISTS att_averages (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (request_id, signer)
 );
+-- HonorCatPots events (pots.ts indexPots), kept apart from the retired vault's chain_events.
+CREATE TABLE IF NOT EXISTS pot_events (
+  tx_hash      TEXT    NOT NULL,
+  log_index    INTEGER NOT NULL,
+  block_number BIGINT  NOT NULL,
+  block_time   BIGINT,
+  event_name   TEXT    NOT NULL,
+  pot_id       BIGINT,
+  args         JSONB   NOT NULL,
+  source       TEXT    NOT NULL,
+  inserted_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (tx_hash, log_index)
+);
+CREATE INDEX IF NOT EXISTS pot_events_pot_idx ON pot_events (pot_id, block_number, log_index);
 -- Handshake offers: one owner's signature waiting for the other's (same terms).
 CREATE TABLE IF NOT EXISTS pot_handshakes (
   pot_id      BIGINT NOT NULL,

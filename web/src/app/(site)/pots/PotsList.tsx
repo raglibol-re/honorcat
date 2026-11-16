@@ -69,6 +69,9 @@ export function PotsList() {
         ) : (
           <>
             <AccountLine who={who} />
+            <Link href={`/record/${me}`} style={{ fontSize: 16 }}>
+              Your honor record
+            </Link>
             {mine.data && mine.data.pots.length === 0 ? (
               <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
                 <Cat pose="box" size={140} />

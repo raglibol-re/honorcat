@@ -1,11 +1,11 @@
 import { connection } from "next/server";
 import { Suspense } from "react";
-import { landingData } from "@/server/landing";
-import { Landing } from "./Landing";
+import { homeData } from "@/server/home";
+import { Home } from "./Home";
 
-export default function Home() {
+export default function HomePage() {
   return (
-    <Suspense fallback={<Landing initial={null} />}>
+    <Suspense fallback={<Home data={{ potId: null, market: null }} />}>
       <WithData />
     </Suspense>
   );
@@ -13,6 +13,6 @@ export default function Home() {
 
 async function WithData() {
   await connection();
-  const initial = await landingData().catch(() => ({ hero: null, payout: null }));
-  return <Landing initial={initial} />;
+  const data = await homeData().catch(() => ({ potId: null, market: null }));
+  return <Home data={data} />;
 }

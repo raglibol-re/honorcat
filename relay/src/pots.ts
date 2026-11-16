@@ -587,19 +587,22 @@ export async function indexPots(db: Db, opts: { deadlineMs?: number } = {}) {
   if (!cfg.pots) return null;
   const c = publicClient();
   const started = Date.now();
-  const cursor = await db.query<{ value: string }>("SELECT value FROM relay_state WHERE key = 'pots_cursor'");
+  const cursor = await db.query<{ value: string }>("SELECT value FROM relay_state WHERE key = 'pots_cursor_v2'");
   let from = cursor[0] ? BigInt(cursor[0].value) + 1n : cfg.pots.deployBlock;
   const head = await c.getBlockNumber();
   const touched = new Set<string>();
   while (from <= head && Date.now() - started < (opts.deadlineMs ?? 15_000)) {
     const to = from + 4_999n > head ? head : from + 4_999n;
     const logs = await c.getLogs({ address: cfg.pots.address, fromBlock: from, toBlock: to });
+    const times = new Map<bigint, number>();
     for (const l of parseEventLogs({ abi: potsAbi, logs })) {
       const id = (l.args as { potId?: bigint; tokenId?: bigint }).potId ?? ((l.args as { tokenId?: bigint }).tokenId !== undefined ? (l.args as { tokenId: bigint }).tokenId / 2n : undefined);
       if (typeof id === "bigint") touched.add(id.toString());
+      if (!times.has(l.blockNumber)) times.set(l.blockNumber, Number((await c.getBlock({ blockNumber: l.blockNumber })).timestamp));
+      await recordPotEvent(db, l, id ?? null, times.get(l.blockNumber)!, "rpc");
     }
     await db.query(
-      "INSERT INTO relay_state (key, value) VALUES ('pots_cursor', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
+      "INSERT INTO relay_state (key, value) VALUES ('pots_cursor_v2', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
       [to.toString()],
     );
     from = to + 1n;
@@ -706,4 +709,114 @@ export async function listPotsHc(db: Db, opts: { owner?: string; states?: number
     });
   }
   return out;
+}
+
+/** Stores one decoded pot event (idempotent). */
+export async function recordPotEvent(
+  db: Db,
+  l: { transactionHash: Hex | null; logIndex: number | null; blockNumber: bigint | null; eventName: string; args: unknown },
+  potId: bigint | null,
+  blockTime: number | null,
+  source: string,
+) {
+  if (!l.transactionHash || l.logIndex === null || l.blockNumber === null) return;
+  const args = JSON.parse(JSON.stringify(l.args, (_k, v) => (typeof v === "bigint" ? v.toString() : v)));
+  await db.query(
+    `INSERT INTO pot_events (tx_hash, log_index, block_number, block_time, event_name, pot_id, args, source)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (tx_hash, log_index) DO NOTHING`,
+    [l.transactionHash.toLowerCase(), l.logIndex, l.blockNumber.toString(), blockTime, l.eventName, potId?.toString() ?? null, JSON.stringify(args), source],
+  );
+}
+
+/* ------------------------------------------------------------------ honor record */
+
+type Ev = { tx_hash: string; block_time: string | null; event_name: string; pot_id: string | null; args: Record<string, string> };
+
+/**
+ * An account's honor record: facts from the pot events only. Pots played (created or joined),
+ * held to the end (settled while holding a side), exits (own, by net, by bowl), handshakes,
+ * takeovers (taken over by them, and their sides taken over) and the USDC paid to them.
+ */
+export async function honorRecord(db: Db, account: string) {
+  const a = account.toLowerCase();
+  const ev = await db.query<Ev>("SELECT tx_hash, block_time::text AS block_time, event_name, pot_id::text AS pot_id, args FROM pot_events ORDER BY block_number, log_index");
+  const ownerOf = new Map<string, string>(); // tokenId -> owner, replayed from Transfer events
+  const played = new Set<string>();
+  const held = new Set<string>();
+  const out = { pots: 0, heldToEnd: 0, exits: 0, exitsByNet: 0, exitsByBowl: 0, partialExits: 0, handshakes: 0, tookOver: 0, takenOver: 0, joinsFailed: 0, paid: 0n, settledFor: 0, settledAgainst: 0, voided: 0 };
+  const pending = new Map<string, "own" | "net" | "bowl">(); // potId -> how the current exit was filed
+  const exitingSide = new Map<string, number>();
+  const timeline: { potId: string; at: number | null; what: string; tx: string }[] = [];
+  const mine = (potId: string, side: number) => ownerOf.get(String(BigInt(potId) * 2n + BigInt(side))) === a;
+  for (const e of ev) {
+    const g = e.args;
+    const pid = e.pot_id ?? "";
+    const at = e.block_time ? Number(e.block_time) : null;
+    switch (e.event_name) {
+      case "Transfer": {
+        ownerOf.set(String(g.tokenId), String(g.to).toLowerCase());
+        if (String(g.to).toLowerCase() === a) played.add(String(BigInt(g.tokenId!) / 2n));
+        break;
+      }
+      case "JoinFailed":
+        break;
+      case "ExitRequested":
+        exitingSide.set(pid, Number(g.side));
+        if (!pending.has(pid)) pending.set(pid, "own");
+        break;
+      case "LevelTriggered":
+        pending.set(pid, Number(g.kind) >= 4 ? "bowl" : "net");
+        break;
+      case "PotDivided": {
+        const side = Number(g.exitSide);
+        if (mine(pid, side)) {
+          const how = pending.get(pid) ?? "own";
+          out.exits++;
+          if (how === "net") out.exitsByNet++;
+          if (how === "bowl") out.exitsByBowl++;
+          timeline.push({ potId: pid, at, what: `left ${side === 0 ? "YES" : "NO"} at ${(Number(g.price) / 10_000).toFixed(1)}%${how === "own" ? "" : ` (${how})`}`, tx: e.tx_hash });
+        }
+        pending.delete(pid);
+        break;
+      }
+      case "ExitFailed":
+        pending.delete(pid);
+        break;
+      case "Handshake":
+        if (mine(pid, 0) || mine(pid, 1)) {
+          out.handshakes++;
+          timeline.push({ potId: pid, at, what: `shook hands at ${(Number(g.price) / 10_000).toFixed(1)}%`, tx: e.tx_hash });
+        }
+        break;
+      case "TakenOver":
+        if (String(g.to).toLowerCase() === a) {
+          out.tookOver++;
+          timeline.push({ potId: pid, at, what: `took over ${Number(g.side) === 0 ? "YES" : "NO"}`, tx: e.tx_hash });
+        }
+        if (String(g.from).toLowerCase() === a) {
+          out.takenOver++;
+          timeline.push({ potId: pid, at, what: `side taken over at ${(Number(g.price) / 10_000).toFixed(1)}%`, tx: e.tx_hash });
+        }
+        pending.delete(pid);
+        break;
+      case "PotSettled": {
+        const o = Number(g.outcome);
+        for (const side of [0, 1]) {
+          if (!mine(pid, side)) continue;
+          held.add(pid);
+          if (o === 2) out.voided++;
+          else if ((o === 1 && side === 0) || (o === 0 && side === 1)) out.settledFor++;
+          else out.settledAgainst++;
+          timeline.push({ potId: pid, at, what: `held ${side === 0 ? "YES" : "NO"} to the end: Gemini settled ${o === 1 ? "YES" : o === 0 ? "NO" : "void"}`, tx: e.tx_hash });
+        }
+        break;
+      }
+      case "Paid":
+        if (String(g.to).toLowerCase() === a) out.paid += BigInt(g.amount!);
+        break;
+    }
+  }
+  out.pots = played.size;
+  out.heldToEnd = held.size;
+  return { account: a, ...out, paid: out.paid.toString(), timeline: timeline.reverse().slice(0, 100) };
 }

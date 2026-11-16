@@ -77,9 +77,9 @@ export function HcFooter() {
       <Ears viewBox="0 0 1440 60" points={["150,61 210,3 270,61", "1170,61 1230,3 1290,61"]} />
       <footer style={{ background: C.ink, color: C.page }}>
         <div className="hc-wrap" style={{ paddingTop: 32, paddingBottom: 32, display: "flex", flexDirection: "column", gap: 24 }}>
-          <p style={{ margin: 0, fontFamily: F.cond, fontSize: 44, fontWeight: 600, lineHeight: 1 }}>Promises that always land.</p>
+          <p style={{ margin: 0, fontFamily: F.cond, fontSize: 44, fontWeight: 600, lineHeight: 1 }}>A cat always lands on its feet.</p>
           <p style={{ margin: 0, fontSize: 16, lineHeight: 1.5, color: C.faint, maxWidth: 720 }}>
-            This is a testnet demo, not insurance. Chances come from Gemini market prices, which can be wrong. An early payout is final.
+            A test version on Arc testnet with test money only. Not financial advice. Prices come from Gemini markets, which can be wrong or thin.
           </p>
           <HcFooterLinks />
         </div>
