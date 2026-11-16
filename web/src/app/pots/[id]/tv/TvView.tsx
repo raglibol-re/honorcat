@@ -23,7 +23,7 @@ export function TvView({ id }: { id: string }) {
           <CatHead width={48} height={45} eyes={C.signal} />
           <span style={{ fontFamily: F.cond, fontSize: 44, fontWeight: 600 }}>HonorCat</span>
         </Link>
-        <span style={{ fontSize: 22, color: C.muted }}>Arc testnet · test money only</span>
+        <span style={{ fontSize: 22, color: C.muted }}>Arc testnet · test money only · not financial advice</span>
       </header>
       {!pot ? (
         <Cat pose="peek" size={300} />

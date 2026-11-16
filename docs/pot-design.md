@@ -356,6 +356,26 @@ the protocol clock, reentrancy findings on `nonReentrant` functions that call on
 low-level call of the claimable pattern). Two findings were fixed instead (admin events, explicit
 initialisation).
 
+## 13. D2 to D5 results (2026-11-16)
+
+- **Relay (D2).** A pot entering Joining or ExitRequested opens a window request
+  `w:<pot>:<nonce>:<kind>` for exactly `[request + 1 s, + window]`. Each sampler builds its own
+  evidence record (the trigger engine's canonical record, rule committed in the conditionId) and
+  signs its hash; the relay verifies the record and takes the median of three (mean of two within
+  0.5 points; otherwise `valid = false`). Each sampler co-signs only within 0.5 points of its own
+  average. Two co-signatures: the relay submits (anyone could). Depth and outcome requests use the
+  same tables. Nets and bowls: a sampler that sees a side's own average hold beyond its level asks
+  for that window; the others measure the same seconds.
+- **Timing found in the runs.** Arc's `block.timestamp` trails the wall clock by a few seconds, so
+  a window could be submitted before the chain considered it ended (`TooEarly`). The relay now waits
+  for the chain clock and retries such failures.
+- **Quotes and fair value (D5).** Kind 6 (QUOTE) windows are measured and signed like exit prices,
+  but HonorCatPots accepts only kinds 0 to 5, so a quote can never move money. HonorCatFairValue
+  (stateless, 0x8a89...71a5) checks a quote against the pot's own signer set and freshness and returns
+  a side's share and exit fee. Verified on-chain for pot 2.
+- **Runs against production.** Exit (pot 3), takeover (4), handshake (5), bowl (6), held to
+  settlement (7, waiting for Gemini's result), quote (2): `relay/scripts/pots-e2e.ts`, `pots-quote.ts`.
+
 ## 11. Decisions (user, 2026-11-16)
 
 1. Price agreement: each sampler signs its own window average; the proposal is the exact median of

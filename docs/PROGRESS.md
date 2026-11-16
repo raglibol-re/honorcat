@@ -19,6 +19,13 @@
 - Work in cycles per docs/improve.md, everything in the agreed priority order.
 
 ## Rubric cycle log
+- 2026-11-16: D3/D4/D5. Pages: start a pot, pot with the rope view, big screen, pots list, terms and
+  proof per pot, honor record, how-it-is-built, How it works and Developers rewritten, landing with
+  one live pot. Relay: handshake offers, pot_events (Streams primary, RPC fallback, backfilled),
+  quotes. Contract: HonorCatFairValue (0x8a89...71a5, 7 tests). Fixes found by the runs: the local
+  sampler's two samplers shared one stream (fixed); a window was submitted before Arc's block clock
+  passed its end (TooEarly; the relay now waits and retries). E2E against production: exit (pot 3),
+  takeover (4), handshake (5), bowl (6), quote (2); pot 7 held to the end, waiting for Gemini's result.
 - 2026-11-16: D2 relay done and verified on Arc testnet (pots 1-3). Window requests per join, exit,
   net and bowl; each sampler signs its own window average inside its evidence record; the relay
   proposes the exact median of three (mean of two within 0.5 points, else no price) and submits
@@ -104,8 +111,7 @@
 - Then: phase I threat model and static analysis, minimal phase H, phase E only if time allows.
 
 ## Blocks current milestone
-- (none) D1 done. Next: D2, the relay (forward-window attestations with median agreement, depth
-  attestations, nets and bowls, permissionless submission).
+- (none) D2 to D5 done; see the rubric for what is still open.
 
 ## Later
 - Vault pots 26-31 ($0.01 each) are past their deadline and only need the public `expire` call

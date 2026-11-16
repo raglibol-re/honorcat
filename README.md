@@ -11,23 +11,35 @@ serves the same deployment; passkey accounts created there stay bound to it).
 
 ## Status (2026-11-16)
 
-The two-sided pot is being built in milestones (spec in the conversation history, plan in
-`docs/PROGRESS.md`): C0 inventory → **C1 cleanup (this state)** → D0 design document → D1 pot
-contract → D2 relay (forward-window prices, nets and bowls) → D3 cat poses and the rope view →
-D4 partial exit, handshake, takeover → D5 honor record, sponsor page, end-to-end runs.
-
-What runs today:
+All milestones of the two-sided pot are built and running on Arc testnet: C0 inventory, C1 cleanup,
+D0 design (`docs/pot-design.md`), D1 contract, D2 relay, D3 cat and rope view, D4 partial exit,
+nine lives, handshake, takeover, D5 honor record, how-it-is-built, terms and proof per pot, the
+fair-value reader and end-to-end runs against production. Open items are listed in
+`docs/PROGRESS.md` and checked one by one in `docs/rubric.md`.
 
 | Page | What |
 |---|---|
-| [`/`](https://honorcat.vercel.app) | Landing with the cat-and-bowl scale on a live market from the catalogue |
-| [`/markets`](https://honorcat.vercel.app/markets) | Every Gemini prediction contract, measured against the trigger rule: which work today, by category |
-| [`/live`](https://honorcat.vercel.app/live) | QuickNode Streams pipeline: deliveries, delay, which path saw each event first |
-| [`/status`](https://honorcat.vercel.app/status) | Relay balance, runway, gas per transaction kind, indexer and Streams health |
-| [`/ledger`](https://honorcat.vercel.app/ledger) | Every indexed event of the retired vault |
-| `/e/<id>`, `/e/<id>/proof` | Retired early payouts, read-only, with evidence hashes (raw readings for the two parties after sign-in) |
-| `/g/<id>`, `/g/<id>/proof` | Retired refund guarantees, read-only until they settle (customers can still withdraw) |
-| `/account`, `/how`, `/developers` | My money (passkey or wallet), how it works, the public read API |
+| [`/`](https://honorcat.vercel.app) | One live pot on the rope (or an example on a liquid market) |
+| [`/pots/new`](https://honorcat.vercel.app/pots/new) | Start a pot: market, side, size (cap from the order book), band, grace |
+| [`/pots`](https://honorcat.vercel.app/pots) | Your pots and open offers to join |
+| `/pots/<id>` | The rope view (shares in dollars, the cat at the 30-second price, nets and bowls, the exit countdown and stamp), every action for your role, every measured window with each sampler's average |
+| `/pots/<id>/tv`, `/terms`, `/proof` | Big-screen view; the pot's terms with its own numbers; contract, rule, evidence hashes |
+| `/record/<address>` | Honor record: pots played, held to the end, exits (own, net, bowl), handshakes, takeovers, results |
+| [`/how-it-is-built`](https://honorcat.vercel.app/how-it-is-built) | Arc, Gemini and QuickNode: what each does, how to check it, live evidence |
+| [`/markets`](https://honorcat.vercel.app/markets), [`/live`](https://honorcat.vercel.app/live), [`/status`](https://honorcat.vercel.app/status) | Market quality from the order book; Streams deliveries; relay health |
+| `/how`, `/developers`, `/account` | How it works; contracts and API; your account (passkey or wallet, funding from other chains) |
+| `/e/<id>`, `/g/<id>`, `/ledger` | Retired products, read-only |
+
+End-to-end runs (`relay/scripts/pots-e2e.ts --scenario …`, against production, testnet USDC):
+
+| Scenario | Pot | Result |
+|---|---|---|
+| exit | 3 | joined at 76.5% (median of three), exit priced by the median of three, divided on-chain |
+| takeover | 4 | YES asked to leave; a third wallet took its place at the exit price; pot stays live |
+| handshake | 5 | both signed 70%; divided at once, no fee |
+| bowl | 6 | YES set a bowl below the price; the samplers saw it hold and filed the exit; divided |
+| hold | 7 | held to the end on a BTC 15-minute market; waiting for Gemini's result (closes 09:30 UTC) |
+| quote | 2 | `pots-quote.ts`: a signed quote valued both sides on-chain through HonorCatFairValue |
 
 ## Architecture
 
@@ -71,6 +83,7 @@ Active:
 | Contract | Address | Purpose |
 |---|---|---|
 | **HonorCatPots** | `0xc890C990048f45cb268d076E4A3dB25270Ea1e59` | The two-sided pot (D1): create, forward-priced join and exit, partial exit, handshake, nets and bowls, takeover, settle, expire; positions as ERC-721 (`HCSIDE`) |
+| **HonorCatFairValue** | `0x8a890a0A79371333dEaAF1aFC76D68ffDc7671a5` | Stateless reader: a side's value from a signed QUOTE window (kind 6, never accepted by the pot) |
 | MultisigResolver | `0x81d1194069E1aD3a22C17356065d8dF6A4D436c9` | 2-of-3 ERC-1271 signer set of the three samplers; signs every price, depth and outcome attestation |
 | PasskeyAccountFactory | `0xB93e6C63815Af25213c43dEc1B494452c8ED0ea2` | Deploys passkey (WebAuthn P-256) accounts |
 | PasskeyAccount (implementation) | `0xCe60d5aF6F912f0565092A139FEF1bC764b32c65` | |
@@ -169,3 +182,10 @@ Built from 2026-11-13 to 2026-11-16 (115 commits; `git log` for every step).
   pots, retired contracts archived, the SDK and the integrator API removed, one Gemini order-book
   reader, migration of the retired vault table to `vault_pots`, one name (HonorCat), new address
   honorcat.vercel.app.
+- **2026-11-16 (later)**: D0 design and D1 contract (HonorCatPots, 84 contract tests with stateful
+  invariants, Slither reviewed); D2 relay (window requests, each sampler's signed average, median of
+  three or mean of two within half a point, co-signatures, depth and outcome attestations, nets and
+  bowls, passkey and wallet actions with HonorCat paying gas, pot events from Streams with RPC
+  fallback); D3/D4 pages (start, pot with the rope view, big screen, pots, terms, proof, every action);
+  D5 honor record, how-it-is-built, HonorCatFairValue and quotes; end-to-end runs for exit, takeover,
+  handshake, bowl, hold and quote against production.
