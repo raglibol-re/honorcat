@@ -44,7 +44,8 @@ export type TxKind =
   | "pot_settle"
   | "pot_house"
   | "pot_exec"
-  | "pot_forward";
+  | "pot_forward"
+  | "pot_gateway";
 
 type VaultFunction = "resolve" | "expire" | "fundWithAuthorization" | "createPotWithAuthorization";
 

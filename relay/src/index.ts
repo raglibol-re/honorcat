@@ -107,3 +107,4 @@ export { createDraft, getDraft, actOnDraft, DRAFT_TOLERANCE, type DraftAction } 
 export { practiceJoin, practiceAddress, isPractice, PRACTICE_MAX_NOTIONAL } from "./practice";
 export { setName, namesOf, nameMessage } from "./names";
 export { welcome, topUp, refillPool, poolStatus } from "./funding";
+export { GATEWAY_SOURCES, GATEWAY_WALLET, GATEWAY_MINTER, gatewayBalances, prepareGatewayMove, completeGatewayMove } from "./gateway";

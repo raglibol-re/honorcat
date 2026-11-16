@@ -273,6 +273,9 @@ export function FundsHelp({ account, reason }: { account: string; reason?: strin
         </a>
       </div>
       <span style={{ fontFamily: F.mono, fontSize: 13, color: C.muted, overflowWrap: "anywhere" }}>{account}</span>
+      <span style={{ fontSize: 14, color: C.muted }}>
+        Have USDC on another chain? <a href="/account#gateway">Bring it over with Circle Gateway</a>.
+      </span>
     </div>
   );
 }
