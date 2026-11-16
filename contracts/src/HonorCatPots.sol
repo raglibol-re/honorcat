@@ -427,7 +427,6 @@ contract HonorCatPots is ERC721, EIP712, ReentrancyGuard, Ownable {
         Pot storage p = _pots[potId];
         if (p.state != State.Live) revert WrongState();
         if (side > NO || notional == 0 || notional > p.notional) revert BadParams();
-        if (notional != p.notional) revert BadParams(); // partial exits: later step
         if (block.timestamp + lockout(potId) >= p.closeTime) revert TooLate();
         if (block.timestamp < p.cooldownUntil) revert Cooldown();
         p.exitSide = side;
