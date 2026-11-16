@@ -10,6 +10,7 @@ import {
   getDb,
   ingestLogs,
   nudgeRelay,
+  pots,
   ARC_MEMO,
   publicClient,
   recordBatch,
@@ -47,6 +48,14 @@ export async function POST(req: Request) {
   const db = await getDb();
   // Vault, GuaranteeBook and Arc Memo logs; ingestLogs keeps memo logs only for our transactions.
   const logs = extractStreamsLogs(payload, [cfg.vault, ...(cfg.guarantees ? [cfg.guarantees.book] : []), ...(cfg.merkle ? [cfg.merkle.book] : []), ARC_MEMO]);
+  // Two-sided pots (HonorCatPots): Streams is the primary path for their events.
+  const potLogs = cfg.pots ? extractStreamsLogs(payload, [cfg.pots.address]) : [];
+  const potResult = potLogs.length
+    ? await pots.ingestPotLogs(db, potLogs, async (n) => Number((await publicClient().getBlock({ blockNumber: n })).timestamp)).catch((e) => {
+        console.error("[streams] pots", e);
+        return null;
+      })
+    : null;
   const vaultLogs = logs.filter((l) => l.address.toLowerCase() === cfg.vault.toLowerCase());
   const result = logs.length
     ? await ingestLogs(db, cfg.vault, logs, "streams", blockTimeFromRpc(publicClient()))
@@ -72,5 +81,5 @@ export async function POST(req: Request) {
   after(async () => {
     await catalogTick(await getDb()).catch((e) => console.error("[catalog] step", e));
   });
-  return Response.json({ status: "received", ...result });
+  return Response.json({ status: "received", ...result, pots: potResult });
 }

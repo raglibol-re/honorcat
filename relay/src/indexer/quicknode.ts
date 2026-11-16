@@ -119,7 +119,7 @@ export function extractBatchRange(payload: unknown): { start: bigint | null; end
  * second, within Vercel Hobby's included function invocations. Replace the addresses before use.
  */
 export const STREAMS_FILTER_TEMPLATE = `function main(stream) {
-  const OURS = ["<VAULT_ADDRESS_LOWERCASE>", "<GUARANTEE_BOOK_ADDRESS_LOWERCASE>", "<MERKLE_BOOK_ADDRESS_LOWERCASE>"];
+  const OURS = ["<VAULT_ADDRESS_LOWERCASE>", "<GUARANTEE_BOOK_ADDRESS_LOWERCASE>", "<MERKLE_BOOK_ADDRESS_LOWERCASE>", "<POTS_ADDRESS_LOWERCASE>"];
   const MEMO = "0x5294e9927c3306dcbadb03fe70b92e01ccede505";
   const HEARTBEAT = 20;
   const all = [];

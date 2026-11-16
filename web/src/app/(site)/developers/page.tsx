@@ -1,17 +1,27 @@
 import { C, F } from "@/components/cat/tokens";
+import { addressUrl } from "@/lib/chain";
 
 export const metadata = { title: { absolute: "Developers · HonorCat" } };
 
 const ENDPOINTS: [string, string][] = [
-  ["GET /api/catalog", "Every active Gemini prediction contract with its measured quality under the HonorCat rule (filters: category, within, q, usable)."],
-  ["GET /api/catalog/quote?symbol=…", "One contract's order book now: best bid and ask, sizes, depth near the price, quality."],
-  ["GET /api/status", "The relay: balance, runway, gas spent per transaction kind, indexer and Streams health."],
-  ["GET /api/streams", "QuickNode Streams deliveries: block ranges, delay, which path saw each event first."],
-  ["GET /api/early, /api/early/{id}", "Retired early payouts (read-only): terms, state, payments, evidence hashes and computed values."],
-  ["GET /api/health", "Liveness."],
+  ["GET /api/hc/pots?owner=0x…&state=open|running", "Two-sided pots: state, sizes, deposits, owners, market, nets and bowls."],
+  ["GET /api/hc/pots/{id}", "One pot with every measured window: each sampler's average, the agreed price, the rule that chose it, the transaction."],
+  ["POST /api/hc/pots/{id}/quote, GET …/quote", "A signed fair-value quote (a 30-second window the samplers sign, which the pot never accepts). Feed it to HonorCatFairValue."],
+  ["GET /api/hc/record/{address}", "An account's honor record: pots played, held to the end, exits (own, net, bowl), handshakes, takeovers, results."],
+  ["POST /api/hc/prepare, GET /api/hc/depth?id=…", "The market rule, conditionId, close and the signer set's depth attestation (the cap) for a new pot."],
+  ["POST /api/hc/forward", "Forwards a wallet-signed pot call (EIP-3009 deposit, signed exit request, handshake). HonorCat pays the fee; the contract checks every signature."],
+  ["GET /api/hc/sampler/work?signer=…", "For samplers: windows to measure, proposals to co-sign, nets and bowls to watch."],
+  ["GET /api/catalog, /api/catalog/quote?symbol=…", "Every active Gemini prediction contract with its measured quality; one contract's book now."],
+  ["GET /api/status, /api/streams", "The relay (balance, gas per kind) and QuickNode Streams deliveries."],
 ];
 
-const mono = { fontFamily: F.mono, fontSize: 14 } as const;
+const CONTRACTS: [string, string, string][] = [
+  ["HonorCatPots", "0xc890C990048f45cb268d076E4A3dB25270Ea1e59", "The pot: create, forward-priced join and exit, partial exits, handshake, nets and bowls, takeover, settle, expire. Sides are ERC-721 tokens (HCSIDE, tokenId = potId × 2 + side)."],
+  ["HonorCatFairValue", "0x8a890a0A79371333dEaAF1aFC76D68ffDc7671a5", "fairValue(pots, side, quote, sigs, maxAge) → (share, exitFee, priceYes). Stateless; reverts on anything stale, unsigned or not a quote."],
+  ["MultisigResolver", "0x81d1194069E1aD3a22C17356065d8dF6A4D436c9", "The samplers' 2-of-3 signer set (ERC-1271). Signs prices, depth and outcomes."],
+];
+
+const mono = { fontFamily: F.mono, fontSize: 14, wordBreak: "break-all" } as const;
 
 export default function DevelopersPage() {
   return (
@@ -19,14 +29,28 @@ export default function DevelopersPage() {
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <h1 style={{ margin: 0, fontFamily: F.cond, fontSize: 64, fontWeight: 600, lineHeight: 0.95 }}>Build on HonorCat</h1>
         <p style={{ margin: 0, fontSize: 19, lineHeight: 1.45, color: C.body }}>
-          HonorCat is a pot between two sides on a Gemini market, fully collateralised in USDC on Arc. Each side’s share follows the market, and either side can
-          exit at a forward-priced fair value. The pot contract, with transferable positions and a fair-value read function other contracts can use, is being
-          built now; this page lists what is available today.
+          A pot between two sides on a Gemini market, fully collateralised in USDC on Arc testnet. Every price that moves money is a 30-second forward average signed by
+          two of three independent samplers; anyone can submit it. Sides are tokens, and their value can be read on-chain from a signed quote.
         </p>
       </div>
 
       <section style={{ display: "flex", flexDirection: "column", gap: 10, borderTop: `1.5px solid ${C.ink}`, paddingTop: 14 }}>
-        <h2 style={{ margin: 0, fontFamily: F.cond, fontSize: 36, fontWeight: 600 }}>Public read API</h2>
+        <h2 style={{ margin: 0, fontFamily: F.cond, fontSize: 36, fontWeight: 600 }}>Contracts on Arc testnet</h2>
+        <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
+          {CONTRACTS.map(([name, addr, what]) => (
+            <li key={name} style={{ borderBottom: `1px solid ${C.faint}`, padding: "10px 0", display: "flex", flexDirection: "column", gap: 3 }}>
+              <span style={{ fontWeight: 600 }}>{name}</span>
+              <a href={addressUrl(addr)} target="_blank" rel="noreferrer" style={mono}>
+                {addr}
+              </a>
+              <span style={{ fontSize: 16, lineHeight: 1.45, color: C.body }}>{what}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section style={{ display: "flex", flexDirection: "column", gap: 10, borderTop: `1.5px solid ${C.ink}`, paddingTop: 14 }}>
+        <h2 style={{ margin: 0, fontFamily: F.cond, fontSize: 36, fontWeight: 600 }}>API</h2>
         <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
           {ENDPOINTS.map(([path, what]) => (
             <li key={path} style={{ borderBottom: `1px solid ${C.faint}`, padding: "10px 0", display: "flex", flexDirection: "column", gap: 3 }}>
@@ -36,16 +60,9 @@ export default function DevelopersPage() {
           ))}
         </ul>
         <p style={{ margin: 0, fontSize: 14, color: C.muted }}>
-          JSON, no key, testnet only. Prices are Gemini market data: show “Data provided by Gemini” with a link wherever you display them.
-        </p>
-      </section>
-
-      <section style={{ display: "flex", flexDirection: "column", gap: 8, borderTop: `1.5px solid ${C.ink}`, paddingTop: 14 }}>
-        <h2 style={{ margin: 0, fontFamily: F.cond, fontSize: 36, fontWeight: 600 }}>Coming next</h2>
-        <p style={{ margin: 0, fontSize: 16, lineHeight: 1.45, color: C.body }}>
-          The two-sided pot contract on Arc testnet (positions as transferable tokens, M-of-N price attestations anyone can submit, a fair-value read for a
-          position), a small SDK for pots, and the events stream for every pot event. The retired contracts (VerdictVault, GuaranteeBook, BatchGuard,
-          MerkleBook) are listed in the README.
+          JSON, no key, testnet only. Prices are Gemini market data: show &ldquo;Data provided by Gemini&rdquo; wherever you display them. Run your own sampler with{" "}
+          <span style={mono}>pnpm --filter @honorcat/relay sampler</span>; the scripts <span style={mono}>relay/scripts/pots-e2e.ts</span> and{" "}
+          <span style={mono}>pots-quote.ts</span> show every call end to end.
         </p>
       </section>
     </div>

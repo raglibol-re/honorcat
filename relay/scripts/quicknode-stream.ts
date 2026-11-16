@@ -56,9 +56,21 @@ if (values.batch || values.status || values.filter) {
     const book = process.env.GUARANTEE_BOOK_ADDRESS?.toLowerCase();
     const merkle = process.env.MERKLE_BOOK_ADDRESS?.toLowerCase();
     if (!vault || !book || !merkle) throw new Error("VAULT_ADDRESS, GUARANTEE_BOOK_ADDRESS and MERKLE_BOOK_ADDRESS must be set");
+    // The two-sided pot contract (HonorCatPots): POTS_ADDRESS or deployments/<chain>.pots.json.
+    const { readFileSync } = await import("node:fs");
+    const potsFile = (() => {
+      try {
+        return JSON.parse(readFileSync(new URL("../../deployments/5042002.pots.json", import.meta.url), "utf8")) as { pots: string };
+      } catch {
+        return null;
+      }
+    })();
+    const pots = (process.env.POTS_ADDRESS ?? potsFile?.pots)?.toLowerCase();
+    if (!pots) throw new Error("POTS_ADDRESS (or deployments/5042002.pots.json) must be set");
     const code = STREAMS_FILTER_TEMPLATE.replace("<VAULT_ADDRESS_LOWERCASE>", vault)
       .replace("<GUARANTEE_BOOK_ADDRESS_LOWERCASE>", book)
-      .replace("<MERKLE_BOOK_ADDRESS_LOWERCASE>", merkle);
+      .replace("<MERKLE_BOOK_ADDRESS_LOWERCASE>", merkle)
+      .replace("<POTS_ADDRESS_LOWERCASE>", pots);
     patch.filter_function = Buffer.from(code, "utf8").toString("base64");
   }
   if (values.batch) {

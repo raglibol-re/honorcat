@@ -727,6 +727,32 @@ export async function listPotsHc(db: Db, opts: { owner?: string; states?: number
   return out;
 }
 
+/**
+ * Pot logs delivered by QuickNode Streams (the primary path): record each event and refresh the
+ * pots they touch. The RPC poller (indexPots) stays as the fallback and fills any gap.
+ */
+export async function ingestPotLogs(
+  db: Db,
+  logs: { address: Address; topics: Hex[]; data: Hex; blockNumber: bigint; transactionHash: Hex; logIndex: number }[],
+  blockTime: (n: bigint) => Promise<number | null>,
+) {
+  const cfg = getConfig();
+  if (!cfg.pots || !logs.length) return { received: 0, pots: [] as string[] };
+  const ours = logs.filter((l) => l.address.toLowerCase() === cfg.pots!.address.toLowerCase());
+  const decoded = parseEventLogs({ abi: potsAbi, logs: ours.map((l) => ({ ...l, blockHash: null, transactionIndex: null, removed: false })) as never });
+  const touched = new Set<string>();
+  const times = new Map<bigint, number | null>();
+  for (const l of decoded) {
+    const args = l.args as { potId?: bigint; tokenId?: bigint };
+    const id = args.potId ?? (args.tokenId !== undefined ? args.tokenId / 2n : undefined);
+    if (typeof id === "bigint") touched.add(id.toString());
+    if (!times.has(l.blockNumber!)) times.set(l.blockNumber!, await blockTime(l.blockNumber!).catch(() => null));
+    await recordPotEvent(db, l as never, id ?? null, times.get(l.blockNumber!) ?? null, "streams");
+  }
+  for (const id of touched) await syncPot(db, BigInt(id)).catch((e) => console.error("[pots] sync", id, e));
+  return { received: decoded.length, pots: [...touched] };
+}
+
 /** Stores one decoded pot event (idempotent). */
 export async function recordPotEvent(
   db: Db,

@@ -1,118 +1,107 @@
 import Link from "next/link";
-import { CatHead } from "@/components/cat/shapes";
 import { C, F } from "@/components/cat/tokens";
 
 export const metadata = { title: "How it works" };
 
+const cond = { fontFamily: F.cond } as const;
+
 const steps: [string, React.ReactNode][] = [
   [
-    "Fill the bowl",
+    "Pick a question and a side",
     <>
-      Pick any live Gemini market, the outcome and how likely it must become (85% by default). Sign once in your wallet; there are no network
-      fees. The money is held on Arc, a public payment network where anyone can see it.
+      Choose a live Gemini prediction market and YES or NO, and how big the pot is (up to $25 on the test version). You put in your side&apos;s part; the other
+      side puts in theirs when they join. A passkey is enough: no app, no seed words, no network fees.
     </>,
   ],
   [
-    "Call your people",
+    "The price sets the shares",
     <>
-      Share the link. People join with a passkey (Face ID, a fingerprint or the phone PIN). No wallet, no forms, nothing to pay. Joining is open
-      for a set time; after that the market is watched.
+      The YES price is the midpoint of Gemini&apos;s best bid and ask, counted only when the book is healthy, and averaged over 30 seconds. YES&apos;s share of the pot
+      is the pot times that price; NO&apos;s is the rest. The cat on the rope stands at that price. Shares are only shown; nothing moves until someone leaves or the
+      market settles.
     </>,
   ],
   [
-    "The cat pounces",
+    "Step off or hold on",
     <>
-      Three independent checkers read Gemini’s public order book every few seconds. A reading only counts when the market is healthy: a small
-      gap between buy and sell prices, enough contracts on both sides and fresh data. The chance must stay above the line on average over a full
-      time window, and two of the three checkers must each see this in their own data. A single price spike never pays. These rules are fixed
-      when the money is set aside and cannot change afterwards.
+      Either side can leave at any time. Leaving is binding, and the price is measured over the 30 seconds after you ask, so nobody can leave at a price they
+      already know is stale. You pay a 1% fee to the other side. Hold on instead, and Gemini&apos;s result decides who gets the pot.
     </>,
   ],
 ];
 
 const details: [string, React.ReactNode][] = [
   [
-    "If it never gets that likely",
+    "Who measures the price",
     <>
-      The funder chooses beforehand: either the money goes back to them when trading closes, or everyone is still paid when the market settles if
-      the event happened (otherwise it goes back to the funder).
+      Three independent samplers read Gemini&apos;s public order book on their own and each signs its own average. With three valid averages the middle one counts;
+      with two, their mean if they are within half a point; otherwise nothing moves and the pot simply continues. The pot contract checks two of three signatures.
     </>,
   ],
   [
-    "An early payout is final",
-    <>Markets can be wrong. If the event does not happen after all, nobody pays anything back; the page says “market was wrong”.</>,
+    "Joining",
+    <>
+      The joiner puts in its worst case within the creator&apos;s band (up to 5 points from the price when the pot was offered). The starting shares are the average
+      over the 30 seconds after the join; whatever is above a side&apos;s share comes straight back. If the price left the band, the join does not happen.
+    </>,
   ],
   [
-    "Edge cases",
-    <ul key="edge" style={{ margin: 0, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 6 }}>
-      <li>Bad or missing market data never pays. A data outage that lasts until trading closes counts as “not reached”.</li>
-      <li>While Gemini reviews a market, nothing can pay early.</li>
-      <li>Market voided before a payout: the funder gets everything back. After a payout: the payout stands.</li>
-      <li>If your account cannot receive money, your amount stays reserved for you to collect later.</li>
+    "Extras",
+    <ul key="x" style={{ margin: 0, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 6 }}>
+      <li>A net leaves for you when your side&apos;s price falls to a level; a bowl when it rises to one. Both are priced like any exit.</li>
+      <li>Nine lives: leave a ninth of the starting pot at a time.</li>
+      <li>Handshake: both sides agree to split now at a price, with no fee and no waiting.</li>
+      <li>Takeover: while a side is leaving, someone else can step into its place at the exit price.</li>
+      <li>Sides are tokens: whoever holds one holds the side.</li>
     </ul>,
+  ],
+  [
+    "When leaving is closed",
+    <>In the last minutes before the market closes, while Gemini has halted or is reviewing the market, and while another exit is being priced.</>,
+  ],
+  [
+    "If nobody settles",
+    <>If Gemini&apos;s result is not attested within the grace period after the close (3 days by default), anyone can close the pot and both deposits go back.</>,
   ],
   [
     "Can I check it?",
     <>
-      Yes. Every payout page has a proof page with every reading and signature, recomputed in your browser. Payments are public on Arc. Builders
-      can read the <Link href="/developers">developer docs</Link>.
+      Every pot has a terms page with its own numbers and a proof page with every sampler&apos;s average and evidence hash. Payments are public on Arc. See also{" "}
+      <Link href="/how-it-is-built">how it is built</Link> and the <Link href="/developers">developer docs</Link>.
     </>,
   ],
-  ["Is this real money?", <>No. This is a test version with test money on Arc testnet. It is not insurance and no hedge is placed.</>],
+  ["Is this real money?", <>No. This is a test version with test money on Arc testnet. Not financial advice; play within limits.</>],
 ];
-
-const cond = { fontFamily: F.cond } as const;
 
 export default function HowPage() {
   return (
-    <article style={{ display: "flex", flexDirection: "column", gap: 64 }}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 680 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 48, maxWidth: 860 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <h1 style={{ margin: 0, ...cond, fontSize: 64, fontWeight: 600, lineHeight: 0.95 }}>How it works</h1>
-        <p style={{ margin: 0, fontSize: 21, lineHeight: 1.45, color: C.body }}>
-          Someone sets money aside for a group. Everyone is paid at once, automatically, as soon as a live Gemini market says the event has become
-          very likely, before it happens. Afterwards the page records whether the market was right.
-        </p>
+        <p style={{ margin: 0, fontSize: 19, lineHeight: 1.45, color: C.body }}>Two sides, one pot, one question on Gemini. The money is in the air until someone steps off or the market lands.</p>
       </div>
-
-      <ol style={{ display: "flex", flexDirection: "column", borderBottom: `1px solid ${C.ink}`, margin: 0, padding: 0, listStyle: "none" }}>
+      <ol style={{ margin: 0, padding: 0, listStyle: "none", borderBottom: `1px solid ${C.ink}` }}>
         {steps.map(([title, body], i) => (
-          <li key={title} style={{ display: "flex", gap: 32, padding: "28px 0", borderTop: `1px solid ${C.ink}`, alignItems: "flex-start" }}>
-            <span style={{ ...cond, fontSize: 84, fontWeight: 600, lineHeight: 0.85, flex: "0 0 56px" }}>{i + 1}</span>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
+          <li key={title} style={{ display: "flex", gap: 28, padding: "24px 0", borderTop: `1px solid ${C.ink}`, alignItems: "flex-start" }}>
+            <span style={{ ...cond, fontSize: 72, fontWeight: 600, lineHeight: 0.85, flex: "0 0 48px" }}>{i + 1}</span>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <h2 style={{ margin: 0, fontFamily: F.sans, fontSize: 26, fontWeight: 600, lineHeight: 1.15 }}>{title}</h2>
-              <p style={{ margin: 0, fontSize: 18, lineHeight: 1.5, color: C.body, maxWidth: 620 }}>{body}</p>
+              <p style={{ margin: 0, fontSize: 18, lineHeight: 1.55, color: C.body }}>{body}</p>
             </div>
           </li>
         ))}
       </ol>
-
       <section style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <h2 style={{ margin: 0, ...cond, fontSize: 44, fontWeight: 600, lineHeight: 1 }}>The fine print</h2>
-        <dl style={{ margin: 0, display: "flex", flexDirection: "column", borderTop: `1.5px solid ${C.ink}`, borderBottom: `1.5px solid ${C.ink}` }}>
-          {details.map(([title, body], i) => (
-            <div key={title} style={{ display: "flex", flexWrap: "wrap", gap: "6px 32px", padding: "18px 0", borderTop: i ? `1px solid ${C.faint}` : undefined }}>
-              <dt style={{ flex: "0 1 260px", display: "flex", alignItems: "center", gap: 10, alignSelf: "flex-start", fontSize: 18, fontWeight: 600 }}>
-                <CatHead width={18} height={17} />
-                {title}
-              </dt>
-              <dd style={{ flex: "1 1 360px", margin: 0, fontSize: 17, lineHeight: 1.5, color: C.body, maxWidth: 620 }}>{body}</dd>
+        <dl style={{ margin: 0, display: "flex", flexDirection: "column", gap: 18 }}>
+          {details.map(([k, v]) => (
+            <div key={k} style={{ borderTop: `1px solid ${C.faint}`, paddingTop: 12, display: "flex", flexDirection: "column", gap: 6 }}>
+              <dt style={{ fontSize: 19, fontWeight: 600 }}>{k}</dt>
+              <dd style={{ margin: 0, fontSize: 17, lineHeight: 1.55, color: C.body }}>{v}</dd>
             </div>
           ))}
         </dl>
       </section>
-
-      <div>
-        <Link
-          href="/pots/new"
-          style={{ display: "inline-flex", alignItems: "center", gap: 14, minHeight: 68, padding: "8px 28px 8px 22px", background: C.ink, color: C.page, textDecoration: "none" }}
-        >
-          <CatHead width={34} height={32} fill={C.page} eyes={C.ink} />
-          <span style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-            <span style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.15 }}>Let the cat out</span>
-            <span style={{ fontSize: 15, fontWeight: 500, lineHeight: 1.2, color: C.faint }}>Run the demo</span>
-          </span>
-        </Link>
-      </div>
-    </article>
+    </div>
   );
 }
