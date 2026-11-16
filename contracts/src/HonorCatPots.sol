@@ -41,6 +41,9 @@ contract HonorCatPots is ERC721, EIP712, ReentrancyGuard, Ownable {
 
     uint8 public constant KIND_JOIN = 0;
     uint8 public constant KIND_EXIT = 1;
+    /// @dev Threshold kinds carry the side: NET_YES = 2, NET_NO = 3, BOWL_YES = 4, BOWL_NO = 5.
+    uint8 public constant KIND_NET = 2;
+    uint8 public constant KIND_BOWL = 4;
 
     uint8 public constant OUTCOME_NO = 0;
     uint8 public constant OUTCOME_YES = 1;
@@ -161,6 +164,16 @@ contract HonorCatPots is ERC721, EIP712, ReentrancyGuard, Ownable {
 
     mapping(uint256 => Pot) internal _pots;
     mapping(uint256 => uint256) public sigNonce; // per token, for owner signatures
+
+    /// @notice Per token: net (floor) and bowl (target) on that side's own price in ppm (0 = unset),
+    ///         and when they were last set (a threshold window must start after that).
+    struct Levels {
+        uint32 net;
+        uint32 bowl;
+        uint64 setAt;
+    }
+
+    mapping(uint256 => Levels) public levels;
     mapping(address => uint256) public claimable;
     uint256 public totalClaimable;
 
@@ -174,6 +187,8 @@ contract HonorCatPots is ERC721, EIP712, ReentrancyGuard, Ownable {
     event ExitFailed(uint256 indexed potId, uint64 nonce, bytes32 evidenceHash);
     event PotDivided(uint256 indexed potId, uint8 exitSide, uint256 notional, uint32 price, uint256 paidYes, uint256 paidNo, uint256 fee, bytes32 evidenceHash);
     event Handshake(uint256 indexed potId, uint32 price, uint256 notional);
+    event LevelsSet(uint256 indexed potId, uint8 side, uint32 net, uint32 bowl);
+    event LevelTriggered(uint256 indexed potId, uint8 side, uint8 kind, uint32 priceYes, bytes32 evidenceHash);
     event PotSettled(uint256 indexed potId, uint8 outcome, uint256 paidYes, uint256 paidNo, bytes32 evidenceHash);
     event PotExpired(uint256 indexed potId, uint256 paidYes, uint256 paidNo);
     event Paid(uint256 indexed potId, address indexed to, uint256 amount);
@@ -489,6 +504,42 @@ contract HonorCatPots is ERC721, EIP712, ReentrancyGuard, Ownable {
         if (payNo > 0) _pay(potId, noOwner, payNo);
     }
 
+    // ---------------------------------------------------------------- nets and bowls
+
+    /// @notice Sets a side's net (floor) and bowl (target) on its own price, in ppm; 0 clears one.
+    ///         Passkey accounts call this through their `execute`.
+    function setLevels(uint256 potId, uint8 side, uint32 net, uint32 bowl) external {
+        uint256 tokenId = tokenOf(potId, side);
+        if (msg.sender != ownerOf(tokenId)) revert NotOwner();
+        if (net > P || bowl > P || (net != 0 && bowl != 0 && net >= bowl)) revert BadParams();
+        levels[tokenId] = Levels(net, bowl, uint64(block.timestamp));
+        emit LevelsSet(potId, side, net, bowl);
+    }
+
+    /// @notice Anyone may submit the signer set's attestation that a side's own smoothed price held at
+    ///         or beyond its net or bowl for a full window. That files a binding full exit request,
+    ///         which is then priced forward like any other.
+    function triggerLevel(WindowAttestation calldata a, bytes calldata sigs) external {
+        Pot storage p = _pots[a.potId];
+        if (p.state != State.Live) revert WrongState();
+        if (a.kind < KIND_NET || a.kind > KIND_BOWL + 1) revert InvalidAttestation();
+        uint8 side = (a.kind - KIND_NET) % 2;
+        bool isNet = a.kind < KIND_BOWL;
+        Levels memory l = levels[tokenOf(a.potId, side)];
+        uint32 level = isNet ? l.net : l.bowl;
+        if (level == 0 || !a.valid || a.nonce != p.nonce || a.sampleCount < p.minSamples) revert InvalidAttestation();
+        if (a.windowStart <= l.setAt || a.windowEnd != a.windowStart + p.window || a.windowEnd > block.timestamp) {
+            revert InvalidAttestation();
+        }
+        if (a.priceYes > P || !SignatureChecker.isValidERC1271SignatureNow(p.resolver, windowDigest(a), sigs)) {
+            revert InvalidAttestation();
+        }
+        uint256 own = side == YES ? a.priceYes : P - a.priceYes;
+        if (isNet ? own > level : own < level) revert InvalidAttestation();
+        emit LevelTriggered(a.potId, side, a.kind, a.priceYes, a.evidenceHash);
+        _requestExit(a.potId, side, p.notional);
+    }
+
     // ---------------------------------------------------------------- handshake
 
     /// @notice Both owners agree to divide `notional` at `priceYes`, at once and without a fee. No
@@ -653,6 +704,7 @@ contract HonorCatPots is ERC721, EIP712, ReentrancyGuard, Ownable {
         if (from != address(0) && to != address(0)) {
             Pot storage p = _pots[tokenId / 2];
             if (p.state == State.ExitRequested && p.exitSide == uint8(tokenId % 2)) revert WrongState();
+            delete levels[tokenId]; // nets and bowls belong to the owner who set them
         }
         return super._update(to, tokenId, auth);
     }
