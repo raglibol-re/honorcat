@@ -8,6 +8,7 @@ import { usePolling } from "@/lib/api";
 import { formatDate, short } from "@/lib/format";
 import { sideOf, type HcPotSummary } from "@/lib/hc";
 import { useNow } from "@/lib/useNow";
+import { marketTitle } from "@/lib/marketName";
 import { useTechMode } from "@/components/TechMode";
 
 const STATE_SHORT: Record<string, string> = {
@@ -35,7 +36,7 @@ function Rows({ pots, me }: { pots: HcPotSummary[]; me?: string | null }) {
             style={{ display: "flex", flexWrap: "wrap", gap: "4px 20px", alignItems: "baseline", padding: "14px 6px", borderBottom: `1px solid ${C.faint}`, textDecoration: "none", color: C.ink }}
           >
             <span style={{ fontFamily: F.cond, fontSize: 22, fontWeight: 600, minWidth: 48 }}>#{p.potId}</span>
-            <span style={{ fontSize: 17, fontWeight: 600, flex: "1 1 280px" }}>{p.market ? `${p.market.eventTitle}: ${p.market.label}` : "Unknown market"}</span>
+            <span style={{ fontSize: 17, fontWeight: 600, flex: "1 1 280px" }}>{p.market ? marketTitle(p.market) : "Unknown market"}</span>
             <span style={{ fontSize: 16 }}>${n.toFixed(2)}</span>
             <span style={{ fontSize: 15, color: C.muted }}>{side === null ? "" : side === 0 ? "you hold YES · " : "you hold NO · "}{STATE_SHORT[p.state]}</span>
             <span style={{ fontSize: 14, color: C.muted }}>closes {formatDate(Number(p.data.closeTime) * 1000)}</span>

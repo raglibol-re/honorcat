@@ -92,7 +92,9 @@ export type HcPot = {
   events?: PotEvent[];
   practice?: boolean;
 };
-export type HcPotSummary = Omit<HcPot, "requests" | "createdTx" | "market"> & { market: { eventTitle: string; label: string; instrument: string; eventTicker: string } | null };
+export type HcPotSummary = Omit<HcPot, "requests" | "createdTx" | "market"> & {
+  market: { eventTitle: string; label: string; instrument: string; eventTicker: string; league?: string | null; teams?: string | null; startMs?: number | null; yesMeans?: string | null; closeMs?: number | null } | null;
+};
 
 export type Prepared = {
   conditionId: Hex;

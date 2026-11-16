@@ -33,14 +33,25 @@ export function useNames(accounts: (string | null | undefined)[]) {
   return names;
 }
 
+const NICKNAMES = [
+  "Mittens", "Pepper", "Biscuit", "Tabby", "Socks", "Ginger", "Mochi", "Pixel", "Nutmeg", "Clover", "Pumpkin", "Shadow", "Toffee", "Juniper", "Marble", "Saffron",
+  "Pebble", "Hazel", "Comet", "Velvet", "Maple", "Olive", "Sesame", "Cricket", "Bramble", "Willow", "Sprout", "Tofu", "Paprika", "Moss", "Echo", "Puddle",
+];
+
+/** A stable cat nickname for an account without a display name (no address shown). */
+export function nickname(account: string): string {
+  const h = parseInt(account.slice(-6), 16) || 0;
+  return NICKNAMES[h % NICKNAMES.length]!;
+}
+
 /**
- * How to call an account: "you", its display name, "the practice cat", or a neutral word; the
- * address only when technical details are on.
+ * How to call an account: "you", its display name, "the practice cat", or a stable cat nickname;
+ * the address only when technical details are on.
  */
 export function displayName(account: string | null | undefined, names: Record<string, string>, me: string | null | undefined, tech: boolean, fallback = "a player") {
   if (!account) return "open seat";
   const a = account.toLowerCase();
-  const n = names[a] ?? cache.get(a);
+  const n = names[a] ?? cache.get(a) ?? (fallback === "a player" ? nickname(a) : undefined);
   const base = me && a === me.toLowerCase() ? (n ? `you (${n})` : "you") : (n ?? fallback);
   return tech ? `${base} · ${short(account)}` : base;
 }

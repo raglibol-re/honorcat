@@ -790,6 +790,12 @@ export async function potDetail(db: Db, potId: string) {
   };
 }
 
+/** League, both teams, start and what YES means for a market, from the catalogue (when still listed). */
+async function namesFor(db: Db, instrument: string) {
+  const r = await rowBySymbol(db, instrument).catch(() => null);
+  return { league: r?.league ?? null, teams: r?.teams ?? null, startMs: r?.startMs ?? null, yesMeans: r?.yesMeans ?? null, closeMs: r?.closeMs ?? null };
+}
+
 export async function listPotsHc(db: Db, opts: { owner?: string; states?: number[]; limit?: number } = {}) {
   const where: string[] = [];
   const args: unknown[] = [];
@@ -817,7 +823,7 @@ export async function listPotsHc(db: Db, opts: { owner?: string; states?: number
       state: POT_STATES[r.state],
       data: typeof r.data === "string" ? JSON.parse(r.data) : r.data,
       owners: { yes: r.yes_owner, no: r.no_owner },
-      market: m && { eventTitle: m.eventTitle, label: m.label, instrument: m.instrument, eventTicker: m.eventTicker },
+      market: m && { eventTitle: m.eventTitle, label: m.label, instrument: m.instrument, eventTicker: m.eventTicker, ...(await namesFor(db, m.instrument)) },
       updatedAt: r.updated_at,
     });
   }

@@ -75,7 +75,7 @@ function OpenOffers() {
           return (
             <li key={p.potId} style={{ borderBottom: `1px solid ${C.faint}` }}>
               <Link href={`/pots/${p.potId}`} className="hc-row" style={{ display: "flex", flexWrap: "wrap", gap: "4px 20px", alignItems: "baseline", padding: "14px 6px", textDecoration: "none", color: C.ink }}>
-                <span style={{ fontSize: 18, fontWeight: 600, flex: "1 1 320px" }}>{p.market ? `${p.market.eventTitle}: ${p.market.label}` : `Pot ${p.potId}`}</span>
+                <span style={{ fontSize: 18, fontWeight: 600, flex: "1 1 320px" }}>{p.market ? marketTitle(p.market) : `Pot ${p.potId}`}</span>
                 <span style={{ fontSize: 16 }}>${(Number(p.data.notional) / 1e6).toFixed(2)} pot</span>
                 <span style={{ fontSize: 16, color: C.muted }}>
                   take {creatorYes ? "NO" : "YES"} near {(Number(p.data.bandCenter) / 10_000).toFixed(1)}% YES
@@ -95,16 +95,27 @@ export function Home({ data }: { data: HomeData }) {
       <HcHeader />
 
       <section className="hc-wrap" style={{ paddingTop: 36, display: "flex", flexWrap: "wrap", gap: "24px 72px", alignItems: "flex-end" }}>
-        <h1 style={{ margin: 0, ...cond, fontSize: "clamp(72px, 11vw, 168px)", lineHeight: 0.86, fontWeight: 600, letterSpacing: "-0.01em", flex: "1 1 520px" }}>Money in the air.</h1>
+        <div style={{ flex: "1 1 520px", display: "flex", flexDirection: "column", gap: 22, minWidth: 0 }}>
+          <h1 style={{ margin: 0, ...cond, fontSize: "clamp(72px, 11vw, 168px)", lineHeight: 0.86, fontWeight: 600, letterSpacing: "-0.01em" }}>Money in the air.</h1>
+          <ol aria-label="A worked example" style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 2, fontSize: 18, lineHeight: 1.45 }}>
+            {(
+              [
+                ["1", "Ana takes YES at 60%, Ben takes NO: Ana puts in $6, Ben $4."],
+                ["2", "The market moves to 75%: Ana’s share is now $7.50, Ben’s $2.50."],
+                ["3", "Ana steps off with $7.40 (a $0.10 fee to Ben), or both hold and the right side gets $10."],
+              ] as const
+            ).map(([n, t]) => (
+              <li key={n} style={{ display: "flex", gap: 12 }}>
+                <span style={{ ...cond, fontWeight: 600, color: C.signalInk, flex: "none", width: 14 }}>{n}</span>
+                <span>{t}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
         <div style={{ flex: "1 1 380px", display: "flex", flexDirection: "column", gap: 20, paddingBottom: 8 }}>
           <p style={{ margin: 0, fontSize: 21, lineHeight: 1.45, color: C.body, maxWidth: 520 }}>
             Two people, one pot, one question on Gemini. While the market runs, each side&apos;s share follows the price, and either of you can step off the rope at that share.
           </p>
-          <ol aria-label="A worked example" style={{ margin: 0, paddingLeft: 22, display: "flex", flexDirection: "column", gap: 4, fontSize: 17, lineHeight: 1.45, color: C.ink, maxWidth: 560 }}>
-            <li>Ana takes YES on &ldquo;Boston wins&rdquo; at 60%, Ben takes NO: a $10 pot, Ana puts in $6, Ben $4.</li>
-            <li>Boston leads and the market moves to 75%: Ana&apos;s share is now $7.50, Ben&apos;s $2.50.</li>
-            <li>Ana steps off and gets $7.40 (the $0.10 fee goes to Ben); or both hold and the side that was right gets all $10.</li>
-          </ol>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "12px 28px", alignItems: "center" }}>
             <StartButton />
             <Link href="/pots/new?practice=1" style={{ fontSize: 19, fontWeight: 500, padding: "14px 0" }}>
