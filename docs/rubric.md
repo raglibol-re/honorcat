@@ -37,20 +37,22 @@ output). Order follows the spec's sections. Milestones: C0, C1, D0 to D5.
       takeovers, results. Facts only.
 
 ## 4. Contract and technical depth (D0, D1)
-- [ ] Design document before code: states Open, Live, ExitRequested, Divided, Settled, Expired and
-      every transition; no path strands funds.
-- [ ] Integer fixed-point math; rounding defined for every division; written proof that payouts sum
-      to the pot exactly.
-- [ ] EIP-712 M-of-N price attestations bound to chain, contract, pot, window start and end, sample
+- [x] Design document before code: states Open, Live, ExitRequested, Divided, Settled, Expired and
+      every transition; no path strands funds (docs/pot-design.md; Joining added for forward-priced joins).
+- [x] Integer fixed-point math; rounding defined for every division; written proof that payouts sum
+      to the pot exactly (pot-design 3.3; fuzz and symbolic checks).
+- [x] EIP-712 M-of-N price attestations bound to chain, contract, pot, window start and end, sample
       count and evidence hash; signer, window, ordering and replay checks on-chain.
-- [ ] Anyone may submit a valid attestation or settlement.
-- [ ] Positions as transferable tokens; fair-value read from a supplied attestation.
-- [ ] Cap on N tied to measured depth, enforced at creation via an attestation.
-- [ ] Pausing stops new pots only; exits, settlements and expiries always work.
-- [ ] Claimable balances for blocked recipients.
-- [ ] Unit, fuzz and invariant tests (conservation, no double division, no division without a valid
-      attestation, no exit in lock-out); symbolic tests if the tooling works; what is proven vs tested
-      stated plainly.
+- [x] Anyone may submit a valid attestation or settlement.
+- [x] Positions as transferable tokens (ERC-721, transfer rules in pot-design 2). [ ] Fair-value read
+      from a supplied attestation: not in the contract (no space left under the 24 KB limit); to be
+      offered as a separate stateless reader contract in D5.
+- [x] Cap on N tied to measured depth, enforced at creation via an attestation (0.25 × contracts within 5¢, $25 max).
+- [x] Pausing stops new pots only; exits, settlements and expiries always work.
+- [x] Claimable balances for blocked recipients.
+- [x] Unit, fuzz and invariant tests (conservation, no double division, no division without a valid
+      attestation, no exit in lock-out); symbolic tests with halmos; what is proven vs tested stated
+      plainly (pot-design 12).
 - [ ] Threat model: stale-price exit, thin-book manipulation, colluding signers, exit-request
       griefing, takeover front-running, creator-chosen tolerance; what stops each and what does not.
 

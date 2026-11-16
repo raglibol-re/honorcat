@@ -36,3 +36,4 @@ Thumbs.db
 
 # Vercel CLI link
 .vercel
+__pycache__/

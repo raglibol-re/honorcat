@@ -70,7 +70,8 @@ Active:
 
 | Contract | Address | Purpose |
 |---|---|---|
-| MultisigResolver | `0x81d1194069E1aD3a22C17356065d8dF6A4D436c9` | 2-of-3 ERC-1271 signer set of the three samplers |
+| **HonorCatPots** | `0xc890C990048f45cb268d076E4A3dB25270Ea1e59` | The two-sided pot (D1): create, forward-priced join and exit, partial exit, handshake, nets and bowls, takeover, settle, expire; positions as ERC-721 (`HCSIDE`) |
+| MultisigResolver | `0x81d1194069E1aD3a22C17356065d8dF6A4D436c9` | 2-of-3 ERC-1271 signer set of the three samplers; signs every price, depth and outcome attestation |
 | PasskeyAccountFactory | `0xB93e6C63815Af25213c43dEc1B494452c8ED0ea2` | Deploys passkey (WebAuthn P-256) accounts |
 | PasskeyAccount (implementation) | `0xCe60d5aF6F912f0565092A139FEF1bC764b32c65` | |
 | Arc USDC (system) | `0x3600000000000000000000000000000000000000` | The only asset, also gas |
@@ -85,7 +86,9 @@ the last deadline is 2026-12-14 05:00 UTC):
 | BatchGuard | `0xf040cb9bc88539E567A0552b082a011c21208AEE` | Atomic batches for guarantees |
 | MerkleBook | `0x308b6b2e24C3676824aC64226883F8295d9E867e` | Merkle-root payouts to thousands of payees ("drops") |
 
-Deployment records: `deployments/5042002*.json`.
+Deployment records: `deployments/5042002*.json`. An earlier HonorCatPots deployment at
+`0xfd5B783CF1cADD687c90D99B4b2FEb0123F3758a` was a throwaway (replaced the same day after the Slither
+review added two admin events; never used).
 
 ## Setup
 

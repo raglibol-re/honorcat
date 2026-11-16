@@ -197,6 +197,8 @@ contract HonorCatPots is ERC721, EIP712, ReentrancyGuard, Ownable {
     event PaymentDeferred(uint256 indexed potId, address indexed to, uint256 amount);
     event Withdrawn(address indexed account, uint256 amount);
     event Paused(bool paused);
+    event FeeBpsSet(uint16 feeBps);
+    event GlobalMaxNotionalSet(uint256 max);
 
     // ---------------------------------------------------------------- errors
 
@@ -293,10 +295,12 @@ contract HonorCatPots is ERC721, EIP712, ReentrancyGuard, Ownable {
     function setFeeBps(uint16 bps) external onlyOwner {
         if (bps > 500) revert BadParams();
         feeBps = bps;
+        emit FeeBpsSet(bps);
     }
 
     function setGlobalMaxNotional(uint256 max) external onlyOwner {
         globalMaxNotional = max;
+        emit GlobalMaxNotionalSet(max);
     }
 
     // ---------------------------------------------------------------- create / join
@@ -534,17 +538,26 @@ contract HonorCatPots is ERC721, EIP712, ReentrancyGuard, Ownable {
     }
 
     /// @dev Divides `n` of the pot at YES price `price` (docs/pot-design.md 3.3). Exact: paid sums to n.
-    function _divide(uint256 potId, Pot storage p, uint8 exitSide, uint256 n, uint32 price, uint16 fee_, bytes32 evidenceHash) internal {
+    /// @dev The arithmetic of a division, pure, so it can be checked on its own (test/symbolic):
+    ///      payYes + payNo == n, fee <= the exiter's cash, and 0 <= newDepYes <= notional − n.
+    function _divideMath(uint8 exitSide, uint256 n, uint32 price, uint16 fee_, uint256 depYes, uint256 notional)
+        internal
+        pure
+        returns (uint256 payYes, uint256 payNo, uint256 fee, uint256 newDepYes)
+    {
         uint256 cashYes = yesPart(n, price);
         uint256 cashNo = n - cashYes;
         uint256 cashExit = exitSide == YES ? cashYes : cashNo;
-        uint256 fee = (n * fee_ + 9_999) / 10_000;
+        fee = (n * fee_ + 9_999) / 10_000;
         if (fee > cashExit) fee = cashExit;
-        uint256 payYes = exitSide == YES ? cashYes - fee : cashYes + fee;
-        uint256 payNo = exitSide == NO ? cashNo - fee : cashNo + fee;
+        payYes = exitSide == YES ? cashYes - fee : cashYes + fee;
+        payNo = exitSide == YES ? cashNo + fee : cashNo - fee;
+        newDepYes = depYes - (depYes * n) / notional;
+    }
 
+    function _divide(uint256 potId, Pot storage p, uint8 exitSide, uint256 n, uint32 price, uint16 fee_, bytes32 evidenceHash) internal {
+        (uint256 payYes, uint256 payNo, uint256 fee, uint256 dy) = _divideMath(exitSide, n, price, fee_, p.depYes, p.notional);
         uint256 nNew = p.notional - n;
-        uint256 dy = p.depYes - (p.depYes * n) / p.notional;
         p.notional = nNew;
         p.depYes = dy;
         p.depNo = nNew - dy;
@@ -634,8 +647,8 @@ contract HonorCatPots is ERC721, EIP712, ReentrancyGuard, Ownable {
         _refundTaker(a.potId, p); // a pending exit is dropped
 
         uint256 n = p.notional;
-        uint256 payYes;
-        uint256 payNo;
+        uint256 payYes = 0;
+        uint256 payNo = 0;
         if (a.outcome == OUTCOME_YES) payYes = n;
         else if (a.outcome == OUTCOME_NO) payNo = n;
         else (payYes, payNo) = (p.depYes, p.depNo);

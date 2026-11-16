@@ -317,6 +317,42 @@ one with 40 → cap $10.
 | Lock-out | last 2 minutes before trading closes | Use `max(2 min, D + W + 60 s)` so no window can run past the close. Same as 2 min for both window lengths today. |
 | Join tolerance | 2 points | Keep 2 points as the default, cap creator choices at 5 points. |
 
+## 12. D1 results (2026-11-16)
+
+Contract: `contracts/src/HonorCatPots.sol`, deployed on Arc testnet at
+`0xc890C990048f45cb268d076E4A3dB25270Ea1e59` (block 72496233), 23.3 KB of the 24 KB limit
+(compiled with `via_ir`). Built in the agreed order with tests green after each step: core
+(create, forward-priced join, exit, settle, expire) → cap → partial exit → handshake → nets and bowls
+→ takeover.
+
+Tests (`forge test`, 77 in total, 62 for the pots):
+
+| Suite | What |
+|---|---|
+| `HonorCatPots.t.sol` (34) | every transition and guard of the core and the cap: escrows, band, window fixed by the request, too-early and too-few-samples, single-signer and outsider signatures, replay, lock-out, cooldown, abandon, token lock during the window, gasless exit by signature, settle, void, expire, blocked recipient → claimable, EIP-3009 authorization bound to the action |
+| `HonorCatPotsPartial.t.sol` (4) | partial exits, nine lives in ninths, fuzzed partial exits |
+| `HonorCatPotsHandshake.t.sol` (4) | no fee, partial, both signatures needed, no replay |
+| `HonorCatPotsLevels.t.sol` (6) | net and bowl triggers on each side's own price, window after setting, reset on transfer |
+| `HonorCatPotsTakeover.t.sol` (6) | payouts, one per window, full exits only, refunds on failure, settle and expire, levels reset |
+| `invariant/PotsInvariants.t.sol` (4 invariants, 128 runs × 200 calls) | the balance equation (3.9), deposits sum to N, terminal states final, USDC supply conserved, over random sequences of every action with real 2-of-3 signatures |
+| `symbolic/PotsMath.t.sol` | the split, the division and the band escrows on the contract's own pure arithmetic: as fuzz tests, and as halmos `check_` functions |
+
+**What is proven and what is only tested**
+
+- *Proven on paper* (section 3.3): the split sums exactly; every division, partial exit, takeover,
+  settlement and expiry pays out exactly what goes in; deposits stay within the pot.
+- *Proven by symbolic execution*: see the halmos result below; where halmos timed out, the property is
+  fuzz-tested, not proven.
+- *Tested, not proven*: every state-machine property (balance equation, terminal states, no division
+  without an attestation, no exit in lock-out) by unit tests and stateful invariants. A different
+  sequence of calls than the fuzzer tried could, in principle, break them; none has.
+- *Not tested here*: the samplers' price agreement and the forward-window averages (D2, relay).
+
+Static analysis: Slither, 35 findings, all reviewed in `contracts/slither-triage.json` (timestamps as
+the protocol clock, reentrancy findings on `nonReentrant` functions that call only Arc USDC, the
+low-level call of the claimable pattern). Two findings were fixed instead (admin events, explicit
+initialisation).
+
 ## 11. Decisions (user, 2026-11-16)
 
 1. Price agreement: each sampler signs its own window average; the proposal is the exact median of

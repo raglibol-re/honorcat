@@ -19,6 +19,11 @@
 - Work in cycles per docs/improve.md, everything in the agreed priority order.
 
 ## Rubric cycle log
+- 2026-11-16: D1 done. HonorCatPots built in the agreed order (core, cap, partial, handshake, nets and
+  bowls, takeover), 77 contract tests incl. stateful invariants and symbolic checks, Slither 35/35
+  reviewed, deployed on Arc testnet at 0xc890C990048f45cb268d076E4A3dB25270Ea1e59 (an earlier
+  throwaway at 0xfd5B…758a, unused). The fair-value reader did not fit under 24 KB: planned as a
+  separate stateless contract in D5. The app is unchanged until D3.
 - 2026-11-16: D0 design document for the two-sided pot (states, rounding proofs, attestations,
   positions, extras, cap, prices and evidence, tests, threat model, defaults, open decisions).
 - 2026-11-16: env vars switched (user asked me to do it): RELAY_PRIVATE_KEY (Production, Preview),
@@ -91,9 +96,8 @@
 - Then: phase I threat model and static analysis, minimal phase H, phase E only if time allows.
 
 ## Blocks current milestone
-- D0 written (docs/pot-design.md). Waiting for your decisions in its section 11 (price agreement,
-  cap, settlement grace, takeover scope, smoothing window, ERC-721 positions, D1 scope) and on the
-  defaults in section 10. No contract code until then.
+- (none) D1 done. Next: D2, the relay (forward-window attestations with median agreement, depth
+  attestations, nets and bowls, permissionless submission).
 
 ## Later
 - Vault pots 26-31 ($0.01 each) are past their deadline and only need the public `expire` call
