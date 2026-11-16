@@ -27,6 +27,8 @@ export interface WalletAdapter {
   signMessage?(message: string): Promise<Hex>;
   /** The chain the wallet is on right now (EVM chain id). */
   chainId?(): Promise<number | null>;
+  /** Several calls at once (a smart account's user operation); resolves with the transaction hash after inclusion. */
+  sendBatch?(calls: ContractCall[]): Promise<Hex>;
   /** Switches the wallet to `chain` (adding it if needed), sends there and waits for the receipt. */
   sendOn?(chain: Chain, call: ContractCall): Promise<Hex>;
 }

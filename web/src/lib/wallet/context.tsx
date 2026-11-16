@@ -2,11 +2,12 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { Address } from "viem";
+import { CircleWallet } from "./circle";
 import { InjectedWallet } from "./injected";
 import { SolanaWallet } from "./solana";
 import type { WalletAdapter } from "./types";
 
-export type WalletKind = "evm" | "solana";
+export type WalletKind = "evm" | "solana" | "circle";
 
 type WalletState = {
   adapter: WalletAdapter;
@@ -15,6 +16,7 @@ type WalletState = {
   setKind: (k: WalletKind) => void;
   solana: SolanaWallet;
   evm: WalletAdapter;
+  circle: CircleWallet;
   account: Address | null;
   connecting: boolean;
   error: string | null;
@@ -27,8 +29,17 @@ const WalletContext = createContext<WalletState | null>(null);
 export function WalletProvider({ children, adapter }: { children: React.ReactNode; adapter?: WalletAdapter }) {
   const evm = useMemo(() => adapter ?? new InjectedWallet(), [adapter]);
   const solana = useMemo(() => new SolanaWallet(), []);
+  const circle = useMemo(() => new CircleWallet(), []);
   const [kind, setKindState] = useState<WalletKind>("evm");
-  const wallet: WalletAdapter = kind === "solana" ? solana : evm;
+  // A Circle smart account signed in earlier in this browser comes back by itself.
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("honorcat.circle.credential") && CircleWallet.clientKey()) void Promise.resolve().then(() => setKindState("circle"));
+    } catch {
+      /* no storage */
+    }
+  }, []);
+  const wallet: WalletAdapter = kind === "solana" ? solana : kind === "circle" ? circle : evm;
   const [account, setAccount] = useState<Address | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,7 +71,7 @@ export function WalletProvider({ children, adapter }: { children: React.ReactNod
   }, [wallet]);
 
   return (
-    <WalletContext.Provider value={{ adapter: wallet, kind, setKind, solana, evm, account, connecting, error, connect }}>
+    <WalletContext.Provider value={{ adapter: wallet, kind, setKind, solana, evm, circle, account, connecting, error, connect }}>
       {children}
     </WalletContext.Provider>
   );

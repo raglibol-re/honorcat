@@ -22,6 +22,8 @@ const RULES: [RegExp, string][] = [
   [/insufficient|exceeds balance|TransferMismatch/i, "Your account does not hold enough test USDC for this. Put in less, or add test money from the account page."],
   [/NotOwner|unknown passkey account/i, "This account does not hold that side of the pot. Sign in with the passkey or wallet you played with."],
   [/stale account nonce/i, "Two actions crossed. Press the button again; nothing was sent twice."],
+  // Circle smart accounts
+  [/entity config/i, "Circle smart accounts are not switched on for this site yet. Use a passkey or a wallet for now."],
   // The browser
   [/cancelled|NotAllowedError|denied|rejected/i, "You cancelled the confirmation, so nothing was sent. Press the button again when you are ready."],
   [/does not use P-256|does not expose the passkey/i, "This passkey cannot sign on Arc. Try another device or password manager, or use a wallet instead."],

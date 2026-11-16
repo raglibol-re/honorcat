@@ -173,6 +173,25 @@ const approveAbi = [
  * start measuring at once, and returns the pot id from the contract's own event.
  */
 async function walletSend(adapter: WalletAdapter, account: Address, pots: Address, data: Hex, potId: string | null, spend = 0n, onStep?: Step) {
+  if (adapter.sendBatch) {
+    // A smart account: the approval (when short) and the action in one user operation, gas sponsored.
+    const calls: { to: Address; data: Hex }[] = [];
+    if (spend > 0n) {
+      const allowance = (await publicClient.readContract({ address: USDC_ADDRESS, abi: approveAbi, functionName: "allowance", args: [account, pots] })) as bigint;
+      if (allowance < spend) calls.push({ to: USDC_ADDRESS, data: encodeFunctionData({ abi: approveAbi, functionName: "approve", args: [pots, spend] }) });
+    }
+    calls.push({ to: pots, data });
+    onStep?.("Confirm with your passkey (Circle pays the network fee)");
+    const tx = await adapter.sendBatch(calls);
+    const receipt = await publicClient.waitForTransactionReceipt({ hash: tx, timeout: 60_000 }).catch(() => null);
+    let id = potId;
+    if (!id && receipt) {
+      const created = parseEventLogs({ abi: potsAbi, logs: receipt.logs, eventName: "PotCreated" })[0];
+      if (created) id = (created.args as { potId: bigint }).potId.toString();
+    }
+    if (id) await getJson(`/api/hc/pots/${id}`, { method: "POST" }).catch(() => null);
+    return { tx, potId: id };
+  }
   if (spend > 0n) {
     const allowance = (await publicClient.readContract({ address: USDC_ADDRESS, abi: approveAbi, functionName: "allowance", args: [account, pots] })) as bigint;
     if (allowance < spend) {

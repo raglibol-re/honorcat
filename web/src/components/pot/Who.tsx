@@ -133,6 +133,39 @@ export function SignIn({ who, purpose }: { who: ActorState; purpose: string }) {
           </button>
         </div>
       )}
+      {who.wallet.circle.isAvailable() && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, borderTop: `1px solid ${C.faint}`, paddingTop: 12 }}>
+          <span style={{ fontSize: 15, color: C.body }}>
+            Or a <strong>Circle smart account</strong>: a passkey-owned smart account on Arc from Circle; Circle pays its network fees.
+          </span>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+            {(["register", "login"] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                style={m === "register" ? btn : btnQuiet}
+                disabled={busy || who.wallet.connecting}
+                onClick={async () => {
+                  setBusy(true);
+                  setErr(null);
+                  try {
+                    who.wallet.circle.mode = m;
+                    await who.wallet.circle.connect();
+                    who.wallet.setKind("circle");
+                    who.useWalletInstead();
+                  } catch (e) {
+                    setErr(plainError(e));
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                {m === "register" ? "Create a Circle smart account" : "I have a Circle smart account"}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <WalletChoice
         label="Use a wallet instead"
         busy={busy || who.wallet.connecting}
@@ -181,7 +214,8 @@ export function AccountLine({ who }: { who: ActorState }) {
         />
       )}
       <p style={{ margin: 0, fontSize: 15, lineHeight: 1.5, color: C.muted }}>
-        Playing as <strong style={{ color: C.ink }}><CatName account={a} name={myName ?? nickname(a)} /></strong>{" "}
+        Playing as <strong style={{ color: C.ink }}><CatName account={a} name={myName ?? nickname(a)} /></strong>
+        {who.actor.kind === "wallet" && who.wallet.kind === "circle" ? " (Circle smart account)" : ""}{" "}
         {picked && !editing && (
           <button type="button" onClick={() => setEditing(true)} style={{ background: "none", border: 0, padding: 0, color: C.muted, textDecoration: "underline", cursor: "pointer", fontSize: 15 }}>
             change your cat
@@ -197,6 +231,18 @@ export function AccountLine({ who }: { who: ActorState }) {
           </>
         )}{" "}
         · holds <strong style={{ color: C.ink }}>{who.balance === null ? "…" : `${(Number(who.balance) / 1e6).toFixed(2)} USDC`}</strong> (test money).
+        {who.actor.kind === "wallet" && who.wallet.kind === "circle" && (
+          <>
+            {" "}
+            <button
+              type="button"
+              onClick={() => (who.wallet.circle.forget(), who.wallet.setKind("evm"))}
+              style={{ background: "none", border: 0, padding: 0, color: C.muted, textDecoration: "underline", cursor: "pointer", fontSize: 15 }}
+            >
+              Sign out
+            </button>
+          </>
+        )}
         {who.actor.kind === "passkey" && (
           <>
             {" "}
