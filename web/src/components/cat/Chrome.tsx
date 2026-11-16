@@ -17,6 +17,7 @@ export const technical = [
   ["/ledger", "Ledger"],
   ["/live", "Live"],
   ["/status", "Status"],
+  ["/how-it-is-built", "How it is built"],
   ["/developers", "Developers"],
 ] as const;
 // The older refund-guarantee product stays reachable in technical mode only.

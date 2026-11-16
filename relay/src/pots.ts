@@ -898,3 +898,28 @@ export async function latestQuote(db: Db, potId: string) {
   const p = payloadOf(r);
   return { id: r.id, status: r.status, attestation: (p.attestation as WindowAtt | undefined) ?? null, reason: p.reason ?? null, signatures: r.status === "ready" ? await signaturesOf(db, r.id) : null, fairValue: getConfig().fairValue };
 }
+
+/** Live evidence for /how-it-is-built: pot events per kind and per delivery path, with the newest of each. */
+export async function potsEvidence(db: Db) {
+  const byKind = await db.query<{ event_name: string; n: string; streams: string; rpc: string; last_tx: string; last_pot: string | null; last_time: string | null }>(
+    `SELECT event_name, count(*)::text AS n,
+            count(*) FILTER (WHERE source = 'streams')::text AS streams,
+            count(*) FILTER (WHERE source = 'rpc')::text AS rpc,
+            (array_agg(tx_hash ORDER BY block_number DESC, log_index DESC))[1] AS last_tx,
+            (array_agg(pot_id::text ORDER BY block_number DESC, log_index DESC))[1] AS last_pot,
+            max(block_time)::text AS last_time
+       FROM pot_events GROUP BY event_name ORDER BY event_name`,
+  );
+  const windows = await db.query<{ n: string; three: string; two: string; none: string }>(
+    `SELECT count(*)::text AS n,
+            count(*) FILTER (WHERE payload->>'reason' = 'median of three')::text AS three,
+            count(*) FILTER (WHERE payload->>'reason' LIKE 'mean of two%')::text AS two,
+            count(*) FILTER (WHERE (payload->'attestation'->>'valid') = 'false')::text AS none
+       FROM att_requests WHERE kind = 'window' AND status IN ('submitted','ready')`,
+  );
+  const latency = await db.query<{ ms: string | null }>(
+    `SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY extract(epoch FROM (updated_at - to_timestamp((payload->>'windowEnd')::bigint))) * 1000)::text AS ms
+       FROM att_requests WHERE kind = 'window' AND status = 'submitted' AND payload ? 'windowEnd'`,
+  );
+  return { events: byKind, windows: windows[0], medianWindowToPaidMs: latency[0]?.ms ? Number(latency[0].ms) : null, contracts: { pots: getConfig().pots?.address ?? null, fairValue: getConfig().fairValue } };
+}

@@ -1,0 +1,118 @@
+"use client";
+
+import Link from "next/link";
+import { C, F } from "@/components/cat/tokens";
+import { usePolling } from "@/lib/api";
+import { addressUrl, txUrl } from "@/lib/chain";
+
+type Evidence = {
+  events: { event_name: string; n: string; streams: string; rpc: string; last_tx: string; last_pot: string | null; last_time: string | null }[];
+  windows: { n: string; three: string; two: string; none: string };
+  medianWindowToPaidMs: number | null;
+  contracts: { pots: string | null; fairValue: string | null };
+};
+
+type Status = "done" | "partly" | "not yet";
+type Item = { what: string; check: string; status: Status; proof: React.ReactNode };
+
+const mark: Record<Status, { text: string; color: string }> = {
+  done: { text: "Done", color: C.ink },
+  partly: { text: "Partly", color: C.signalInk },
+  "not yet": { text: "Not yet", color: C.muted },
+};
+
+function List({ title, items }: { title: string; items: Item[] }) {
+  return (
+    <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <h2 style={{ margin: 0, fontFamily: F.cond, fontSize: 40, fontWeight: 600 }}>{title}</h2>
+      <ul style={{ margin: 0, padding: 0, listStyle: "none", borderTop: `1.5px solid ${C.ink}` }}>
+        {items.map((it) => (
+          <li key={it.what} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 90px", gap: "4px 16px", padding: "14px 0", borderBottom: `1px solid ${C.faint}` }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <strong style={{ fontSize: 18 }}>{it.what}</strong>
+              <span style={{ fontSize: 15, color: C.muted }}>Check: {it.check}</span>
+              <span style={{ fontSize: 15, lineHeight: 1.5, color: C.body }}>{it.proof}</span>
+            </div>
+            <span style={{ fontWeight: 600, color: mark[it.status].color, textAlign: "right" }}>{mark[it.status].text}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+export function Built() {
+  const { data: e } = usePolling<Evidence>("/api/hc/evidence", 15_000);
+  const ev = (name: string) => e?.events.find((x) => x.event_name === name);
+  const last = (name: string, label?: string) => {
+    const x = ev(name);
+    if (!x) return <em>none yet</em>;
+    return (
+      <>
+        {x.n} so far; newest <a href={txUrl(x.last_tx)} target="_blank" rel="noreferrer">{label ?? "transaction"}</a>
+        {x.last_pot && (
+          <>
+            {" "}
+            in <Link href={`/pots/${x.last_pot}`}>pot {x.last_pot}</Link>
+          </>
+        )}
+      </>
+    );
+  };
+  const total = (e?.events ?? []).reduce((s, x) => s + Number(x.n), 0);
+  const streams = (e?.events ?? []).reduce((s, x) => s + Number(x.streams), 0);
+  const rpc = (e?.events ?? []).reduce((s, x) => s + Number(x.rpc), 0);
+  const settled = ev("PotSettled");
+
+  const arc: Item[] = [
+    { what: "USDC is the only asset, including the fee for every transaction", check: "the relay pays gas in USDC", status: "done", proof: <>Gas spent per kind of transaction is on <Link href="/status">status</Link>. Pots, deposits, payouts and fees are all USDC (6 decimals through the ERC-20 view).</> },
+    { what: "Join and exit by signature; users pay no fee", check: "a side with no other funds joins and exits", status: "done", proof: <>Joins are EIP-3009 deposits, exits EIP-712 requests, both forwarded by the relay. Joins: {last("JoinRequested")}. Exits: {last("ExitRequested")}.</> },
+    { what: "Create-and-fund and divide-and-pay are single transactions", check: "one transaction each, through Multicall3From", status: "done", proof: <>Creating a pot pulls the deposit in the same call; an exit price pays both sides in the same call. Created: {last("PotCreated")}. Divided: {last("PotDivided")}.</> },
+    { what: "The reason for every payout travels with it (Arc Memo)", check: "memo on every relay transaction", status: "partly", proof: <>Every relay transaction carries a Memo with the pot and the reason (for example the exit price and the agreement rule). Decoding it on the pot page is still to do.</> },
+    { what: "Time from the end of a price window to the payout", check: "measured", status: e?.medianWindowToPaidMs ? "done" : "partly", proof: <>Median from the end of a measured window to the transaction that used it: {e?.medianWindowToPaidMs ? `${(e.medianWindowToPaidMs / 1000).toFixed(1)} s` : "…"} (the samplers wait for the window, agree, and the relay waits for Arc&apos;s block clock).</> },
+    { what: "Funding from other chains through Circle CCTP", check: "a real transfer landing on Arc", status: "done", proof: <>Bring USDC from an EVM chain or Solana Devnet on the <Link href="/account">account page</Link>.</> },
+  ];
+  const gemini: Item[] = [
+    { what: "Market discovery and quality from the order book", check: "/markets and /api/catalog", status: "done", proof: <>Every active contract ranked by spread and depth: <Link href="/markets">markets</Link>.</> },
+    { what: "The live price sets each side's share", check: "the rope matches the book midpoint", status: "done", proof: <>The rope reads Gemini&apos;s book every 2 s and averages 30 s, like the samplers.</> },
+    { what: "A forward-window average prices every exit", check: "the evidence of an exit", status: "done", proof: <>{e ? `${e.windows.n} windows used so far: ${e.windows.three} by the median of three, ${e.windows.two} by the mean of two, ${e.windows.none} without a price.` : "…"} Each pot&apos;s proof page lists every sampler&apos;s average and evidence hash.</> },
+    { what: "Market status gates exits", check: "no price while halted or under review", status: "done", proof: <>The relay proposes no price unless Gemini reports the contract active and open; without a price nothing moves.</> },
+    { what: "Gemini's settlement ends the pots nobody left", check: "a pot held to settlement", status: settled ? "done" : "partly", proof: settled ? <>{last("PotSettled")}.</> : <>The first pot held to the end is waiting for Gemini&apos;s result.</> },
+    { what: "Depth sets the cap on a pot's size", check: "creation refused above the cap", status: "done", proof: <>The signer set attests the contracts within 5 cents on the thinner side; the contract allows 25 cents of pot per contract, at most $25 (contract tests: AboveCap).</> },
+    { what: "“Data provided by Gemini” wherever prices appear", check: "page check", status: "done", proof: <>On the rope, the pot, proof, markets and landing pages.</> },
+  ];
+  const quicknode: Item[] = [
+    { what: "Streams is the primary source for every pot event", check: "events show source = streams", status: streams > 0 ? "done" : "partly", proof: <>{e ? `${total} pot events: ${streams} first seen by Streams, ${rpc} by RPC polling.` : "…"} The filter covers the pot contract since today; earlier events were backfilled by polling.</> },
+    { what: "Filtered on QuickNode's side; RPC polling as the fallback", check: "the filter and the poller", status: "done", proof: <>The stream&apos;s filter keeps only our contracts&apos; logs (and Memo logs of our transactions); the relay polls the chain from its last block as a fallback. Per-delivery delay: <Link href="/live">live</Link>.</> },
+    { what: "Backfill after downtime", check: "a documented run", status: "done", proof: <>The pot indexer resumes from its stored block; it backfilled every pot event from the contract&apos;s deploy block today.</> },
+  ];
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 44, maxWidth: 920 }}>
+      <header style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <h1 style={{ margin: 0, fontFamily: F.cond, fontSize: 64, fontWeight: 600, lineHeight: 0.95 }}>How it is built</h1>
+        <p style={{ margin: 0, fontSize: 19, lineHeight: 1.45, color: C.body }}>
+          What each part does, how to check it, and the live evidence. Contracts on Arc testnet:{" "}
+          {e?.contracts.pots && (
+            <a href={addressUrl(e.contracts.pots)} target="_blank" rel="noreferrer">
+              HonorCatPots
+            </a>
+          )}
+          {e?.contracts.fairValue && (
+            <>
+              ,{" "}
+              <a href={addressUrl(e.contracts.fairValue)} target="_blank" rel="noreferrer">
+                HonorCatFairValue
+              </a>
+            </>
+          )}
+          . Source, tests and the design document are in the repository.
+        </p>
+      </header>
+      <List title="Arc" items={arc} />
+      <List title="Gemini" items={gemini} />
+      <List title="QuickNode" items={quicknode} />
+      <p style={{ margin: 0, fontSize: 14, color: C.muted }}>Data provided by Gemini. Test version on Arc testnet: test money only.</p>
+    </div>
+  );
+}
