@@ -19,6 +19,8 @@
 - Work in cycles per docs/improve.md, everything in the agreed priority order.
 
 ## Rubric cycle log
+- 2026-11-16: D0 design document for the two-sided pot (states, rounding proofs, attestations,
+  positions, extras, cap, prices and evidence, tests, threat model, defaults, open decisions).
 - 2026-11-16: env vars switched (user asked me to do it): RELAY_PRIVATE_KEY (Production, Preview),
   RESOLVER_ADDRESS and SAMPLERS (Production) set in Vercel with the same values (key piped from the
   local .env, never printed; it derives to the production relay 0x3692…20D6; addresses from
@@ -89,7 +91,9 @@
 - Then: phase I threat model and static analysis, minimal phase H, phase E only if time allows.
 
 ## Blocks current milestone
-- (none) C1 complete. Next: D0 design document.
+- D0 written (docs/pot-design.md). Waiting for your decisions in its section 11 (price agreement,
+  cap, settlement grace, takeover scope, smoothing window, ERC-721 positions, D1 scope) and on the
+  defaults in section 10. No contract code until then.
 
 ## Later
 - Vault pots 26-31 ($0.01 each) are past their deadline and only need the public `expire` call
