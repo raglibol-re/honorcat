@@ -460,6 +460,62 @@ CREATE TABLE IF NOT EXISTS push_subs (
 ALTER TABLE att_averages ADD COLUMN IF NOT EXISTS avg_signature TEXT;
 -- Each player's cat: its fur colour (names.ts FURS), chosen with the name.
 ALTER TABLE display_names ADD COLUMN IF NOT EXISTS fur TEXT;
+-- Agent seats (agentSeats.ts): a player's outside agent (Grok Bot) plays their practice pots.
+CREATE TABLE IF NOT EXISTS agent_seats (
+  id            TEXT PRIMARY KEY,
+  account       TEXT NOT NULL,
+  label         TEXT NOT NULL,
+  token_hash    TEXT NOT NULL UNIQUE,
+  max_notional  BIGINT NOT NULL,
+  max_pots      INTEGER NOT NULL,
+  expires_at    TIMESTAMPTZ NOT NULL,
+  revoked_at    TIMESTAMPTZ,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS agent_actions (
+  id          BIGSERIAL PRIMARY KEY,
+  seat_id     TEXT NOT NULL,
+  pot_id      BIGINT,
+  action      TEXT NOT NULL,
+  ok          BOOLEAN NOT NULL,
+  detail      TEXT,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS agent_actions_pot_idx ON agent_actions (pot_id);
+CREATE TABLE IF NOT EXISTS agent_pots (
+  pot_id      BIGINT PRIMARY KEY,
+  seat_id     TEXT NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE agent_actions ADD COLUMN IF NOT EXISTS reason TEXT;
+-- The cat sitter (catSitter.ts): a seat minding one of its player's own pots, and its proposals.
+CREATE TABLE IF NOT EXISTS seat_pots (
+  pot_id        BIGINT PRIMARY KEY,
+  seat_id       TEXT NOT NULL,
+  account       TEXT NOT NULL,
+  side          SMALLINT NOT NULL,
+  powers        JSONB NOT NULL,
+  exit_full     JSONB,
+  exit_partial  JSONB,
+  detached_at   TIMESTAMPTZ,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS agent_proposals (
+  id          BIGSERIAL PRIMARY KEY,
+  pot_id      BIGINT NOT NULL,
+  seat_id     TEXT NOT NULL,
+  action      TEXT NOT NULL,
+  args        JSONB NOT NULL,
+  reason      TEXT NOT NULL,
+  status      TEXT NOT NULL DEFAULT 'pending',
+  decided_at  TIMESTAMPTZ,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS agent_invites (
+  pot_id      BIGINT PRIMARY KEY,
+  account     TEXT NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 -- After a pot ends: "Well played" and rematch offers from its players (potNotes.ts).
 CREATE TABLE IF NOT EXISTS pot_notes (
   pot_id      BIGINT NOT NULL,

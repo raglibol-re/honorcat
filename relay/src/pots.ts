@@ -892,7 +892,7 @@ export async function honorRecord(db: Db, account: string) {
   const a = account.toLowerCase();
   // Practice pots (against the relay's practice cat) never count towards an honor record.
   const ev = await db.query<Ev>(
-    "SELECT tx_hash, block_time::text AS block_time, event_name, pot_id::text AS pot_id, args FROM pot_events e WHERE e.pot_id IS NULL OR NOT EXISTS (SELECT 1 FROM practice_pots pp WHERE pp.pot_id = e.pot_id) ORDER BY block_number, log_index",
+    "SELECT tx_hash, block_time::text AS block_time, event_name, pot_id::text AS pot_id, args FROM pot_events e WHERE e.pot_id IS NULL OR (NOT EXISTS (SELECT 1 FROM practice_pots pp WHERE pp.pot_id = e.pot_id) AND NOT EXISTS (SELECT 1 FROM seat_pots sp WHERE sp.pot_id = e.pot_id)) ORDER BY block_number, log_index",
   );
   const ownerOf = new Map<string, string>(); // tokenId -> owner, replayed from Transfer events
   const played = new Set<string>();

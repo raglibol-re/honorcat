@@ -220,3 +220,18 @@ QuickNode
       outage, resumed with a clean webhook address (honorcat.vercel.app, no double slash); its share
       is counted from block 72,600,235 (after the rebuild) and shown on /how-it-is-built. Deliveries
       are still coming back slowly; the RPC poller (90 blocks behind the head) covers every event meanwhile.
+
+## 13. Build list of 2026-11-16 (parts 1 to 8)
+- [x] 1 to 3 (solo try-out, rope view, names and wording): see sections 11 and 12.
+- [x] 4. A price chart on every pot (Gemini's candles) with the entry, every exit, handshakes and the
+      settlement marked, a hover readout and a table view; one sentence per market in the picker on
+      why it works or does not.
+- [x] 5. Cat sitter / Grok Bot, as a tool connection (MCP, `/api/mcp`, chosen over a web seat after
+      reading xAI's Grok Bot docs): seats created and revoked by the signed-in player, 24 h expiry,
+      testnet limits, never withdraw; per-pot powers (exits alone when signed in advance, nets,
+      bowls and handshakes with approval); every action logged with the agent's one-line reason and
+      shown on the pot page ("minded by a cat sitter" / "played by an agent"); agent pots out of
+      honor records; /grok-bot with a job description; counts on /how-it-is-built.
+      Tests: relay/test/agent-seats.test.ts; production: scripts/agent-seat-e2e.ts (10 checks incl.
+      revoke → 401 at once), scripts/agent-play-e2e.ts (pot 24: agent took the side, set a net and
+      left; `--sitter`, pot 25: net became a proposal, the full exit signed in advance went alone).

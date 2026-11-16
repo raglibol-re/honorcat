@@ -109,3 +109,5 @@ export { setName, namesOf, catsOf, nameMessage, cleanName, FURS } from "./names"
 export { welcome, topUp, refillPool, poolStatus } from "./funding";
 export { GATEWAY_SOURCES, GATEWAY_WALLET, GATEWAY_MINTER, gatewayBalances, prepareGatewayMove, completeGatewayMove } from "./gateway";
 export { addNote, notesOf, noteMessage, playersOf, type NoteKind } from "./potNotes";
+export { agentActionsOf, agentEvidence, createSeat, inviteAgent, revokeSeat, seatAct, seatByToken, seatMessage, seatsOf, SEAT_ACTIONS, SEAT_MAX_NOTIONAL, SEAT_MAX_POTS, type Seat } from "./agentSeats";
+export { agentInfoOf, attachMessage, attachSitter, cleanPowers, decide, decideProposal, detachSitter, type Power, type Powers } from "./catSitter";

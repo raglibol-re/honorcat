@@ -1,6 +1,7 @@
 import { F } from "@/components/cat/tokens";
 import { AccountGateway } from "./AccountGateway";
 import { AccountView } from "./AccountView";
+import { AgentSeats } from "@/components/agent/AgentSeats";
 
 export const metadata = { title: "My money" };
 
@@ -10,6 +11,7 @@ export default function AccountPage() {
       <h1 style={{ margin: 0, fontFamily: F.cond, fontSize: 64, fontWeight: 600, lineHeight: 0.95 }}>My money</h1>
       <AccountGateway />
       <AccountView />
+      <AgentSeats />
     </div>
   );
 }

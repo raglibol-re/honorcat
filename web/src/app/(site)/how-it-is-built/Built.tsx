@@ -10,6 +10,7 @@ type Evidence = {
   windows: { n: string; three: string; two: string; none: string; quotes: string; onchain: string };
   streamsSinceFilter?: { sinceBlock: string; total: number; streams: number; pollerLagBlocks: number };
   circle?: { relayWallet: string | null; sentByCircle: number; gatewayMints: number; lastGatewayMint: string | null; lastCircleTx: string | null; faucetApi: string };
+  agents?: { agentPots: number; agentActions: number; seats: number } | null;
   medianWindowToPaidMs: number | null;
   contracts: { pots: string | null; fairValue: string | null };
 };
@@ -181,6 +182,34 @@ export function Built() {
       <List title="Arc" items={arc} />
       <List title="Gemini" items={gemini} />
       <List title="QuickNode" items={quicknode} />
+      <List
+        title="Grok Bot"
+        items={[
+          {
+            what: "Grok Bot plays and minds pots through an MCP connector",
+            check: "a seat, its tool calls and the pots it played",
+            status: (e?.agents?.agentPots ?? 0) > 0 ? "done" : (e?.agents?.seats ?? 0) > 0 ? "partly" : "not yet",
+            proof: (
+              <>
+                A player gives their Grok Bot a seat (signed, revocable, 24 hours) and adds HonorCat as a custom connector (<code>/api/mcp</code>, the seat token in the Authorization header). Every tool
+                call is checked against the seat&apos;s action list, limits and per-pot powers, and logged with the agent&apos;s one-line reason. Live: {e?.agents?.seats ?? 0} seats,{" "}
+                {e?.agents?.agentActions ?? 0} agent actions, <strong>{e?.agents?.agentPots ?? 0} pots played by an agent</strong>. <Link href="/grok-bot">How to invite your Grok Bot</Link>.
+              </>
+            ),
+          },
+          {
+            what: "No key leaves HonorCat; agents never withdraw",
+            check: "the tool list and the tests",
+            status: "done",
+            proof: (
+              <>
+                As an opponent the agent holds a side with HonorCat&apos;s practice wallet (Circle-held); as a cat sitter it acts alone only on exits the player signed in advance and proposes everything
+                else. No tool withdraws, creates real pots or changes settings (relay/test/agent-seats.test.ts).
+              </>
+            ),
+          },
+        ]}
+      />
       <p style={{ margin: 0, fontSize: 14, color: C.muted }}>Data provided by Gemini. Test version on Arc testnet: test money only.</p>
     </div>
   );

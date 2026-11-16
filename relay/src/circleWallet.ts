@@ -55,3 +55,14 @@ export async function sendViaCircle(to: Address, data: Hex, refId?: string): Pro
     await new Promise((r) => setTimeout(r, 700));
   }
 }
+
+/** EIP-712 typed data signed by the Circle relay wallet (Circle holds the key). */
+export async function signTypedDataViaCircle(typedData: unknown): Promise<Hex> {
+  const w = circleRelay();
+  if (!w) throw new Error("the Circle relay wallet is not configured");
+  const json = JSON.stringify(typedData, (_k, v) => (typeof v === "bigint" ? v.toString() : v));
+  const res = await sdk().signTypedData({ walletId: w.walletId, data: json });
+  const sig = (res.data as { signature?: string } | undefined)?.signature;
+  if (!sig) throw new Error("Circle did not return a signature");
+  return sig as Hex;
+}

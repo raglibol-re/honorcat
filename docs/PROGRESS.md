@@ -19,6 +19,10 @@
 - Work in cycles per docs/improve.md, everything in the agreed priority order.
 
 ## Rubric cycle log
+- 2026-11-16: build list part 4 (price chart, picker sentences) and part 5 (Grok Bot as an MCP tool
+  connection: AI opponent on practice pots and cat sitter on the player's own pots, no contract
+  change: exits alone only when signed in advance, the rest by approval). Verified on production with
+  pots 24 (agent opponent) and 25 (cat sitter). Next: part 6 Streams, part 7 README, part 8 GrokCat.
 - 2026-11-16: GrokCat (docs/grokcat-spec.md, K0 in docs/grokcat-k0.md). No xAI credits and no real
   money (your rule), so no Grok calls: the helper cat answers from our own templates until credits
   exist, and is not presented as Grok. Built for approval: the helper cat (light coat, ink outline,

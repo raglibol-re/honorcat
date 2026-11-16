@@ -13,6 +13,8 @@ import { C, F } from "@/components/cat/tokens";
 import { Rope } from "@/components/pot/Rope";
 import { AfterPot } from "@/components/pot/AfterPot";
 import { PriceChart } from "@/components/pot/PriceChart";
+import { AgentPanel } from "@/components/agent/AgentPanel";
+import type { AgentInfo } from "@/lib/agent";
 import { HelperBubble } from "@/components/helper/Helper";
 import { adviceFree, exitOptions } from "@/lib/helper";
 import { SamplerNotice } from "@/components/pot/SamplerHealth";
@@ -550,6 +552,7 @@ export function PotView({ id }: { id: string }) {
   const q = useSearchParams();
   const fresh = q.get("new") === "1";
   const practiceFailed = q.get("practice") === "failed";
+  const botInvited = q.get("bot") === "1";
   const { tech } = useTechMode();
   const names = useNames([pot?.owners.yes, pot?.owners.no, pot?.data.joiner, ...(pot?.events ?? []).flatMap((e) => [e.args.creator, e.args.joiner, e.args.taker, e.args.from, e.args.to])]);
 
@@ -597,6 +600,12 @@ export function PotView({ id }: { id: string }) {
             The practice cat could not take the other side just now. Your pot is open and waits for a real opponent: send the link, or take it back below and get your deposit back.
           </p>
         )}
+        {botInvited && pot.state === "Open" && (
+          <p role="status" style={{ margin: 0, fontSize: 17, maxWidth: 760, lineHeight: 1.5 }}>
+            Your pot waits for your Grok Bot. Tell it: <strong>“take my HonorCat invite”</strong>. It joins with HonorCat&apos;s practice wallet as an AI player (test money, out of honor records).{" "}
+            <a href="/grok-bot">How to set up your Grok Bot</a>
+          </p>
+        )}
         {fresh && pot.state === "Open" && <p style={{ margin: 0, fontSize: 17, color: C.ink }}>Your pot is open. Send the link to whoever takes the other side.</p>}
       </header>
 
@@ -607,6 +616,8 @@ export function PotView({ id }: { id: string }) {
       {mine !== null && pot.state === "Live" && <ThreeNumbers pot={pot} side={mine} price={live.smoothed} st={st} />}
 
       {pot.state !== "Divided" && pot.state !== "Settled" && pot.state !== "Expired" && <SamplerNotice />}
+
+      <AgentPanel pot={pot} who={who} agent={(pot as HcPot & { agent?: AgentInfo | null }).agent} mySide={mine} pots={POTS} />
 
       <Actions pot={pot} who={who} price={live.smoothed} nowS={nowS} nameOf={nameOf} />
 

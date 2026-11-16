@@ -11,7 +11,9 @@
   "dependencies": {
     "@circle-fin/modular-wallets-core": "^1.0.16",
     "@honorcat/relay": "workspace:*",
+    "@modelcontextprotocol/server": "^2.4.0",
     "@solana/web3.js": "1.98.4",
+    "mcp-handler": "2.4.0",
     "next": "16.4.6",
     "qrcode": "1.5.4",
     "react": "19.3.0",

@@ -13,6 +13,7 @@ import { useTechMode } from "@/components/TechMode";
 import { getJson } from "@/lib/api";
 import { plainError } from "@/lib/messages";
 import { createPot, MAX_TOLERANCE, NO, prepare, worstCase, YES } from "@/lib/hc";
+import { inviteMyAgent, seatsOf, type SeatView } from "@/lib/agent";
 
 const label: React.CSSProperties = { fontSize: 15, fontWeight: 600, color: C.ink };
 const input: React.CSSProperties = { minHeight: 48, padding: "0 12px", border: `1.5px solid ${C.ink}`, background: C.page, fontFamily: F.sans, fontSize: 18, color: C.ink, width: "100%", boxSizing: "border-box" };
@@ -35,6 +36,20 @@ export function NewPot() {
     if (new URLSearchParams(window.location.search).get("practice") === "1") void Promise.resolve().then(() => (setPractice(true), setAmount("0.50")));
   }, []);
   const [accept, setAccept] = useState(""); // the chance (%) the creator accepts; empty = the current price
+  // Who takes the other side of a practice pot: the practice cat, or the player's own Grok Bot.
+  const [opponent, setOpponent] = useState<"cat" | "bot">("cat");
+  const [seat, setSeat] = useState<SeatView | null>(null);
+  const account = who.actor?.account ?? null;
+  useEffect(() => {
+    if (!account) return;
+    let alive = true;
+    seatsOf(account)
+      .then((r) => alive && setSeat(r.seats.find((s) => s.active) ?? null))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [account]);
   const [step, setStep] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const live = useLivePrice(market?.symbol ?? null);
@@ -71,7 +86,7 @@ export function NewPot() {
     if (!who.actor || !market || center === null) return;
     setErr(null);
     try {
-      if (practice) {
+      if (practice && opponent === "cat") {
         setStep("Checking the practice cat");
         const ps = await getJson<{ available: boolean; reason: string | null }>(`/api/hc/practice`);
         if (!ps.available) throw new Error(ps.reason ?? "The practice cat cannot play right now.");
@@ -82,6 +97,12 @@ export function NewPot() {
         throw new Error(`This market is too thin for a ${$(n)} pot right now; it allows up to ${$(BigInt(prep.cap))}. Put in less, or pick a busier market.`);
       const bandCenter = own !== null ? center : (prep.midPpm ?? center);
       const r = await createPot(who.actor, prep, { side, notional: n, bandCenter, tolerance: Math.min(tol, MAX_TOLERANCE), graceDays: Number(grace) }, setStep);
+      if (practice && opponent === "bot" && r.potId) {
+        setStep("Inviting your Grok Bot");
+        await inviteMyAgent(r.potId);
+        router.push(`/pots/${r.potId}?bot=1`);
+        return;
+      }
       if (practice && r.potId) {
         setStep("The practice cat is taking the other side");
         try {
@@ -231,8 +252,20 @@ export function NewPot() {
                   minutes. Pots up to ${PRACTICE_N}, test money only, and they do not count towards your honor record.
                 </span>
               </label>
+              {practice && seat && (
+                <div role="radiogroup" aria-label="Your opponent" style={{ display: "flex", gap: 16, flexWrap: "wrap", fontSize: 16, paddingLeft: 32 }}>
+                  <label style={{ display: "flex", gap: 8, alignItems: "center", cursor: "pointer" }}>
+                    <input type="radio" name="opponent" checked={opponent === "cat"} onChange={() => setOpponent("cat")} style={{ width: 20, height: 20 }} />
+                    the practice cat (joins at once)
+                  </label>
+                  <label style={{ display: "flex", gap: 8, alignItems: "center", cursor: "pointer" }}>
+                    <input type="radio" name="opponent" checked={opponent === "bot"} onChange={() => setOpponent("bot")} style={{ width: 20, height: 20 }} />
+                    my Grok Bot ({seat.label}): an AI player
+                  </label>
+                </div>
+              )}
               <button type="button" style={{ ...btn, alignSelf: "flex-start", opacity: bad || step ? 0.6 : 1 }} disabled={!!bad || !!step} onClick={submit}>
-                {step ?? (practice ? "Give your word and play the practice cat" : "Give your word")}
+                {step ?? (practice ? (opponent === "bot" && seat ? "Give your word and invite my Grok Bot" : "Give your word and play the practice cat") : "Give your word")}
               </button>
               {bad && <p style={{ margin: 0, color: C.muted }}>{bad}</p>}
             </>

@@ -1,5 +1,5 @@
 import { connection } from "next/server";
-import { errorResponse, getDb, nudgeRelay, pots } from "@/server/relay";
+import { agentInfoOf, errorResponse, getDb, nudgeRelay, pots } from "@/server/relay";
 
 export const maxDuration = 60;
 
@@ -17,7 +17,9 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
     }
     if (!d) return Response.json({ error: "no such pot" }, { status: 404 });
     nudgeRelay("hc:pot", { samplerBudgetMs: 45_000 });
-    return Response.json(d, { headers: { "cache-control": "no-store" } });
+    // Who minds or plays this pot as an agent, their actions with reasons, and open proposals.
+    const agent = await agentInfoOf(db, id).catch(() => null);
+    return Response.json({ ...d, agent }, { headers: { "cache-control": "no-store" } });
   } catch (err) {
     return errorResponse(err);
   }
