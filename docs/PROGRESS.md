@@ -19,6 +19,11 @@
 - Work in cycles per docs/improve.md, everything in the agreed priority order.
 
 ## Rubric cycle log
+- 2026-11-16: test money without faucets: $2 welcome on first sign-in for every account, automatic
+  top-ups before deposits (limits: $10 per account and $80 in total a day, $3 floor), pool refill
+  from Circle's faucet API every 3 hours once CIRCLE_API_KEY is set; when the pool cannot help,
+  pages explain it and link Circle's faucet with one-click copy of the address. Verified live
+  (welcome, second welcome refused, top-up of the shortfall, no top-up when enough).
 - 2026-11-16: browser wallets handled like a serious web3 app: deposits are an exact-amount USDC
   approval plus an ordinary transaction (no more EIP-3009 transfer signatures, which wallet
   scanners flag as drainer-like), exits and takeovers are transactions; EIP-6963 wallet discovery;
@@ -132,6 +137,9 @@
 - (none) D2 to D5 done; see the rubric for what is still open.
 
 ## Later
+- Circle developer account and API key (console.circle.com) as CIRCLE_API_KEY in Vercel, so the
+  test-money pool refills itself; Circle's reference says the faucet API may need the account
+  upgraded to mainnet; to be tested with relay/scripts/refill-pool.ts.
 - Delete the Render service `honorcat-sampler` (created, then dropped by your decision; it has no key
   and cannot sign). Render dashboard: honorcat-sampler, Settings, Delete Web Service.
 - Optional: repository secret `E2E_FUNDER_KEY` (a testnet key with a few test USDC) switches on the
