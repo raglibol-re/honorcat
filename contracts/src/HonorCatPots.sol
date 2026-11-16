@@ -32,7 +32,9 @@ contract HonorCatPots is ERC721, EIP712, ReentrancyGuard, Ownable {
     uint64 public constant MIN_LOCKOUT = 2 minutes;
     uint32 public constant MIN_WINDOW = 10;
     uint32 public constant MAX_WINDOW = 600;
-    bytes4 internal constant ERC1271_MAGIC = 0x1626ba7e;
+    /// @notice Cap on N: 0.25 dollars per contract near the price (docs/threat-model.md, cap
+    ///         arithmetic). In base units per hundredth of a contract: 0.25 × 1e6 / 100.
+    uint256 public constant CAP_PER_CENTI_CONTRACT = 2_500;
 
     uint8 public constant YES = 0;
     uint8 public constant NO = 1;
@@ -119,6 +121,16 @@ contract HonorCatPots is ERC721, EIP712, ReentrancyGuard, Ownable {
         bytes32 evidenceHash;
     }
 
+    /// @notice The market's measured depth and trading close, attested by the signer set at creation.
+    ///         `contracts5c`: contracts resting within 5 cents of the mid on the thinner side, in hundredths.
+    struct DepthAttestation {
+        bytes32 conditionId;
+        address account;
+        uint64 contracts5c;
+        uint64 closeTime;
+        uint64 validUntil;
+    }
+
     struct OutcomeAttestation {
         uint256 potId;
         bytes32 conditionId;
@@ -129,6 +141,8 @@ contract HonorCatPots is ERC721, EIP712, ReentrancyGuard, Ownable {
     bytes32 public constant WINDOW_TYPEHASH = keccak256(
         "Window(uint256 potId,uint8 kind,uint64 nonce,uint64 windowStart,uint64 windowEnd,uint32 sampleCount,uint32 priceYes,bool valid,bytes32 evidenceHash)"
     );
+    bytes32 public constant DEPTH_TYPEHASH =
+        keccak256("Depth(bytes32 conditionId,address account,uint64 contracts5c,uint64 closeTime,uint64 validUntil)");
     bytes32 public constant OUTCOME_TYPEHASH =
         keccak256("Outcome(uint256 potId,bytes32 conditionId,uint8 outcome,bytes32 evidenceHash)");
     bytes32 public constant EXIT_REQUEST_TYPEHASH =
@@ -176,6 +190,7 @@ contract HonorCatPots is ERC721, EIP712, ReentrancyGuard, Ownable {
     error OutsideBand();
     error Cooldown();
     error TransferMismatch();
+    error AboveCap();
     error ExpiredSignature();
     error NothingToWithdraw();
 
@@ -226,6 +241,17 @@ contract HonorCatPots is ERC721, EIP712, ReentrancyGuard, Ownable {
         );
     }
 
+    /// @notice EIP-712 digest the signer set signs for a market's depth at creation.
+    function depthDigest(DepthAttestation calldata d) public view returns (bytes32) {
+        return _hashTypedDataV4(keccak256(abi.encode(DEPTH_TYPEHASH, d.conditionId, d.account, d.contracts5c, d.closeTime, d.validUntil)));
+    }
+
+    /// @notice The largest N a pot may have for `contracts5c` hundredths of a contract near the price.
+    function capFor(uint64 contracts5c) external view returns (uint256) {
+        uint256 cap = uint256(contracts5c) * CAP_PER_CENTI_CONTRACT;
+        return cap < globalMaxNotional ? cap : globalMaxNotional;
+    }
+
     /// @notice EIP-712 digest the signer set signs for a settlement.
     function outcomeDigest(OutcomeAttestation calldata a) public view returns (bytes32) {
         return _hashTypedDataV4(keccak256(abi.encode(OUTCOME_TYPEHASH, a.potId, a.conditionId, a.outcome, a.evidenceHash)));
@@ -257,8 +283,19 @@ contract HonorCatPots is ERC721, EIP712, ReentrancyGuard, Ownable {
 
     /// @notice Offers a pot. The creator escrows its side's worst case in the band; the entry price
     ///         is set later, forward-priced, when someone joins.
-    function create(CreateParams calldata c, Authorization calldata auth) external nonReentrant returns (uint256 potId) {
+    function create(CreateParams calldata c, DepthAttestation calldata d, bytes calldata depthSigs, Authorization calldata auth)
+        external
+        nonReentrant
+        returns (uint256 potId)
+    {
         if (paused) revert PausedForNewPots();
+        address creator = _payer(auth);
+        // The cap and the trading close come from the signer set, not from the creator.
+        if (
+            d.conditionId != c.conditionId || d.account != creator || d.closeTime != c.closeTime || block.timestamp > d.validUntil
+                || !SignatureChecker.isValidERC1271SignatureNow(c.resolver, depthDigest(d), depthSigs)
+        ) revert InvalidAttestation();
+        if (c.notional > uint256(d.contracts5c) * CAP_PER_CENTI_CONTRACT) revert AboveCap();
         if (
             c.side > NO || c.notional == 0 || c.notional > globalMaxNotional || c.resolver == address(0)
                 || c.bandCenter > P || c.tolerance > MAX_TOLERANCE || c.grace < MIN_GRACE || c.window < MIN_WINDOW
@@ -280,7 +317,6 @@ contract HonorCatPots is ERC721, EIP712, ReentrancyGuard, Ownable {
         if (block.timestamp + lockout(potId) >= c.closeTime) revert TooLate();
         p.state = State.Open;
 
-        address creator = _payer(auth);
         uint256 escrow = worstCase(c.side, c.notional, c.bandCenter, c.tolerance);
         if (c.side == YES) p.escrowYes = escrow;
         else p.escrowNo = escrow;

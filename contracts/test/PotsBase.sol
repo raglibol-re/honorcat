@@ -62,9 +62,20 @@ abstract contract PotsBase is Test {
         });
     }
 
+    /// @dev Depth attestation for `who`: 1,000 contracts near the price unless told otherwise.
+    function _depth(address who, uint64 contracts5c) internal view returns (HonorCatPots.DepthAttestation memory d, bytes memory sigs) {
+        d = HonorCatPots.DepthAttestation({conditionId: COND, account: who, contracts5c: contracts5c, closeTime: closeTime, validUntil: uint64(block.timestamp + 60)});
+        sigs = _sign2(pots.depthDigest(d));
+    }
+
+    function _createAs(address who, HonorCatPots.CreateParams memory c) internal returns (uint256 id) {
+        (HonorCatPots.DepthAttestation memory d, bytes memory sigs) = _depth(who, 100_000);
+        vm.prank(who);
+        id = pots.create(c, d, sigs, _noAuth());
+    }
+
     function _create(uint8 side, uint256 n, uint32 center, uint32 tol) internal returns (uint256 id) {
-        vm.prank(alice);
-        id = pots.create(_params(side, n, center, tol), _noAuth());
+        id = _createAs(alice, _params(side, n, center, tol));
     }
 
     function _sign2(bytes32 digest) internal view returns (bytes memory) {

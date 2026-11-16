@@ -25,28 +25,30 @@ contract HonorCatPotsCoreTest is PotsBase {
     }
 
     function test_create_rejectsBadParams() public {
+        (HonorCatPots.DepthAttestation memory d, bytes memory sigs) = _depth(alice, 100_000);
         HonorCatPots.CreateParams memory c = _params(0, N, 600_000, 60_000); // tolerance above 5 points
         vm.prank(alice);
         vm.expectRevert(HonorCatPots.BadParams.selector);
-        pots.create(c, _noAuth());
+        pots.create(c, d, sigs, _noAuth());
         c = _params(0, 26e6, 600_000, 20_000); // above the $25 maximum
         vm.prank(alice);
         vm.expectRevert(HonorCatPots.BadParams.selector);
-        pots.create(c, _noAuth());
+        pots.create(c, d, sigs, _noAuth());
         c = _params(0, N, 600_000, 20_000);
         c.grace = 12 hours; // below one day
         vm.prank(alice);
         vm.expectRevert(HonorCatPots.BadParams.selector);
-        pots.create(c, _noAuth());
+        pots.create(c, d, sigs, _noAuth());
     }
 
     function test_create_refusedWhenPausedButEverythingElseWorks() public {
         uint256 id = _create(0, N, 600_000, 20_000);
         _join(id, 600_000);
         pots.setPaused(true);
+        (HonorCatPots.DepthAttestation memory d, bytes memory dsig) = _depth(alice, 100_000);
         vm.prank(alice);
         vm.expectRevert(HonorCatPots.PausedForNewPots.selector);
-        pots.create(_params(0, N, 600_000, 20_000), _noAuth());
+        pots.create(_params(0, N, 600_000, 20_000), d, dsig, _noAuth());
         // An existing pot can still exit.
         vm.prank(alice);
         pots.requestExit(id, 0, N);
@@ -56,11 +58,12 @@ contract HonorCatPotsCoreTest is PotsBase {
     }
 
     function test_create_tooCloseToTradingClose() public {
+        closeTime = uint64(block.timestamp + 100);
         HonorCatPots.CreateParams memory c = _params(0, N, 600_000, 20_000);
-        c.closeTime = uint64(block.timestamp + 100);
+        (HonorCatPots.DepthAttestation memory d, bytes memory sigs) = _depth(alice, 100_000);
         vm.prank(alice);
         vm.expectRevert(HonorCatPots.TooLate.selector);
-        pots.create(c, _noAuth());
+        pots.create(c, d, sigs, _noAuth());
     }
 
     // ---------------------------------------------------------------- join (forward-priced)
@@ -397,13 +400,52 @@ contract HonorCatPotsCoreTest is PotsBase {
         );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, digest);
         HonorCatPots.Authorization memory auth = HonorCatPots.Authorization(user, 0, block.timestamp + 1 hours, salt, v, r, s);
+        (HonorCatPots.DepthAttestation memory d, bytes memory dsig) = _depth(user, 100_000);
         vm.prank(carol); // a relayer submits; the user pays no gas
-        uint256 id = pots.create(c, auth);
+        uint256 id = pots.create(c, d, dsig, auth);
         assertEq(pots.ownerOf(pots.tokenOf(id, 0)), user);
         // The same authorization cannot be redirected to different parameters.
         c.notional = 20e6;
         vm.prank(carol);
         vm.expectRevert();
-        pots.create(c, auth);
+        pots.create(c, d, dsig, auth);
+    }
+
+    // ---------------------------------------------------------------- cap (step 2)
+
+    function test_cap_quarterOfContractsNearThePrice() public {
+        // 2,000 hundredths = 20 contracts within 5 cents -> cap $5.
+        (HonorCatPots.DepthAttestation memory d, bytes memory sigs) = _depth(alice, 2_000);
+        assertEq(pots.capFor(2_000), 5e6);
+        vm.prank(alice);
+        vm.expectRevert(HonorCatPots.AboveCap.selector);
+        pots.create(_params(0, 5_000_001, 600_000, 20_000), d, sigs, _noAuth());
+        vm.prank(alice);
+        pots.create(_params(0, 5e6, 600_000, 20_000), d, sigs, _noAuth());
+    }
+
+    function test_cap_attestationBoundToCreatorMarketCloseAndTime() public {
+        (HonorCatPots.DepthAttestation memory d, bytes memory sigs) = _depth(bob, 100_000);
+        vm.prank(alice); // someone else's attestation
+        vm.expectRevert(HonorCatPots.InvalidAttestation.selector);
+        pots.create(_params(0, N, 600_000, 20_000), d, sigs, _noAuth());
+        (d, sigs) = _depth(alice, 100_000);
+        HonorCatPots.CreateParams memory c = _params(0, N, 600_000, 20_000);
+        c.closeTime += 1 hours; // a close the signers did not attest
+        vm.prank(alice);
+        vm.expectRevert(HonorCatPots.InvalidAttestation.selector);
+        pots.create(c, d, sigs, _noAuth());
+        vm.warp(block.timestamp + 61); // stale
+        vm.prank(alice);
+        vm.expectRevert(HonorCatPots.InvalidAttestation.selector);
+        pots.create(_params(0, N, 600_000, 20_000), d, sigs, _noAuth());
+    }
+
+    function test_cap_needsTheSignerSet() public {
+        HonorCatPots.DepthAttestation memory d = HonorCatPots.DepthAttestation(COND, alice, 100_000, closeTime, uint64(block.timestamp + 60));
+        bytes memory one = _sig(sorted[0], pots.depthDigest(d));
+        vm.prank(alice);
+        vm.expectRevert(HonorCatPots.InvalidAttestation.selector);
+        pots.create(_params(0, N, 600_000, 20_000), d, one, _noAuth());
     }
 }
