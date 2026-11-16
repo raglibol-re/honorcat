@@ -9,7 +9,7 @@ import { Rope } from "@/components/pot/Rope";
 import { sceneOf, STATE_TEXT } from "@/components/pot/scene";
 import { useLivePrice } from "@/components/pot/usePrice";
 import { usePolling } from "@/lib/api";
-import type { HcPot } from "@/lib/hc";
+import type { HcPot, HcPotSummary } from "@/lib/hc";
 import { useNow } from "@/lib/useNow";
 import type { HomeData } from "@/server/home";
 
@@ -55,6 +55,35 @@ function LivePot({ data }: { data: HomeData }) {
   );
 }
 
+/** Pots waiting for someone to take the other side. */
+function OpenOffers() {
+  const { data } = usePolling<{ pots: HcPotSummary[] }>("/api/hc/pots?state=open", 15_000);
+  const now = useNow();
+  const offers = (data?.pots ?? []).filter((p) => Number(p.data.closeTime) * 1000 > now + 5 * 60_000).slice(0, 5);
+  if (!offers.length) return null;
+  return (
+    <section className="hc-wrap" style={{ paddingTop: 56, display: "flex", flexDirection: "column", gap: 12 }}>
+      <h2 style={{ margin: 0, ...cond, fontSize: 44, fontWeight: 600 }}>Waiting for someone</h2>
+      <ul style={{ margin: 0, padding: 0, listStyle: "none", borderTop: `1.5px solid ${C.ink}` }}>
+        {offers.map((p) => {
+          const creatorYes = Number(p.data.creatorSide) === 0;
+          return (
+            <li key={p.potId} style={{ borderBottom: `1px solid ${C.faint}` }}>
+              <Link href={`/pots/${p.potId}`} className="hc-row" style={{ display: "flex", flexWrap: "wrap", gap: "4px 20px", alignItems: "baseline", padding: "14px 6px", textDecoration: "none", color: C.ink }}>
+                <span style={{ fontSize: 18, fontWeight: 600, flex: "1 1 320px" }}>{p.market ? `${p.market.eventTitle}: ${p.market.label}` : `Pot ${p.potId}`}</span>
+                <span style={{ fontSize: 16 }}>${(Number(p.data.notional) / 1e6).toFixed(2)} pot</span>
+                <span style={{ fontSize: 16, color: C.muted }}>
+                  take {creatorYes ? "NO" : "YES"} near {(Number(p.data.bandCenter) / 10_000).toFixed(1)}% YES
+                </span>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
 export function Home({ data }: { data: HomeData }) {
   return (
     <div className="hc" style={{ background: C.page, color: C.ink, fontFamily: F.sans, minHeight: "100vh", boxSizing: "border-box" }}>
@@ -78,6 +107,8 @@ export function Home({ data }: { data: HomeData }) {
       <section className="hc-wrap" style={{ paddingTop: 48 }}>
         <LivePot data={data} />
       </section>
+
+      <OpenOffers />
 
       <section id="how" className="hc-wrap" style={{ paddingTop: 96, display: "flex", flexWrap: "wrap", gap: "24px 56px", alignItems: "flex-start" }}>
         <div style={{ flex: "1 1 280px", minWidth: 0, display: "flex", flexDirection: "column", gap: 12 }}>

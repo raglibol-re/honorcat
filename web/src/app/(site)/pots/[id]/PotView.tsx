@@ -16,6 +16,7 @@ import { txUrl } from "@/lib/chain";
 import { formatDate, short } from "@/lib/format";
 import { cancelPot, feeOf, joinPot, requestExit, setLevels, sideOf, signHandshake, takeover, worstCase, YES, type HcPot } from "@/lib/hc";
 import { useNow } from "@/lib/useNow";
+import { notifyMe, pushSupported } from "@/lib/push";
 
 const POTS = "0xc890C990048f45cb268d076E4A3dB25270Ea1e59" as const;
 const h2: React.CSSProperties = { margin: 0, fontFamily: F.cond, fontSize: 32, fontWeight: 600 };
@@ -77,9 +78,22 @@ function Actions({ pot, who, price, nowS }: { pot: HcPot; who: ActorState; price
           <h2 style={h2}>Invite someone</h2>
           <p style={{ margin: 0, color: C.body, fontSize: 17 }}>Send this page to the person who takes the other side. They join with a passkey or a wallet; nobody pays network fees.</p>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <button type="button" style={btn} onClick={() => navigator.clipboard?.writeText(location.href.split("?")[0]!)}>
+            <button
+              type="button"
+              style={btn}
+              onClick={async () => {
+                const url = location.href.split("?")[0]!;
+                const text = `Take the other side of my HonorCat pot${pot.market ? ` on ${pot.market.eventTitle}: ${pot.market.label}` : ""}`;
+                if (navigator.share) await navigator.share({ title: "HonorCat pot", text, url }).catch(() => {});
+                else await navigator.clipboard?.writeText(url);
+              }}
+            >
+              Share the invite
+            </button>
+            <button type="button" style={btnQuiet} onClick={() => navigator.clipboard?.writeText(location.href.split("?")[0]!)}>
               Copy the link
             </button>
+            <NotifyButton potId={pot.potId} account={me} />
             <button type="button" style={btnQuiet} disabled={!!a.step} onClick={() => who.actor && a.run((s) => cancelPot(who.actor!, POTS, pot, s), "Cancelled: your deposit is back.")}>
               Take the offer back
             </button>
@@ -154,6 +168,9 @@ function Actions({ pot, who, price, nowS }: { pot: HcPot; who: ActorState; price
   return (
     <section style={{ display: "flex", flexDirection: "column", gap: 28, maxWidth: 760 }}>
       <AccountLine who={who} />
+      <div>
+        <NotifyButton potId={pot.potId} account={me} />
+      </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <h2 style={h2}>Leave now</h2>
         <p style={{ margin: 0, color: C.body, fontSize: 17, lineHeight: 1.5 }}>
@@ -256,6 +273,29 @@ function Actions({ pot, who, price, nowS }: { pot: HcPot; who: ActorState; price
       </div>
       <Feedback a={a} />
     </section>
+  );
+}
+
+function NotifyButton({ potId, account }: { potId: string; account: string | null }) {
+  const [state, setState] = useState<"idle" | "busy" | "on" | string>("idle");
+  if (!pushSupported()) return null;
+  return (
+    <button
+      type="button"
+      style={btnQuiet}
+      disabled={state === "busy" || state === "on"}
+      onClick={async () => {
+        setState("busy");
+        try {
+          await notifyMe(potId, account);
+          setState("on");
+        } catch (e) {
+          setState((e as Error).message);
+        }
+      }}
+    >
+      {state === "on" ? "You will be notified" : state === "idle" || state === "busy" ? "Notify me when someone joins" : state}
+    </button>
   );
 }
 

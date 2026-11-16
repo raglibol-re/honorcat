@@ -5,6 +5,7 @@ import { useState } from "react";
 import { closesIn, GeminiCredit, MarketList, midYes, type MarketItem } from "@/components/cat/Markets";
 import { C, F } from "@/components/cat/tokens";
 import { useLivePrice } from "@/components/pot/usePrice";
+import { Reliability } from "@/components/pot/Reliability";
 import { AccountLine, btn, SignIn, useActor } from "@/components/pot/Who";
 import { createPot, MAX_TOLERANCE, NO, prepare, worstCase, YES } from "@/lib/hc";
 
@@ -20,6 +21,7 @@ export function NewPot() {
   const [amount, setAmount] = useState("5");
   const [tolPts, setTolPts] = useState("2");
   const [grace, setGrace] = useState("3");
+  const [accept, setAccept] = useState(""); // the YES price (%) the creator accepts; empty = the current price
   const [step, setStep] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const live = useLivePrice(market?.symbol ?? null);
@@ -27,7 +29,8 @@ export function NewPot() {
   const p = live.smoothed ?? (market ? midYes(market) : null);
   const n = BigInt(Math.round((Number(amount) || 0) * 1e6));
   const tol = Math.round(Math.min(5, Math.max(0, Number(tolPts) || 0)) * 10_000);
-  const center = p === null ? null : Math.round(p * 1e6);
+  const own = accept.trim() === "" ? null : Number(accept);
+  const center = own !== null && own > 0 && own < 100 ? Math.round(own * 10_000) : p === null ? null : Math.round(p * 1e6);
   const mine = center === null ? null : worstCase(side, n, center, tol);
   const theirs = center === null ? null : worstCase(1 - side, n, center, tol);
   const bad =
@@ -40,7 +43,7 @@ export function NewPot() {
       setStep("Reading the market's depth");
       const prep = await prepare(market.symbol, who.actor.account);
       if (BigInt(prep.cap) < n) throw new Error(`This market's order book allows pots up to $${(Number(prep.cap) / 1e6).toFixed(2)} right now (a quarter of a dollar per contract within 5 cents of the price).`);
-      const bandCenter = prep.midPpm ?? center;
+      const bandCenter = own !== null ? center : (prep.midPpm ?? center);
       const r = await createPot(who.actor, prep, { side, notional: n, bandCenter, tolerance: Math.min(tol, MAX_TOLERANCE), graceDays: Number(grace) }, setStep);
       setStep("Done");
       if (r.potId) router.push(`/pots/${r.potId}?new=1`);
@@ -77,7 +80,7 @@ export function NewPot() {
         ) : (
           <MarketList picked={null} onPick={setMarket} />
         )}
-        <GeminiCredit />
+        {market ? <Reliability symbol={market.symbol} /> : <GeminiCredit />}
       </section>
 
       {market && (
@@ -100,6 +103,11 @@ export function NewPot() {
           <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             <span style={label}>Pot size in USDC (both sides together, up to ${MAX_N})</span>
             <input style={input} inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))} />
+          </label>
+          <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <span style={label}>The YES price you accept, in % (empty: today&apos;s {p === null ? "price" : `${(p * 100).toFixed(1)}%`})</span>
+            <input style={input} inputMode="decimal" value={accept} placeholder={p === null ? "" : (p * 100).toFixed(1)} onChange={(e) => setAccept(e.target.value.replace(/[^0-9.]/g, ""))} />
+            <span style={{ fontSize: 14, color: C.muted }}>Someone can join only while the market&apos;s 30-second average is within the band around this price.</span>
           </label>
           <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
             <label style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1, minWidth: 220 }}>

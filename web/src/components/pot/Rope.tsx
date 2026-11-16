@@ -215,7 +215,7 @@ export function Rope(p: RopeProps) {
             {p.window.now < p.window.start
               ? `${p.window.label}: measuring starts in a moment`
               : p.window.now < p.window.end
-                ? `${p.window.label}: ${p.window.end - p.window.now} s of measuring left`
+                ? `${p.window.label}: ${p.window.end - p.window.now} s of measuring left. Nothing else is needed from you; you can close this page.`
                 : `${p.window.label}: the samplers are agreeing on the price`}
           </p>
         )}

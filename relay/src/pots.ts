@@ -36,6 +36,7 @@ import { bookStats, rowBySymbol } from "./catalog";
 import { decodeMemoBody, decodeMemoLog, memoCall } from "./memo";
 import { ARC_MEMO } from "./arc";
 import { potsAbi } from "./potsAbi";
+import { notifyPot, stateMessage } from "./push";
 import { sendRelayCalls } from "./txs";
 import { evidenceHash, evidenceRootOf, recordFromJson, verifyRecord } from "./trigger/evidence";
 import { conditionIdForTrigger, paramsFor, type TriggerParams } from "./trigger/params";
@@ -265,6 +266,10 @@ export async function syncPot(db: Db, potId: bigint, createdTx?: string) {
        no_owner = EXCLUDED.no_owner, created_tx = COALESCE(pots.created_tx, EXCLUDED.created_tx), updated_at = now()`,
     [potId.toString(), String(p.conditionId).toLowerCase(), state, JSON.stringify(data), yes, no, createdTx ?? null],
   );
+  // Tell the browsers that asked (web push) when the pot changes state.
+  const prevState = prevData ? Number(prevData.state) : null;
+  const msg = stateMessage(potId.toString(), prevState, state);
+  if (msg && prevData) await notifyPot(db, potId.toString(), msg.title, msg.body).catch((e) => console.error("[push]", e));
   if (state === 2 || state === 4) {
     const kind = state === 2 ? KIND.join : KIND.exit;
     const start = Number(p.requestTime) + DELAY;

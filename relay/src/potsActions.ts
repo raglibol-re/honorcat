@@ -25,7 +25,7 @@ import { sendRelayCalls } from "./txs";
 
 const OWNER_CALLS = new Set(["create", "requestJoin", "cancel", "requestExit", "setLevels", "takeover", "transferFrom", "safeTransferFrom", "withdraw", "abandonJoin", "abandonExit", "expire"]);
 const FORWARD_CALLS = new Set(["create", "requestJoin", "takeover", "requestExitFor", "handshake", "abandonJoin", "abandonExit", "expire", "cancel"]);
-const MIN_APPROVAL = 100_000_000n;
+
 const DAILY_LIMIT = 40;
 
 type Step = { target: Address; data: Hex; deadline: string; nonce: string; challenge: Hex; label: string };
@@ -69,9 +69,10 @@ export async function preparePasskeyPotCall(db: Db, account: Address, data: Hex,
   if (spend > 0n) {
     const allowance = await publicClient().readContract({ address: ARC_USDC, abi: erc20Abi, functionName: "allowance", args: [account, pots] });
     if (allowance < spend) {
-      const amount = spend > MIN_APPROVAL ? spend : MIN_APPROVAL;
-      const approve = encodeFunctionData({ abi: erc20Abi, functionName: "approve", args: [pots, amount] });
-      steps.push({ target: ARC_USDC, data: approve, deadline: deadline.toString(), nonce: nonce.toString(), challenge: executeDigest(chainId, account, nonce, ARC_USDC, 0n, approve, deadline), label: `allow the pot contract to take up to ${Number(amount) / 1e6} USDC` });
+      // Once per account: the pot contract only ever pulls from the caller for the caller's own
+      // deposit (transferFrom(msg.sender)), so an unlimited allowance cannot be used by anyone else.
+      const approve = encodeFunctionData({ abi: erc20Abi, functionName: "approve", args: [pots, maxUint256] });
+      steps.push({ target: ARC_USDC, data: approve, deadline: deadline.toString(), nonce: nonce.toString(), challenge: executeDigest(chainId, account, nonce, ARC_USDC, 0n, approve, deadline), label: "allow the pot contract to take your deposits (asked only once)" });
       nonce += 1n;
     }
   }
@@ -211,3 +212,31 @@ export async function handshakeOffers(db: Db, potId: string) {
 }
 
 export { maxUint256 };
+
+/* ------------------------------------------------------------------ test USDC for new accounts */
+
+export const DRIP_AMOUNT = 3_000_000n; // 3 test USDC
+const DRIP_PER_DAY = 10;
+const DRIP_FLOOR = 8_000_000n; // keep at least 8 USDC for gas
+
+/**
+ * Sends a little test USDC to a new passkey account, once per account, so a first pot needs no
+ * faucet. Testnet only, from the relay wallet, at most 10 a day and never below its gas floor.
+ */
+export async function dripTestUsdc(db: Db, account: Address) {
+  const cfg = getConfig();
+  if (cfg.chainId !== 5042002) return { sent: false, reason: "testnet only" };
+  const a = account.toLowerCase();
+  const done = await db.query("SELECT 1 FROM gasless_requests WHERE funder = $1 AND kind = 'drip' LIMIT 1", [a]);
+  if (done.length) return { sent: false, reason: "already sent" };
+  const today = await db.query<{ n: string }>("SELECT count(*)::text AS n FROM gasless_requests WHERE kind = 'drip' AND created_at > now() - interval '1 day'");
+  if (Number(today[0]?.n ?? 0) >= DRIP_PER_DAY) return { sent: false, reason: "daily budget used" };
+  const { resolverAccount } = await import("./chain");
+  const bal = await publicClient().readContract({ address: ARC_USDC, abi: erc20Abi, functionName: "balanceOf", args: [resolverAccount().address] });
+  if (bal < DRIP_FLOOR + DRIP_AMOUNT) return { sent: false, reason: "relay wallet low" };
+  await logRequest(db, account, null, "drip", DRIP_AMOUNT); // claim first, so two requests cannot both send
+  const data = encodeFunctionData({ abi: erc20Abi, functionName: "transfer", args: [getAddress(account), DRIP_AMOUNT] });
+  const res = await sendRelayCalls(db, "pot_exec", [{ ...memoCall(ARC_USDC, data, "drip", { v: 1, t: "pot", ref: "drip", why: "test USDC for a new account" }), label: "drip" }]);
+  if (!res.ok) return { sent: false, reason: res.error.slice(0, 200) };
+  return { sent: true, tx: res.tx, amount: DRIP_AMOUNT.toString() };
+}

@@ -20,11 +20,13 @@
     "@openzeppelin/merkle-tree": "1.0.8",
     "pg": "^8.23.1",
     "viem": "^2.57.19",
+    "web-push": "3.6.7",
     "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^20.19.43",
     "@types/pg": "^8.23.1",
+    "@types/web-push": "3.6.4",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "vitest": "^5.1.0"
