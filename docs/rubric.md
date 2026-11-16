@@ -114,3 +114,19 @@ QuickNode
 - [x] Partial exits in ninths never lose or create a cent (HonorCatPotsPartial fuzz).
 - [x] Handshake, takeover, net and bowl, expiry (contract suites).
 - [x] End to end against production: held to settlement (7), ended by exit (3), one handshake (5), one takeover (4).
+
+## 11. Browser review of production (2026-11-16)
+- [ ] Solo try-out: a clearly labelled practice opponent (the relay) takes the other side of a
+      visitor's pot on testnet, and a button sends a new visitor a little test USDC; a first-time
+      visitor creates a pot, watches the rope and exits within two minutes, alone.
+- [ ] Rope view reads as a rope between two posts, with the 0 to 100 scale and the approved
+      mockup's ruler ticks, the paw trail, and the net and bowl when set.
+- [ ] A pot that continued after an exit window (pot 4: taken over) explains what happened;
+      partial exits are labelled and the remaining pot is shown.
+- [ ] Each side can set a display name; addresses only in the technical details.
+- [ ] Market names give the league, both teams, the date, and what YES means in plain words.
+- [ ] Landing: a three-line worked example with two names and dollar amounts under the headline.
+- [ ] Animated amounts have a plain text label for screen readers.
+- [ ] /how-it-is-built: the count of price windows matches its breakdown.
+- [ ] The share of pot events first seen by Streams since the filter was set is reported, and
+      Streams is the primary path.
