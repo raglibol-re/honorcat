@@ -83,6 +83,8 @@ export type Config = {
   early: { resolver: Address; samplers: Address[]; threshold: number } | null;
   /** HonorCatPots (two-sided pots); null if not deployed/configured. */
   pots: { address: Address; deployBlock: bigint } | null;
+  /** HonorCatFairValue (stateless reader of a side's value from a signed quote). */
+  fairValue: Address | null;
   samplerKey: string | undefined;
 };
 
@@ -128,6 +130,10 @@ export function getConfig(): Config {
     merkle: merkleConfig(env),
     early: earlyConfig(env),
     pots: potsConfig(env),
+    fairValue: (() => {
+      const f = readJson<{ fairValue: string }>(`deployments/${env.ARC_CHAIN_ID}.fairvalue.json`);
+      return f && isAddress(f.fairValue) ? getAddress(f.fairValue) : null;
+    })(),
     samplerKey: env.SAMPLER_KEY,
   };
   return cached;

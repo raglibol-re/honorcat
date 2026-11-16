@@ -39,7 +39,7 @@ import { conditionIdForTrigger, paramsFor, type TriggerParams } from "./trigger/
 
 export const POT_STATES = ["None", "Open", "Joining", "Live", "ExitRequested", "Divided", "Settled", "Expired"] as const;
 export type PotState = (typeof POT_STATES)[number];
-export const KIND = { join: 0, exit: 1, netYes: 2, netNo: 3, bowlYes: 4, bowlNo: 5 } as const;
+export const KIND = { join: 0, exit: 1, netYes: 2, netNo: 3, bowlYes: 4, bowlNo: 5, quote: 6 } as const;
 export const AGREE_PPM = 5_000n; // 0.5 points
 export const P = 1_000_000n;
 export const DELAY = 1; // seconds, matches the contract
@@ -400,7 +400,9 @@ export async function submitCosig(db: Db, requestId: string, input: { signer: Ad
   const n = await db.query<{ n: string }>("SELECT count(*)::text AS n FROM att_sigs WHERE request_id = $1", [requestId]);
   if (Number(n[0]!.n) >= set.threshold) {
     await db.query("UPDATE att_requests SET status = 'ready', updated_at = now() WHERE id = $1 AND status = 'proposed'", [requestId]);
-    if (req.kind !== "depth") await submitReady(db, requestId);
+    // Depth and quote attestations are handed to whoever asked; nothing is sent on-chain for them.
+    const isQuote = req.kind === "window" && Number(payloadOf(req).kind) === KIND.quote;
+    if (req.kind !== "depth" && !isQuote) await submitReady(db, requestId);
   }
   return { accepted: true };
 }
@@ -430,6 +432,7 @@ const toWindowArg = (a: WindowAtt) => ({
 export async function submitReady(db: Db, requestId: string) {
   const req = (await db.query<ReqRow>("SELECT * FROM att_requests WHERE id = $1", [requestId]))[0];
   if (!req || req.status !== "ready") return null;
+  if (req.kind === "window" && Number(payloadOf(req).kind) === KIND.quote) return null; // never on-chain
   const sigs = await signaturesOf(db, requestId);
   if (!sigs) return null;
   const p = payloadOf(req);
@@ -832,4 +835,40 @@ export async function honorRecord(db: Db, account: string) {
   out.pots = played.size;
   out.heldToEnd = held.size;
   return { account: a, ...out, paid: out.paid.toString(), timeline: timeline.reverse().slice(0, 100) };
+}
+
+/* ------------------------------------------------------------------ quotes (fair value) */
+
+/**
+ * Opens a QUOTE window for a live pot: the samplers measure the next `window` seconds and sign the
+ * result like an exit price, but the pot contract never accepts it. HonorCatFairValue turns it into
+ * a side's value on-chain. At most one open quote per pot.
+ */
+export async function openQuote(db: Db, potId: string) {
+  const row = (await db.query<PotRow>("SELECT pot_id::text AS pot_id, state, data, condition_id FROM pots WHERE pot_id = $1", [potId]))[0];
+  if (!row || (row.state !== 3 && row.state !== 4)) throw Object.assign(new Error("quotes only for live pots"), { status: 409 });
+  const open = await db.query<{ id: string }>(
+    "SELECT id FROM att_requests WHERE pot_id = $1 AND id LIKE 'q:%' AND status IN ('measuring','proposed') AND created_at > now() - interval '5 minutes'",
+    [potId],
+  );
+  if (open[0]) return open[0].id;
+  const d = (typeof row.data === "string" ? JSON.parse(row.data) : row.data) as Record<string, unknown>;
+  const start = Math.floor(Date.now() / 1000) + 2;
+  const id = `q:${potId}:${start}`;
+  await db.query(`INSERT INTO att_requests (id, kind, pot_id, payload, status) VALUES ($1,'window',$2,$3,'measuring') ON CONFLICT (id) DO NOTHING`, [
+    id,
+    potId,
+    JSON.stringify({ kind: KIND.quote, nonce: String(d.nonce), windowStart: start, windowEnd: start + Number(d.window), conditionId: row.condition_id, minSamples: Number(d.minSamples) }),
+  ]);
+  return id;
+}
+
+/** The newest signed quote of a pot (attestation plus signatures in the resolver's format). */
+export async function latestQuote(db: Db, potId: string) {
+  const r = (
+    await db.query<ReqRow>("SELECT * FROM att_requests WHERE pot_id = $1 AND id LIKE 'q:%' ORDER BY created_at DESC LIMIT 1", [potId])
+  )[0];
+  if (!r) return null;
+  const p = payloadOf(r);
+  return { id: r.id, status: r.status, attestation: (p.attestation as WindowAtt | undefined) ?? null, reason: p.reason ?? null, signatures: r.status === "ready" ? await signaturesOf(db, r.id) : null, fairValue: getConfig().fairValue };
 }
