@@ -135,6 +135,9 @@ export async function gatewayAttest(intent: BurnIntent, signature: Hex) {
 const MAX_MOVE = 50_000_000n; // testnet: at most $50 per move
 
 const strIntent = (b: BurnIntent) => JSON.parse(jsonBig(b)) as Record<string, unknown>;
+/** Circle's API may return 32-byte fields as 20-byte addresses; the signed structure needs bytes32. */
+const w32 = (v: unknown) => pad(String(v).toLowerCase() as Hex, { size: 32 }).toLowerCase() as Hex;
+
 function fromJson(j: Record<string, unknown>): BurnIntent {
   const s = j.spec as Record<string, unknown>;
   return {
@@ -144,14 +147,14 @@ function fromJson(j: Record<string, unknown>): BurnIntent {
       version: Number(s.version),
       sourceDomain: Number(s.sourceDomain),
       destinationDomain: Number(s.destinationDomain),
-      sourceContract: String(s.sourceContract).toLowerCase() as Hex,
-      destinationContract: String(s.destinationContract).toLowerCase() as Hex,
-      sourceToken: String(s.sourceToken).toLowerCase() as Hex,
-      destinationToken: String(s.destinationToken).toLowerCase() as Hex,
-      sourceDepositor: String(s.sourceDepositor).toLowerCase() as Hex,
-      destinationRecipient: String(s.destinationRecipient).toLowerCase() as Hex,
-      sourceSigner: String(s.sourceSigner).toLowerCase() as Hex,
-      destinationCaller: String(s.destinationCaller).toLowerCase() as Hex,
+      sourceContract: w32(s.sourceContract),
+      destinationContract: w32(s.destinationContract),
+      sourceToken: w32(s.sourceToken),
+      destinationToken: w32(s.destinationToken),
+      sourceDepositor: w32(s.sourceDepositor),
+      destinationRecipient: w32(s.destinationRecipient),
+      sourceSigner: w32(s.sourceSigner),
+      destinationCaller: w32(s.destinationCaller),
       value: BigInt(String(s.value)),
       salt: String(s.salt) as Hex,
       hookData: String(s.hookData ?? "0x") as Hex,

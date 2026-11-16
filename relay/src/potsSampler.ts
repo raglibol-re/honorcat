@@ -65,6 +65,11 @@ export class PotSampler {
     return !!this.work && (this.work.measure.length > 0 || this.work.cosign.length > 0 || this.work.levels.length > 0);
   }
 
+  /** Only windows to measure or proposals to co-sign (what a short-lived host must stay up for). */
+  get busyWithWindows() {
+    return !!this.work && (this.work.measure.length > 0 || this.work.cosign.length > 0);
+  }
+
   private async refresh(now: number) {
     if (this.work && now - this.workAt < 3_000) return;
     this.workAt = now;

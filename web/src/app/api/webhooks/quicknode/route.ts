@@ -18,7 +18,7 @@ import {
 } from "@/server/relay";
 
 // Streams calls every few seconds: the app's early-payout sampler runs here in long bursts.
-export const maxDuration = 300;
+export const maxDuration = 60;
 
 /**
  * QuickNode Streams webhook destination. Verifies the HMAC signature, ingests our contract's
@@ -76,7 +76,7 @@ export async function POST(req: Request) {
     })),
   }).catch((err) => console.error("[streams] could not record batch", err));
 
-  nudgeRelay("streams", { samplerBudgetMs: 270_000 });
+  nudgeRelay("streams", { samplerBudgetMs: 45_000 });
   // And one bounded step of the market catalogue (lease-guarded, at most every 15 s).
   after(async () => {
     await catalogTick(await getDb()).catch((e) => console.error("[catalog] step", e));

@@ -92,8 +92,12 @@ export async function runAppSampler(db: Db, opts: { budgetMs: number }): Promise
   try {
     const end = now + opts.budgetMs;
     await steps();
-    if (sampler.watching === 0 && !potSampler?.busy) return { ran: true, pots: 0 };
+    // Stay up only for work that needs it now: retired early pots, or a pot window to measure or
+    // co-sign. Nets and bowls are watched by the always-on samplers, which open a window when a
+    // level holds; that wakes this one. Keeps Vercel function time low.
+    if (sampler.watching === 0 && !potSampler?.busyWithWindows) return { ran: true, pots: 0 };
     while (Date.now() < end) {
+      if (sampler.watching === 0 && potSampler && !potSampler.busyWithWindows) break; // nothing left to do
       await steps();
       await new Promise((r) => setTimeout(r, 250));
     }

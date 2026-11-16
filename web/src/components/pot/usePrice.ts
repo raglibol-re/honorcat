@@ -65,7 +65,7 @@ export function useLivePrice(symbol: string | null | undefined, windowS = 30): L
       }
     };
     void tick();
-    const id = setInterval(tick, 2000);
+    const id = setInterval(tick, 3000);
     return () => {
       alive = false;
       clearInterval(id);
