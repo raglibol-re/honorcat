@@ -116,17 +116,18 @@ QuickNode
 - [x] End to end against production: held to settlement (7), ended by exit (3), one handshake (5), one takeover (4).
 
 ## 11. Browser review of production (2026-11-16)
-- [ ] Solo try-out: a clearly labelled practice opponent (the relay) takes the other side of a
+- [x] Solo try-out: a clearly labelled practice opponent (the relay) takes the other side of a
       visitor's pot on testnet, and a button sends a new visitor a little test USDC; a first-time
-      visitor creates a pot, watches the rope and exits within two minutes, alone.
-- [ ] Rope view reads as a rope between two posts, with the 0 to 100 scale and the approved
+      visitor creates a pot, watches the rope and exits within two minutes, alone
+      [relay/scripts/practice-e2e.ts: new wallet, 2 USDC gift, pot 13 created, joined by the practice cat, left and paid out in 93 s].
+- [x] Rope view reads as a rope between two posts, with the 0 to 100 scale and the approved
       mockup's ruler ticks, the paw trail, and the net and bowl when set.
-- [ ] A pot that continued after an exit window (pot 4: taken over) explains what happened;
-      partial exits are labelled and the remaining pot is shown.
-- [ ] Each side can set a display name; addresses only in the technical details.
-- [ ] Market names give the league, both teams, the date, and what YES means in plain words.
-- [ ] Landing: a three-line worked example with two names and dollar amounts under the headline.
-- [ ] Animated amounts have a plain text label for screen readers.
-- [ ] /how-it-is-built: the count of price windows matches its breakdown.
-- [ ] The share of pot events first seen by Streams since the filter was set is reported, and
-      Streams is the primary path.
+- [x] A pot that continued after an exit window (pot 4: taken over) explains what happened;
+      partial exits are labelled and the remaining pot is shown ("What happened" on each pot page).
+- [x] Each side can set a display name; addresses only in the technical details (unnamed players get a stable cat nickname).
+- [x] Market names give the league, both teams, the date, and what YES means in plain words (from Gemini's own contract rule).
+- [x] Landing: a three-line worked example with two names and dollar amounts under the headline.
+- [x] Animated amounts have a plain text label for screen readers.
+- [x] /how-it-is-built: the count of price windows matches its breakdown (23 = 19 + 2 + 2).
+- [x] The share of pot events first seen by Streams since the filter was set is reported, and
+      Streams is the primary path (49 of 60, 82%, since block 72,538,134; the RPC poller now trails the head by 90 blocks).
