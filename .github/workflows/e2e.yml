@@ -1,7 +1,7 @@
 # A daily end-to-end run against production (Arc testnet, test USDC): a $1 pot is created, joined
 # and divided through the app, the relay and the samplers. Fails when any part is down, including
-# when fewer than two samplers are running. Needs the repository secret E2E_FUNDER_KEY: a testnet
-# key holding a few test USDC (the throwaway wallets' leftovers are swept back to it).
+# when fewer than two samplers are running. Optional: it only runs once the repository secret
+# E2E_FUNDER_KEY (a testnet key holding a few test USDC) is set; without it the job skips quietly.
 name: e2e
 
 on:
@@ -24,17 +24,28 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      HAS_KEY: ${{ secrets.E2E_FUNDER_KEY != '' }}
     steps:
+      - name: Skip without a funder key
+        if: env.HAS_KEY != 'true'
+        run: echo "E2E_FUNDER_KEY is not set; nothing to run."
       - name: Samplers up?
+        if: env.HAS_KEY == 'true'
         run: curl -sf https://honorcat.vercel.app/api/health/samplers
       - uses: actions/checkout@v4
+        if: env.HAS_KEY == 'true'
       - uses: pnpm/action-setup@v4
+        if: env.HAS_KEY == 'true'
       - uses: actions/setup-node@v4
+        if: env.HAS_KEY == 'true'
         with:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile --filter "@honorcat/relay..."
+        if: env.HAS_KEY == 'true'
       - name: Run the pot end to end
+        if: env.HAS_KEY == 'true'
         working-directory: relay
         env:
           DEPLOYER_PRIVATE_KEY: ${{ secrets.E2E_FUNDER_KEY }}

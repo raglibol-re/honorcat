@@ -124,8 +124,8 @@
 ## Later
 - Delete the Render service `honorcat-sampler` (created, then dropped by your decision; it has no key
   and cannot sign). Render dashboard: honorcat-sampler, Settings, Delete Web Service.
-- Repository secret `E2E_FUNDER_KEY` (a testnet key with a few test USDC) for the daily e2e
-  workflow (.github/workflows/e2e.yml).
+- Optional: repository secret `E2E_FUNDER_KEY` (a testnet key with a few test USDC) switches on the
+  daily e2e workflow (.github/workflows/e2e.yml); without it the job skips quietly.
 - The relay wallet funds test USDC for new passkey accounts only above 11 USDC; top it up from
   faucet.circle.com (Arc testnet) to enable that.
 - While the laptop is off, only the Vercel sampler runs: nothing can be priced or settled until it
