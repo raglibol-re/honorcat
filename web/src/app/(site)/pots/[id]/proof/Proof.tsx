@@ -1,7 +1,7 @@
 "use client";
 
+import { CatState } from "@/components/cat/CatState";
 import Link from "next/link";
-import { Cat } from "@/components/cat/Cat";
 import { C, F } from "@/components/cat/tokens";
 import { usePolling } from "@/lib/api";
 import { addressUrl, txUrl } from "@/lib/chain";
@@ -21,7 +21,7 @@ const KIND_TEXT = ["Entry price", "Exit price", "YES net", "NO net", "YES bowl",
  */
 export function Proof({ id }: { id: string }) {
   const { data: pot } = usePolling<HcPot>(`/api/hc/pots/${id}`, 15_000);
-  if (!pot) return <Cat pose="peek" size={140} />;
+  if (!pot) return <CatState kind="loading" />;
   const windows = pot.requests.filter((r) => r.kind === "window");
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>

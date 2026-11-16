@@ -899,7 +899,9 @@ export async function honorRecord(db: Db, account: string) {
   const out = { pots: 0, heldToEnd: 0, exits: 0, exitsByNet: 0, exitsByBowl: 0, partialExits: 0, handshakes: 0, tookOver: 0, takenOver: 0, joinsFailed: 0, paid: 0n, settledFor: 0, settledAgainst: 0, voided: 0 };
   const pending = new Map<string, "own" | "net" | "bowl">(); // potId -> how the current exit was filed
   const exitingSide = new Map<string, number>();
-  const timeline: { potId: string; at: number | null; what: string; tx: string }[] = [];
+  // Each entry also says what happened in fields (act, side, price, outcome), so pages can phrase it.
+  type Entry = { potId: string; at: number | null; what: string; tx: string; act: string; side: number | null; price: number | null; outcome?: number; how?: string };
+  const timeline: Entry[] = [];
   const mine = (potId: string, side: number) => ownerOf.get(String(BigInt(potId) * 2n + BigInt(side))) === a;
   for (const e of ev) {
     const g = e.args;
@@ -927,7 +929,7 @@ export async function honorRecord(db: Db, account: string) {
           out.exits++;
           if (how === "net") out.exitsByNet++;
           if (how === "bowl") out.exitsByBowl++;
-          timeline.push({ potId: pid, at, what: `left ${side === 0 ? "YES" : "NO"} at ${(Number(g.price) / 10_000).toFixed(1)}%${how === "own" ? "" : ` (${how})`}`, tx: e.tx_hash });
+          timeline.push({ potId: pid, at, what: `left ${side === 0 ? "YES" : "NO"} at ${(Number(g.price) / 10_000).toFixed(1)}%${how === "own" ? "" : ` (${how})`}`, tx: e.tx_hash, act: "left", side, price: Number(g.price), how });
         }
         pending.delete(pid);
         break;
@@ -938,17 +940,17 @@ export async function honorRecord(db: Db, account: string) {
       case "Handshake":
         if (mine(pid, 0) || mine(pid, 1)) {
           out.handshakes++;
-          timeline.push({ potId: pid, at, what: `shook hands at ${(Number(g.price) / 10_000).toFixed(1)}%`, tx: e.tx_hash });
+          timeline.push({ potId: pid, at, what: `shook hands at ${(Number(g.price) / 10_000).toFixed(1)}%`, tx: e.tx_hash, act: "handshake", side: null, price: Number(g.price) });
         }
         break;
       case "TakenOver":
         if (String(g.to).toLowerCase() === a) {
           out.tookOver++;
-          timeline.push({ potId: pid, at, what: `took over ${Number(g.side) === 0 ? "YES" : "NO"}`, tx: e.tx_hash });
+          timeline.push({ potId: pid, at, what: `took over ${Number(g.side) === 0 ? "YES" : "NO"}`, tx: e.tx_hash, act: "tookOver", side: Number(g.side), price: Number(g.price) });
         }
         if (String(g.from).toLowerCase() === a) {
           out.takenOver++;
-          timeline.push({ potId: pid, at, what: `side taken over at ${(Number(g.price) / 10_000).toFixed(1)}%`, tx: e.tx_hash });
+          timeline.push({ potId: pid, at, what: `side taken over at ${(Number(g.price) / 10_000).toFixed(1)}%`, tx: e.tx_hash, act: "takenOver", side: Number(g.side), price: Number(g.price) });
         }
         pending.delete(pid);
         break;
@@ -960,7 +962,7 @@ export async function honorRecord(db: Db, account: string) {
           if (o === 2) out.voided++;
           else if ((o === 1 && side === 0) || (o === 0 && side === 1)) out.settledFor++;
           else out.settledAgainst++;
-          timeline.push({ potId: pid, at, what: `held ${side === 0 ? "YES" : "NO"} to the end: Gemini settled ${o === 1 ? "YES" : o === 0 ? "NO" : "void"}`, tx: e.tx_hash });
+          timeline.push({ potId: pid, at, what: `held ${side === 0 ? "YES" : "NO"} to the end: Gemini settled ${o === 1 ? "YES" : o === 0 ? "NO" : "void"}`, tx: e.tx_hash, act: "held", side, price: null, outcome: o });
         }
         break;
       }
@@ -971,7 +973,15 @@ export async function honorRecord(db: Db, account: string) {
   }
   out.pots = played.size;
   out.heldToEnd = held.size;
-  return { account: a, ...out, paid: out.paid.toString(), timeline: timeline.reverse().slice(0, 100) };
+  const recent = timeline.reverse().slice(0, 100);
+  // The market of each pot, so the page can say what each side stood for.
+  const markets: Record<string, { eventTitle: string; label: string; teams?: string | null; yesMeans?: string | null } | null> = {};
+  for (const pid of new Set(recent.map((t) => t.potId))) {
+    const row = (await db.query<{ condition_id: string }>("SELECT condition_id FROM pots WHERE pot_id = $1", [pid]))[0];
+    const m = row ? await marketOf(db, row.condition_id).catch(() => null) : null;
+    markets[pid] = m ? { eventTitle: m.eventTitle, label: m.label, ...(await namesFor(db, m.instrument)) } : null;
+  }
+  return { account: a, ...out, paid: out.paid.toString(), timeline: recent, markets };
 }
 
 /* ------------------------------------------------------------------ quotes (fair value) */

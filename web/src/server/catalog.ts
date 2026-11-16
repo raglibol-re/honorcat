@@ -8,7 +8,8 @@ import { catalog, depthSnapshot, GEMINI_REST, readBook, type CatalogRow, type Db
  * every 15 s: about 32 requests a minute at the very most.
  */
 const LEASE = "catalog_lease";
-const STEP_EVERY_MS = 15_000;
+// One catalogue step every two minutes across all instances (database traffic is the free tier's limit).
+const STEP_EVERY_MS = 120_000;
 
 async function fetchJson(path: string): Promise<unknown> {
   for (let attempt = 0; attempt < 2; attempt++) {
@@ -37,7 +38,7 @@ export async function catalogTick(db: Db) {
   if (!lease.length) return null;
   // Events list over REST (a few pages); order books over one WebSocket (no REST budget used).
   const step = await catalog.refreshStep(db, fetchJson, { bookBudget: 0 });
-  const queue = await catalog.bookQueue(db, Date.now(), 150);
+  const queue = await catalog.bookQueue(db, Date.now(), 150, 20 * 60_000);
   const books = await depthSnapshot(queue.map((r) => r.symbol), 4000);
   for (const [symbol, raw] of books) await catalog.saveBook(db, symbol, catalog.bookStats(raw, Date.now()));
   return { ...step, books: books.size };
@@ -54,12 +55,13 @@ const midOf = (r: CatalogRow): number | null => {
   return b !== null && b !== undefined && a !== null && a !== undefined ? (b + a) / 2 : null;
 };
 
-// The whole catalogue is thousands of rows: classify it once per 10 s per instance, not per request.
+// The whole catalogue is thousands of rows (several MB): read and classify it at most every five
+// minutes per instance, never per request. Prices on a pot page come from Gemini directly.
 let snapshot: { at: number; all: { row: CatalogRow; q: Quality }[] } | null = null;
 
 async function classified(db: Db) {
   const now = Date.now();
-  if (snapshot && now - snapshot.at < 10_000) return snapshot;
+  if (snapshot && now - snapshot.at < 300_000) return snapshot;
   snapshot = { at: now, all: (await catalog.allRows(db, now)).map((row) => ({ row, q: catalog.classify(row, now) })) };
   return snapshot;
 }

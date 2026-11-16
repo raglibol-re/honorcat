@@ -460,6 +460,15 @@ CREATE TABLE IF NOT EXISTS push_subs (
 ALTER TABLE att_averages ADD COLUMN IF NOT EXISTS avg_signature TEXT;
 -- Each player's cat: its fur colour (names.ts FURS), chosen with the name.
 ALTER TABLE display_names ADD COLUMN IF NOT EXISTS fur TEXT;
+-- After a pot ends: "Well played" and rematch offers from its players (potNotes.ts).
+CREATE TABLE IF NOT EXISTS pot_notes (
+  pot_id      BIGINT NOT NULL,
+  account     TEXT NOT NULL,
+  kind        TEXT NOT NULL,
+  draft_id    TEXT,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (pot_id, account, kind)
+);
 -- HonorCatPots events (pots.ts indexPots), kept apart from the retired vault's chain_events.
 CREATE TABLE IF NOT EXISTS pot_events (
   tx_hash      TEXT    NOT NULL,

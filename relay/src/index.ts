@@ -108,3 +108,4 @@ export { practiceJoin, practiceStatus, practiceAddress, isPractice, PRACTICE_MAX
 export { setName, namesOf, catsOf, nameMessage, cleanName, FURS } from "./names";
 export { welcome, topUp, refillPool, poolStatus } from "./funding";
 export { GATEWAY_SOURCES, GATEWAY_WALLET, GATEWAY_MINTER, gatewayBalances, prepareGatewayMove, completeGatewayMove } from "./gateway";
+export { addNote, notesOf, noteMessage, playersOf, type NoteKind } from "./potNotes";

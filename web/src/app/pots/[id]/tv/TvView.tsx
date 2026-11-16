@@ -1,7 +1,7 @@
 "use client";
 
+import { CatState } from "@/components/cat/CatState";
 import Link from "next/link";
-import { Cat } from "@/components/cat/Cat";
 import { CatHead } from "@/components/cat/shapes";
 import { C, F } from "@/components/cat/tokens";
 import { Rope } from "@/components/pot/Rope";
@@ -29,7 +29,7 @@ export function TvView({ id }: { id: string }) {
         <span style={{ fontSize: 22, color: C.muted }}>Arc testnet · test money only · not financial advice</span>
       </header>
       {!pot ? (
-        <Cat pose="peek" size={300} />
+        <CatState kind="loading" text="Reading the pot from Arc…" size={300} />
       ) : (
         <>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>

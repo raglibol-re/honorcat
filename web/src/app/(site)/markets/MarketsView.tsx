@@ -1,5 +1,6 @@
 "use client";
 
+import { CatState } from "@/components/cat/CatState";
 import Link from "next/link";
 import { EventBlocks, GeminiCredit, GeminiMark, type CatalogResponse, type MarketItem } from "@/components/cat/Markets";
 import { C, F } from "@/components/cat/tokens";
@@ -13,9 +14,9 @@ const td: React.CSSProperties = { fontSize: 15, padding: "9px 10px 9px 0", borde
 const num: React.CSSProperties = { ...td, textAlign: "right", fontVariantNumeric: "tabular-nums" };
 
 export function MarketsView() {
-  const { data, error } = usePolling<CatalogResponse>("/api/catalog?usable=1&limit=200", 30_000);
-  if (error && !data) return <p style={{ fontSize: 17, color: C.signalInk }}>{error}</p>;
-  if (!data) return <p style={{ fontSize: 17, color: C.muted }}>Reading Gemini’s markets…</p>;
+  const { data, error } = usePolling<CatalogResponse>("/api/catalog?usable=1&limit=200", 120_000);
+  if (error && !data) return <CatState kind="error" text={error} />;
+  if (!data) return <CatState kind="loading" text="Reading Gemini’s markets…" />;
 
   const groups = new Map<string, MarketItem[]>();
   for (const m of data.items) groups.set(m.category, [...(groups.get(m.category) ?? []), m]);

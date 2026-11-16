@@ -1,5 +1,6 @@
 "use client";
 
+import { CatState } from "@/components/cat/CatState";
 import { useState } from "react";
 import { usePolling } from "@/lib/api";
 import { sidesOf } from "@/lib/statement";
@@ -255,7 +256,7 @@ export function MarketList({ picked, onPick }: { picked: string | null; onPick: 
   if (within) qs.set("within", String(within));
   if (even) qs.set("even", "1");
   if (q.trim()) qs.set("q", q.trim());
-  const { data, error } = usePolling<CatalogResponse>(`/api/catalog?${qs}`, 15_000);
+  const { data, error } = usePolling<CatalogResponse>(`/api/catalog?${qs}`, 60_000);
   const sel: React.CSSProperties = { minHeight: 44, border: `1.5px solid ${C.ink}`, background: C.panel, color: C.ink, fontFamily: F.sans, fontSize: 16, padding: "0 10px" };
   const tab = (on: boolean): React.CSSProperties => ({
     flex: "none",
@@ -307,8 +308,8 @@ export function MarketList({ picked, onPick }: { picked: string | null; onPick: 
         </select>
       </div>
 
-      {error && !data && <p style={{ margin: 0, fontSize: 16, color: C.signalInk }}>{error}</p>}
-      {!data && !error && <p style={{ margin: 0, fontSize: 16, color: C.muted }}>Reading Gemini’s markets…</p>}
+      {error && !data && <CatState kind="error" text={error} size={100} />}
+      {!data && !error && <CatState kind="loading" text="Reading Gemini’s markets…" size={100} />}
       {data && data.total === 0 && (
         <p style={{ margin: 0, fontSize: 16 }}>{data.summary.length ? "Nothing matches. Clear the search or pick another category." : "The market list is still loading. Give it a minute."}</p>
       )}

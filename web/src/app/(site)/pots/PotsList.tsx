@@ -1,5 +1,6 @@
 "use client";
 
+import { CatState } from "@/components/cat/CatState";
 import Link from "next/link";
 import { Cat } from "@/components/cat/Cat";
 import { C, F } from "@/components/cat/tokens";
@@ -107,7 +108,7 @@ export function PotsList() {
 
       <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <h2 style={{ margin: 0, fontFamily: F.cond, fontSize: 32, fontWeight: 600 }}>Waiting for someone</h2>
-        {offers.length ? <Rows pots={offers} me={me} /> : <p style={{ margin: 0, color: C.muted }}>No open offers right now.</p>}
+        {offers.length ? <Rows pots={offers} me={me} /> : <CatState kind="empty" text="No open offers right now. Start one, or try it alone against the practice cat." size={110} />}
       </section>
     </div>
   );

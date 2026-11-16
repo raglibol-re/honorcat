@@ -26,6 +26,8 @@ export type DraftData = {
   guestAgreed: number | null; // the version the guest agreed to
   potId: string | null;
   status: "open" | "created" | "joined";
+  /** A rematch: only this account may take the guest seat (potNotes.ts). */
+  reservedFor?: string | null;
 };
 
 export const DRAFT_TOLERANCE = 50_000; // the widest band (5 points), so the friend's join rarely fails
@@ -99,6 +101,8 @@ export async function actOnDraft(db: Db, id: string, a: DraftAction) {
   const { data: d, createdAt } = await load(db, id);
   if (a.action === "sit") {
     if (d.guest) throw Object.assign(new Error("both seats are taken"), { status: 409 });
+    if (d.reservedFor && getAddress(a.account).toLowerCase() !== d.reservedFor.toLowerCase())
+      throw Object.assign(new Error("this rematch is reserved for the other player of the last pot"), { status: 403 });
     if (d.host && getAddress(a.account) === getAddress(d.host.account)) throw Object.assign(new Error("that is the host's own account; open the link with your friend's"), { status: 409 });
     const token = randomBytes(18).toString("base64url");
     d.guest = { account: getAddress(a.account), token: hashToken(token), kind: a.kind };

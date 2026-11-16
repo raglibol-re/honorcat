@@ -19,6 +19,16 @@
 - Work in cycles per docs/improve.md, everything in the agreed priority order.
 
 ## Rubric cycle log
+- 2026-11-16: production database replaced. The old Neon project `verdict` hit its free monthly
+  quota (data transfer: the catalogue was read whole every 10 s per instance) and refused every query
+  until 2026-12-01; by your decision a new free Neon project `honorcat` (spring-glade-62475881) was
+  created and rebuilt from public sources (relay/scripts/rebuild-db.ts: catalogue, all 21 pots from
+  the chain, markets matched for 20, practice markers). Lost: names, furs, passkey registrations,
+  drafts, the retired products' history (the old project stays untouched). The catalogue is now read
+  at most every 5 min per instance, refreshed every 2 min, and polled every 60 to 120 s by pages.
+  QuickNode had terminated the stream after the failed deliveries; resumed.
+- 2026-11-16: polish P4 to P7 done (rope, exit confirmation and summary, handshake button, code of
+  honor, "Well played" and rematch, honor labels, cat states); browser run on pot 22: 102.6 s.
 - 2026-11-16: polish P2 done: pick your cat (fur and name, signed together) on first sign-in; cats
   beside names in lists, offers, invitations and the honor record; each player's cat on its post
   reacting to its side; name filter with the `obscenity` library. The practice pool is at $4 again
@@ -152,7 +162,7 @@
 - Then: phase I threat model and static analysis, minimal phase H, phase E only if time allows.
 
 ## Blocks current milestone
-- (none) D2 to D5 done; see the rubric for what is still open.
+- (none)
 
 ## Later
 - CIRCLE_API_KEY is set (Vercel and .env) and valid (Circle's wallet endpoints answer 200), but

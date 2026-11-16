@@ -166,3 +166,37 @@ QuickNode
       accepted price and the settlement days are under "More options").
 - [x] An "Even markets (40 to 60%)" filter on the market list (catalog `even=1`).
 - [x] Phone-width solo run still under two minutes after the change (97.7 s, pot 20).
+### P4. The rope
+- [x] A rope between two posts, not a bar: the 0 to 100 ruler with ticks, the paw trail, the net
+      at a side's floor and the bowl at its target (checked live on pot 22: "your net at 30%",
+      "your bowl at 97%"), each player's cat on its post.
+- [x] The rope is filled in each player's fur colour on their side of the cat, over an ink cord so
+      light furs show; the same fur on both sides falls back to the signal colour for the second.
+- [x] Matches the approved mockup's ruler, cat label and zones; the big-screen view uses the same
+      rope, statement heading and cats (checked on /pots/17/tv).
+### P5. An exit that explains itself
+- [x] Before confirming: an estimate after the fee and the sentences that the final price is the
+      average of the next 30 seconds and that the request cannot be withdrawn ("Yes, leave" / "Not now").
+- [x] During the window: crouch, countdown ring, jump, then the landing and the price stamp.
+- [x] Afterwards: what each side received, the treat (fee), and links to the evidence and the
+      payout; a partial exit is labelled and the page shows what remains in the live pot.
+- [x] The exit is described as instant nowhere (searched the web app).
+### P6. Honor, made visible
+- [x] Handshake is its own button next to "Leave", with the two cats holding out a paw and the line
+      that it splits now at the current price with no fee, if both agree.
+- [x] The code of honor (three sentences) at the top of every pot's terms; the full terms follow.
+- [x] After a pot ends each player can send "Well played" (signed) and offer a rematch on a new
+      market, a friend draft only the other player can join (relay/test/pot-notes.test.ts; checked
+      live on pot 22).
+- [x] The honor record keeps the facts and adds plain labels read from them ("Holds to the end",
+      "Often splits by handshake", …), each with the facts it comes from; no score
+      (relay/test/honor-labels.test.ts).
+- [x] Joining is "Give your word"; the exit fee is "a treat for the other cat", always with its
+      dollar amount.
+### P7. A cat in every state
+- [x] One `CatState` on top of the one Cat: loading peeks in, empty sleeps, an error looks into an
+      empty box (in plain words), success lands, waiting sits at its post.
+- [x] Blink, swaying tail and a wobble when the price moves fast; all stop under reduced motion,
+      and every pose has a text alternative (also naming the cat's fur and mood).
+- [x] The closing block shaped like a cat's face (ears and eyes) ends the landing page.
+- [x] No emoji or stock art; one cat component.

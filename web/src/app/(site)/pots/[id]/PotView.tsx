@@ -1,5 +1,6 @@
 "use client";
 
+import { CatState } from "@/components/cat/CatState";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
@@ -8,6 +9,7 @@ import { PlayerCat } from "@/components/cat/PlayerCat";
 import { GeminiCredit } from "@/components/cat/Markets";
 import { C, F } from "@/components/cat/tokens";
 import { Rope } from "@/components/pot/Rope";
+import { AfterPot } from "@/components/pot/AfterPot";
 import { SamplerNotice } from "@/components/pot/SamplerHealth";
 import { sceneOf, STATE_TEXT, storyOf } from "@/components/pot/scene";
 import { useTechMode } from "@/components/TechMode";
@@ -20,6 +22,7 @@ import { txUrl } from "@/lib/chain";
 import { formatDate, short } from "@/lib/format";
 import { cancelPot, feeOf, joinPot, requestExit, setLevels, sideOf, signHandshake, takeover, worstCase, YES, type HcPot } from "@/lib/hc";
 import { useNow } from "@/lib/useNow";
+import { plainError } from "@/lib/messages";
 import { notifyMe, pushSupported } from "@/lib/push";
 
 const POTS = "0xc890C990048f45cb268d076E4A3dB25270Ea1e59" as const;
@@ -54,7 +57,7 @@ function ThreeNumbers({ pot, side, price, st }: { pot: HcPot; side: number; pric
   );
   return (
     <section aria-label="What you get" style={{ display: "flex", flexWrap: "wrap", gap: "0 28px" }}>
-      {cell("If I leave now", leave, `About: the exit price is the average of the next 30 seconds; after the ${$(fee)} fee.`)}
+      {cell("If I leave now", leave, `About: the exit price is the average of the next 30 seconds; after a ${$(fee)} treat for the other cat.`)}
       {cell("If I stay and it happens", n, `The whole pot, when Gemini settles that ${mine}.`)}
       {cell("If I stay and it does not", 0n, "Nothing; the other side gets the pot.")}
     </section>
@@ -73,7 +76,7 @@ function useAction() {
       await f(setStep);
       setDone(ok);
     } catch (e) {
-      setErr((e as Error).message);
+      setErr(plainError(e));
     } finally {
       setStep(null);
     }
@@ -84,9 +87,9 @@ function useAction() {
 function Feedback({ a, account }: { a: ReturnType<typeof useAction>; account?: string | null }) {
   return (
     <>
-      {a.err?.startsWith("Could not add test money") && account && <FundsHelp account={account} reason={a.err.replace(/^Could not add test money: /, "")} />}
+      {a.err?.startsWith("HonorCat's test money") && account && <FundsHelp account={account} />}
       {a.step && <p style={{ margin: 0, color: C.body }} aria-live="polite">{a.step}…</p>}
-      {a.done && <p style={{ margin: 0, color: C.ink }} aria-live="polite">{a.done}</p>}
+      {a.done && <CatState kind="success" text={a.done} size={90} />}
       {a.err && <p role="alert" style={{ margin: 0, color: C.signalInk }}>{a.err}</p>}
     </>
   );
@@ -107,6 +110,8 @@ function Actions({ pot, who, price, nowS, nameOf }: { pot: HcPot; who: ActorStat
   const [part, setPart] = useState("");
   const [net, setNet] = useState("");
   const [bowl, setBowl] = useState("");
+  // The exit the player is about to confirm (amount of the pot to divide, in words).
+  const [ask, setAsk] = useState<{ amount: bigint; what: string } | null>(null);
   const offers = usePolling<{ offers: { side: number; price_yes: number; notional: string; deadline: string }[] }>(pot.state === "Live" ? `/api/hc/pots/${pot.potId}/handshake` : null, 5000);
   const lockout = Math.max(120, 1 + Number(d.window) + 60);
   const tooLate = nowS + lockout >= Number(d.closeTime);
@@ -169,7 +174,7 @@ function Actions({ pot, who, price, nowS, nameOf }: { pot: HcPot; who: ActorStat
           <>
             <AccountLine who={who} />
             <button type="button" style={{ ...btn, alignSelf: "flex-start" }} disabled={!!a.step || tooLate} onClick={() => a.run((s) => joinPot(who.actor!, POTS, pot, s), "Joined. The entry price is being measured.")}>
-              {tooLate ? "Too close to the market's close" : `Join with ${$(dep)}`}
+              {tooLate ? "Too close to the market's close" : `Give your word (${$(dep)})`}
             </button>
           </>
         )}
@@ -208,7 +213,6 @@ function Actions({ pot, who, price, nowS, nameOf }: { pot: HcPot; who: ActorStat
   }
 
   const own = price === null ? null : mySide === YES ? price : 1 - price;
-  const share = own === null ? null : BigInt(Math.floor(Number(n) * own));
   const initial = BigInt((d as { initialNotional?: string }).initialNotional ?? d.notional);
   const ninth = initial / 9n;
   const lives = initial > 0n ? Math.max(0, Math.min(9, Math.round((9 * Number(n)) / Number(initial)))) : 9;
@@ -217,6 +221,27 @@ function Actions({ pot, who, price, nowS, nameOf }: { pot: HcPot; who: ActorStat
   const other = offers.data?.offers.find((o) => o.side !== mySide);
   const mineOffer = offers.data?.offers.find((o) => o.side === mySide);
   const lv = d.levels?.[mySide];
+  const acceptHandshake = () =>
+    other &&
+    a.run(async (s) => {
+      const sig = await signHandshake(who.actor!, POTS, pot, other.price_yes, BigInt(other.notional), BigInt(other.deadline), s);
+      return getJson(`/api/hc/pots/${pot.potId}/handshake`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ side: mySide, priceYes: other.price_yes, notional: other.notional, deadline: Number(other.deadline), signature: sig }),
+      });
+    }, "Paws shaken. The pot is split at the agreed price, with no fee.");
+  const offerHandshake = () =>
+    a.run(async (s) => {
+      const p = Math.round(price! * 1e6);
+      const deadline = BigInt(Math.floor(Date.now() / 1000) + 15 * 60);
+      const sig = await signHandshake(who.actor!, POTS, pot, p, n, deadline, s);
+      return getJson(`/api/hc/pots/${pot.potId}/handshake`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ side: mySide, priceYes: p, notional: n.toString(), deadline: Number(deadline), signature: sig }),
+      });
+    }, "Offered. The other side can accept for 15 minutes.");
 
   return (
     <section style={{ display: "flex", flexDirection: "column", gap: 28, maxWidth: 760 }}>
@@ -224,40 +249,101 @@ function Actions({ pot, who, price, nowS, nameOf }: { pot: HcPot; who: ActorStat
       <div>
         <NotifyButton potId={pot.potId} account={me} />
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <h2 style={h2}>Leave now</h2>
-        <p style={{ margin: 0, color: C.body, fontSize: 17, lineHeight: 1.5 }}>
-          Your share is about <strong>{share === null ? "…" : $(share)}</strong> at the current average. Leaving is binding: the exit price is the 30-second average starting at your request, not the
-          price you see now. You pay a {Number(d.feeBps) / 100}% fee ({$(feeOf(n, Number(d.feeBps)))}) to the other side. Someone else may take over your side instead.
-        </p>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
-          <button type="button" style={btn} disabled={!!a.step || !!blocked} onClick={() => a.run((s) => requestExit(who.actor!, POTS, pot, mySide, n, s), "Exit requested. The exit price is being measured.")}>
-            Leave with my whole share
-          </button>
-          {ninth > 0n && n > ninth && (
-            <button type="button" style={btnQuiet} disabled={!!a.step || !!blocked} onClick={() => a.run((s) => requestExit(who.actor!, POTS, pot, mySide, ninth, s), "One life spent. A ninth is being divided.")}>
-              Spend one life ({$(ninth)} of the pot)
-            </button>
-          )}
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <Cat pose="lives" size={180} lives={lives} />
-          <span style={{ fontSize: 15, color: C.muted }}>{lives} of 9 lives left: each life divides a ninth of the starting pot.</span>
-        </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "flex-end" }}>
-          <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <span style={{ fontSize: 14, color: C.muted }}>Or divide part of the pot (USDC)</span>
-            <input style={input} inputMode="decimal" value={part} onChange={(e) => setPart(e.target.value.replace(/[^0-9.]/g, ""))} />
-          </label>
-          <button
-            type="button"
-            style={btnQuiet}
-            disabled={!!a.step || !!blocked || !(Number(part) > 0) || BigInt(Math.round(Number(part) * 1e6)) > n}
-            onClick={() => a.run((s) => requestExit(who.actor!, POTS, pot, mySide, BigInt(Math.round(Number(part) * 1e6)), s), "Partial exit requested.")}
-          >
-            Divide this part
-          </button>
-        </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <h2 style={h2}>Leave, or shake hands</h2>
+        {!ask ? (
+          <>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
+              <button type="button" style={btn} disabled={!!a.step || !!blocked} onClick={() => setAsk({ amount: n, what: "your whole share" })}>
+                Leave with my whole share
+              </button>
+              {other ? (
+                <button type="button" style={btn} disabled={!!a.step} onClick={acceptHandshake}>
+                  Shake hands at {pct(other.price_yes)}
+                </button>
+              ) : (
+                <button type="button" style={btnQuiet} disabled={!!a.step || price === null} onClick={offerHandshake}>
+                  {mineOffer ? `Offer the handshake again at ${price === null ? "…" : (price * 100).toFixed(1)}%` : `Offer a handshake at ${price === null ? "…" : (price * 100).toFixed(1)}%`}
+                </button>
+              )}
+            </div>
+            <p style={{ margin: 0, color: C.body, fontSize: 16, lineHeight: 1.5 }}>
+              <strong>Leaving:</strong> your share is priced over the next 30 seconds, and you give a treat for the other cat of {$(feeOf(n, Number(d.feeBps)))} (1%).{" "}
+              <strong>Handshake:</strong> if both of you agree, the pot splits now at the current price, with no fee.
+            </p>
+            {(other || mineOffer) && (
+              <div style={{ display: "flex", alignItems: "flex-end", gap: 4 }}>
+                <PlayerCat account={me} pose="paw" size={80} label="Your cat holding out a paw" />
+                <div style={{ transform: "scaleX(-1)" }}>
+                  <PlayerCat account={mySide === YES ? pot.owners.no : pot.owners.yes} pose="paw" size={80} label="The other cat holding out a paw" />
+                </div>
+                <span style={{ fontSize: 15, color: C.body, paddingLeft: 10 }}>
+                  {other
+                    ? `${nameOf(mySide === YES ? pot.owners.no : pot.owners.yes)} offers to shake hands at ${pct(other.price_yes)}. Accept to split now with no fee.`
+                    : `You offered to shake hands at ${pct(mineOffer!.price_yes)}. The other side can accept for 15 minutes.`}
+                </span>
+              </div>
+            )}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "flex-end" }}>
+              {ninth > 0n && n > ninth && (
+                <button type="button" style={btnQuiet} disabled={!!a.step || !!blocked} onClick={() => setAsk({ amount: ninth, what: `one life (${$(ninth)} of the pot)` })}>
+                  Spend one life ({$(ninth)} of the pot)
+                </button>
+              )}
+              <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <span style={{ fontSize: 14, color: C.muted }}>Or leave with part of the pot (USDC)</span>
+                <input style={input} inputMode="decimal" value={part} onChange={(e) => setPart(e.target.value.replace(/[^0-9.]/g, ""))} />
+              </label>
+              <button
+                type="button"
+                style={btnQuiet}
+                disabled={!!a.step || !!blocked || !(Number(part) > 0) || BigInt(Math.round(Number(part) * 1e6)) > n}
+                onClick={() => setAsk({ amount: BigInt(Math.round(Number(part) * 1e6)), what: `$${Number(part).toFixed(2)} of the pot (a partial exit)` })}
+              >
+                Leave with this part
+              </button>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <Cat pose="lives" size={180} lives={lives} />
+              <span style={{ fontSize: 15, color: C.muted }}>{lives} of 9 lives left: each life divides a ninth of the starting pot.</span>
+            </div>
+          </>
+        ) : (
+          (() => {
+            const shareOf = own === null ? null : BigInt(Math.floor(Number(ask.amount) * own));
+            const fee = feeOf(ask.amount, Number(d.feeBps));
+            const est = shareOf === null ? null : shareOf > fee ? shareOf - fee : 0n;
+            return (
+              <div role="group" aria-label="Confirm your exit" style={{ display: "flex", flexDirection: "column", gap: 10, padding: "14px 16px", border: `2px solid ${C.ink}`, maxWidth: 640 }}>
+                <strong style={{ fontFamily: F.cond, fontSize: 28, fontWeight: 600 }}>Leave with {ask.what}?</strong>
+                <p style={{ margin: 0, fontSize: 18, lineHeight: 1.45 }}>
+                  Estimate: about <strong>{est === null ? "…" : $(est)}</strong> for you, after a treat for the other cat of <strong>{$(fee)}</strong>.
+                </p>
+                <p style={{ margin: 0, fontSize: 16, lineHeight: 1.5, color: C.body }}>
+                  The final price is the average of the next 30 seconds, not the price you see now, so the amount can differ. Once sent, the request cannot be withdrawn. Someone may take
+                  over your side instead; you are then paid the same from them.
+                </p>
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    style={btn}
+                    disabled={!!a.step}
+                    onClick={() => {
+                      const x = ask;
+                      setAsk(null);
+                      void a.run((s) => requestExit(who.actor!, POTS, pot, mySide, x.amount, s), "Exit requested. The cat crouches: the next 30 seconds set the price.");
+                    }}
+                  >
+                    Yes, leave
+                  </button>
+                  <button type="button" style={btnQuiet} onClick={() => setAsk(null)}>
+                    Not now
+                  </button>
+                </div>
+              </div>
+            );
+          })()
+        )}
         {blocked && <p style={{ margin: 0, color: C.muted }}>{blocked}</p>}
       </div>
 
@@ -287,43 +373,6 @@ function Actions({ pot, who, price, nowS, nameOf }: { pot: HcPot; who: ActorStat
         </div>
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <h2 style={h2}>Shake hands</h2>
-        <p style={{ margin: 0, color: C.body, fontSize: 17, lineHeight: 1.5 }}>
-          Both of you agree to divide the pot now at the current average, with no fee and no waiting for a measurement.
-        </p>
-        {other ? (
-          <button
-            type="button"
-            style={{ ...btn, alignSelf: "flex-start" }}
-            disabled={!!a.step}
-            onClick={() =>
-              a.run(async (s) => {
-                const sig = await signHandshake(who.actor!, POTS, pot, other.price_yes, BigInt(other.notional), BigInt(other.deadline), s);
-                return getJson(`/api/hc/pots/${pot.potId}/handshake`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ side: mySide, priceYes: other.price_yes, notional: other.notional, deadline: Number(other.deadline), signature: sig }) });
-              }, "Hands shaken. The pot is divided.")
-            }
-          >
-            Accept: divide at {pct(other.price_yes)} chance
-          </button>
-        ) : (
-          <button
-            type="button"
-            style={{ ...btnQuiet, alignSelf: "flex-start" }}
-            disabled={!!a.step || price === null}
-            onClick={() =>
-              a.run(async (s) => {
-                const p = Math.round(price! * 1e6);
-                const deadline = BigInt(Math.floor(Date.now() / 1000) + 15 * 60);
-                const sig = await signHandshake(who.actor!, POTS, pot, p, n, deadline, s);
-                return getJson(`/api/hc/pots/${pot.potId}/handshake`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ side: mySide, priceYes: p, notional: n.toString(), deadline: Number(deadline), signature: sig }) });
-              }, "Offered. The other side can accept for 15 minutes.")
-            }
-          >
-            {mineOffer ? `Offered at ${pct(mineOffer.price_yes)}. Offer again at ${price === null ? "…" : (price * 100).toFixed(1)}%` : `Offer to divide at ${price === null ? "…" : (price * 100).toFixed(1)}% chance`}
-          </button>
-        )}
-      </div>
       <Feedback a={a} account={who.actor?.account ?? null} />
     </section>
   );
@@ -349,6 +398,61 @@ function NotifyButton({ potId, account }: { potId: string; account: string | nul
     >
       {state === "on" ? "You will be notified" : state === "idle" || state === "busy" ? "Notify me when someone joins" : state}
     </button>
+  );
+}
+
+/* ------------------------------------------------------------------ after an exit */
+
+/**
+ * The last division of the pot, in plain words: what each side received, the treat (fee) and the
+ * evidence. For a partial exit it says so and shows what remains in the pot.
+ */
+function ExitSummary({ pot, nameOf, st }: { pot: HcPot; nameOf: (a: string | null) => string; st: Sides | null }) {
+  const ev = pot.events ?? [];
+  const idx = ev.map((e) => e.name).lastIndexOf("PotDivided");
+  if (idx < 0) return null;
+  const e = ev[idx]!;
+  const g = e.args;
+  let before = 0n;
+  for (const x of ev.slice(0, idx)) {
+    if (x.name === "PotCreated") before = BigInt(x.args.notional ?? "0");
+    if (x.name === "PotDivided" || x.name === "Handshake") before -= BigInt(x.args.notional ?? "0");
+  }
+  const divided = BigInt(g.notional ?? "0");
+  const remains = before - divided;
+  const partial = remains > 0n && pot.state !== "Divided";
+  const exitSide = Number(g.exitSide ?? 0);
+  const fee = BigInt(g.fee ?? "0");
+  const who = (side: number) => nameOf(side === YES ? pot.owners.yes : pot.owners.no);
+  const says = (side: number) => (st ? (side === YES ? st.yes : st.no) : side === YES ? "YES" : "NO");
+  return (
+    <section aria-label={partial ? "The last partial exit" : "How the pot ended"} style={{ display: "flex", flexDirection: "column", gap: 10, padding: "14px 16px", border: `2px solid ${C.ink}`, maxWidth: 760 }}>
+      <strong style={{ fontFamily: F.cond, fontSize: 28, fontWeight: 600 }}>
+        {partial ? `A partial exit: ${$(divided)} of the ${$(before)} pot was divided at ${pct(Number(g.price ?? 0))}` : `Divided at ${pct(Number(g.price ?? 0))}`}
+      </strong>
+      <ul style={{ margin: 0, paddingLeft: 20, fontSize: 18, lineHeight: 1.5 }}>
+        <li>
+          {who(YES)} ({says(YES)}) received <strong>{$(g.paidYes ?? 0)}</strong>
+        </li>
+        <li>
+          {who(1)} ({says(1)}) received <strong>{$(g.paidNo ?? 0)}</strong>
+        </li>
+        <li>
+          {who(exitSide)} left and gave {who(1 - exitSide)} a treat for the other cat of <strong>{$(fee)}</strong> (the 1% fee), included above.
+        </li>
+      </ul>
+      {partial && (
+        <p style={{ margin: 0, fontSize: 18 }}>
+          The pot is still live with <strong>{$(remains)}</strong>; both sides keep their places for the rest.
+        </p>
+      )}
+      <p style={{ margin: 0, fontSize: 15 }}>
+        <Link href={`/pots/${pot.potId}/proof`}>See the evidence for this price</Link> ·{" "}
+        <a href={txUrl(e.tx)} target="_blank" rel="noreferrer">
+          the payout on Arc
+        </a>
+      </p>
+    </section>
   );
 }
 
@@ -432,12 +536,9 @@ export function PotView({ id }: { id: string }) {
 
   if (!pot)
     return error ? (
-      <div style={{ display: "flex", flexDirection: "column", gap: 16, alignItems: "flex-start" }}>
-        <Cat pose="box" size={200} />
-        <p style={{ fontSize: 19 }}>No pot {id} here. {error}</p>
-      </div>
+      <CatState kind="error" text={/404|not found/i.test(error) ? `There is no pot ${id}. Check the link, or see all pots.` : error} />
     ) : (
-      <Cat pose="peek" size={160} />
+      <CatState kind="loading" text="Reading the pot from Arc…" />
     );
 
   const m = pot.market;
@@ -482,6 +583,8 @@ export function PotView({ id }: { id: string }) {
 
       <Rope {...scene} trail={live.trail} speed={live.speed} />
 
+      {(pot.state === "Divided" || pot.state === "Live" || pot.state === "ExitRequested") && <ExitSummary pot={pot} nameOf={nameOf} st={st} />}
+
       {mine !== null && pot.state === "Live" && <ThreeNumbers pot={pot} side={mine} price={live.smoothed} st={st} />}
 
       {pot.state !== "Divided" && pot.state !== "Settled" && pot.state !== "Expired" && <SamplerNotice />}
@@ -504,6 +607,8 @@ export function PotView({ id }: { id: string }) {
           </ol>
         </section>
       )}
+
+      {(pot.state === "Divided" || pot.state === "Settled" || pot.state === "Expired") && <AfterPot pot={pot} who={who} nameOf={nameOf} />}
 
       <Windows pot={pot} tech={tech} />
 

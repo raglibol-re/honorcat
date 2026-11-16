@@ -129,7 +129,7 @@ function Level({ side, kind, own, who }: { side: 0 | 1; kind: "net" | "bowl"; ow
   const y = yOf(p);
   const zone = kind === "net" ? (side === 0 ? [0, p] : [p, 1]) : side === 0 ? [p, 1] : [0, p];
   const color = side === 0 ? C.ink : C.signal;
-  const label = `${who}'s ${kind} at ${(own * 100).toFixed(0)}%`;
+  const label = `${/^you( |$)/.test(who) ? "your" : `${who}'s`} ${kind} at ${(own * 100).toFixed(0)}%`;
   return (
     <g>
       <rect x={xOf(zone[0]!)} y={TOP + 40} width={Math.max(0, xOf(zone[1]!) - xOf(zone[0]!))} height={GROUND - TOP - 40} fill={kind === "bowl" ? C.signal : C.ink} opacity={kind === "bowl" ? 0.12 : 0.06} />

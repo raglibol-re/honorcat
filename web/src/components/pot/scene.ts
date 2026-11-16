@@ -136,7 +136,7 @@ export function storyOf(pot: HcPot, name: (a: string | null) => string): { at: n
         out.push({
           at: e.at,
           tx: e.tx,
-          text: `Taken over at ${pc(g.price ?? 0)}: ${name(g.to ?? null)} now holds ${sideName(g.side ?? 0)} and paid ${name(g.from ?? null)} ${usd(g.paidExiter ?? 0)} for it (after a ${usd(g.fee ?? 0)} fee to the other side). The pot did not divide: it continues at ${usd(size)} with the new holder.`,
+          text: `Taken over at ${pc(g.price ?? 0)}: ${name(g.to ?? null)} now holds ${sideName(g.side ?? 0)} and paid ${name(g.from ?? null)} ${usd(g.paidExiter ?? 0)} for it (after a ${usd(g.fee ?? 0)} treat for the other cat, the 1% fee). The pot did not divide: it continues at ${usd(size)} with the new holder.`,
         });
         pendingExit = null;
         break;
@@ -148,8 +148,8 @@ export function storyOf(pot: HcPot, name: (a: string | null) => string): { at: n
           at: e.at,
           tx: e.tx,
           text: partial
-            ? `Partial exit at ${pc(g.price ?? 0)}: ${usd(n)} of the pot was divided (${sideName(0)} got ${usd(g.paidYes ?? 0)}, ${sideName(1)} ${usd(g.paidNo ?? 0)}, fee ${usd(g.fee ?? 0)}). The pot continues with ${usd(size)}.`
-            : `Divided at ${pc(g.price ?? 0)}: ${sideName(0)} got ${usd(g.paidYes ?? 0)}, ${sideName(1)} ${usd(g.paidNo ?? 0)} (including the ${usd(g.fee ?? 0)} fee to the side that stayed).`,
+            ? `Partial exit at ${pc(g.price ?? 0)}: ${usd(n)} of the pot was divided (${sideName(0)} got ${usd(g.paidYes ?? 0)}, ${sideName(1)} ${usd(g.paidNo ?? 0)}, with a ${usd(g.fee ?? 0)} treat for the other cat). The pot continues with ${usd(size)}.`
+            : `Divided at ${pc(g.price ?? 0)}: ${sideName(0)} got ${usd(g.paidYes ?? 0)}, ${sideName(1)} ${usd(g.paidNo ?? 0)} (including a ${usd(g.fee ?? 0)} treat for the other cat, the 1% fee).`,
         });
         pendingExit = null;
         break;

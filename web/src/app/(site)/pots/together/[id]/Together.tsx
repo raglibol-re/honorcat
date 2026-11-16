@@ -1,5 +1,6 @@
 "use client";
 
+import { CatState } from "@/components/cat/CatState";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -74,7 +75,7 @@ export function Together({ id }: { id: string }) {
   const nm = (a: string) => displayName(a, names, null, tech, "your friend");
   const live = useLivePrice(d?.symbol ?? null);
 
-  if (!d) return error ? <p>{error}</p> : <Cat pose="peek" size={140} />;
+  if (!d) return error ? <CatState kind="error" text={error} /> : <CatState kind="loading" />;
 
   const me = who.actor?.account?.toLowerCase() ?? null;
   const isHost = !!token && !!d.host && d.host.account.toLowerCase() === me;
