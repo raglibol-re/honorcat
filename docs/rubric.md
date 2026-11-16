@@ -53,7 +53,7 @@ output). Order follows the spec's sections. Milestones: C0, C1, D0 to D5.
 - [x] Unit, fuzz and invariant tests (conservation, no double division, no division without a valid
       attestation, no exit in lock-out); symbolic checks with halmos ran but timed out (no counterexample, not a proof); what is proven vs tested stated
       plainly (pot-design 12).
-- [ ] Threat model: stale-price exit, thin-book manipulation, colluding signers, exit-request
+- [x] Threat model: stale-price exit, thin-book manipulation, colluding signers, exit-request
       griefing, takeover front-running, creator-chosen tolerance; what stops each and what does not.
 
 ## 5. Prices and evidence (D2)

@@ -108,3 +108,18 @@ of it sits at the best price, the attacker overpays less and the estimate is opt
 average (60 s), the rule's per-sample size and spread limits and the second independent sampler are
 the remaining defences. Moving the price by more than 5 points needs depth beyond the band, which
 the cap does not measure.
+
+## Two-sided pots: threats (from docs/pot-design.md, D0/D1)
+
+| Threat | What stops it | What does not |
+|---|---|---|
+| **Stale-price exit** (someone knows the result before the market) | The exit price uses only samples after the request (`windowStart = requestTime + D`, fixed by the contract); the request is binding | If the market itself moves only after the window, an informed exiter still gets the pre-move price; that is fair value at that time |
+| **Price manipulation in thin books** | Window average (not a tick), the rule's spread and size limits per sample, the cap on N tied to depth, two independent samplers | A well-funded actor can still move a thin book for a whole window; the cap bounds what they can gain, not whether they try |
+| **Colluding signers** | M of N (2 of 3) on different hosts; evidence records published; each pot's resolver fixed at creation | Two colluding samplers can sign a false price; evidence makes it detectable afterwards, not impossible. A larger, more independent signer set is the real fix |
+| **Griefing by repeated exit requests** | One pending exit per pot, a cooldown after a failed exit, the request is binding (a real exit if priced), the exiter pays the fee | Requests that fail on bad data cost the other side waiting time, not money |
+| **Takeover front-running** | First valid takeover wins; the taker escrows the maximum; the price is the forward window, so being first gains no price advantage | A bot can take over every exit; that is allowed by design (it pays the fair price) |
+| **Creator-chosen tolerance** | Tolerance is public on the offer; the joiner sees the entry price and the live price before joining; a protocol maximum (proposal: 5 points) | A joiner who does not look can accept a stale entry price within the tolerance |
+| **Signer outage** | `abandonExit` after the timeout, `expire` after the deadline: funds always come back | While signers are down, no exit or settlement happens |
+| **Relay outage** | Anyone can submit attestations and settlements | Someone must still run the samplers |
+
+The cap's arithmetic for thin-book manipulation is in the section above. What stops each threat on-chain is tested in contracts/test (window fixed by the request, one pending exit, cooldown, first takeover wins, tolerance at most 5 points, abandon and expire paths).
