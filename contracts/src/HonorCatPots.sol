@@ -147,6 +147,8 @@ contract HonorCatPots is ERC721, EIP712, ReentrancyGuard, Ownable {
         keccak256("Outcome(uint256 potId,bytes32 conditionId,uint8 outcome,bytes32 evidenceHash)");
     bytes32 public constant EXIT_REQUEST_TYPEHASH =
         keccak256("ExitRequest(uint256 potId,uint8 side,uint256 notional,uint256 sigNonce,uint256 deadline)");
+    bytes32 public constant HANDSHAKE_TYPEHASH =
+        keccak256("Handshake(uint256 potId,uint32 priceYes,uint256 notional,uint64 potNonce,uint256 deadline)");
     bytes32 public constant DEPOSIT_TAG = keccak256("HonorCatPots.deposit");
 
     // ---------------------------------------------------------------- storage
@@ -171,6 +173,7 @@ contract HonorCatPots is ERC721, EIP712, ReentrancyGuard, Ownable {
     event ExitRequested(uint256 indexed potId, uint8 side, uint256 notional, uint64 nonce, uint64 requestTime);
     event ExitFailed(uint256 indexed potId, uint64 nonce, bytes32 evidenceHash);
     event PotDivided(uint256 indexed potId, uint8 exitSide, uint256 notional, uint32 price, uint256 paidYes, uint256 paidNo, uint256 fee, bytes32 evidenceHash);
+    event Handshake(uint256 indexed potId, uint32 price, uint256 notional);
     event PotSettled(uint256 indexed potId, uint8 outcome, uint256 paidYes, uint256 paidNo, bytes32 evidenceHash);
     event PotExpired(uint256 indexed potId, uint256 paidYes, uint256 paidNo);
     event Paid(uint256 indexed potId, address indexed to, uint256 amount);
@@ -484,6 +487,34 @@ contract HonorCatPots is ERC721, EIP712, ReentrancyGuard, Ownable {
         emit PotDivided(potId, exitSide, n, price, payYes, payNo, fee, evidenceHash);
         if (payYes > 0) _pay(potId, yesOwner, payYes);
         if (payNo > 0) _pay(potId, noOwner, payNo);
+    }
+
+    // ---------------------------------------------------------------- handshake
+
+    /// @notice Both owners agree to divide `notional` at `priceYes`, at once and without a fee. No
+    ///         oracle is needed: both consent. Signatures (EOA or ERC-1271) bind the pot's current nonce.
+    function handshake(uint256 potId, uint32 priceYes, uint256 notional, uint256 deadline, bytes calldata sigYes, bytes calldata sigNo)
+        external
+        nonReentrant
+    {
+        Pot storage p = _pots[potId];
+        if (p.state != State.Live) revert WrongState();
+        if (block.timestamp > deadline) revert ExpiredSignature();
+        if (block.timestamp >= p.closeTime) revert TooLate();
+        if (priceYes > P || notional == 0 || notional > p.notional) revert BadParams();
+        bytes32 digest = handshakeDigest(potId, priceYes, notional, deadline);
+        if (
+            !SignatureChecker.isValidSignatureNow(ownerOf(tokenOf(potId, YES)), digest, sigYes)
+                || !SignatureChecker.isValidSignatureNow(ownerOf(tokenOf(potId, NO)), digest, sigNo)
+        ) revert NotOwner();
+        p.nonce += 1; // the signatures cannot be used again
+        emit Handshake(potId, priceYes, notional);
+        _divide(potId, p, YES, notional, priceYes, 0, bytes32(0));
+    }
+
+    /// @notice EIP-712 digest both owners sign for a handshake (bound to the pot's current nonce).
+    function handshakeDigest(uint256 potId, uint32 priceYes, uint256 notional, uint256 deadline) public view returns (bytes32) {
+        return _hashTypedDataV4(keccak256(abi.encode(HANDSHAKE_TYPEHASH, potId, priceYes, notional, _pots[potId].nonce, deadline)));
     }
 
     // ---------------------------------------------------------------- settle / expire
