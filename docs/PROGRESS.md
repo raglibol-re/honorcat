@@ -19,6 +19,13 @@
 - Work in cycles per docs/improve.md, everything in the agreed priority order.
 
 ## Rubric cycle log
+- 2026-11-16: browser wallets handled like a serious web3 app: deposits are an exact-amount USDC
+  approval plus an ordinary transaction (no more EIP-3009 transfer signatures, which wallet
+  scanners flag as drainer-like), exits and takeovers are transactions; EIP-6963 wallet discovery;
+  Sign-In with Ethereum for raw readings (checked against the host, ERC-1271/6492 supported);
+  HonorCatPots verified on the Arc explorer (MedianResolver and HonorCatFairValue retrying after
+  the explorer's rate limit). Verified on testnet with pots-wallet-e2e.ts (pot 12). Markets shown as
+  events with Gemini's artwork and a chance bar per result; Gemini's mark in every credit.
 - 2026-11-16: pots started together by two friends (user decisions: one against one, starting at the
   market price, no contract change). Shared draft (relay drafts.ts, /api/hc/drafts), pages
   /pots/together and /pots/together/<id>, never listed among open offers. E2E "together" passed on
