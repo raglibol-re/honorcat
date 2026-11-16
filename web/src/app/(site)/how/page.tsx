@@ -9,15 +9,15 @@ const steps: [string, React.ReactNode][] = [
   [
     "Pick a question and a side",
     <>
-      Choose a live Gemini prediction market and YES or NO, and how big the pot is (up to $25 on the test version). You put in your side&apos;s part; the other
-      side puts in theirs when they join. A passkey is enough: no app, no seed words, no network fees.
+      Choose a live Gemini prediction market, say “Cleveland beats Chicago”, and a side: it happens, or it does not. You enter only what you put in; the other
+      side puts in theirs when they join, so the pot is up to $25 on the test version. A passkey is enough: no app, no seed words, no network fees.
     </>,
   ],
   [
     "The price sets the shares",
     <>
-      The YES price is the midpoint of Gemini&apos;s best bid and ask, counted only when the book is healthy, and averaged over 30 seconds. YES&apos;s share of the pot
-      is the pot times that price; NO&apos;s is the rest. The cat on the rope stands at that price. Shares are only shown; nothing moves until someone leaves or the
+      The chance is the midpoint of Gemini&apos;s best bid and ask, counted only when the book is healthy, and averaged over 30 seconds. The side that says it happens
+      holds the pot times that chance; the other side holds the rest. The cat on the rope stands at that price. Shares are only shown; nothing moves until someone leaves or the
       market settles.
     </>,
   ],

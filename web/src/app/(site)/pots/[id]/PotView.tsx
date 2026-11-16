@@ -11,7 +11,7 @@ import { Rope } from "@/components/pot/Rope";
 import { SamplerNotice } from "@/components/pot/SamplerHealth";
 import { sceneOf, STATE_TEXT, storyOf } from "@/components/pot/scene";
 import { useTechMode } from "@/components/TechMode";
-import { marketLine, marketTitle, yesMeans } from "@/lib/marketName";
+import { marketLine, sidesOf, yesMeans, type Sides } from "@/lib/marketName";
 import { displayName, useNames } from "@/lib/names";
 import { useLivePrice } from "@/components/pot/usePrice";
 import { AccountLine, FundsHelp, btn, btnQuiet, SignIn, useActor, type ActorState } from "@/components/pot/Who";
@@ -26,7 +26,40 @@ const POTS = "0xc890C990048f45cb268d076E4A3dB25270Ea1e59" as const;
 const h2: React.CSSProperties = { margin: 0, fontFamily: F.cond, fontSize: 32, fontWeight: 600 };
 const input: React.CSSProperties = { minHeight: 44, padding: "0 10px", border: `1.5px solid ${C.ink}`, background: C.page, fontFamily: F.sans, fontSize: 17, color: C.ink, width: 120, boxSizing: "border-box" };
 const $ = (base: bigint | string | number) => `$${(Number(base) / 1e6).toFixed(2)}`;
-const KIND_TEXT = ["Entry price", "Exit price", "YES net", "NO net", "YES bowl", "NO bowl", "Quote (fair value, moves no money)"];
+/** What a measured window was for; nets and bowls by the side they belong to. */
+const kindText = (k: number, st: Sides | null) => {
+  const side = (s: number) => (st ? `“${s === 0 ? st.yes : st.no}”` : s === 0 ? "YES" : "NO");
+  return ["Entry price", "Exit price", `Net of ${side(0)}`, `Net of ${side(1)}`, `Bowl of ${side(0)}`, `Bowl of ${side(1)}`, "Quote (fair value, moves no money)"][k] ?? "Price";
+};
+const pct = (ppm: number) => `${(ppm / 10_000).toFixed(1)}%`;
+
+/**
+ * The three amounts that matter to a player, large: what they get if they leave now (an estimate:
+ * the exit is priced over the next 30 seconds), if they stay and their side happens, and if they
+ * stay and it does not.
+ */
+function ThreeNumbers({ pot, side, price, st }: { pot: HcPot; side: number; price: number | null; st: Sides | null }) {
+  const n = BigInt(pot.data.notional);
+  const own = price === null ? null : side === YES ? price : 1 - price;
+  const share = own === null ? null : BigInt(Math.floor(Number(n) * own));
+  const fee = feeOf(n, Number(pot.data.feeBps));
+  const leave = share === null ? null : share > fee ? share - fee : 0n;
+  const mine = st ? (side === YES ? st.yes : st.no) : "your side happens";
+  const cell = (label: string, v: bigint | null, note: string) => (
+    <div style={{ flex: "1 1 200px", display: "flex", flexDirection: "column", gap: 4, padding: "12px 0", borderTop: `1.5px solid ${C.ink}` }}>
+      <span style={{ fontSize: 16, color: C.body }}>{label}</span>
+      <span style={{ fontFamily: F.cond, fontSize: 64, fontWeight: 600, lineHeight: 0.9 }}>{v === null ? "…" : $(v)}</span>
+      <span style={{ fontSize: 14, color: C.muted }}>{note}</span>
+    </div>
+  );
+  return (
+    <section aria-label="What you get" style={{ display: "flex", flexWrap: "wrap", gap: "0 28px" }}>
+      {cell("If I leave now", leave, `About: the exit price is the average of the next 30 seconds; after the ${$(fee)} fee.`)}
+      {cell("If I stay and it happens", n, `The whole pot, when Gemini settles that ${mine}.`)}
+      {cell("If I stay and it does not", 0n, "Nothing; the other side gets the pot.")}
+    </section>
+  );
+}
 
 function useAction() {
   const [step, setStep] = useState<string | null>(null);
@@ -62,6 +95,8 @@ function Feedback({ a, account }: { a: ReturnType<typeof useAction>; account?: s
 /* ------------------------------------------------------------------ actions by role */
 
 function Actions({ pot, who, price, nowS, nameOf }: { pot: HcPot; who: ActorState; price: number | null; nowS: number; nameOf: (a: string | null) => string }) {
+  const st = pot.market ? sidesOf(pot.market) : null;
+  const says = (s: number) => (st ? `“${s === YES ? st.yes : st.no}”` : s === YES ? "YES" : "NO");
   const a = useAction();
   const me = who.actor?.account ?? null;
   const mySide = sideOf(pot, me);
@@ -117,16 +152,16 @@ function Actions({ pot, who, price, nowS, nameOf }: { pot: HcPot; who: ActorStat
               <div style={{ display: "flex", alignItems: "flex-end", gap: 14 }}>
                 <PlayerCat account={creator} pose="sit" size={96} label={`${nameOf(creator)}'s cat, waiting at its post`} />
                 <p style={{ margin: 0, fontSize: 19, lineHeight: 1.4 }}>
-                  <strong>{nameOf(creator)}</strong> is waiting at the {creatorSide === YES ? "YES" : "NO"} post for someone to take the other side.
+                  <strong>{nameOf(creator)}</strong> holds {says(creatorSide)} and waits for someone to take the other side.
                 </p>
               </div>
             )
           );
         })()}
-        <h2 style={h2}>Take the {side === YES ? "YES" : "NO"} side</h2>
+        <h2 style={h2}>Take the side {says(side)}</h2>
         <p style={{ margin: 0, color: C.body, fontSize: 17, lineHeight: 1.5 }}>
           You put in up to <strong>{$(dep)}</strong>. Your starting share is set by the 30-second average price right after you join (it must stay within{" "}
-          {(Number(d.tolerance) / 10_000).toFixed(1)} points of {(Number(d.bandCenter) / 10_000).toFixed(1)}%); the rest comes straight back. If the samplers cannot agree on a price, you get everything back.
+          {(Number(d.tolerance) / 10_000).toFixed(1)} points of {(Number(d.bandCenter) / 10_000).toFixed(1)}% chance); the rest comes straight back. If the samplers cannot agree on a price, you get everything back.
         </p>
         {!who.actor ? (
           <SignIn who={who} purpose="Your account holds your side. A passkey on this device is enough." />
@@ -149,7 +184,7 @@ function Actions({ pot, who, price, nowS, nameOf }: { pot: HcPot; who: ActorStat
     if (mySide === null && full && d.joiner === "0x0000000000000000000000000000000000000000" && nowS < end)
       return (
         <section style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 680 }}>
-          <h2 style={h2}>Take over the {Number(d.exitSide) === YES ? "YES" : "NO"} side</h2>
+          <h2 style={h2}>Take over the side {says(Number(d.exitSide))}</h2>
           <p style={{ margin: 0, color: C.body, fontSize: 17, lineHeight: 1.5 }}>
             You put in {$(n)}. The leaving side is paid its share at the exit price from you instead of from the pot, and you hold its place; the rest of your deposit comes back. If the
             exit price cannot be measured, you get everything back.
@@ -269,7 +304,7 @@ function Actions({ pot, who, price, nowS, nameOf }: { pot: HcPot; who: ActorStat
               }, "Hands shaken. The pot is divided.")
             }
           >
-            Accept: divide at {(other.price_yes / 10_000).toFixed(1)}% YES
+            Accept: divide at {pct(other.price_yes)} chance
           </button>
         ) : (
           <button
@@ -285,7 +320,7 @@ function Actions({ pot, who, price, nowS, nameOf }: { pot: HcPot; who: ActorStat
               }, "Offered. The other side can accept for 15 minutes.")
             }
           >
-            {mineOffer ? `Offered at ${(mineOffer.price_yes / 10_000).toFixed(1)}%. Offer again at ${price === null ? "…" : (price * 100).toFixed(1)}%` : `Offer to divide at ${price === null ? "…" : (price * 100).toFixed(1)}% YES`}
+            {mineOffer ? `Offered at ${pct(mineOffer.price_yes)}. Offer again at ${price === null ? "…" : (price * 100).toFixed(1)}%` : `Offer to divide at ${price === null ? "…" : (price * 100).toFixed(1)}% chance`}
           </button>
         )}
       </div>
@@ -319,8 +354,9 @@ function NotifyButton({ potId, account }: { potId: string; account: string | nul
 
 /* ------------------------------------------------------------------ the evidence of each window */
 
-function Windows({ pot }: { pot: HcPot }) {
+function Windows({ pot, tech }: { pot: HcPot; tech: boolean }) {
   const rows = pot.requests.filter((r) => r.kind !== "depth");
+  const st = pot.market ? sidesOf(pot.market) : null;
   if (!rows.length) return null;
   return (
     <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -335,7 +371,7 @@ function Windows({ pot }: { pot: HcPot }) {
           return (
             <div key={r.id} style={{ borderBottom: `1px solid ${C.faint}`, padding: "12px 0", display: "flex", flexDirection: "column", gap: 6 }}>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 16px", alignItems: "baseline" }}>
-                <strong style={{ fontSize: 17 }}>{r.kind === "outcome" ? "Gemini's result" : KIND_TEXT[r.payload.kind ?? 0]}</strong>
+                <strong style={{ fontSize: 17 }}>{r.kind === "outcome" ? "Gemini's result" : kindText(r.payload.kind ?? 0, st)}</strong>
                 {r.payload.windowStart && (
                   <span style={{ color: C.muted, fontSize: 15 }}>
                     {formatDate(r.payload.windowStart * 1000)}, {r.payload.windowEnd! - r.payload.windowStart} s
@@ -346,7 +382,7 @@ function Windows({ pot }: { pot: HcPot }) {
                     ? ""
                     : att
                       ? att.valid
-                        ? `${(att.priceYes / 10_000).toFixed(2)}% YES (${r.payload.reason})`
+                        ? `${(att.priceYes / 10_000).toFixed(2)}% chance${tech ? " (YES price)" : ""} (${r.payload.reason})`
                         : `no price: ${r.payload.reason}`
                       : r.status === "measuring"
                         ? "measuring"
@@ -409,16 +445,24 @@ export function PotView({ id }: { id: string }) {
   const nameOf = (a: string | null) => displayName(a, names, me, tech, a ? "a player" : "open seat");
   const scene = sceneOf(pot, live.smoothed, nowS, { me, names, tech });
   const story = storyOf(pot, nameOf);
+  const st = m ? sidesOf(m) : null;
+  const mine = sideOf(pot, me);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 40 }}>
       <header style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <span style={{ fontSize: 15, color: C.muted }}>
           Pot {pot.potId} · {m ? marketLine(m) : ""} · trading closes {formatDate(Number(pot.data.closeTime) * 1000)}
         </span>
-        <h1 style={{ margin: 0, fontFamily: F.cond, fontSize: 56, fontWeight: 600, lineHeight: 0.95 }}>{m ? marketTitle(m) : "Pot"}</h1>
-        {m && (
-          <p style={{ margin: 0, fontSize: 18, color: C.ink }}>
-            <strong>YES</strong> means: {yesMeans(m)}. <strong style={{ color: C.signalInk }}>NO</strong> means it does not happen.
+        <h1 style={{ margin: 0, fontFamily: F.cond, fontSize: "clamp(34px, 7vw, 56px)", fontWeight: 600, lineHeight: 0.95 }}>{st ? `${st.yes}?` : "Pot"}</h1>
+        {st && (
+          <p style={{ margin: 0, fontSize: 18, color: C.ink, lineHeight: 1.45 }}>
+            One side holds <strong>{st.yes}</strong>; the other holds <strong style={{ color: C.signalInk }}>{st.no}</strong>.
+            {mine !== null && <> You hold <strong>{mine === YES ? st.yes : st.no}</strong>.</>}
+          </p>
+        )}
+        {m && tech && (
+          <p style={{ margin: 0, fontSize: 15, color: C.muted }}>
+            Technical: the first side is YES on Gemini&apos;s contract {m.instrument}, which settles YES if {yesMeans(m).charAt(0).toLowerCase() + yesMeans(m).slice(1)}; the second side is NO.
           </p>
         )}
         {pot.practice && (
@@ -437,6 +481,8 @@ export function PotView({ id }: { id: string }) {
       </header>
 
       <Rope {...scene} trail={live.trail} speed={live.speed} />
+
+      {mine !== null && pot.state === "Live" && <ThreeNumbers pot={pot} side={mine} price={live.smoothed} st={st} />}
 
       {pot.state !== "Divided" && pot.state !== "Settled" && pot.state !== "Expired" && <SamplerNotice />}
 
@@ -459,7 +505,7 @@ export function PotView({ id }: { id: string }) {
         </section>
       )}
 
-      <Windows pot={pot} />
+      <Windows pot={pot} tech={tech} />
 
       <nav style={{ display: "flex", flexWrap: "wrap", gap: "8px 28px", fontSize: 16 }}>
         <Link href={`/pots/${pot.potId}/tv`}>Big screen</Link>

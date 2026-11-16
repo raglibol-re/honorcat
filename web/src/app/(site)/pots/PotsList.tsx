@@ -8,7 +8,7 @@ import { usePolling } from "@/lib/api";
 import { formatDate, short } from "@/lib/format";
 import { sideOf, type HcPotSummary } from "@/lib/hc";
 import { useNow } from "@/lib/useNow";
-import { marketTitle } from "@/lib/marketName";
+import { marketTitle, sidesOf } from "@/lib/marketName";
 import { CatName } from "@/components/cat/PlayerCat";
 import { nickname, useNames } from "@/lib/names";
 import { useTechMode } from "@/components/TechMode";
@@ -44,7 +44,7 @@ function Rows({ pots, me }: { pots: HcPotSummary[]; me?: string | null }) {
               {p.market ? marketTitle(p.market) : "Unknown market"}
             </span>
             <span style={{ fontSize: 16 }}>${n.toFixed(2)}</span>
-            <span style={{ fontSize: 15, color: C.muted }}>{side === null ? "" : side === 0 ? "you hold YES · " : "you hold NO · "}{STATE_SHORT[p.state]}</span>
+            <span style={{ fontSize: 15, color: C.muted }}>{side === null || !p.market ? "" : `you hold “${side === 0 ? sidesOf(p.market).yes : sidesOf(p.market).no}” · `}{STATE_SHORT[p.state]}</span>
             <span style={{ fontSize: 14, color: C.muted }}>closes {formatDate(Number(p.data.closeTime) * 1000)}</span>
             {side === null && (p.owners.yes ?? p.owners.no) && (
               <span style={{ fontSize: 15, color: C.muted }}>

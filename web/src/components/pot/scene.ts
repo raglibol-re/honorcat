@@ -1,5 +1,6 @@
 import type { HcPot } from "@/lib/hc";
 import { displayName, furOf } from "@/lib/names";
+import { sidesOf } from "@/lib/statement";
 import type { Mood } from "@/components/cat/Cat";
 import type { PostCat, RopeProps } from "./Rope";
 
@@ -40,17 +41,18 @@ export function sceneOf(pot: HcPot, price: number | null, nowS: number, o: NameO
   const stamp = lastDivision?.payload.attestation ? `Exit at ${(lastDivision.payload.attestation.priceYes / 10_000).toFixed(1)}%` : null;
   const startedAt = initial && initial !== notional ? initial : null;
   const cats = { yes: cat(owners.yes, 0, names.yes), no: cat(owners.no, 1, names.no) };
+  const sides = pot.market ? sidesOf(pot.market) : undefined;
 
   switch (pot.state) {
     case "Open":
-      return { price, notional, names, phase: "waiting", levels, startedAt, cats };
+      return { price, notional, names, phase: "waiting", levels, startedAt, cats, sides };
     case "Joining":
-      return { price, notional, names, phase: "joining", levels, window: { label: "Entry price", ...win }, startedAt, cats };
+      return { price, notional, names, phase: "joining", levels, window: { label: "Entry price", ...win }, startedAt, cats, sides };
     case "Live":
-      return { price, notional, names, phase: "live", levels, stamp: null, startedAt, cats };
+      return { price, notional, names, phase: "live", levels, stamp: null, startedAt, cats, sides };
     case "ExitRequested": {
       const partial = d.exitNotional !== d.notional;
-      const who = Number(d.exitSide) === 0 ? "YES" : "NO";
+      const who = Number(d.exitSide) === 0 ? names.yes : names.no;
       return {
         price,
         notional,
@@ -59,18 +61,19 @@ export function sceneOf(pot: HcPot, price: number | null, nowS: number, o: NameO
         levels,
         startedAt,
         cats,
-        window: { label: partial ? `${who} is leaving with $${(Number(d.exitNotional) / 1e6).toFixed(2)} of the pot. Exit price` : `${who} is leaving. Exit price`, ...win },
+        sides,
+        window: { label: partial ? `${who} is leaving with $${(Number(d.exitNotional) / 1e6).toFixed(2)} of the pot (a partial exit). Exit price` : `${who} is leaving. Exit price`, ...win },
       };
     }
     case "Divided":
-      return { price: lastDivision?.payload.attestation ? lastDivision.payload.attestation.priceYes / 1e6 : price, notional, names, phase: "divided", stamp, cats };
+      return { price: lastDivision?.payload.attestation ? lastDivision.payload.attestation.priceYes / 1e6 : price, notional, names, phase: "divided", stamp, cats, sides };
     case "Settled": {
       const o2 = pot.requests.find((r) => r.kind === "outcome")?.payload as { attestation?: { outcome: number } } | undefined;
       const outcome = o2?.attestation?.outcome;
-      return { price, notional, names, phase: "settled", receiver: outcome === 1 ? 0 : outcome === 0 ? 1 : 2, cats };
+      return { price, notional, names, phase: "settled", receiver: outcome === 1 ? 0 : outcome === 0 ? 1 : 2, cats, sides };
     }
     default:
-      return { price, notional, names, phase: "expired", cats };
+      return { price, notional, names, phase: "expired", cats, sides };
   }
 }
 
@@ -85,8 +88,6 @@ export const STATE_TEXT: Record<string, string> = {
 };
 
 const usd = (base: string | number | bigint) => `$${(Number(base) / 1e6).toFixed(2)}`;
-const pc = (ppm: string | number) => `${(Number(ppm) / 10_000).toFixed(1)}%`;
-const sideName = (s: string | number) => (Number(s) === 0 ? "YES" : "NO");
 
 /**
  * The pot's story in plain words, from its own events: who did what, at which price, what each side
@@ -95,6 +96,11 @@ const sideName = (s: string | number) => (Number(s) === 0 ? "YES" : "NO");
  */
 export function storyOf(pot: HcPot, name: (a: string | null) => string): { at: number | null; text: string; tx: string }[] {
   const out: { at: number | null; text: string; tx: string }[] = [];
+  const st = pot.market ? sidesOf(pot.market) : null;
+  // A side by what it stands for ("the “Cleveland beats Chicago” side"); YES and NO without a market.
+  const sideName = (s: string | number) => (st ? `the “${Number(s) === 0 ? st.yes : st.no}” side` : Number(s) === 0 ? "YES" : "NO");
+  const Side = (s: string | number) => sideName(s).replace(/^the/, "The");
+  const pc = (ppm: string | number) => `${(Number(ppm) / 10_000).toFixed(1)}%`;
   let size = 0n;
   let pendingExit: string | null = null;
   for (const e of pot.events ?? []) {
@@ -108,14 +114,14 @@ export function storyOf(pot: HcPot, name: (a: string | null) => string): { at: n
         out.push({ at: e.at, tx: e.tx, text: `${name(g.joiner ?? null)} asked to take the other side; the entry price was measured over the next 30 seconds.` });
         break;
       case "Joined":
-        out.push({ at: e.at, tx: e.tx, text: `Joined at ${pc(g.entryPrice ?? 0)} YES: YES's share ${usd(g.depYes ?? 0)}, NO's ${usd(g.depNo ?? 0)}. Anything put in above that came straight back.` });
+        out.push({ at: e.at, tx: e.tx, text: `Joined at ${pc(g.entryPrice ?? 0)} chance: ${sideName(0)} put in ${usd(g.depYes ?? 0)}, ${sideName(1)} ${usd(g.depNo ?? 0)}. Anything put in above that came straight back.` });
         break;
       case "JoinFailed":
         out.push({ at: e.at, tx: e.tx, text: "The entry price could not be agreed (or left the band), so the join did not happen and the joiner got everything back." });
         break;
       case "ExitRequested": {
         const n = BigInt(g.notional ?? "0");
-        pendingExit = sideName(g.side ?? 0);
+        pendingExit = Side(g.side ?? 0);
         out.push({
           at: e.at,
           tx: e.tx,
@@ -142,8 +148,8 @@ export function storyOf(pot: HcPot, name: (a: string | null) => string): { at: n
           at: e.at,
           tx: e.tx,
           text: partial
-            ? `Partial exit at ${pc(g.price ?? 0)}: ${usd(n)} of the pot was divided (YES got ${usd(g.paidYes ?? 0)}, NO ${usd(g.paidNo ?? 0)}, fee ${usd(g.fee ?? 0)}). The pot continues with ${usd(size)}.`
-            : `Divided at ${pc(g.price ?? 0)}: YES got ${usd(g.paidYes ?? 0)}, NO ${usd(g.paidNo ?? 0)} (including the ${usd(g.fee ?? 0)} fee to the side that stayed).`,
+            ? `Partial exit at ${pc(g.price ?? 0)}: ${usd(n)} of the pot was divided (${sideName(0)} got ${usd(g.paidYes ?? 0)}, ${sideName(1)} ${usd(g.paidNo ?? 0)}, fee ${usd(g.fee ?? 0)}). The pot continues with ${usd(size)}.`
+            : `Divided at ${pc(g.price ?? 0)}: ${sideName(0)} got ${usd(g.paidYes ?? 0)}, ${sideName(1)} ${usd(g.paidNo ?? 0)} (including the ${usd(g.fee ?? 0)} fee to the side that stayed).`,
         });
         pendingExit = null;
         break;
@@ -157,18 +163,22 @@ export function storyOf(pot: HcPot, name: (a: string | null) => string): { at: n
         out.push({ at: e.at, tx: e.tx, text: `Both sides shook hands at ${pc(g.price ?? 0)} and divided ${usd(g.notional ?? 0)} with no fee.${size > 0n ? ` The pot continues with ${usd(size)}.` : ""}` });
         break;
       case "LevelsSet":
-        out.push({ at: e.at, tx: e.tx, text: `${sideName(g.side ?? 0)} set ${Number(g.net) ? `a net at ${pc(g.net ?? 0)}` : "no net"} and ${Number(g.bowl) ? `a bowl at ${pc(g.bowl ?? 0)}` : "no bowl"}.` });
+        out.push({ at: e.at, tx: e.tx, text: `${Side(g.side ?? 0)} set ${Number(g.net) ? `a net at ${pc(g.net ?? 0)}` : "no net"} and ${Number(g.bowl) ? `a bowl at ${pc(g.bowl ?? 0)}` : "no bowl"}.` });
         break;
       case "LevelTriggered":
-        out.push({ at: e.at, tx: e.tx, text: `${sideName(g.side ?? 0)}'s ${Number(g.kind) >= 4 ? "bowl" : "net"} held for a full window at ${pc(g.priceYes ?? 0)}, so its exit was filed.` });
+        out.push({ at: e.at, tx: e.tx, text: `${Side(g.side ?? 0)}'s ${Number(g.kind) >= 4 ? "bowl" : "net"} held for a full window at ${pc(g.priceYes ?? 0)}, so its exit was filed.` });
         break;
       case "PotSettled": {
         const o = Number(g.outcome);
-        out.push({ at: e.at, tx: e.tx, text: o === 2 ? "Gemini voided the market: both deposits went back." : `Gemini settled ${o === 1 ? "YES" : "NO"}: YES got ${usd(g.paidYes ?? 0)}, NO ${usd(g.paidNo ?? 0)}.` });
+        out.push({
+          at: e.at,
+          tx: e.tx,
+          text: o === 2 ? "Gemini voided the market: both deposits went back." : `Gemini's result: ${st ? (o === 1 ? st.yes : st.no) : o === 1 ? "YES" : "NO"}. ${Side(0)} got ${usd(g.paidYes ?? 0)}, ${sideName(1)} ${usd(g.paidNo ?? 0)}.`,
+        });
         break;
       }
       case "PotExpired":
-        out.push({ at: e.at, tx: e.tx, text: `Closed without a result: YES got ${usd(g.paidYes ?? 0)} back, NO ${usd(g.paidNo ?? 0)}.` });
+        out.push({ at: e.at, tx: e.tx, text: `Closed without a result: ${sideName(0)} got ${usd(g.paidYes ?? 0)} back, ${sideName(1)} ${usd(g.paidNo ?? 0)}.` });
         break;
     }
   }

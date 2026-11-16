@@ -45,7 +45,14 @@ export async function catalogTick(db: Db) {
 
 export type CatalogItem = CatalogRow & { quality: Quality };
 
-export type CatalogQuery = { category?: string | null; withinH?: number | null; q?: string | null; usable?: boolean; limit?: number; offset?: number };
+export type CatalogQuery = { category?: string | null; withinH?: number | null; q?: string | null; usable?: boolean; even?: boolean; limit?: number; offset?: number };
+
+/** The middle of the best buy and sell price (the order book's when read), 0..1. */
+const midOf = (r: CatalogRow): number | null => {
+  const b = r.book?.bid ?? r.bid;
+  const a = r.book?.ask ?? r.ask;
+  return b !== null && b !== undefined && a !== null && a !== undefined ? (b + a) / 2 : null;
+};
 
 // The whole catalogue is thousands of rows: classify it once per 10 s per instance, not per request.
 let snapshot: { at: number; all: { row: CatalogRow; q: Quality }[] } | null = null;
@@ -65,6 +72,12 @@ export async function catalogList(db: Db, query: CatalogQuery = {}) {
     .filter((x) => !query.category || x.row.category === query.category)
     .filter((x) => !query.withinH || x.row.closeMs - now <= query.withinH * 3600_000)
     .filter((x) => !query.usable || x.q.status === "works" || x.q.status === "borderline")
+    // Even markets: contracts near 50%, where neither side is the favourite.
+    .filter((x) => {
+      if (!query.even) return true;
+      const m = midOf(x.row);
+      return m !== null && m >= 0.4 && m <= 0.6;
+    })
     .filter((x) => words.every((w) => `${x.row.eventTitle} ${x.row.label} ${x.row.category} ${x.row.subcategory ?? ""}`.toLowerCase().includes(w)))
     .sort(catalog.compareRows);
   const offset = query.offset ?? 0;

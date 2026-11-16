@@ -28,6 +28,8 @@ export type RopeProps = {
   big?: boolean;
   /** The pot's size at creation, when it differs (after partial exits). */
   startedAt?: bigint | null;
+  /** The market as a statement and its opposite: what each side stands for (YES, NO only in technical details). */
+  sides?: { yes: string; no: string; yesShort: string; noShort: string };
   /** Each player's cat at its post (null: an open seat), with how it feels about its side. */
   cats?: { yes: PostCat | null; no: PostCat | null };
 };
@@ -82,7 +84,7 @@ function ropePath(from: number, to: number) {
 }
 
 /** The approved mockup's ruler: minor tick every point, medium every 5, labelled major every 10. */
-function Ruler() {
+function Ruler({ question }: { question?: string }) {
   const ticks = [];
   for (let i = 0; i <= 100; i++) {
     const x = X0 + (SPAN * i) / 100;
@@ -101,7 +103,7 @@ function Ruler() {
       <line x1={X0} y1={GROUND} x2={X0 + SPAN} y2={GROUND} stroke={C.ink} strokeWidth="2" />
       {ticks}
       <text x={X0 + SPAN} y={GROUND + 58} textAnchor="end" fontFamily="var(--font-barlow), Arial, sans-serif" fontSize="17" fill={C.muted}>
-        % chance of YES
+        {question ? `% chance that ${question.length > 70 ? `${question.slice(0, 68)}…` : question}` : "% chance"}
       </text>
     </g>
   );
@@ -120,14 +122,14 @@ function PawMark({ x, y, dir, opacity }: { x: number; y: number; dir: 1 | -1; op
 }
 
 /** A side's net (a hammock under the rope) or bowl (on the ground), with the zone where it acts. */
-function Level({ side, kind, own }: { side: 0 | 1; kind: "net" | "bowl"; own: number }) {
+function Level({ side, kind, own, who }: { side: 0 | 1; kind: "net" | "bowl"; own: number; who: string }) {
   // The YES price at which this side's own price reaches the level.
   const p = side === 0 ? own : 1 - own;
   const x = xOf(p);
   const y = yOf(p);
   const zone = kind === "net" ? (side === 0 ? [0, p] : [p, 1]) : side === 0 ? [p, 1] : [0, p];
   const color = side === 0 ? C.ink : C.signal;
-  const label = `${side === 0 ? "YES" : "NO"} ${kind} at ${(own * 100).toFixed(0)}%`;
+  const label = `${who}'s ${kind} at ${(own * 100).toFixed(0)}%`;
   return (
     <g>
       <rect x={xOf(zone[0]!)} y={TOP + 40} width={Math.max(0, xOf(zone[1]!) - xOf(zone[0]!))} height={GROUND - TOP - 40} fill={kind === "bowl" ? C.signal : C.ink} opacity={kind === "bowl" ? 0.12 : 0.06} />
@@ -248,20 +250,22 @@ export function Rope(p: RopeProps) {
   const alt =
     price === null
       ? "Waiting for the price."
-      : `A rope between two posts over a scale from 0 to 100 percent. The cat stands at ${(price * 100).toFixed(1)} percent YES. ${p.names.yes}, YES: $${yes!.toFixed(2)}. ${p.names.no}, NO: $${no!.toFixed(2)}.`;
+      : `A rope between two posts over a scale from 0 to 100 percent chance${p.sides ? ` that ${p.sides.yes}` : ""}. The cat stands at ${(price * 100).toFixed(1)} percent. ${p.names.yes}${p.sides ? ` (${p.sides.yes})` : ""}: $${yes!.toFixed(2)}. ${p.names.no}${p.sides ? ` (${p.sides.no})` : ""}: $${no!.toFixed(2)}.`;
 
   return (
     <figure role="group" aria-label={alt} style={{ margin: 0, display: "flex", flexDirection: "column", gap: p.big ? 20 : 10 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 16 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
           <span style={{ fontSize: nameFs, color: C.muted }}>
-            <strong style={{ color: C.ink, fontWeight: 600 }}>YES</strong> {p.names.yes}
+            <strong style={{ color: C.ink, fontWeight: 600 }}>{p.names.yes}</strong>
+            {p.sides && <span style={{ display: "block", fontSize: Math.round(nameFs * 0.85) }}>{p.sides.yesShort}</span>}
           </span>
           <span style={{ fontFamily: F.cond, fontSize: fs, fontWeight: 600, lineHeight: 0.9 }}>{yes === null ? "–" : <Dollars v={yes} />}</span>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 2, alignItems: "flex-end", textAlign: "right" }}>
           <span style={{ fontSize: nameFs, color: C.muted }}>
-            {p.names.no} <strong style={{ color: C.signalInk, fontWeight: 600 }}>NO</strong>
+            <strong style={{ color: C.signalInk, fontWeight: 600 }}>{p.names.no}</strong>
+            {p.sides && <span style={{ display: "block", fontSize: Math.round(nameFs * 0.85) }}>{p.sides.noShort}</span>}
           </span>
           <span style={{ fontFamily: F.cond, fontSize: fs, fontWeight: 600, lineHeight: 0.9, color: C.signalInk }}>{no === null ? "–" : <Dollars v={no} />}</span>
         </div>
@@ -269,9 +273,9 @@ export function Rope(p: RopeProps) {
 
       <div ref={stage} style={{ position: "relative", width: "100%", aspectRatio: `${VW} / ${VH}` }}>
         <svg viewBox={`0 0 ${VW} ${VH}`} width="100%" height="100%" aria-hidden="true" style={{ position: "absolute", inset: 0, overflow: "visible" }}>
-          <Ruler />
+          <Ruler question={p.sides?.yes} />
           {levels.map((l, i) => (
-            <Level key={i} {...l} />
+            <Level key={i} {...l} who={l.side === 0 ? p.names.yes : p.names.no} />
           ))}
           {/* the posts */}
           <rect x={X0 - 8} y={TOP - 20} width="16" height={GROUND - TOP + 20} fill={C.ink} />
@@ -294,7 +298,7 @@ export function Rope(p: RopeProps) {
               fontWeight="600"
               fill={C.ink}
             >
-              {`the cat: ${(price * 100).toFixed(1)}% YES now`}
+              {`the cat: ${(price * 100).toFixed(1)}% chance now`}
             </text>
           )}
         </svg>
@@ -354,7 +358,7 @@ export function Rope(p: RopeProps) {
         <span>
           Pot ${n.toFixed(2)}
           {p.startedAt && p.startedAt !== p.notional ? ` (started at $${money(p.startedAt).toFixed(2)})` : ""}.{" "}
-          {price === null ? "Reading the price." : `The cat stands at ${(price * 100).toFixed(1)}% YES, averaged over 30 seconds.`}
+          {price === null ? "Reading the price." : `The cat stands at ${(price * 100).toFixed(1)}% chance, averaged over 30 seconds.`}
         </span>
         <span>Data provided by Gemini.</span>
       </figcaption>

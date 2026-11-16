@@ -4,7 +4,8 @@ import { getDb } from "@/server/relay";
 
 /**
  * Every active Gemini contract with its quality under the rule its pot would get, sorted works
- * first. Filters: category, within (hours to close), q (words in title/label), usable=1.
+ * first. Filters: category, within (hours to close), q (words in title/label), usable=1, even=1
+ * (contracts between 40% and 60%).
  * Refreshes itself in the background (also driven by the Streams webhook).
  */
 export async function GET(req: NextRequest) {
@@ -16,6 +17,7 @@ export async function GET(req: NextRequest) {
     withinH: p.get("within") ? Number(p.get("within")) : null,
     q: p.get("q"),
     usable: p.get("usable") === "1",
+    even: p.get("even") === "1",
     limit: p.get("limit") ? Number(p.get("limit")) : undefined,
     offset: p.get("offset") ? Number(p.get("offset")) : undefined,
   });

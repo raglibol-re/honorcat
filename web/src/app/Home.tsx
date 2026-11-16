@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { CatName } from "@/components/cat/PlayerCat";
+import { sidesOf } from "@/lib/statement";
 import { nickname, useNames } from "@/lib/names";
 import { HcFooterLinks, HcHeader } from "@/components/cat/Chrome";
 import { GeminiCredit } from "@/components/cat/Markets";
@@ -82,7 +83,8 @@ function OpenOffers() {
                 {creator && <span style={{ fontSize: 16 }}><CatName account={creator} name={names[creator.toLowerCase()] ?? nickname(creator.toLowerCase())} /> waits</span>}
                 <span style={{ fontSize: 16 }}>${(Number(p.data.notional) / 1e6).toFixed(2)} pot</span>
                 <span style={{ fontSize: 16, color: C.muted }}>
-                  take {creatorYes ? "NO" : "YES"} near {(Number(p.data.bandCenter) / 10_000).toFixed(1)}% YES
+                  {p.market ? `take “${creatorYes ? sidesOf(p.market).no : sidesOf(p.market).yes}”` : "take the other side"} at about{" "}
+                  {((creatorYes ? 1_000_000 - Number(p.data.bandCenter) : Number(p.data.bandCenter)) / 10_000).toFixed(0)}% chance
                 </span>
               </Link>
             </li>
@@ -151,8 +153,8 @@ export function Home({ data }: { data: HomeData }) {
         <ol style={{ flex: "999 1 620px", minWidth: 0, display: "flex", flexDirection: "column", borderBottom: `1px solid ${C.ink}`, margin: 0, padding: 0, listStyle: "none" }}>
           {(
             [
-              ["Pick a side", "Choose a live Gemini question and YES or NO. You put in your side's part of the pot; whoever takes the other side puts in theirs. The starting shares come from the market price measured right after they join."],
-              ["Walk the rope", "The cat stands at the price. Left of it is YES's share, right of it NO's, in dollars. Shares are only shown; nothing moves until someone leaves or the market settles."],
+              ["Pick a side", "Choose a live Gemini question and a side: it happens, or it does not. You put in your side's part of the pot; whoever takes the other side puts in theirs. The starting shares come from the market price measured right after they join."],
+              ["Walk the rope", "The cat stands at the price. Left of it is one side's share, right of it the other's, in dollars. Shares are only shown; nothing moves until someone leaves or the market settles."],
               ["Step off or hold on", "Leave whenever you like: three independent samplers measure the 30 seconds after you ask, and you are paid your share at that price, minus a 1% fee to the other side. Or hold to the end and Gemini's result decides who gets the pot."],
             ] as const
           ).map(([title, body], i) => (

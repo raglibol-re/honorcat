@@ -13,6 +13,7 @@ import { getJson, usePolling } from "@/lib/api";
 import { displayName, useNames } from "@/lib/names";
 import { useTechMode } from "@/components/TechMode";
 import { createPot, joinPot, prepare, worstCase, YES, type HcPot } from "@/lib/hc";
+import { sidesOf } from "@/lib/statement";
 
 const POTS = "0xc890C990048f45cb268d076E4A3dB25270Ea1e59" as const;
 const TOLERANCE = 50_000;
@@ -149,7 +150,11 @@ export function Together({ id }: { id: string }) {
   /* ------------------------------------------------------------ seated */
   const other = isHost ? d.guest : d.host;
   const editable = !d.potId;
-  const sideName = (s: number) => (s === YES ? `YES${d.label ? `: ${d.label.split(": ").pop()}` : ""}` : `NO${d.label ? `: not ${d.label.split(": ").pop()}` : ""}`);
+  // The draft's label is "Event: Result"; each side by the statement it stands for.
+  const lab = d.label ?? "";
+  const cut = lab.lastIndexOf(": ");
+  const st = lab ? sidesOf({ eventTitle: cut > 0 ? lab.slice(0, cut) : lab, label: cut > 0 ? lab.slice(cut + 2) : lab }) : null;
+  const sideName = (s: number) => (st ? `“${s === YES ? st.yes : st.no}”` : s === YES ? "YES" : "NO");
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 36 }}>
@@ -190,7 +195,7 @@ export function Together({ id }: { id: string }) {
         {d.symbol && !picking ? (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "baseline", borderTop: `1.5px solid ${C.ink}`, borderBottom: `1.5px solid ${C.ink}`, padding: "14px 0" }}>
             <span style={{ fontSize: 20, fontWeight: 600 }}>{d.label}</span>
-            <span style={{ color: C.muted }}>{p === null ? "" : `${(p * 100).toFixed(1)}% YES now`}</span>
+            <span style={{ color: C.muted }}>{p === null ? "" : `${(p * 100).toFixed(1)}% chance now`}</span>
             {editable && (
               <button type="button" onClick={() => setPicking(true)} style={{ background: "none", border: 0, textDecoration: "underline", cursor: "pointer", fontSize: 16, padding: 0 }}>
                 Change
@@ -252,7 +257,7 @@ export function Together({ id }: { id: string }) {
             <p style={{ margin: 0, fontSize: 17, lineHeight: 1.55, color: C.body }}>
               You take <strong>{sideName(mySide)}</strong> and put in up to <strong>${(Number(isHost ? hostPays : guestPays) / 1e6).toFixed(2)}</strong>;{" "}
               {other ? nm(other.account) : "your friend"} up to ${(Number(isHost ? guestPays : hostPays) / 1e6).toFixed(2)}. The starting split is the market&apos;s 30-second average
-              when your friend puts in their side (now about {p === null ? "…" : `${(p * 100).toFixed(1)}%`} YES); anything above each share comes straight back. After that, each
+              when your friend puts in their side (now about {p === null ? "…" : `${(p * 100).toFixed(1)}%`} chance); anything above each share comes straight back. After that, each
               side&apos;s share follows the price, either of you can leave at it, and Gemini&apos;s result decides the rest. The leaving side pays a 1% fee to the other.
             </p>
           )}

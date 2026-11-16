@@ -154,3 +154,15 @@ QuickNode
 - [x] Three cats in the pot view: each player's cat on its post, tail high when its side is up 3
       points since the entry price and ears low when it is down, and the market cat on the rope;
       players without a chosen cat get a stable fur that is never HonorCat's black.
+### P3. Plain questions and three numbers
+- [x] Every market reads as a plain statement and its opposite ("Baltimore beats Los Angeles
+      Chargers" / "Baltimore does not beat Los Angeles Chargers"; spreads, draws, crypto and the
+      rest handled), with league, both teams and the local start time with its time zone; YES and
+      NO only in the technical details (web/src/lib/statement.ts, relay/test/statement.test.ts).
+- [x] The pot page shows three large amounts to a player: if I leave now (an estimate after the
+      fee), if I stay and it happens, if I stay and it does not.
+- [x] Creating a pot asks only for your own amount and shows "Your opponent puts in X. The pot is
+      Y." with the line that the favourite costs more so nobody starts ahead (the band, the
+      accepted price and the settlement days are under "More options").
+- [x] An "Even markets (40 to 60%)" filter on the market list (catalog `even=1`).
+- [x] Phone-width solo run still under two minutes after the change (97.7 s, pot 20).

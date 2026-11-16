@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { usePolling } from "@/lib/api";
+import { sidesOf } from "@/lib/statement";
 import { CatHead } from "./shapes";
 import { C, F } from "./tokens";
 
@@ -171,9 +172,12 @@ function Outcome({ m, picked, onPick, detail }: { m: MarketItem; picked: boolean
     >
       <span style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
         <span style={{ fontSize: 16, fontWeight: 600, lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis" }}>{m.label}</span>
-        {m.yesMeans && (
-          <span style={{ fontSize: 12.5, lineHeight: 1.35, color: picked ? C.faint : C.body }} title={m.yesMeans}>
-            YES if {m.yesMeans.length > 90 ? `${m.yesMeans.slice(0, 88)}…` : m.yesMeans}
+        {(m.yesMeans || m.teams) && (
+          <span style={{ fontSize: 12.5, lineHeight: 1.35, color: picked ? C.faint : C.body }} title={m.yesMeans ?? undefined}>
+            {(() => {
+              const s = sidesOf(m).yes;
+              return s.length > 90 ? `${s.slice(0, 88)}…` : s;
+            })()}
           </span>
         )}
         <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 12, color: picked ? C.faint : m.quality.status === "unavailable" ? C.signalInk : C.muted }}>
@@ -243,11 +247,13 @@ const WITHIN: [string, number | null][] = [
 export function MarketList({ picked, onPick }: { picked: string | null; onPick: (m: MarketItem) => void }) {
   const [category, setCategory] = useState("");
   const [within, setWithin] = useState<number | null>(null);
+  const [even, setEven] = useState(false);
   const [q, setQ] = useState("");
   const [limit, setLimit] = useState(25);
   const qs = new URLSearchParams({ limit: String(limit) });
   if (category) qs.set("category", category);
   if (within) qs.set("within", String(within));
+  if (even) qs.set("even", "1");
   if (q.trim()) qs.set("q", q.trim());
   const { data, error } = usePolling<CatalogResponse>(`/api/catalog?${qs}`, 15_000);
   const sel: React.CSSProperties = { minHeight: 44, border: `1.5px solid ${C.ink}`, background: C.panel, color: C.ink, fontFamily: F.sans, fontSize: 16, padding: "0 10px" };
@@ -288,6 +294,10 @@ export function MarketList({ picked, onPick }: { picked: string | null; onPick: 
           aria-label="Search markets"
           style={{ ...sel, flex: "1 1 220px", padding: "0 12px" }}
         />
+        <label style={{ ...sel, display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer", background: even ? C.ink : C.panel, color: even ? C.page : C.ink }}>
+          <input type="checkbox" checked={even} onChange={(e) => setEven(e.target.checked)} style={{ width: 18, height: 18 }} />
+          Even markets (40 to 60%)
+        </label>
         <select value={within ?? ""} onChange={(e) => setWithin(e.target.value ? Number(e.target.value) : null)} aria-label="Time to close" style={sel}>
           {WITHIN.map(([t, v]) => (
             <option key={t} value={v ?? ""}>
