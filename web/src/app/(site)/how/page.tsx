@@ -103,7 +103,7 @@ export default function HowPage() {
 
       <div>
         <Link
-          href="/early/new"
+          href="/pots/new"
           style={{ display: "inline-flex", alignItems: "center", gap: 14, minHeight: 68, padding: "8px 28px 8px 22px", background: C.ink, color: C.page, textDecoration: "none" }}
         >
           <CatHead width={34} height={32} fill={C.page} eyes={C.ink} />

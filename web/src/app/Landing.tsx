@@ -43,7 +43,7 @@ const cond = { fontFamily: F.cond } as const;
 function CatButton({ inverted }: { inverted?: boolean }) {
   return (
     <Link
-      href="/early/new"
+      href="/pots/new"
       style={{
         display: "inline-flex",
         alignItems: "center",

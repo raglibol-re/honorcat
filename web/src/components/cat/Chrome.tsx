@@ -7,10 +7,11 @@ import { CatHead, Ears } from "./shapes";
 import { C, F } from "./tokens";
 
 const primary = [
-  ["/early/new", "Start"],
+  ["/pots/new", "Start"],
+  ["/pots", "Pots"],
   ["/markets", "Markets"],
   ["/how", "How it works"],
-  ["/account", "My money"],
+  ["/account", "Account"],
 ] as const;
 export const technical = [
   ["/ledger", "Ledger"],
@@ -41,7 +42,7 @@ export function HcHeader() {
           </Link>
         ))}
       </nav>
-      <span style={{ fontSize: 15, color: C.muted }}>Test version on Arc testnet. Test money only. Not insurance.</span>
+      <span style={{ fontSize: 15, color: C.muted }}>Test version on Arc testnet. Test money only. Not financial advice.</span>
     </header>
   );
 }

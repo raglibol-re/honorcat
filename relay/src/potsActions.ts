@@ -171,4 +171,43 @@ export async function afterPotTx(db: Db, tx: Hex, potId: string | null) {
   return [...ids];
 }
 
+/**
+ * Handshake: one owner offers (signs) a division at a price; the other accepts by signing the same
+ * terms. With both signatures the relay submits `handshake` (the contract checks both owners).
+ */
+export async function offerHandshake(db: Db, input: { potId: string; side: 0 | 1; priceYes: number; notional: string; deadline: number; signature: Hex }) {
+  const c = publicClient();
+  const pots = potsAddress();
+  const p = (await c.readContract({ address: pots, abi: potsAbi, functionName: "pot", args: [BigInt(input.potId)] })) as unknown as { nonce: bigint; state: number };
+  if (Number(p.state) !== 3) throw new GaslessError("handshakes only while the pot is live", 409);
+  if (input.deadline <= Math.floor(Date.now() / 1000)) throw new GaslessError("offer expired", 400);
+  await db.query(
+    `INSERT INTO pot_handshakes (pot_id, pot_nonce, side, price_yes, notional, deadline, signature) VALUES ($1,$2,$3,$4,$5,$6,$7)
+     ON CONFLICT (pot_id, pot_nonce, side) DO UPDATE SET price_yes = EXCLUDED.price_yes, notional = EXCLUDED.notional,
+       deadline = EXCLUDED.deadline, signature = EXCLUDED.signature, created_at = now()`,
+    [input.potId, p.nonce.toString(), input.side, input.priceYes, input.notional, input.deadline, input.signature],
+  );
+  const rows = await db.query<{ side: number; price_yes: number; notional: string; deadline: string; signature: string }>(
+    "SELECT side, price_yes, notional, deadline::text AS deadline, signature FROM pot_handshakes WHERE pot_id = $1 AND pot_nonce = $2",
+    [input.potId, p.nonce.toString()],
+  );
+  const yes = rows.find((r) => Number(r.side) === 0);
+  const no = rows.find((r) => Number(r.side) === 1);
+  if (!yes || !no || yes.price_yes !== no.price_yes || yes.notional !== no.notional || yes.deadline !== no.deadline) return { submitted: false };
+  const data = encodeFunctionData({
+    abi: potsAbi,
+    functionName: "handshake",
+    args: [BigInt(input.potId), yes.price_yes, BigInt(yes.notional), BigInt(yes.deadline), yes.signature as Hex, no.signature as Hex],
+  });
+  const r = await forwardPotCall(db, data);
+  return { submitted: true, tx: r.tx };
+}
+
+export async function handshakeOffers(db: Db, potId: string) {
+  return db.query<{ pot_nonce: string; side: number; price_yes: number; notional: string; deadline: string; created_at: string }>(
+    "SELECT pot_nonce::text AS pot_nonce, side, price_yes, notional, deadline::text AS deadline, created_at FROM pot_handshakes WHERE pot_id = $1 AND deadline > $2 ORDER BY created_at DESC",
+    [potId, Math.floor(Date.now() / 1000)],
+  );
+}
+
 export { maxUint256 };

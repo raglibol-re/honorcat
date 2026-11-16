@@ -429,6 +429,18 @@ CREATE TABLE IF NOT EXISTS att_averages (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (request_id, signer)
 );
+-- Handshake offers: one owner's signature waiting for the other's (same terms).
+CREATE TABLE IF NOT EXISTS pot_handshakes (
+  pot_id      BIGINT NOT NULL,
+  pot_nonce   BIGINT NOT NULL,
+  side        SMALLINT NOT NULL,
+  price_yes   INTEGER NOT NULL,
+  notional    TEXT NOT NULL,
+  deadline    BIGINT NOT NULL,
+  signature   TEXT NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (pot_id, pot_nonce, side)
+);
 CREATE TABLE IF NOT EXISTS att_sigs (
   request_id  TEXT NOT NULL,
   signer      TEXT NOT NULL,

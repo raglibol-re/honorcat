@@ -100,5 +100,5 @@ export { readBook, depthSnapshot, DepthStream, GEMINI_REST, type RawBook, type M
 
 export * as pots from "./pots";
 export { PotSampler, potsHttpIo, type PotsIo, type PotsWork } from "./potsSampler";
-export { preparePasskeyPotCall, submitPasskeyPotCall, forwardPotCall, afterPotTx } from "./potsActions";
+export { preparePasskeyPotCall, submitPasskeyPotCall, forwardPotCall, afterPotTx, offerHandshake, handshakeOffers } from "./potsActions";
 export { potsAbi } from "./potsAbi";

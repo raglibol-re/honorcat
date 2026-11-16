@@ -111,7 +111,7 @@ export function MarketsView() {
       ))}
 
       <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
-        <Link href="/early/new" style={{ fontSize: 17, fontWeight: 600 }}>
+        <Link href="/pots/new" style={{ fontSize: 17, fontWeight: 600 }}>
           Start a pot on one of these
         </Link>
         <GeminiCredit />
