@@ -137,9 +137,10 @@
 - (none) D2 to D5 done; see the rubric for what is still open.
 
 ## Later
-- Circle developer account and API key (console.circle.com) as CIRCLE_API_KEY in Vercel, so the
-  test-money pool refills itself; Circle's reference says the faucet API may need the account
-  upgraded to mainnet; to be tested with relay/scripts/refill-pool.ts.
+- CIRCLE_API_KEY is set (Vercel and .env) and valid (Circle's wallet endpoints answer 200), but
+  `POST /v1/faucet/drips` answers 403 Forbidden: Circle requires the developer account to be
+  upgraded to mainnet for the faucet API. Once upgraded, the 3-hourly refill works with no change.
+  Until then, top up the relay wallet by hand from faucet.circle.com (Arc Testnet).
 - Delete the Render service `honorcat-sampler` (created, then dropped by your decision; it has no key
   and cannot sign). Render dashboard: honorcat-sampler, Settings, Delete Web Service.
 - Optional: repository secret `E2E_FUNDER_KEY` (a testnet key with a few test USDC) switches on the
