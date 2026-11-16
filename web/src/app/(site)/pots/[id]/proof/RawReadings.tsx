@@ -5,7 +5,24 @@ import { WalletChoice } from "@/components/cat/WalletChoice";
 import { C, F } from "@/components/cat/tokens";
 import { btnQuiet } from "@/components/pot/Who";
 import { getJson } from "@/lib/api";
-import { potEvidenceMessage } from "@/lib/evidence";
+import { createSiweMessage, generateSiweNonce } from "viem/siwe";
+import type { Address } from "viem";
+import { potEvidenceStatement } from "@/lib/evidence";
+
+/** A standard Sign-In with Ethereum message for this site; wallets check its domain against the page. */
+function siwe(potId: string, address: Address) {
+  return createSiweMessage({
+    domain: location.host,
+    address,
+    statement: potEvidenceStatement(potId),
+    uri: location.origin,
+    version: "1",
+    chainId: 5042002,
+    nonce: generateSiweNonce(),
+    issuedAt: new Date(),
+    expirationTime: new Date(Date.now() + 10 * 60_000),
+  });
+}
 import { short } from "@/lib/format";
 import { joinChallenge, savedPasskey, signChallenge } from "@/lib/passkey";
 import { useWallet } from "@/lib/wallet/context";
@@ -100,9 +117,9 @@ export function RawReadings({ potId }: { potId: string }) {
             run(async () => {
               const s = savedPasskey();
               if (!s) throw new Error("No passkey on this device. Use the wallet you played with.");
-              const issuedAt = new Date().toISOString();
-              const passkey = await signChallenge(s, await joinChallenge(potEvidenceMessage(potId, s.account, issuedAt)));
-              await open({ account: s.account, issuedAt, passkey });
+              const message = siwe(potId, s.account);
+              const passkey = await signChallenge(s, await joinChallenge(message));
+              await open({ account: s.account, message, passkey });
             })
           }
         >
@@ -117,8 +134,8 @@ export function RawReadings({ potId }: { potId: string }) {
               wallet.setKind(k);
               const account = await ad.connect();
               if (!ad.signMessage) throw new Error("This wallet cannot sign messages.");
-              const issuedAt = new Date().toISOString();
-              await open({ account, issuedAt, signature: await ad.signMessage(potEvidenceMessage(potId, account, issuedAt)) });
+              const message = siwe(potId, account);
+              await open({ account, message, signature: await ad.signMessage(message) });
             })
           }
         />

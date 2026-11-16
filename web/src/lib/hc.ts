@@ -1,6 +1,6 @@
 "use client";
 
-import { encodeAbiParameters, encodeFunctionData, keccak256, parseSignature, stringToBytes, type Address, type Hex } from "viem";
+import { encodeAbiParameters, encodeFunctionData, parseEventLogs, type Address, type Hex } from "viem";
 import { potsAbi } from "@honorcat/relay/potsAbi";
 import { getJson } from "./api";
 import { publicClient, USDC_ADDRESS } from "./chain";
@@ -11,7 +11,10 @@ import type { WalletAdapter } from "./wallet/types";
  * Two-sided pots in the browser: types mirroring /api/hc, the share arithmetic of the contract,
  * and every user action for both kinds of account:
  * - passkey accounts sign `execute` challenges; HonorCat pays the fee;
- * - wallets sign EIP-3009 deposits and EIP-712 exit requests (forwarded, no gas), or send directly.
+ * - browser wallets send ordinary transactions, like any serious web3 app: an exact-amount USDC
+ *   approval for HonorCatPots when the allowance is short, then the deposit or action itself. The
+ *   wallet shows exactly what moves; nothing is pulled by an off-chain signature. Arc's fee is a
+ *   fraction of a cent, paid in USDC.
  */
 export const P = 1_000_000;
 export const STATES = ["None", "Open", "Joining", "Live", "ExitRequested", "Divided", "Settled", "Expired"] as const;
@@ -122,51 +125,8 @@ export function sideOf(p: Pick<HcPot, "owners" | "data">, a: string | null | und
 export type Actor = { kind: "passkey"; session: PasskeySession; account: Address } | { kind: "wallet"; adapter: WalletAdapter; account: Address };
 
 const potsDomain = (pots: Address) => ({ name: "HonorCatPots", version: "1", chainId: 5042002, verifyingContract: pots }) as const;
-const DEPOSIT_TAG = keccak256(stringToBytes("HonorCatPots.deposit"));
 const ZERO32 = `0x${"0".repeat(64)}` as Hex;
 const noAuth = (from: Address) => ({ from, validAfter: 0n, validBefore: 0n, salt: ZERO32, v: 0, r: ZERO32, s: ZERO32 });
-
-let usdcDomainCache: Promise<{ name: string; version: string; chainId: number; verifyingContract: Address }> | null = null;
-function usdcDomain() {
-  usdcDomainCache ??= (async () => {
-    const abi = [
-      { type: "function", name: "name", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
-      { type: "function", name: "version", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
-    ] as const;
-    const [name, version] = await Promise.all([
-      publicClient.readContract({ address: USDC_ADDRESS, abi, functionName: "name" }),
-      publicClient.readContract({ address: USDC_ADDRESS, abi, functionName: "version" }),
-    ]);
-    return { name, version, chainId: 5042002, verifyingContract: USDC_ADDRESS as Address };
-  })();
-  return usdcDomainCache;
-}
-
-const receiveTypes = {
-  ReceiveWithAuthorization: [
-    { name: "from", type: "address" },
-    { name: "to", type: "address" },
-    { name: "value", type: "uint256" },
-    { name: "validAfter", type: "uint256" },
-    { name: "validBefore", type: "uint256" },
-    { name: "nonce", type: "bytes32" },
-  ],
-} as const;
-
-/** EIP-3009 deposit authorization bound to one action (the contract recomputes the nonce). */
-async function walletAuth(adapter: WalletAdapter, from: Address, pots: Address, value: bigint, action: Hex) {
-  const salt = keccak256(crypto.getRandomValues(new Uint8Array(32)));
-  const nonce = keccak256(encodeAbiParameters([{ type: "bytes32" }, { type: "uint256" }, { type: "address" }, { type: "bytes32" }, { type: "bytes32" }], [DEPOSIT_TAG, 5042002n, pots, action, salt]));
-  const validBefore = BigInt(Math.floor(Date.now() / 1000) + 3600);
-  const sig = await adapter.signTypedData({
-    domain: await usdcDomain(),
-    types: receiveTypes,
-    primaryType: "ReceiveWithAuthorization",
-    message: { from, to: pots, value, validAfter: 0n, validBefore, nonce },
-  });
-  const { r, s, v } = parseSignature(sig);
-  return { from, validAfter: 0n, validBefore, salt, v: Number(v ?? 27n), r, s };
-}
 
 /** Runs a pot call from a passkey account: one passkey prompt per step (an approval may come first). */
 async function passkeyCall(session: PasskeySession, account: Address, data: Hex, spend: bigint, onStep?: (s: string) => void) {
@@ -184,14 +144,38 @@ async function passkeyCall(session: PasskeySession, account: Address, data: Hex,
   return getJson<{ tx: Hex; potId: string | null }>("/api/hc/passkey/submit", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ account, steps: signed }) });
 }
 
-const forward = (data: Hex) => getJson<{ tx: Hex; potId: string | null }>("/api/hc/forward", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ data }) });
 
-/** A direct transaction from a wallet (it pays the fee in USDC), then a re-read of the pot. */
-async function walletSend(adapter: WalletAdapter, pots: Address, data: Hex, potId: string | null) {
+const approveAbi = [
+  { type: "function", name: "allowance", stateMutability: "view", inputs: [{ type: "address" }, { type: "address" }], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "approve", stateMutability: "nonpayable", inputs: [{ type: "address" }, { type: "uint256" }], outputs: [{ type: "bool" }] },
+] as const;
+
+/**
+ * A wallet transaction to the pot contract, preceded (only when the allowance is short) by an
+ * approval of exactly `spend` USDC for it. Waits for the receipt, re-reads the pot so the samplers
+ * start measuring at once, and returns the pot id from the contract's own event.
+ */
+async function walletSend(adapter: WalletAdapter, account: Address, pots: Address, data: Hex, potId: string | null, spend = 0n, onStep?: Step) {
+  if (spend > 0n) {
+    const allowance = (await publicClient.readContract({ address: USDC_ADDRESS, abi: approveAbi, functionName: "allowance", args: [account, pots] })) as bigint;
+    if (allowance < spend) {
+      onStep?.(`Approve ${(Number(spend) / 1e6).toFixed(2)} USDC for the HonorCat pot contract in your wallet`);
+      const ap = await adapter.send({ to: USDC_ADDRESS, data: encodeFunctionData({ abi: approveAbi, functionName: "approve", args: [pots, spend] }) });
+      await publicClient.waitForTransactionReceipt({ hash: ap, timeout: 60_000 });
+    }
+  }
+  onStep?.("Confirm the transaction in your wallet (a network fee of a fraction of a cent, in USDC)");
   const tx = await adapter.send({ to: pots, data });
-  await publicClient.waitForTransactionReceipt({ hash: tx, timeout: 60_000 }).catch(() => null);
-  if (potId) await getJson(`/api/hc/pots/${potId}`, { method: "POST" }).catch(() => null);
-  return { tx, potId };
+  onStep?.("Waiting for Arc to confirm");
+  const receipt = await publicClient.waitForTransactionReceipt({ hash: tx, timeout: 60_000 }).catch(() => null);
+  if (receipt && receipt.status !== "success") throw new Error("The transaction failed on Arc. Nothing was taken except the network fee.");
+  let id = potId;
+  if (!id && receipt) {
+    const created = parseEventLogs({ abi: potsAbi, logs: receipt.logs, eventName: "PotCreated" })[0];
+    if (created) id = (created.args as { potId: bigint }).potId.toString();
+  }
+  if (id) await getJson(`/api/hc/pots/${id}`, { method: "POST" }).catch(() => null);
+  return { tx, potId: id };
 }
 
 export type Step = (s: string) => void;
@@ -233,26 +217,7 @@ export async function createPot(actor: Actor, prep: Prepared, o: { side: number;
     const data = encodeFunctionData({ abi: potsAbi, functionName: "create", args: [c, depth, sigs, noAuth(actor.account)] });
     return passkeyCall(actor.session, actor.account, data, escrow, onStep);
   }
-  const tuple = {
-    type: "tuple",
-    components: [
-      { name: "conditionId", type: "bytes32" },
-      { name: "resolver", type: "address" },
-      { name: "side", type: "uint8" },
-      { name: "notional", type: "uint256" },
-      { name: "bandCenter", type: "uint32" },
-      { name: "tolerance", type: "uint32" },
-      { name: "closeTime", type: "uint64" },
-      { name: "grace", type: "uint64" },
-      { name: "window", type: "uint32" },
-      { name: "minSamples", type: "uint32" },
-    ],
-  } as const;
-  const action = keccak256(encodeAbiParameters([{ type: "string" }, { type: "address" }, tuple], ["create", actor.account, c]));
-  onStep?.("Sign the deposit in your wallet (no fee)");
-  const auth = await walletAuth(actor.adapter, actor.account, prep.pots, escrow, action);
-  onStep?.("Sending");
-  return forward(encodeFunctionData({ abi: potsAbi, functionName: "create", args: [c, depth, sigs, auth] }));
+  return walletSend(actor.adapter, actor.account, prep.pots, encodeFunctionData({ abi: potsAbi, functionName: "create", args: [c, depth, sigs, noAuth(actor.account)] }), null, escrow, onStep);
 }
 
 export async function joinPot(actor: Actor, pots: Address, p: HcPot, onStep?: Step) {
@@ -263,12 +228,7 @@ export async function joinPot(actor: Actor, pots: Address, p: HcPot, onStep?: St
     const data = encodeFunctionData({ abi: potsAbi, functionName: "requestJoin", args: [potId, noAuth(actor.account)] });
     return passkeyCall(actor.session, actor.account, data, escrow, onStep);
   }
-  const nonce = BigInt(p.data.nonce) + 1n;
-  const action = keccak256(encodeAbiParameters([{ type: "string" }, { type: "uint256" }, { type: "address" }, { type: "uint64" }], ["join", potId, actor.account, nonce]));
-  onStep?.("Sign the deposit in your wallet (no fee)");
-  const auth = await walletAuth(actor.adapter, actor.account, pots, escrow, action);
-  onStep?.("Sending");
-  return forward(encodeFunctionData({ abi: potsAbi, functionName: "requestJoin", args: [potId, auth] }));
+  return walletSend(actor.adapter, actor.account, pots, encodeFunctionData({ abi: potsAbi, functionName: "requestJoin", args: [potId, noAuth(actor.account)] }), p.potId, escrow, onStep);
 }
 
 export async function requestExit(actor: Actor, pots: Address, p: HcPot, side: number, notional: bigint, onStep?: Step) {
@@ -276,33 +236,13 @@ export async function requestExit(actor: Actor, pots: Address, p: HcPot, side: n
   if (actor.kind === "passkey") {
     return passkeyCall(actor.session, actor.account, encodeFunctionData({ abi: potsAbi, functionName: "requestExit", args: [potId, side, notional] }), 0n, onStep);
   }
-  const tokenId = potId * 2n + BigInt(side);
-  const sigNonce = (await publicClient.readContract({ address: pots, abi: potsAbi, functionName: "sigNonce", args: [tokenId] })) as bigint;
-  const deadline = BigInt(Math.floor(Date.now() / 1000) + 600);
-  onStep?.("Sign the exit request in your wallet (no fee)");
-  const sig = await actor.adapter.signTypedData({
-    domain: potsDomain(pots),
-    types: {
-      ExitRequest: [
-        { name: "potId", type: "uint256" },
-        { name: "side", type: "uint8" },
-        { name: "notional", type: "uint256" },
-        { name: "sigNonce", type: "uint256" },
-        { name: "deadline", type: "uint256" },
-      ],
-    },
-    primaryType: "ExitRequest",
-    message: { potId, side, notional, sigNonce, deadline },
-  });
-  onStep?.("Sending");
-  return forward(encodeFunctionData({ abi: potsAbi, functionName: "requestExitFor", args: [potId, side, notional, deadline, sig] }));
+  return walletSend(actor.adapter, actor.account, pots, encodeFunctionData({ abi: potsAbi, functionName: "requestExit", args: [potId, side, notional] }), p.potId, 0n, onStep);
 }
 
 export async function setLevels(actor: Actor, pots: Address, p: HcPot, side: number, net: number, bowl: number, onStep?: Step) {
   const data = encodeFunctionData({ abi: potsAbi, functionName: "setLevels", args: [BigInt(p.potId), side, net, bowl] });
   if (actor.kind === "passkey") return passkeyCall(actor.session, actor.account, data, 0n, onStep);
-  onStep?.("Confirm in your wallet (a small fee in USDC)");
-  return walletSend(actor.adapter, pots, data, p.potId);
+  return walletSend(actor.adapter, actor.account, pots, data, p.potId, 0n, onStep);
 }
 
 export async function takeover(actor: Actor, pots: Address, p: HcPot, onStep?: Step) {
@@ -311,18 +251,13 @@ export async function takeover(actor: Actor, pots: Address, p: HcPot, onStep?: S
   if (actor.kind === "passkey") {
     return passkeyCall(actor.session, actor.account, encodeFunctionData({ abi: potsAbi, functionName: "takeover", args: [potId, noAuth(actor.account)] }), n, onStep);
   }
-  const action = keccak256(encodeAbiParameters([{ type: "string" }, { type: "uint256" }, { type: "address" }, { type: "uint64" }], ["takeover", potId, actor.account, BigInt(p.data.nonce)]));
-  onStep?.("Sign the deposit in your wallet (no fee)");
-  const auth = await walletAuth(actor.adapter, actor.account, pots, n, action);
-  onStep?.("Sending");
-  return forward(encodeFunctionData({ abi: potsAbi, functionName: "takeover", args: [potId, auth] }));
+  return walletSend(actor.adapter, actor.account, pots, encodeFunctionData({ abi: potsAbi, functionName: "takeover", args: [potId, noAuth(actor.account)] }), p.potId, n, onStep);
 }
 
 export async function cancelPot(actor: Actor, pots: Address, p: HcPot, onStep?: Step) {
   const data = encodeFunctionData({ abi: potsAbi, functionName: "cancel", args: [BigInt(p.potId)] });
   if (actor.kind === "passkey") return passkeyCall(actor.session, actor.account, data, 0n, onStep);
-  onStep?.("Confirm in your wallet (a small fee in USDC)");
-  return walletSend(actor.adapter, pots, data, p.potId);
+  return walletSend(actor.adapter, actor.account, pots, data, p.potId, 0n, onStep);
 }
 
 /* ------------------------------------------------------------------ handshake signatures */

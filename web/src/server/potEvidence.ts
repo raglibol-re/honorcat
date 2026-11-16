@@ -1,8 +1,9 @@
 import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { getAddress, verifyMessage, type Address, type Hex } from "viem";
-import { getConfig, verifyPasskeyJoin, type Db } from "@honorcat/relay";
-import { potEvidenceMessage } from "@/lib/evidence";
+import { getAddress, type Address, type Hex } from "viem";
+import { parseSiweMessage, validateSiweMessage } from "viem/siwe";
+import { getConfig, publicClient, verifyPasskeyJoin, type Db } from "@honorcat/relay";
+import { potEvidenceStatement } from "@/lib/evidence";
 
 /**
  * Raw readings (each sampler's bid, ask and sizes) are Gemini market data, which its Market Data
@@ -31,15 +32,31 @@ async function sides(db: Db, potId: string): Promise<Set<string>> {
   return s;
 }
 
-export type PotSessionProof = { account: Address; issuedAt: string } & ({ signature: Hex } | { passkey: Parameters<typeof verifyPasskeyJoin>[3] });
+export type PotSessionProof = { account: Address; message: string } & ({ signature: Hex } | { passkey: Parameters<typeof verifyPasskeyJoin>[3] });
 
-export async function issuePotSession(db: Db, potId: string, proof: PotSessionProof) {
-  const issued = Date.parse(proof.issuedAt);
-  if (!Number.isFinite(issued) || Math.abs(Date.now() - issued) > 10 * 60_000) throw Object.assign(new Error("the signed request is too old; sign again"), { status: 401 });
+/**
+ * Checks a Sign-In with Ethereum (EIP-4361) message: for this site (the host the request came to),
+ * this account, chain and pot, issued in the last 10 minutes and not expired.
+ */
+function checkSiwe(message: string, account: Address, potId: string, host: string) {
+  const m = parseSiweMessage(message);
+  const issued = m.issuedAt ? m.issuedAt.getTime() : NaN;
+  const ok =
+    validateSiweMessage({ message: m, address: account, domain: host, time: new Date() }) &&
+    m.chainId === 5042002 &&
+    m.statement === potEvidenceStatement(potId) &&
+    Number.isFinite(issued) &&
+    Math.abs(Date.now() - issued) <= 10 * 60_000;
+  if (!ok) throw Object.assign(new Error("the sign-in request is not for this site, account or pot, or is too old; sign again"), { status: 401 });
+}
+
+export async function issuePotSession(db: Db, potId: string, proof: PotSessionProof, host: string) {
   const account = getAddress(proof.account);
-  const message = potEvidenceMessage(potId, account, proof.issuedAt);
+  const message = proof.message;
+  checkSiwe(message, account, potId, host);
   if ("signature" in proof) {
-    if (!(await verifyMessage({ address: account, message, signature: proof.signature }))) throw Object.assign(new Error("signature does not match the account"), { status: 401 });
+    // EOAs and smart-contract wallets (ERC-1271, ERC-6492) alike.
+    if (!(await publicClient().verifyMessage({ address: account, message, signature: proof.signature }))) throw Object.assign(new Error("signature does not match the account"), { status: 401 });
   } else {
     await verifyPasskeyJoin(db, account, message, proof.passkey);
   }

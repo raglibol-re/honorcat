@@ -1,31 +1,57 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { chooseWallet, useAnnouncedWallets } from "@/lib/wallet/eip6963";
 import type { WalletKind } from "@/lib/wallet/context";
 import { CatHead } from "./shapes";
 import { C, F } from "./tokens";
 
-const OPTIONS: { kind: WalletKind; mark: string; name: string; sub: string }[] = [
-  { kind: "evm", mark: "EV", name: "Browser wallet", sub: "MetaMask, Rabby, Coinbase Wallet. Works on any EVM chain, no network switch." },
-  { kind: "solana", mark: "SO", name: "Solana wallet", sub: "Phantom or Solflare. Signs once to open your HonorCat account on Arc." },
-];
-
-function detect(kind: WalletKind) {
+function solanaFound() {
   if (typeof window === "undefined") return false;
-  const w = window as unknown as { ethereum?: unknown; phantom?: { solana?: unknown }; solflare?: unknown; solana?: unknown };
-  return kind === "evm" ? !!w.ethereum : !!(w.phantom?.solana ?? w.solflare ?? w.solana);
+  const w = window as unknown as { phantom?: { solana?: unknown }; solflare?: unknown; solana?: unknown };
+  return !!(w.phantom?.solana ?? w.solflare ?? w.solana);
+}
+
+const row: React.CSSProperties = {
+  width: "100%",
+  display: "flex",
+  alignItems: "center",
+  gap: 14,
+  padding: "12px 10px",
+  background: "transparent",
+  border: 0,
+  textAlign: "left",
+  fontFamily: F.sans,
+  color: C.ink,
+};
+
+function Mark({ icon, text }: { icon?: string; text: string }) {
+  return icon ? (
+    // eslint-disable-next-line @next/next/no-img-element -- a data URI the wallet itself announced (EIP-6963)
+    <img src={icon} alt="" width={40} height={40} style={{ flex: "none", width: 40, height: 40, objectFit: "contain" }} />
+  ) : (
+    <span
+      aria-hidden="true"
+      style={{ flex: "none", width: 40, height: 40, display: "inline-flex", alignItems: "center", justifyContent: "center", boxSizing: "border-box", border: `1.5px solid ${C.ink}`, fontFamily: F.cond, fontSize: 18, fontWeight: 700 }}
+    >
+      {text}
+    </span>
+  );
 }
 
 /**
  * The wallet menu for people who skip the passkey: a quiet text button that opens a ruled list of
- * the two wallet families, each marked found or not installed. Picking one runs `onPick`.
+ * the wallets this browser has, each by its own name and icon (EIP-6963), plus Solana wallets.
+ * Picking one runs `onPick` with that wallet selected for every later request.
  */
 export function WalletChoice({ label, onPick, busy }: { label: string; onPick: (k: WalletKind) => void; busy?: boolean }) {
   const [open, setOpen] = useState(false);
-  const [found, setFound] = useState<Record<WalletKind, boolean>>({ evm: false, solana: false });
+  const [sol, setSol] = useState(false);
+  const evm = useAnnouncedWallets();
   useEffect(() => {
-    if (open) void Promise.resolve().then(() => setFound({ evm: detect("evm"), solana: detect("solana") }));
+    if (open) void Promise.resolve().then(() => setSol(solanaFound()));
   }, [open]);
+  const legacy = typeof window !== "undefined" && !!(window as unknown as { ethereum?: unknown }).ethereum && evm.length === 0;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -42,34 +68,55 @@ export function WalletChoice({ label, onPick, busy }: { label: string; onPick: (
         </svg>
       </button>
       {open && (
-        <ul style={{ margin: 0, padding: 0, listStyle: "none", borderTop: `1.5px solid ${C.ink}`, borderBottom: `1.5px solid ${C.ink}` }}>
-          {OPTIONS.map((o, i) => (
-            <li key={o.kind} style={{ borderTop: i ? `1px solid ${C.faint}` : "none" }}>
-              <button
-                type="button"
-                onClick={() => onPick(o.kind)}
-                disabled={busy}
-                className="hc-row"
-                style={{ width: "100%", display: "flex", alignItems: "center", gap: 14, padding: "12px 10px", background: "transparent", border: 0, textAlign: "left", fontFamily: F.sans, color: C.ink, cursor: busy ? "default" : "pointer" }}
-              >
-                <span
-                  aria-hidden="true"
-                  style={{ flex: "none", width: 40, height: 40, display: "inline-flex", alignItems: "center", justifyContent: "center", boxSizing: "border-box", border: `1.5px solid ${C.ink}`, fontFamily: F.cond, fontSize: 18, fontWeight: 700 }}
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <ul style={{ margin: 0, padding: 0, listStyle: "none", borderTop: `1.5px solid ${C.ink}`, borderBottom: `1.5px solid ${C.ink}` }}>
+            {evm.map((w, i) => (
+              <li key={w.info.rdns || w.info.uuid} style={{ borderTop: i ? `1px solid ${C.faint}` : "none" }}>
+                <button
+                  type="button"
+                  className="hc-row"
+                  disabled={busy}
+                  style={{ ...row, cursor: busy ? "default" : "pointer" }}
+                  onClick={() => {
+                    chooseWallet(w.info.rdns || w.info.uuid);
+                    onPick("evm");
+                  }}
                 >
-                  {o.mark}
-                </span>
+                  <Mark icon={w.info.icon} text={w.info.name.slice(0, 2).toUpperCase()} />
+                  <span style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 0 }}>
+                    <span style={{ fontSize: 17, fontWeight: 600 }}>{w.info.name}</span>
+                    <span style={{ fontSize: 14, lineHeight: 1.35, color: C.muted }}>Connects to Arc testnet; you confirm each transaction in {w.info.name}.</span>
+                  </span>
+                  <CatHead width={18} height={17} />
+                </button>
+              </li>
+            ))}
+            {legacy && (
+              <li>
+                <button type="button" className="hc-row" disabled={busy} style={{ ...row, cursor: busy ? "default" : "pointer" }} onClick={() => onPick("evm")}>
+                  <Mark text="EV" />
+                  <span style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1 }}>
+                    <span style={{ fontSize: 17, fontWeight: 600 }}>Browser wallet</span>
+                    <span style={{ fontSize: 14, color: C.muted }}>The wallet extension in this browser.</span>
+                  </span>
+                </button>
+              </li>
+            )}
+            <li style={{ borderTop: evm.length || legacy ? `1px solid ${C.faint}` : "none" }}>
+              <button type="button" className="hc-row" disabled={busy} style={{ ...row, cursor: busy ? "default" : "pointer" }} onClick={() => onPick("solana")}>
+                <Mark text="SO" />
                 <span style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 0 }}>
-                  <span style={{ fontSize: 17, fontWeight: 600 }}>{o.name}</span>
-                  <span style={{ fontSize: 14, lineHeight: 1.35, color: C.muted }}>{o.sub}</span>
+                  <span style={{ fontSize: 17, fontWeight: 600 }}>Solana wallet</span>
+                  <span style={{ fontSize: 14, lineHeight: 1.35, color: C.muted }}>Phantom or Solflare. Signs once to open your HonorCat account on Arc.</span>
                 </span>
-                <span style={{ flex: "none", display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: found[o.kind] ? C.ink : C.muted }}>
-                  {found[o.kind] ? "found" : "not installed"}
-                  {found[o.kind] ? <CatHead width={18} height={17} /> : <CatHead width={18} height={17} outline />}
-                </span>
+                <span style={{ fontSize: 13, color: sol ? C.ink : C.muted }}>{sol ? "found" : "not installed"}</span>
               </button>
             </li>
-          ))}
-        </ul>
+          </ul>
+          {evm.length === 0 && !legacy && (
+            <p style={{ margin: 0, fontSize: 14, color: C.muted }}>No EVM wallet found in this browser. Install one such as MetaMask or Rabby, or use a passkey: it needs no app.</p>
+          )}
+        </div>
       )}
     </div>
   );

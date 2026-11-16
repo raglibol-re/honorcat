@@ -1,6 +1,7 @@
 import { createPublicClient, createWalletClient, custom, http, numberToHex, type Address, type Chain, type EIP1193Provider, type Hex, type TypedDataDefinition } from "viem";
 import { arcTestnet } from "viem/chains";
 import { RPC_URL } from "../chain";
+import { chosenProvider } from "./eip6963";
 import type { ContractCall, WalletAdapter } from "./types";
 
 declare global {
@@ -9,18 +10,25 @@ declare global {
   }
 }
 
-/** Browser-extension wallet via EIP-1193 (window.ethereum). */
+/**
+ * Browser-extension wallet via EIP-1193. Which wallet: the one the user picked among those that
+ * announced themselves (EIP-6963), else the only one, else the legacy window.ethereum.
+ */
 export class InjectedWallet implements WalletAdapter {
   readonly id = "injected";
-  readonly label = "Browser wallet";
+
+  get label() {
+    return chosenProvider()?.name ?? "Browser wallet";
+  }
 
   private get provider(): EIP1193Provider {
-    if (typeof window === "undefined" || !window.ethereum) throw new Error("No browser wallet found");
-    return window.ethereum;
+    const p = chosenProvider();
+    if (!p) throw new Error("No browser wallet found");
+    return p.provider;
   }
 
   isAvailable() {
-    return typeof window !== "undefined" && Boolean(window.ethereum);
+    return chosenProvider() !== null;
   }
 
   async getAccount(): Promise<Address | null> {
