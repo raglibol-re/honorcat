@@ -61,14 +61,14 @@ output). Order follows the spec's sections. Milestones: C0, C1, D0 to D5.
 - [x] p = midpoint within the spread and depth rules, smoothed, sampled independently by each signer.
 - [x] Exit windows use only samples after the request time (window starts at request + 1 s; contract-checked).
 - [x] Every division stores an evidence record; public pages show hash and computed values (proof page).
-      [ ] The two sides see the raw samples: records are stored, a side-only view is not built yet.
+      [x] The two sides see the raw samples (proof page, after one passkey or wallet signature; Gemini's data terms).
 
 ## 6. Sponsors, each with a real job (acceptance check in brackets)
 Arc
 - [x] USDC is the only asset including gas; both decimal views handled [relay balance check on both views, /status].
 - [x] Join and exit by EIP-3009 signature, users pay no gas [e2e pots 3-7: sides sign, the relay submits].
 - [x] Create-and-fund and divide-and-pay are single transactions via Multicall3From [tx hashes in the e2e log].
-- [ ] Reason for every payout attached via Memo and shown in the UI [memo decoded on the pot page].
+- [x] Reason for every payout attached via Memo and shown in the UI [memo read back from the payout transaction on Arc, shown per window on the pot page].
 - [x] Time from attestation to final payout measured and shown [median on /how-it-is-built; not yet per pot].
 - [ ] Funding from other chains through Circle CCTP [one real transfer landing on Arc].
 Gemini

@@ -7,6 +7,7 @@ import { usePolling } from "@/lib/api";
 import { addressUrl, txUrl } from "@/lib/chain";
 import { formatDate } from "@/lib/format";
 import type { HcPot } from "@/lib/hc";
+import { RawReadings } from "./RawReadings";
 
 const POTS = "0xc890C990048f45cb268d076E4A3dB25270Ea1e59";
 const mono: React.CSSProperties = { fontFamily: F.mono, fontSize: 13, wordBreak: "break-all" };
@@ -96,6 +97,7 @@ export function Proof({ id }: { id: string }) {
         })}
         {!windows.length && <p style={{ color: C.muted }}>No measured windows yet.</p>}
       </section>
+      <RawReadings potId={id} />
       <p style={{ margin: 0, fontSize: 14, color: C.muted }}>Data provided by Gemini.</p>
     </div>
   );
