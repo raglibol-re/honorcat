@@ -1,7 +1,7 @@
-# HonorCat pots: design (D0, 2026-11-16)
+# HonorCat pots: design (D0, 2026-11-16; decisions applied)
 
-Design for the two-sided pot (spec sections 2 to 5). No code yet. Open decisions are collected at
-the end; everything marked **(proposal)** is my choice until you decide otherwise.
+Design for the two-sided pot (spec sections 2 to 5). The user's decisions of 2026-11-16 are applied
+throughout and listed in section 11.
 
 ## 0. Shape of the system
 
@@ -43,12 +43,15 @@ Pot {
   resolver        // ERC-1271 signer set, fixed for life
   notional N      // current pot size (USDC units); shrinks on partial exits
   depYes, depNo   // current deposits backing each side; depYes + depNo = N always
-  entryPrice q    // ppm, at creation (refreshable while Open)
-  tolerance       // ppm, join allowed while |p_now − q| ≤ tolerance
+  bandCenter q    // ppm, the creator's price; the entry price must land in [q − tolerance, q + tolerance]
+  tolerance       // ppm, at most 5 points
+  escrow[2]       // what each side paid in while Open/Joining (worst case of the band)
   closeTime       // Gemini trading close (from the market), seconds
-  deadline        // closeTime + settlement grace
+  grace           // settlement grace, chosen at creation, at least 1 day (default 3 days)
+  deadline        // closeTime + grace
   feeBps, window W, delay D, lockout L, cooldown   // copied from protocol defaults at creation
-  state           // Open, Live, ExitRequested, Divided, Settled, Expired
+  state           // Open, Joining, Live, ExitRequested, Divided, Settled, Expired
+  join { joiner, requestTime, nonce }
   exit { side, notional n', requestTime, nonce, taker, takerEscrow }
   net[2], bowl[2] // per side, ppm of that side's own price, 0 = unset
 }
@@ -58,15 +61,27 @@ Positions: one ERC-721 token per side, `tokenId = potId · 2 + side` (side 0 = Y
 token owner **is** the side: whoever holds it may request an exit, set a net or bowl, sign a
 handshake, and receives that side's payouts.
 
+**Transfer rules.** (1) A transfer resets that side's net and bowl. (2) No transfer of the exiting
+side's token while its exit window is open, except through a takeover (the contract moves it
+itself). (3) Tokens are minted with `_mint` and moved with `transferFrom`, not `safeTransferFrom`
+by the contract, so passkey accounts (which do not implement `onERC721Received`) can hold them; a
+passkey account sends its token by calling `transferFrom` through its `execute`, and signs exits,
+nets, bowls and handshakes with ERC-1271 (`isValidSignature`), which the contract accepts through
+OpenZeppelin `SignatureChecker`. (4) Tokens stay after a pot ends (they record history) and carry no
+value then.
+
 ## 3. State machine
 
 ```
             create (creator deposits)
                      |
                      v
-   +-------------- OPEN ----------------------+ cancel (creator, any time) / closeTime passed (anyone)
-   |                 | join (opponent deposits,      -> EXPIRED (creator refunded)
-   |                 | price within tolerance)
+   +-------------- OPEN ----------------------+ cancel (creator) / closeTime passed (anyone)
+   |                 | requestJoin (joiner escrows   -> EXPIRED (creator refunded)
+   |                 | its worst case in the band)
+   |                 v
+   |              JOINING --join failed / timed out--> back to OPEN (joiner refunded)
+   |                 | entry price attested, inside the band
    |                 v
    |               LIVE <---------------------------------+-------------------------------+
    |   handshake /  |  requestExit / net / bowl            | exit failed or timed out      | partial exit done
@@ -89,9 +104,10 @@ happens to the signers or the relay, after `deadline` anyone can return every de
 
 | From | Call | Who | Guards | Effect |
 |---|---|---|---|---|
-| — | `create(side, N, q, tolerance, quote, auth)` | creator (or anyone with the creator's EIP-3009 authorization) | not paused; valid **Quote** attestation for this market, fresh, `|q − quote.p| ≤ 0` (q is the quote); `N ≤ min(globalMax, capMultiple · quote.depth)`; `now < closeTime − L` | pulls the creator's part (`yesPart(N,q)` or `noPart(N,q)`) via `receiveWithAuthorization`; mints the creator's token; **Open** |
-| Open | `refresh(quote)` | creator | fresh Quote | new `q`; tops up or refunds the creator's difference; deposits re-split |
-| Open | `join(quote, auth)` | anyone else | fresh Quote with `|quote.p − q| ≤ tolerance`; `now < closeTime − L` | pulls the other part; mints the token; **Live** |
+| — | `create(side, N, q, tolerance, grace, depth, auth)` | creator (or anyone with the creator's EIP-3009 authorization) | not paused; fresh **Depth** attestation for this market; `N ≤ min(globalMax, cap(depth))` (section 7); `tolerance ≤ 5 points`; `grace ≥ 1 day`; `now < closeTime − L` | pulls the creator's **worst case in the band** (YES: `yesPart(N, q + tol)`, NO: `noPart(N, q − tol)`); mints the creator's token; **Open** |
+| Open | `requestJoin(auth)` | anyone except the creator | `now < closeTime − L` | pulls the joiner's worst case in the band; records `requestTime`, `nonce++`; **Joining** (binding for both) |
+| Joining | `resolveJoin(attestation)` | anyone | **JoinPrice** attestation for this nonce, window `[requestTime + D, + W]`, `valid`, price inside the band | entry price `e`: `depYes = yesPart(N, e)`, `depNo = N − depYes`; each side refunded `escrow − dep`; mints the joiner's token; **Live** |
+| Joining | `failJoin(attestation)` / `abandonJoin()` | anyone | `valid = false` or price outside the band / timeout passed | joiner refunded in full; **Open** again |
 | Open | `cancel()` | creator; anyone after `closeTime` | — | refunds the creator; **Expired** |
 | Live | `requestExit(side, n', sig?)` | side owner, or anyone with the owner's EIP-712 `ExitRequest` signature (gasless, EOA or ERC-1271 passkey account) | `1 ≤ n' ≤ N`; `now < closeTime − L`; no pending exit; cooldown passed | records `requestTime = now`, `nonce++`; **ExitRequested** (binding: no withdraw function exists) |
 | Live | `triggerNet / triggerBowl(side, attestation)` | anyone | valid **Threshold** attestation that the side's own price held beyond its net/bowl | same as `requestExit` for the full notional |
@@ -105,13 +121,26 @@ happens to the signers or the relay, after `deadline` anyone can return every de
 
 `pause()` (owner) blocks only `create`. Every other function works while paused.
 
-### 3.2 Creation and joining
+### 3.2 Creation and joining (forward-priced)
 
-At `q`: YES deposits `yesPart(N, q)`, NO deposits `noPart(N, q)`, total exactly `N`
-(`depYes = yesPart(N,q)`, `depNo = noPart(N,q)`). The opponent joins only while a fresh Quote shows
-the smoothed price within `tolerance` of `q`; otherwise the creator refreshes. Both deposits are
-pulled with Arc USDC's EIP-3009 `receiveWithAuthorization` (payee = the contract), so users pay no
-gas; the relay submits create-and-fund as one transaction.
+A join is priced like an exit, so a joiner cannot pick a moment when the offer is stale: the joiner
+requests, the entry price `e` is the average of the window after the request, and the join fails if
+`e` leaves the creator's band `[q − tol, q + tol]`.
+
+- **Escrows**: `yesPart` grows with the price and `noPart` falls, so the most YES can owe in the band
+  is `yesPart(N, q + tol)` and the most NO can owe is `noPart(N, q − tol)` (prices clamped to
+  `[0, P]`). The creator escrows its side's worst case at `create`, the joiner its side's at
+  `requestJoin`.
+- **Settling the entry**: `depYes = yesPart(N, e)`, `depNo = N − depYes`. Because `e` is inside the
+  band and the split is monotonic, `depYes ≤ escrowYes` and `depNo ≤ escrowNo`, so both refunds
+  `escrow − dep` are ≥ 0, and the pot keeps exactly `depYes + depNo = N`.
+- Deposits are pulled with Arc USDC's EIP-3009 `receiveWithAuthorization` (payee = the contract,
+  nonce bound to the call's parameters), so users pay no gas; the relay submits each step as one
+  transaction.
+- **A simpler alternative considered**: dropping the band and letting the joiner enter at whatever
+  the forward price is would need both sides to escrow up to `N` and would let the price move
+  against the creator without limit. The band keeps escrows small and gives the creator a bound;
+  the cost is one extra state (`Joining`). I see no simpler way that closes the gap.
 
 ### 3.3 Division (exit of n' at price p by side s)
 
@@ -178,7 +207,8 @@ EIP-712 domain `HonorCatPots` / `1` / chain ID / contract address. Every type in
 
 | Type | Fields | Used by | Replay protection |
 |---|---|---|---|
-| `Quote` | `conditionId, account, priceYes (ppm), depthUsd, validUntil` | `create`, `refresh`, `join` | short `validUntil` (60 s); bound to the account that uses it |
+| `Depth` | `conditionId, account, contracts5c (hundredths of a contract), validUntil` | `create` (cap) | short `validUntil` (60 s); bound to the creator |
+| `JoinPrice` | as `ExitPrice`, kind = join | `resolveJoin`, `failJoin` | the join `nonce` |
 | `ExitPrice` | `potId, nonce, side, notional, windowStart, windowEnd, sampleCount, priceYes, valid, evidenceHash` | `resolveExit`, `failExit`, takeover settlement | `nonce` must equal the pending exit's; consumed by the state change |
 | `Threshold` | `potId, side, kind (net/bowl), level, windowStart, windowEnd, sampleCount, evidenceHash` | `triggerNet`, `triggerBowl` | `windowEnd` must be after the net/bowl was set and the last exit; one request per trigger |
 | `Outcome` | `potId, conditionId, outcome (yes/no/void), settledAt, evidenceHash` | `settle` | terminal state change |
@@ -190,11 +220,13 @@ notional match the request; for Quote: `block.timestamp ≤ validUntil`; for Out
 `block.timestamp ≥ closeTime`. The window is fixed by the request, so **signers cannot choose a
 window**.
 
-**How M signers agree on one price** (proposal): each sampler computes its own window average from
-its own samples. The relay proposes the median of the averages it has; a sampler signs the
-proposal only if it is within ε (proposal: 0.5 points) of its own average and its own record is
-valid. The attestation's `evidenceHash` is the root of the signing samplers' evidence records
-(the existing `evidenceRoot` construction).
+**How M signers agree on one price** (decided): each sampler first signs its own window average
+(inside its evidence record). The proposed price must be the **exact median** of those signed
+averages (with only two samplers: their mean, and they must be within 0.5 points of each other).
+Each sampler co-signs the proposal only if it is within 0.5 points of its own average. All signed
+averages go into the evidence record, so anyone can check that the relay had no discretion. If
+agreement fails, no attestation exists and the exit (or join) does not happen. The attestation's
+`evidenceHash` is the root of the samplers' evidence records.
 
 **Fair value read**: `fairValue(tokenId, ExitPrice or Quote attestation) → USDC` returns that
 side's share of `N` at the attested price after verifying the signatures (a `view`, no state).
@@ -205,8 +237,8 @@ Other contracts can price a position without trusting HonorCat.
 - **Sample**: the midpoint of best bid and ask from `{symbol}@depth5`, valid only under the rule
   (both sides present, spread and size within limits, data fresh): the existing engine and status
   codes.
-- **Smoothed price** (for showing shares, joining, nets and bowls): the time-weighted average of
-  valid samples over the last 30 s (proposal), per sampler; the attested value is the agreed median.
+- **Smoothed price** (for showing shares, nets and bowls): the time-weighted average of valid samples
+  over the last 30 s, per sampler. Not used for joins: joins are priced forward like exits.
 - **Exit price**: the time-weighted average of valid samples in `[requestTime + D, requestTime + D +
   W]`. Only samples whose sampling time is strictly after `requestTime` count; with `D = 1 s` and
   second-resolution block timestamps, nothing observed before the request can enter.
@@ -232,16 +264,17 @@ Other contracts can price a position without trusting HonorCat.
   each event row records which path delivered it and the delay; backfill by replaying the stream's
   block range after downtime.
 
-## 7. Cap on N (proposal)
+## 7. Cap on N
 
-`N ≤ min(globalMax, capMultiple × depthUsd)` where `depthUsd` is the **thinner side's** dollars
-resting within 5¢ of the mid, attested in the creation Quote. Reasoning: to move the 60-second
-window average by Δ, a manipulator must hold the mid away by Δ for most of the window, which costs
-at least the depth consumed (and is exposed to other traders refilling the book); the gain from
-moving the price by Δ is `N·Δ`. With `capMultiple = 1`, moving the price by 10 points gains at most
-`0.1·N ≤ 0.1·depth` while sweeping 5¢ of depth costs about the depth itself. Proposed:
-`capMultiple = 1`, `globalMax = $25` on testnet. Examples from today's catalogue: a liquid BTC
-contract with $620 near the price → cap $25 (global max); a weather contract with $8 → cap $8.
+Rule: `N ≤ min($25 testnet maximum, 0.25 × C₅)`, where `C₅` is the number of contracts resting within
+5¢ of the mid on the **thinner** side (attested at creation), each contract paying $1. The multiple
+comes from the arithmetic in docs/threat-model.md ("Manipulating an exit price"): moving the price by
+5 points and holding it through the window must cost at least twice what the attacker can gain on
+the pot. With Gemini's fees included, the requirement gives `N ≤ C₅ · (0.25 + 1.4·P(1−P))`; at the
+worst price (`P` near 0 or 1) the factor is 0.25, at `P = 0.5` it is 0.6. A fixed 0.25 meets the
+requirement at every price. Examples from today's catalogue: a liquid BTC contract with about 1,000
+contracts near the price → cap $25 (testnet maximum); a weather contract with 100 → cap $25; a thin
+one with 40 → cap $10.
 
 ## 8. Tests (D1)
 
@@ -284,18 +317,17 @@ contract with $620 near the price → cap $25 (global max); a weather contract w
 | Lock-out | last 2 minutes before trading closes | Use `max(2 min, D + W + 60 s)` so no window can run past the close. Same as 2 min for both window lengths today. |
 | Join tolerance | 2 points | Keep 2 points as the default, cap creator choices at 5 points. |
 
-## 11. Open decisions for you
+## 11. Decisions (user, 2026-11-16)
 
-1. **Price agreement**: median proposal with each signer checking ε = 0.5 points against its own
-   average (my proposal), or each signer signing its own price and the contract taking the median of
-   the M submitted prices (more on-chain work, no ε).
-2. **Cap**: `capMultiple = 1` of the thinner side's depth within 5¢, `globalMax = $25` on testnet?
-3. **Settlement grace**: `deadline = closeTime + 3 days` (proposal) before expiry returns deposits.
-4. **Takeover only for full exits** (my proposal), or also for partial exits?
-5. **Smoothing window** for shown shares, joins, nets and bowls: 30 s (proposal)?
-6. **Positions as ERC-721** (one token per side, my proposal) rather than ERC-1155 or ERC-20 shares.
-   Partial exits shrink the pot rather than splitting a position.
-7. **Scope of D1**: the contract cannot be upgraded, so I propose building every contract feature
-   (partial exit, handshake, takeover, net, bowl, cap, quotes) in D1 and leaving D4 for the relay
-   and UI of those features. That makes D1 clearly the largest milestone; the alternative is two
-   deployments (D1 core, D4 extras) and a migration between them.
+1. Price agreement: each sampler signs its own window average; the proposal is the exact median of
+   the signed averages (two samplers: their mean, within 0.5 points); each sampler co-signs only
+   within 0.5 points of its own; all signed averages in the evidence. No agreement, no exit.
+2. Cap: chosen by the cost arithmetic (section 7 and the threat model): 0.25 × thinner-side
+   contracts within 5¢, with the $25 testnet maximum.
+3. Settlement grace: per pot, fixed at creation, default 3 days, minimum 1 day.
+4. Takeover only for full exits.
+5. 30-second smoothing for shown shares, nets and bowls. Joins are forward-priced (3.2).
+6. Positions as ERC-721, one per side, with the transfer rules in section 2.
+7. D1 builds every contract feature, in this order with tests green after each: create, join, exit,
+   settle, expire; cap; partial exit; handshake; nets and bowls; takeover. An early core deployment
+   to testnet may be used as a throwaway; only the final deployment counts.

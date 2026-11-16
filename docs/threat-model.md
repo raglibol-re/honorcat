@@ -71,3 +71,40 @@ Assets: USDC in the vault and books; resolver and sampler keys; the deployer key
 - Static analysis: Slither in CI; the build fails on any finding not explained in
   `contracts/slither-triage.json` (24 of 24 explained).
 - Not formally verified (symbolic tests were deprioritised for the deadline).
+
+## Two-sided pots: manipulating an exit price (cap arithmetic, 2026-11-16)
+
+An attacker who owns one side of a pot of size `N` requests an exit and tries to hold the Gemini
+mid `Δ` away from fair value, in its favour, for the whole exit window. Its gain is at most
+`N · Δ` (its share moves by `Δ` of the pot).
+
+**Cost, per contract the attacker must take out of the book** (`C₅` contracts resting within 5¢ of
+the mid on the side it pushes against; prices in dollars, `P` the contract price):
+- Entry: walking the book up by `Δ` costs on average `Δ/2` above fair per contract (depth spread
+  evenly over the 5¢ band).
+- Unwind: after the window the price returns to fair; selling back, or holding to settlement, loses
+  that overpayment in expectation: another `Δ/2` relative to the price paid near the top. Counted
+  together with the entry as `Δ/2` per contract (the conservative reading: only the average
+  overpayment is lost).
+- Gemini taker fees (fee schedule of 2026-03-12, contracts listed from 2026-03-18:
+  `0.07 × C × P × (1 − P)`, maker `0.0175`, no settlement fee): paid on entry and on exit,
+  `0.14 · P(1−P)` per contract round trip.
+- Holding: other traders refill the book during the window, which only adds cost; not counted.
+
+So `cost ≥ C₅ · (Δ/2 + 0.14·P(1−P))`. Requiring `cost ≥ 2 · gain = 2 · N · Δ` gives
+
+```
+N ≤ C₅ · (Δ/2 + 0.14·P(1−P)) / (2Δ) = C₅ · (1/4 + 0.07·P(1−P)/Δ)
+with Δ = 0.05:   N ≤ C₅ · (0.25 + 1.4 · P(1−P))
+P = 0.50 → 0.60 · C₅      P = 0.90 → 0.376 · C₅      P = 0.95 → 0.317 · C₅      P → 0 or 1 → 0.25 · C₅
+```
+
+**Chosen**: `N ≤ 0.25 × C₅` (the worst case over all prices, so the 2× margin holds whatever the
+price), capped at $25 on testnet. Your expectation of about 0.5× holds only near `P = 0.5`; across
+the whole range the numbers support 0.25×.
+
+**What this does not cover.** The model assumes depth spread evenly across the 5¢ band. If nearly all
+of it sits at the best price, the attacker overpays less and the estimate is optimistic; the window
+average (60 s), the rule's per-sample size and spread limits and the second independent sampler are
+the remaining defences. Moving the price by more than 5 points needs depth beyond the band, which
+the cap does not measure.
