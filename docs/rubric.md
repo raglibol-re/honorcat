@@ -245,3 +245,7 @@ QuickNode
       bowls once the player starts setting them, all with our own numbers; a wish box ("protect half my
       stake", "take my share off at $8.50") that fills in a net or bowl the player then saves. It never
       moves funds or says which side to take (relay/test/helper.test.ts; browser run on pot 26).
+- [x] Grok Bot connection made simple: one confirmation on /grok-bot, one copied message (the
+      connector link `/api/mcp/<seat>` plus the job description) to paste into Grok Bot; the plain link
+      as plan B; checked in the browser and by agent-seat-e2e.ts (12 checks: the link works without a
+      header and gets 401 the moment the seat is revoked).

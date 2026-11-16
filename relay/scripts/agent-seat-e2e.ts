@@ -51,6 +51,11 @@ const markets = await mcp("tools/call", { name: "search_markets", arguments: { l
 ok(/Data provided by Gemini/.test(markets.body), "search_markets answers, credited to Gemini");
 const refused = await mcp("tools/call", { name: "set_net", arguments: { potId: "1", percent: 40, reason: "testing a refusal" } }, 5);
 ok(/Refused/.test(refused.body), "an action outside the seat's pots is refused");
+// The same through the one-link form a player pastes into Grok Bot (no header).
+const viaLink = (method: string, params: unknown, id: number) =>
+  post(`/api/mcp/${seat.token}`, { jsonrpc: "2.0", id, method, params }, { accept: "application/json, text/event-stream", "mcp-protocol-version": "2025-06-18" });
+const linkList = await viaLink("tools/list", {}, 61);
+ok(linkList.status === 200 && /list_my_pots/.test(linkList.body), `the connector link works without a header (${linkList.status})`);
 const bad = await mcp("tools/list", {}, 6, "hcs_notarealtokennotarealtoken");
 ok(bad.status === 401, `an unknown token gets 401 (${bad.status})`);
 
@@ -66,3 +71,5 @@ const rev = await post("/api/hc/agent/seats", {
 ok(rev.status === 200, `seat revoked (${rev.status})`);
 const after = await mcp("tools/list", {}, 7);
 ok(after.status === 401, `a revoked seat gets 401 at once (${after.status})`);
+const afterLink = await viaLink("tools/list", {}, 8);
+ok(afterLink.status === 401, `the revoked seat's link gets 401 at once (${afterLink.status})`);

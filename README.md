@@ -190,8 +190,10 @@ prices (funds stay safe without them, but exits wait); and real-money use would 
 
 ## Grok Bot
 
-Grok Bot, xAI's always-on agent, connects to HonorCat as a custom MCP connector (`/api/mcp`) with a
-seat token a player creates and can revoke at any time. With a seat it can be the player's AI opponent
+Grok Bot, xAI's always-on agent, connects to HonorCat as a custom MCP connector: on `/grok-bot` a
+player confirms once and copies one message that gives the Bot its connector link (`/api/mcp/<seat>`,
+the seat in the address, nothing else to fill in) and its job; the seat expires after 24 hours and can
+be revoked at any time. With a seat it can be the player's AI opponent
 on practice pots (holding the other side with HonorCat's practice wallet) or a cat sitter on the
 player's own pots, acting alone only on exits the player signed in advance and proposing nets, bowls
 and handshakes for the player to confirm. Every action is checked against the seat's action list,

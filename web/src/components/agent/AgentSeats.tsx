@@ -8,7 +8,7 @@ import { SignIn, btn, btnQuiet, useActor } from "@/components/pot/Who";
 import { createSeat, revokeSeat, seatsOf, type SeatView } from "@/lib/agent";
 import { formatDate } from "@/lib/format";
 import { plainError } from "@/lib/messages";
-import { SITE_URL } from "@/lib/site";
+import { connectMessage, connectorLink } from "@/lib/grokBot";
 
 const mono: React.CSSProperties = { fontFamily: F.mono, fontSize: 13, overflowWrap: "anywhere", background: C.panel, border: `1px solid ${C.faint}`, padding: "6px 8px" };
 
@@ -80,24 +80,18 @@ export function AgentSeats() {
         <>
           {fresh && (
             <div role="status" style={{ display: "flex", flexDirection: "column", gap: 8, border: `2px solid ${C.ink}`, padding: "12px 14px" }}>
-              <strong style={{ fontSize: 17 }}>Seat “{fresh.label}” is ready. Add it to Grok Bot now: the token is shown only this once.</strong>
-              <span style={{ fontSize: 15 }}>In Grok Bot: Connect apps → Add a custom connector → Type: Remote HTTPS.</span>
-              <span style={{ fontSize: 14, color: C.muted }}>Server URL</span>
-              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                <code style={mono}>{`${SITE_URL}/api/mcp`}</code>
-                <button type="button" style={{ ...btnQuiet, minHeight: 36, fontSize: 14 }} onClick={() => copy(`${SITE_URL}/api/mcp`, "url")}>
-                  {copied === "url" ? "Copied" : "Copy"}
+              <strong style={{ fontSize: 17 }}>Seat “{fresh.label}” is ready. Copy the message and paste it into your Grok Bot: it is shown only this once.</strong>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button type="button" style={btn} onClick={() => copy(connectMessage(fresh.token), "msg")}>
+                  {copied === "msg" ? "Copied" : "Copy the message for Grok Bot"}
+                </button>
+                <button type="button" style={{ ...btnQuiet, minHeight: 44, fontSize: 15 }} onClick={() => copy(connectorLink(fresh.token), "link")}>
+                  {copied === "link" ? "Copied" : "Copy only the connector link"}
                 </button>
               </div>
-              <span style={{ fontSize: 14, color: C.muted }}>HTTP header: name Authorization, value</span>
-              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                <code style={mono}>{`Bearer ${fresh.token}`}</code>
-                <button type="button" style={{ ...btnQuiet, minHeight: 36, fontSize: 14 }} onClick={() => copy(`Bearer ${fresh.token}`, "token")}>
-                  {copied === "token" ? "Copied" : "Copy"}
-                </button>
-              </div>
+              <code style={mono}>{connectorLink(fresh.token)}</code>
               <button type="button" style={{ alignSelf: "flex-start", background: "none", border: 0, padding: 0, textDecoration: "underline", cursor: "pointer", fontSize: 14 }} onClick={() => setFresh(null)}>
-                I have added it
+                Done
               </button>
             </div>
           )}
