@@ -91,7 +91,7 @@ QuickNode
 - [x] One cute inline-SVG cat component in the existing colours, all poses (rope, wobble, crouch, air,
       landing, net, bowl, handshake paw, second cat, sleeping, peeking, empty box, nine paw marks).
 - [x] Reduced motion respected; text alternative for every pose.
-- [ ] Pose sheet at /design/cat approved before use.
+- [x] Pose sheet at /design/cat approved before use (approved by the user, 2026-11-16).
 - [x] Rope view: posts, names, shares in dollars, cat at the price, two fill colours, paw path, net,
       bowl, exit animation with countdown ring and exit-price stamp, walk to the winner; TV version.
 
