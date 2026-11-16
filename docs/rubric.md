@@ -240,3 +240,8 @@ QuickNode
 - [x] 7. README: what HonorCat is, an architecture diagram (Mermaid), setup, run, test and deploy; the
       economic design and its risks; every contract address; how HonorCat uses Arc; the Stream setup;
       Grok Bot; a dated build log.
+- [x] 8. The helper cat in the app (templates until xAI credits exist; never presented as Grok): one
+      sentence each on leaving, staying and shaking hands beside the exit confirmation, and on nets and
+      bowls once the player starts setting them, all with our own numbers; a wish box ("protect half my
+      stake", "take my share off at $8.50") that fills in a net or bowl the player then saves. It never
+      moves funds or says which side to take (relay/test/helper.test.ts; browser run on pot 26).

@@ -19,6 +19,10 @@
 - Work in cycles per docs/improve.md, everything in the agreed priority order.
 
 ## Rubric cycle log
+- 2026-11-16: build list parts 6 to 8 done: Streams first (34 of 34 events since it resumed, share on
+  /status), the README rewritten (architecture, economics and risks, Arc, the Stream, Grok Bot, build
+  log), the helper cat's wish box and net/bowl sentences (pot 26). Open, needing you: Circle's
+  passkey-domain setting for smart accounts; xAI credits only if GrokCat should speak through Grok.
 - 2026-11-16: build list part 4 (price chart, picker sentences) and part 5 (Grok Bot as an MCP tool
   connection: AI opponent on practice pots and cat sitter on the player's own pots, no contract
   change: exits alone only when signed in advance, the rest by approval). Verified on production with

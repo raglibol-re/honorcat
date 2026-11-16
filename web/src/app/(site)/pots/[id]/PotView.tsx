@@ -16,7 +16,7 @@ import { PriceChart } from "@/components/pot/PriceChart";
 import { AgentPanel } from "@/components/agent/AgentPanel";
 import type { AgentInfo } from "@/lib/agent";
 import { HelperBubble } from "@/components/helper/Helper";
-import { adviceFree, exitOptions } from "@/lib/helper";
+import { adviceFree, exitOptions, levelOptions, readWish } from "@/lib/helper";
 import { SamplerNotice } from "@/components/pot/SamplerHealth";
 import { sceneOf, STATE_TEXT, storyOf } from "@/components/pot/scene";
 import { useTechMode } from "@/components/TechMode";
@@ -119,6 +119,10 @@ function Actions({ pot, who, price, nowS, nameOf }: { pot: HcPot; who: ActorStat
   const [bowl, setBowl] = useState("");
   // The exit the player is about to confirm (amount of the pot to divide, in words).
   const [ask, setAsk] = useState<{ amount: bigint; what: string } | null>(null);
+  // The helper cat on nets and bowls: shown once the player starts on them; and the wish box.
+  const [levelsHelp, setLevelsHelp] = useState(false);
+  const [wish, setWish] = useState("");
+  const [wishNote, setWishNote] = useState<string | null>(null);
   const offers = usePolling<{ offers: { side: number; price_yes: number; notional: string; deadline: string }[] }>(pot.state === "Live" ? `/api/hc/pots/${pot.potId}/handshake` : null, 5000);
   const lockout = Math.max(120, 1 + Number(d.window) + 60);
   const tooLate = nowS + lockout >= Number(d.closeTime);
@@ -374,14 +378,49 @@ function Actions({ pot, who, price, nowS, nameOf }: { pot: HcPot; who: ActorStat
           A net catches you if your side&apos;s price falls to it; a bowl takes your share off the rope when it rises to it. When the 30-second average holds there, the samplers file your exit; it is then priced
           like any other. Now: {lv?.net ? `net ${(lv.net / 10_000).toFixed(1)}%` : "no net"}, {lv?.bowl ? `bowl ${(lv.bowl / 10_000).toFixed(1)}%` : "no bowl"}.
         </p>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (own === null) return;
+            const w = readWish(wish, own, Number(n) / 1e6);
+            setLevelsHelp(true);
+            if (w.kind === "net") setNet(String(w.percent));
+            if (w.kind === "bowl") setBowl(String(w.percent));
+            setWishNote(w.kind === "none" ? w.why : `${w.why} I filled it in below; nothing is set until you press Save.`);
+          }}
+          style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "flex-end" }}
+        >
+          <label style={{ display: "flex", flexDirection: "column", gap: 4, flex: "1 1 260px" }}>
+            <span style={{ fontSize: 14, color: C.muted }}>Or tell the helper cat what you want</span>
+            <input
+              value={wish}
+              onChange={(e) => setWish(e.target.value)}
+              maxLength={120}
+              placeholder="e.g. protect half my stake"
+              style={{ ...input, width: "100%" }}
+            />
+          </label>
+          <button type="submit" style={btnQuiet} disabled={!wish.trim() || own === null}>
+            Fill it in
+          </button>
+        </form>
+        {levelsHelp && own !== null && (
+          <HelperBubble
+            pose="point"
+            lines={[
+              ...(wishNote ? [wishNote] : []),
+              ...levelOptions({ own: own, shareNow: $(BigInt(Math.floor(Number(n) * own))), net: Number(net) || null, bowl: Number(bowl) || null }),
+            ].filter(adviceFree)}
+          />
+        )}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "flex-end" }}>
           <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <span style={{ fontSize: 14, color: C.muted }}>Net at (% for your side)</span>
-            <input style={input} inputMode="decimal" value={net} onChange={(e) => setNet(e.target.value.replace(/[^0-9.]/g, ""))} placeholder="e.g. 40" />
+            <input style={input} inputMode="decimal" value={net} onFocus={() => setLevelsHelp(true)} onChange={(e) => setNet(e.target.value.replace(/[^0-9.]/g, ""))} placeholder="e.g. 40" />
           </label>
           <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <span style={{ fontSize: 14, color: C.muted }}>Bowl at (%)</span>
-            <input style={input} inputMode="decimal" value={bowl} onChange={(e) => setBowl(e.target.value.replace(/[^0-9.]/g, ""))} placeholder="e.g. 90" />
+            <input style={input} inputMode="decimal" value={bowl} onFocus={() => setLevelsHelp(true)} onChange={(e) => setBowl(e.target.value.replace(/[^0-9.]/g, ""))} placeholder="e.g. 90" />
           </label>
           <button
             type="button"
