@@ -78,6 +78,8 @@ type Streams = { configured: boolean; lastBatch: { receivedAt: string; end: stri
 /** Operator view of QuickNode Streams, with what to do when deliveries stop. */
 function StreamsRows() {
   const { data } = usePolling<Streams>("/api/streams?since=999999999999", 10_000);
+  const { data: ev } = usePolling<{ streamsSinceFilter?: { sinceBlock: string; total: number; streams: number; pollerLagBlocks: number } }>("/api/hc/evidence", 30_000);
+  const share = ev?.streamsSinceFilter;
   const [now, setNow] = useState(0);
   useEffect(() => {
     const tick = () => setNow(Date.now());
@@ -108,6 +110,17 @@ function StreamsRows() {
         mark={data ? "ok" : "pending"}
       />
       <Row k="Behind head" v={data?.behindBlocks != null ? `${data.behindBlocks} blocks` : "–"} mark={data?.behindBlocks != null ? "ok" : "pending"} />
+      <Row
+        k="Pot events first seen by Streams"
+        v={
+          share
+            ? share.total
+              ? `${share.streams} of ${share.total} (${Math.round((100 * share.streams) / share.total)}%) since block ${Number(share.sinceBlock).toLocaleString("en-US")}; the RPC poller trails the head by ${share.pollerLagBlocks} blocks as the fallback`
+              : `none yet since block ${Number(share.sinceBlock).toLocaleString("en-US")}`
+            : "–"
+        }
+        mark={!share ? "pending" : share.total && share.streams / share.total >= 0.5 ? "ok" : share.total ? "attention" : "pending"}
+      />
     </Rows>
   );
 }

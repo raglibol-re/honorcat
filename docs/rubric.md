@@ -216,10 +216,10 @@ QuickNode
 ### P10. Loose ends from the review
 - [x] The sponsor page's count of price windows equals its breakdown (after the rebuild: 2 = 2 + 0 + 0).
 - [x] The memo on Arc is decoded on the pot page (the sponsor page marks it done).
-- [ ] Streams is the primary path again: the stream was terminated by QuickNode during the database
-      outage, resumed with a clean webhook address (honorcat.vercel.app, no double slash); its share
-      is counted from block 72,600,235 (after the rebuild) and shown on /how-it-is-built. Deliveries
-      are still coming back slowly; the RPC poller (90 blocks behind the head) covers every event meanwhile.
+- [x] Streams is the primary path again: the stream was terminated by QuickNode during the database
+      outage and resumed with a clean webhook address; since block 72,600,235, 34 of 34 pot events
+      (100%) were first seen by Streams; the RPC poller (90 blocks behind) is the fallback. The share is
+      on /status and /how-it-is-built.
 
 ## 13. Build list of 2026-11-16 (parts 1 to 8)
 - [x] 1 to 3 (solo try-out, rope view, names and wording): see sections 11 and 12.
@@ -235,3 +235,5 @@ QuickNode
       Tests: relay/test/agent-seats.test.ts; production: scripts/agent-seat-e2e.ts (10 checks incl.
       revoke → 401 at once), scripts/agent-play-e2e.ts (pot 24: agent took the side, set a net and
       left; `--sitter`, pot 25: net became a proposal, the full exit signed in advance went alone).
+- [x] 6. QuickNode Streams first for every pot event, RPC polling as the fallback; /status shows the
+      share first seen by Streams (34 of 34 since the stream resumed).
