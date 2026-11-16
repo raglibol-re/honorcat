@@ -42,13 +42,42 @@ function negate(s: string): string | null {
  * Gemini shortens some teams to a city and a letter ("Los Angeles C", "New York R"); the game's
  * full team names ("Los Angeles Chargers at Baltimore Ravens") say which one.
  */
+/** Full team names seen anywhere in this page's data, for events that carry only the short ones. */
+const knownTeams = new Set<string>();
+export function rememberTeams(teams: (string | null | undefined)[]) {
+  for (const t of teams) if (t) for (const one of t.split(/\s+(?:at|vs\.?|@)\s+/i)) if (one.trim() && !/\s[A-Z]$/.test(one.trim())) knownTeams.add(one.trim());
+}
+
 function fullName(short: string, teams: string | null | undefined): string {
-  if (!teams || !/\s[A-Z]$/.test(short)) return short;
-  const hit = teams.split(/\s+(?:at|vs\.?|@)\s+/i).find((t) => t.startsWith(short));
+  if (!/\s[A-Z]$/.test(short)) return short;
+  // Only a genuinely longer name counts: some events list the short form as their teams too.
+  const longer = (t: string) => t.startsWith(short) && t.length > short.length;
+  const hit = (teams ?? "").split(/\s+(?:at|vs\.?|@)\s+/i).find(longer) ?? [...knownTeams].find(longer);
   return hit ?? short;
 }
 
-export function sidesOf(m: StatementInput): Sides {
+/**
+ * Replaces every abbreviated team ("Los Angeles C") in a label or title with its full name, also
+ * inside longer text ("Los Angeles C wins by more than 1.5 points").
+ */
+export function expandTeams(text: string, eventTitle: string, teams: string | null | undefined): string {
+  const parts = teamsOfTitle(eventTitle) ?? [];
+  let out = text;
+  for (const short of parts) {
+    const full = fullName(short, teams);
+    if (full === short) continue;
+    const esc = short.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    out = out.replace(new RegExp(`${esc}(?![A-Za-z])`, "g"), full);
+  }
+  return out;
+}
+
+/** A market's result label with full team names (for lists that show the label itself). */
+export const fullLabel = (m: StatementInput) => expandTeams(m.label, m.eventTitle, m.teams);
+
+export function sidesOf(input: StatementInput): Sides {
+  // Abbreviated teams become full names everywhere before anything is phrased.
+  const m = { ...input, label: expandTeams(input.label, input.eventTitle, input.teams), eventTitle: expandTeams(input.eventTitle, input.eventTitle, input.teams) };
   const label = fullName(m.label.trim(), m.teams);
   const raw = teamsOfTitle(m.eventTitle);
   const pair: [string, string] | null = raw ? [fullName(raw[0], m.teams), fullName(raw[1], m.teams)] : null;

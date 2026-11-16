@@ -26,11 +26,18 @@ type Status = {
 };
 
 const kindLabel: Record<string, string> = {
-  resolve: "Resolve",
-  expire: "Expire",
-  fund_gasless: "Gasless funding",
-  create_gasless: "Gasless create + fund",
+  pot_attest: "Prices (windows)",
+  pot_settle: "Settlements",
+  pot_exec: "Passkey and practice actions",
+  pot_forward: "Forwarded signed actions",
+  pot_house: "Housekeeping",
+  pot_gateway: "Gateway mints",
+  pot_create: "Create",
+  pot_join: "Join",
+  pot_exit: "Exit",
 };
+const POTS_ADDRESS = "0xc890C990048f45cb268d076E4A3dB25270Ea1e59";
+const MEDIAN_RESOLVER = "0x62FB60fbB5fC1903A4af3dc61186C2ed7f153c62";
 
 type Mark = "ok" | "pending" | "attention";
 
@@ -127,9 +134,17 @@ function StreamsRows() {
 
 export function StatusView() {
   const { data: s, error } = usePolling<Status>("/api/status", 5000);
+  const { data: pool } = usePolling<{ pool: string; givenToday: string; dailyLimit: string }>("/api/hc/funding", 30_000);
+  const { data: potsList } = usePolling<{ pots: { state: string }[] }>("/api/hc/pots?limit=200", 30_000);
   if (error && !s) return <p style={{ margin: 0, fontSize: 17, color: C.signalInk }}>{error}</p>;
   if (!s) return <p style={{ margin: 0, fontSize: 17, color: C.muted }}>Loading…</p>;
 
+  // The pots relay only (the retired products' kinds are not shown); runway in relay transactions.
+  const potKinds = s.spend.byKind.filter((k) => k.kind.startsWith("pot_"));
+  const fees = potKinds.filter((k) => k.avgFeeUsdc !== null && k.confirmed > 0);
+  const avgFee = fees.length ? fees.reduce((a, k) => a + Number(k.avgFeeUsdc) * k.confirmed, 0) / fees.reduce((a, k) => a + k.confirmed, 0) : null;
+  const runway = pool && avgFee ? Math.floor(Number(pool.pool) / avgFee) : null;
+  const count = (states: string[]) => (potsList?.pots ?? []).filter((p) => states.includes(p.state)).length;
   const gwei = s.head.baseFeePerGas ? Number(BigInt(s.head.baseFeePerGas) / 10n ** 6n) / 1000 : null;
   const th = { textAlign: "right", fontWeight: 500, fontSize: 15, color: C.muted, padding: "10px 0 8px 12px" } as const;
   const td = { textAlign: "right", padding: "9px 0 9px 12px", fontVariantNumeric: "tabular-nums" } as const;
@@ -138,23 +153,23 @@ export function StatusView() {
     <div style={{ display: "flex", flexDirection: "column", gap: 56 }}>
       <div style={{ display: "flex", flexWrap: "wrap", gap: "20px 40px", borderTop: `1.5px solid ${C.ink}` }}>
         <Figure
-          label="Resolver balance"
-          value={s.balance ? `${formatUsdc(s.balance.usdc)} USDC` : "–"}
-          attention={s.balance?.low}
-          hint={s.balance?.low ? `Below ${formatUsdc(s.balance.lowThreshold)} USDC. Top up at faucet.circle.com` : "Pays gas for settlements and gasless funding"}
+          label="Relay wallet (Circle)"
+          value={pool ? `${formatUsdc(pool.pool)} USDC` : "–"}
+          attention={!!pool && Number(pool.pool) < 5_000_000}
+          hint={pool && Number(pool.pool) < 5_000_000 ? "Low: top it up from faucet.circle.com (Arc Testnet)." : "Pays gas for every pot transaction and gives new players test money"}
         />
         <Figure
           label="Runway"
-          value={s.spend.runwaySettlements ? `${Number(s.spend.runwaySettlements).toLocaleString("en-US")}` : "–"}
-          hint={s.spend.avgSettlementUsdc ? `settlements at ${formatUsdc(s.spend.avgSettlementUsdc)} USDC each` : "no settlements yet"}
+          value={runway !== null ? runway.toLocaleString("en-US") : "–"}
+          hint={avgFee !== null ? `relay transactions at about ${formatUsdc(String(Math.round(avgFee)))} USDC each, before the next refill` : "measured once the relay has sent its first pot transactions"}
         />
-        <Figure label="Gas spent" value={`${formatUsdc(s.spend.totalUsdc)} USDC`} hint="gasUsed × effectiveGasPrice from receipts" />
-        <Figure label="Pots" value={`${s.pots.open} open`} hint={`${s.pots.settled} settled`} />
+        <Figure label="Gas spent on pots" value={`${formatUsdc(String(potKinds.reduce((a, k) => a + Number(k.feeUsdc), 0)))} USDC`} hint="gasUsed × effectiveGasPrice from receipts" />
+        <Figure label="Pots" value={potsList ? `${count(["Open", "Joining", "Live", "ExitRequested"])} running` : "–"} hint={potsList ? `${count(["Divided", "Settled", "Expired"])} ended (practice pots not counted)` : undefined} />
       </div>
 
       <section style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
         <h2 style={{ margin: 0, fontFamily: F.cond, fontSize: 44, fontWeight: 600, lineHeight: 1 }}>Relay transactions</h2>
-        {s.spend.byKind.length === 0 ? (
+        {potKinds.length === 0 ? (
           note("No relay transactions yet.")
         ) : (
           <div style={{ overflowX: "auto" }}>
@@ -169,7 +184,7 @@ export function StatusView() {
                 </tr>
               </thead>
               <tbody>
-                {s.spend.byKind.map((k) => (
+                {potKinds.map((k) => (
                   <tr key={k.kind} style={{ borderTop: `1px solid ${C.faint}` }}>
                     <td style={{ ...td, textAlign: "left", paddingLeft: 0, fontWeight: 600 }}>{kindLabel[k.kind] ?? k.kind}</td>
                     <td style={td}>{k.confirmed}</td>
@@ -190,8 +205,8 @@ export function StatusView() {
           <Row k="Chain" v={`Arc testnet (${s.chainId})`} />
           <Row k="Head" v={`#${Number(s.head.number).toLocaleString("en-US")}`} />
           <Row k="Base fee" v={gwei !== null ? `${gwei} gwei (floor 20)` : "–"} mark={gwei !== null ? "ok" : "pending"} />
-          <Row k="Vault" v={<Addr a={s.vault} />} />
-          <Row k="Resolver" v={s.resolver ? <Addr a={s.resolver} /> : "–"} mark={s.resolver ? "ok" : "pending"} />
+          <Row k="Pot contract" v={<Addr a={POTS_ADDRESS} />} />
+          <Row k="Price rule (MedianResolver)" v={<Addr a={MEDIAN_RESOLVER} />} />
         </Rows>
         <Rows title="USDC on Arc" note={note("One balance, two interfaces: native (18 decimals, used for gas) and ERC-20 at 0x3600…0000 (6 decimals).")}>
           <Row k="Native" v={s.balance ? mono(s.balance.nativeWei) : "–"} mark={s.balance ? "ok" : "pending"} />
@@ -199,16 +214,10 @@ export function StatusView() {
           <Row k="Consistent" v={s.balance ? (s.balance.consistent ? "yes" : "no") : "–"} mark={!s.balance ? "pending" : s.balance.consistent ? "ok" : "attention"} />
         </Rows>
         <StreamsRows />
-        <Rows title="Indexer and webhooks">
-          <Row k="Primary" v={s.indexer.primary} />
-          <Row k="Lag" v={s.indexer.lagBlocks !== null ? `${s.indexer.lagBlocks} blocks` : "–"} mark={s.indexer.lagBlocks !== null ? "ok" : "pending"} />
-          <Row k="Last tick" v={s.indexer.lastTick ? formatClock(new Date(s.indexer.lastTick.at).getTime()) : "–"} mark={s.indexer.lastTick ? "ok" : "pending"} />
-          <Row
-            k="Webhooks"
-            v={`${s.webhooks.delivered} delivered, ${s.webhooks.pending} pending, ${s.webhooks.retrying} retrying`}
-            mark={s.webhooks.retrying > 0 ? "attention" : "ok"}
-          />
-          <Row k="Gasless" v={`min ${formatUsdc(s.gasless.minAmount)} USDC, ${s.gasless.maxPerHour} per hour per funder`} />
+        <Rows title="Indexer">
+          <Row k="Primary source" v="QuickNode Streams (pot events arrive within seconds of their block)" mark="ok" />
+          <Row k="Fallback" v="RPC poller, 90 blocks behind the head, fills any gap" mark="ok" />
+          <Row k="Last relay tick" v={s.indexer.lastTick ? formatClock(new Date(s.indexer.lastTick.at).getTime()) : "–"} mark={s.indexer.lastTick ? "ok" : "pending"} />
         </Rows>
       </div>
     </div>

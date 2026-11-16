@@ -10,6 +10,7 @@ import { Reliability } from "@/components/pot/Reliability";
 import { marketLine, sidesOf, yesMeans } from "@/lib/marketName";
 import { AccountLine, FundsHelp, btn, SignIn, useActor } from "@/components/pot/Who";
 import { useTechMode } from "@/components/TechMode";
+import { PlayerCat } from "@/components/cat/PlayerCat";
 import { getJson } from "@/lib/api";
 import { plainError } from "@/lib/messages";
 import { createPot, MAX_TOLERANCE, NO, prepare, worstCase, YES } from "@/lib/hc";
@@ -132,6 +133,24 @@ export function NewPot() {
         <p style={{ margin: 0, fontSize: 17, color: C.body }}>
           Playing with a friend? <Link href="/pots/together">Start one together</Link>: you pick the question and the sides with them, and it is only for the two of you.
         </p>
+        {practice && (
+          <div role="note" style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap", border: `2px solid ${C.ink}`, padding: "14px 16px", maxWidth: 760 }}>
+            <PlayerCat fur="grey" pose="sit" size={90} label="The practice cat, waiting at its post" />
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: "1 1 320px" }}>
+              <strong style={{ fontFamily: F.cond, fontSize: 28, fontWeight: 600, lineHeight: 1 }}>Practice: you play against the practice cat</strong>
+              <span style={{ fontSize: 16, lineHeight: 1.5 }}>
+                The practice cat is HonorCat&apos;s own test account. It plays with test money only, and practice pots never count in your honor record.
+              </span>
+              <ol style={{ margin: 0, paddingLeft: 22, fontSize: 16, lineHeight: 1.55, listStyle: "decimal" }}>
+                <li>Pick a question and your side.</li>
+                <li>Put in up to {$(Math.floor(PRACTICE_N * 1e6 * (sideChance ?? 0.5)))} (the pot is at most ${PRACTICE_N}); new players get test money automatically.</li>
+                <li>Give your word: the practice cat takes the other side at once and the rope starts moving.</li>
+                <li>Leave whenever you like: your exit is priced over the next 30 seconds and paid out in about a minute.</li>
+              </ol>
+              <span style={{ fontSize: 14, color: C.muted }}>Want a real opponent instead? Untick “Practise alone” in step 3.</span>
+            </div>
+          </div>
+        )}
       </header>
 
       <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>

@@ -62,9 +62,6 @@ export function Built() {
       </>
     );
   };
-  const total = (e?.events ?? []).reduce((s, x) => s + Number(x.n), 0);
-  const streams = (e?.events ?? []).reduce((s, x) => s + Number(x.streams), 0);
-  const rpc = (e?.events ?? []).reduce((s, x) => s + Number(x.rpc), 0);
   const ss = e?.streamsSinceFilter;
   const settled = ev("PotSettled");
 
@@ -102,13 +99,14 @@ export function Built() {
       ),
     },
     {
-      what: "Funding from other chains with Circle Gateway",
-      check: "a Gateway transfer minted on Arc",
+      what: "Circle Gateway: a transfer attested by Circle and minted into an HonorCat account on Arc",
+      check: "a Gateway transfer run end to end (from Arc's own Gateway balance)",
       status: e?.circle?.gatewayMints ? "done" : "partly",
       proof: (
         <>
           Deposit USDC on Base, Ethereum, Avalanche, Arbitrum, Optimism, Polygon or Arc into one Gateway balance, then move it into a HonorCat account on Arc with one signature: Circle
-          attests, the relay mints. {e?.circle ? `${e.circle.gatewayMints} Gateway mints so far` : ""}
+          attests, the relay mints. Run end to end from a Gateway balance on Arc (deposit, Circle&apos;s attestation, mint); deposits on the other chains use the same path but were not run here, as we
+          hold no test USDC on them. {e?.circle ? `${e.circle.gatewayMints} Gateway mints recorded since the database was rebuilt` : ""}
           {e?.circle?.lastGatewayMint && (
             <>
               ; newest{" "}
@@ -142,14 +140,15 @@ export function Built() {
   const quicknode: Item[] = [
     {
       what: "Streams is the primary source for every pot event",
-      check: "the share of events first seen by Streams since the filter was set",
+      check: "the share of pot events first seen by Streams since the stream resumed",
       status: ss && ss.total > 0 && ss.streams / ss.total >= 0.5 ? "done" : "partly",
       proof: (
         <>
           {ss
-            ? `Since block ${ss.sinceBlock} (when the filter began covering the pot contract): ${ss.streams} of ${ss.total} pot events first seen by Streams (${ss.total ? Math.round((100 * ss.streams) / ss.total) : 0}%). `
+            ? `Since block ${Number(ss.sinceBlock).toLocaleString("en-US")}: ${ss.streams} of ${ss.total} pot events first seen by Streams (${ss.total ? Math.round((100 * ss.streams) / ss.total) : 0}%). `
             : "… "}
-          The RPC poller now trails the chain head by {ss?.pollerLagBlocks ?? 90} blocks (about a minute), so Streams delivers first and polling only fills gaps. All time: {total} events, {streams} by Streams, {rpc} by polling.
+          The RPC poller trails the chain head by {ss?.pollerLagBlocks ?? 90} blocks (about a minute), so Streams delivers first and polling only fills gaps. Events before that block were rebuilt from
+          the chain on 16 November, after the database moved to a new project, so they are counted from that block on.
         </>
       ),
     },

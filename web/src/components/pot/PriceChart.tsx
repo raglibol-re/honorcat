@@ -13,6 +13,20 @@ const W = 800;
 const H = 260;
 const PAD = { l: 44, r: 16, t: 18, b: 34 };
 
+/**
+ * A row (0 above, 1 below, 2 higher, 3 lower) for each label at x, so labels closer than 130 px
+ * never share a row.
+ */
+function labelRows(xs: number[]): number[] {
+  const last = [-1e9, -1e9, -1e9, -1e9];
+  return xs.map((x) => {
+    const row = last.findIndex((l) => x - l >= 130);
+    const r = row === -1 ? 0 : row;
+    last[r] = x;
+    return r;
+  });
+}
+
 /** The marks from the pot's own events: the entry, every exit (partial ones named), handshakes, the settlement. */
 function marksOf(pot: HcPot): Mark[] {
   const out: Mark[] = [];
@@ -44,9 +58,14 @@ export function PriceChart({ pot }: { pot: HcPot }) {
   const { data } = usePolling<{ points: Point[] }>(`/api/hc/pots/${pot.potId}/history`, 60_000);
   const [hover, setHover] = useState<Point | null>(null);
   const marks = useMemo(() => marksOf(pot), [pot]);
-  const points = data?.points ?? [];
+  // The line starts at the entry: candles before it are not this pot's history.
+  const entryT = marks.find((m) => m.kind === "entry")?.t ?? null;
+  const points = (data?.points ?? []).filter((q) => entryT === null || q.t >= entryT - 60_000);
   if (!data) return null;
   if (points.length < 2 && !marks.length) return null;
+  // Where Gemini's candles do not reach back to the entry, say so instead of drawing a guess.
+  const gapFrom = entryT !== null && (points.length === 0 || points[0]!.t - entryT > 10 * 60_000) ? entryT : null;
+  const gapTo = gapFrom !== null ? (points[0]?.t ?? null) : null;
 
   const ts = [...points.map((x) => x.t), ...marks.map((m) => m.t)];
   const ps = [...points.map((x) => x.p), ...marks.map((m) => m.p)];
@@ -97,17 +116,23 @@ export function PriceChart({ pot }: { pot: HcPot }) {
           <text x={W - PAD.r} y={H - 8} textAnchor="end" fontSize="12" fill={C.muted} fontFamily="var(--font-barlow), Arial, sans-serif">
             {formatDate(t1)}
           </text>
+          {gapFrom !== null && (
+            <g>
+              <line x1={x(gapFrom)} x2={gapTo !== null ? x(gapTo) : W - PAD.r} y1={y(marks[0]!.p)} y2={gapTo !== null ? y(points[0]!.p) : y(marks[0]!.p)} stroke={C.dash} strokeWidth="1.5" strokeDasharray="4 5" />
+            </g>
+          )}
           <path d={path} fill="none" stroke={C.ink} strokeWidth="2" strokeLinejoin="round" />
-          {marks.map((m, i) => {
-            // Marks close together take turns above and below the line, so their labels never collide.
-            const crowded = i > 0 && Math.abs(x(m.t) - x(marks[i - 1]!.t)) < 110;
-            const below = (crowded && i % 2 === 1) || y(m.p) < PAD.t + 24;
+          {labelRows(marks.map((m) => x(m.t))).map((row, i) => {
+            const m = marks[i]!;
+            // Labels are placed in rows above and below the line so two never overlap.
+            const dy = [-12, 24, -30, 42][row]!;
+            const flip = y(m.p) + dy < PAD.t + 4 ? 24 : y(m.p) + dy > H - PAD.b - 2 ? -12 : dy;
             return (
             <g key={i}>
               <circle cx={x(m.t)} cy={y(m.p)} r="6" fill={color(m.kind)} stroke={C.page} strokeWidth="2" />
               <text
                 x={Math.min(Math.max(x(m.t), PAD.l + 40), W - PAD.r - 40)}
-                y={y(m.p) + (below ? 22 : -12)}
+                y={y(m.p) + flip}
                 textAnchor="middle"
                 fontSize="13"
                 fontWeight="600"
@@ -146,6 +171,12 @@ export function PriceChart({ pot }: { pot: HcPot }) {
           </div>
         )}
       </div>
+      {gapFrom !== null && (
+        <p style={{ margin: 0, fontSize: 14, color: C.body }}>
+          Gemini&apos;s price history for this market does not reach back to the entry: the dashed part from {formatDate(gapFrom)}
+          {gapTo !== null ? ` to ${formatDate(gapTo)}` : ""} has no recorded prices, only the marked events.
+        </p>
+      )}
       <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, fontSize: 13, color: C.muted }}>
         <span>Gemini&apos;s last traded price per {points.length > 1 && points[1]!.t - points[0]!.t >= 3_600_000 ? "hour" : "few minutes"}; the pot itself uses 30-second averages.</span>
         <span>Data provided by Gemini.</span>

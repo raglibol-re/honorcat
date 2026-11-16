@@ -249,3 +249,19 @@ QuickNode
       connector link `/api/mcp/<seat>` plus the job description) to paste into Grok Bot; the plain link
       as plan B; checked in the browser and by agent-seat-e2e.ts (12 checks: the link works without a
       header and gets 401 the moment the seat is revoked).
+
+## 14. Browser review of production (2026-11-17)
+- [x] Shares always add up to the pot: one side rounded to the cent, the other the pot minus it, on
+      the rope, landing, big screen, three amounts and link previews (web/src/lib/shares.ts,
+      relay/test/shares.test.ts; pot 4 now $0.75 + $0.25 on both pages).
+- [x] /pots/new?practice=1 says at the top that the visitor plays the practice cat with test money,
+      and lists what happens next.
+- [x] /status: no retired vault or old pot counts; the relay wallet, a runway in relay transactions
+      at their measured cost, today's pots; Streams named as the primary source. /how-it-is-built:
+      one consistent Streams figure (51 of 51 since block 72,600,235) with the rebuild explained.
+- [x] The price chart starts at the entry; where Gemini's history is missing, the line is dashed and
+      a sentence says so; labels sit in rows so entry and takeover no longer overlap.
+- [x] Gateway run end to end again (Circle attested, the Circle wallet minted $0.08 on Arc in 2.7 s,
+      tx 0xad981c8b…ccaf); the item says exactly what was run (from Arc) and what was not (other chains).
+- [x] Full team names everywhere, also inside spreads, totals and events that list only short names
+      (relay/test/statement.test.ts; no "Los Angeles C" left on /markets, /pots/new, /pots or /).

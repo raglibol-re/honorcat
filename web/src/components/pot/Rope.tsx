@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Cat, type CatPose, type Mood } from "@/components/cat/Cat";
 import { FURS, type Fur } from "@/lib/names";
+import { splitPot } from "@/lib/shares";
 import { RollingNumber } from "@/components/cat/RollingNumber";
 import { C, F } from "@/components/cat/tokens";
 
@@ -224,8 +225,10 @@ export function Rope(p: RopeProps) {
 
   const price = p.price;
   const n = money(p.notional);
-  const yes = price === null ? null : n * price;
-  const no = price === null ? null : n - n * price;
+  // One side rounded to the cent, the other the pot minus it: the two always add up to the pot.
+  const shares = price === null ? null : splitPot(p.notional, price);
+  const yes = shares === null ? null : Number(shares.yes) / 1e6;
+  const no = shares === null ? null : Number(shares.no) / 1e6;
   const pose = poseFor(p);
   const catP = p.phase === "settled" && (p.receiver === 0 || p.receiver === 1) ? (p.receiver === 0 ? 0 : 1) : (price ?? 0.5);
   const catW = Math.max(56, Math.min(p.big ? 260 : 150, width * 0.1));

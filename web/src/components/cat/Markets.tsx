@@ -3,7 +3,7 @@
 import { CatState } from "@/components/cat/CatState";
 import { useState } from "react";
 import { usePolling } from "@/lib/api";
-import { sidesOf } from "@/lib/statement";
+import { expandTeams, fullLabel, rememberTeams, sidesOf } from "@/lib/statement";
 import { CatHead } from "./shapes";
 import { C, F } from "./tokens";
 
@@ -109,20 +109,25 @@ type EventGroup = { key: string; title: string; category: string; subcategory: s
 /** Contracts grouped by their Gemini event, in the order the list ranks them. */
 export function groupByEvent(items: MarketItem[]): EventGroup[] {
   const map = new Map<string, EventGroup>();
+  // Every full team name Gemini gave anywhere in this list: events that only carry "Los Angeles C"
+  // borrow "Los Angeles Chargers" from another event of the same game.
+  const known = [...new Set(items.map((m) => m.teams).filter((t): t is string => !!t))].join(" at ");
+  rememberTeams(items.map((m) => m.teams));
+  const full = (text: string, title: string) => (known ? expandTeams(text, title, known) : text);
   for (const m of items) {
     const g = map.get(m.eventTicker);
     if (g) g.items.push(m);
     else
       map.set(m.eventTicker, {
         key: m.eventTicker,
-        title: m.eventTitle,
+        title: full(m.eventTitle, m.eventTitle),
         category: m.category,
         subcategory: m.subcategory,
         image: m.image,
         closeMs: m.closeMs,
         volume: m.eventVolume24h,
         league: m.league ?? null,
-        teams: m.teams ?? null,
+        teams: m.teams ? full(m.teams, m.teams) : null,
         startMs: m.startMs ?? null,
         items: [m],
       });
@@ -188,7 +193,7 @@ function Outcome({ m, picked, onPick, detail }: { m: MarketItem; picked: boolean
       }}
     >
       <span style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
-        <span style={{ fontSize: 16, fontWeight: 600, lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis" }}>{m.label}</span>
+        <span style={{ fontSize: 16, fontWeight: 600, lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis" }}>{fullLabel(m)}</span>
         {(m.yesMeans || m.teams) && (
           <span style={{ fontSize: 12.5, lineHeight: 1.35, color: picked ? C.faint : C.body }} title={m.yesMeans ?? undefined}>
             {(() => {

@@ -2,6 +2,7 @@ import { ImageResponse } from "next/og";
 import { connection } from "next/server";
 import { getDb, pots } from "@/server/relay";
 import { sidesOf } from "@/lib/statement";
+import { splitPot } from "@/lib/shares";
 
 /**
  * The preview image of a pot link (invitations): the question, the rope between two posts with the
@@ -57,6 +58,7 @@ export default async function Image({ params }: { params: Promise<{ id: string }
   const left = rope.slice(0, split + 1).join(" ");
   const right = rope.slice(split).join(" ");
   const usd = (v: number) => `$${v.toFixed(2)}`;
+  const shares = splitPot(BigInt(Math.round(pot * 1e6)), p);
 
   return new ImageResponse(
     (
@@ -87,12 +89,12 @@ export default async function Image({ params }: { params: Promise<{ id: string }
         <div style={{ display: "flex", marginTop: "auto", justifyContent: "space-between", alignItems: "flex-end" }}>
           <div style={{ display: "flex", flexDirection: "column" }}>
             <span style={{ fontSize: 26, color: MUTED }}>{price === null ? "" : `${Math.round(p * 100)}% chance`}</span>
-            <span style={{ fontSize: 56, fontWeight: 700 }}>{pot ? usd(pot * p) : ""}</span>
+            <span style={{ fontSize: 56, fontWeight: 700 }}>{pot ? usd(Number(shares.yes) / 1e6) : ""}</span>
           </div>
           <span style={{ fontSize: 30, fontWeight: 700 }}>{state === "Open" ? "Take the other side" : `Pot ${usd(pot)}`}</span>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
             <span style={{ fontSize: 26, color: MUTED }}>{price === null ? "" : `${100 - Math.round(p * 100)}% the other way`}</span>
-            <span style={{ fontSize: 56, fontWeight: 700, color: "#B8320F" }}>{pot ? usd(pot * (1 - p)) : ""}</span>
+            <span style={{ fontSize: 56, fontWeight: 700, color: "#B8320F" }}>{pot ? usd(Number(shares.no) / 1e6) : ""}</span>
           </div>
         </div>
       </div>

@@ -30,6 +30,7 @@ import { formatDate, short } from "@/lib/format";
 import { cancelPot, feeOf, joinPot, requestExit, setLevels, sideOf, signHandshake, takeover, worstCase, YES, type HcPot } from "@/lib/hc";
 import { useNow } from "@/lib/useNow";
 import { plainError } from "@/lib/messages";
+import { shareOf } from "@/lib/shares";
 import { notifyMe, pushSupported } from "@/lib/push";
 
 const POTS = "0xc890C990048f45cb268d076E4A3dB25270Ea1e59" as const;
@@ -50,8 +51,7 @@ const pct = (ppm: number) => `${(ppm / 10_000).toFixed(1)}%`;
  */
 function ThreeNumbers({ pot, side, price, st }: { pot: HcPot; side: number; price: number | null; st: Sides | null }) {
   const n = BigInt(pot.data.notional);
-  const own = price === null ? null : side === YES ? price : 1 - price;
-  const share = own === null ? null : BigInt(Math.floor(Number(n) * own));
+  const share = price === null ? null : shareOf(n, price, side);
   const fee = feeOf(n, Number(pot.data.feeBps));
   const leave = share === null ? null : share > fee ? share - fee : 0n;
   const mine = st ? (side === YES ? st.yes : st.no) : "your side happens";
@@ -139,7 +139,7 @@ function Actions({ pot, who, price, nowS, nameOf }: { pot: HcPot; who: ActorStat
               style={btn}
               onClick={async () => {
                 const url = location.href.split("?")[0]!;
-                const text = `Take the other side of my HonorCat pot${pot.market ? ` on ${pot.market.eventTitle}: ${pot.market.label}` : ""}`;
+                const text = `Take the other side of my HonorCat pot${pot.market ? `: ${sidesOf(pot.market).yes}?` : ""}`;
                 if (navigator.share) await navigator.share({ title: "HonorCat pot", text, url }).catch(() => {});
                 else await navigator.clipboard?.writeText(url);
               }}
