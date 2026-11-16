@@ -36,7 +36,10 @@ function Rows({ pots, me }: { pots: HcPotSummary[]; me?: string | null }) {
             style={{ display: "flex", flexWrap: "wrap", gap: "4px 20px", alignItems: "baseline", padding: "14px 6px", borderBottom: `1px solid ${C.faint}`, textDecoration: "none", color: C.ink }}
           >
             <span style={{ fontFamily: F.cond, fontSize: 22, fontWeight: 600, minWidth: 48 }}>#{p.potId}</span>
-            <span style={{ fontSize: 17, fontWeight: 600, flex: "1 1 280px" }}>{p.market ? marketTitle(p.market) : "Unknown market"}</span>
+            <span style={{ fontSize: 17, fontWeight: 600, flex: "1 1 280px" }}>
+              {p.practice && <span style={{ border: `1.5px solid ${C.ink}`, padding: "0 6px", marginRight: 8, fontSize: 14, fontWeight: 600 }}>Practice</span>}
+              {p.market ? marketTitle(p.market) : "Unknown market"}
+            </span>
             <span style={{ fontSize: 16 }}>${n.toFixed(2)}</span>
             <span style={{ fontSize: 15, color: C.muted }}>{side === null ? "" : side === 0 ? "you hold YES · " : "you hold NO · "}{STATE_SHORT[p.state]}</span>
             <span style={{ fontSize: 14, color: C.muted }}>closes {formatDate(Number(p.data.closeTime) * 1000)}</span>

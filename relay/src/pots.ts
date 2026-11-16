@@ -803,6 +803,9 @@ export async function listPotsHc(db: Db, opts: { owner?: string; states?: number
     args.push(opts.owner.toLowerCase());
     const i = args.length;
     where.push(`(yes_owner = $${i} OR no_owner = $${i} OR lower(data->>'joiner') = $${i})`);
+  } else {
+    // Practice pots (against the relay's practice cat) stay out of public lists and numbers.
+    where.push("NOT EXISTS (SELECT 1 FROM practice_pots pp WHERE pp.pot_id = pots.pot_id)");
   }
   if (opts.states?.length) {
     args.push(opts.states);
@@ -812,7 +815,8 @@ export async function listPotsHc(db: Db, opts: { owner?: string; states?: number
   }
   args.push(opts.limit ?? 50);
   const rows = await db.query<PotListRow>(
-    `SELECT pot_id::text AS pot_id, state, data, condition_id, yes_owner, no_owner, created_tx, updated_at FROM pots ${where.length ? "WHERE " + where.join(" AND ") : ""} ORDER BY pot_id DESC LIMIT $${args.length}`,
+    `SELECT pot_id::text AS pot_id, state, data, condition_id, yes_owner, no_owner, created_tx, updated_at,
+            EXISTS (SELECT 1 FROM practice_pots pp WHERE pp.pot_id = pots.pot_id) AS practice FROM pots ${where.length ? "WHERE " + where.join(" AND ") : ""} ORDER BY pot_id DESC LIMIT $${args.length}`,
     args,
   );
   const out = [];
@@ -823,6 +827,7 @@ export async function listPotsHc(db: Db, opts: { owner?: string; states?: number
       state: POT_STATES[r.state],
       data: typeof r.data === "string" ? JSON.parse(r.data) : r.data,
       owners: { yes: r.yes_owner, no: r.no_owner },
+      practice: Boolean((r as PotListRow & { practice?: boolean }).practice),
       market: m && { eventTitle: m.eventTitle, label: m.label, instrument: m.instrument, eventTicker: m.eventTicker, ...(await namesFor(db, m.instrument)) },
       updatedAt: r.updated_at,
     });
@@ -884,7 +889,10 @@ type Ev = { tx_hash: string; block_time: string | null; event_name: string; pot_
  */
 export async function honorRecord(db: Db, account: string) {
   const a = account.toLowerCase();
-  const ev = await db.query<Ev>("SELECT tx_hash, block_time::text AS block_time, event_name, pot_id::text AS pot_id, args FROM pot_events ORDER BY block_number, log_index");
+  // Practice pots (against the relay's practice cat) never count towards an honor record.
+  const ev = await db.query<Ev>(
+    "SELECT tx_hash, block_time::text AS block_time, event_name, pot_id::text AS pot_id, args FROM pot_events e WHERE e.pot_id IS NULL OR NOT EXISTS (SELECT 1 FROM practice_pots pp WHERE pp.pot_id = e.pot_id) ORDER BY block_number, log_index",
+  );
   const ownerOf = new Map<string, string>(); // tokenId -> owner, replayed from Transfer events
   const played = new Set<string>();
   const held = new Set<string>();
@@ -1011,7 +1019,8 @@ export async function potsEvidence(db: Db) {
             (array_agg(tx_hash ORDER BY block_number DESC, log_index DESC))[1] AS last_tx,
             (array_agg(pot_id::text ORDER BY block_number DESC, log_index DESC))[1] AS last_pot,
             max(block_time)::text AS last_time
-       FROM pot_events GROUP BY event_name ORDER BY event_name`,
+       FROM pot_events e WHERE e.pot_id IS NULL OR NOT EXISTS (SELECT 1 FROM practice_pots pp WHERE pp.pot_id = e.pot_id)
+      GROUP BY event_name ORDER BY event_name`,
   );
   const windows = await db.query<{ n: string; three: string; two: string; none: string; quotes: string; onchain: string }>(
     `SELECT count(*)::text AS n,

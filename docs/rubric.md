@@ -131,3 +131,15 @@ QuickNode
 - [x] /how-it-is-built: the count of price windows matches its breakdown (23 = 19 + 2 + 2).
 - [x] The share of pot events first seen by Streams since the filter was set is reported, and
       Streams is the primary path (49 of 60, 82%, since block 72,538,134; the RPC poller now trails the head by 90 blocks).
+
+## 12. Polish (docs/polish-spec.md)
+### P1. Try it alone
+- [x] Practice pots stay out of the honor record, public pot lists and the public event counts;
+      their owner still sees them, marked "Practice" (relay/test/practice-record.test.ts).
+- [x] New visitors get test USDC without a faucet, limited per account and per day ($2 welcome,
+      top-ups up to $10 per account and $80 in total a day).
+- [x] The practice cat is checked before a practice pot is created; if it cannot play, the page
+      says why and what to do instead, and a pot it fails to join opens for a real opponent.
+- [x] A new visitor creates a pot, watches the rope and exits within two minutes, alone, at phone
+      width [relay/scripts/phone-solo.mjs, iPhone 13 viewport, new passkey: pot 18 created,
+      joined by the practice cat, left and paid out in 102 s, no sideways scrolling].

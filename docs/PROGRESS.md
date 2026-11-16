@@ -19,6 +19,11 @@
 - Work in cycles per docs/improve.md, everything in the agreed priority order.
 
 ## Rubric cycle log
+- 2026-11-16: polish spec (docs/polish-spec.md) started. P1 done: practice pots kept out of the
+  honor record and public numbers; passkey creates now return the pot id (before, the practice cat
+  never joined a passkey player's pot and the page fell back to the list); the practice cat is
+  checked before a pot is created. Phone-width solo run on production: 102 s (pot 18). The relay
+  pool was down to $4.42 (Circle's faucet API still answers 403); $6 moved from the deployer.
 - 2026-11-16: Circle depth. (1) The relay sends every pot transaction from a Circle
   developer-controlled wallet (0xf1eb...f569; entity secret only in env, Circle's recovery file
   outside the repository; retired products keep their own key); verified: practice pot 14 joined by

@@ -27,6 +27,20 @@ export async function isPractice(db: Db, potId: string) {
   return (await db.query("SELECT 1 FROM practice_pots WHERE pot_id = $1", [potId])).length > 0;
 }
 
+/**
+ * Whether the practice cat can take a pot right now, checked before a visitor creates one so a
+ * practice pot is never left waiting. `reason` is a plain sentence with what to do instead.
+ */
+export async function practiceStatus(db: Db): Promise<{ available: boolean; reason: string | null }> {
+  const today = await db.query<{ n: string }>("SELECT count(*)::text AS n FROM practice_pots WHERE created_at > now() - interval '1 day'");
+  if (Number(today[0]?.n ?? 0) >= PRACTICE_PER_DAY)
+    return { available: false, reason: "The practice cat has played enough pots for today. Start a pot for a real opponent, or invite a friend." };
+  const bal = await publicClient().readContract({ address: ARC_USDC, abi: erc20Abi, functionName: "balanceOf", args: [practiceAddress()] });
+  if (bal < PRACTICE_MAX_NOTIONAL + PRACTICE_FLOOR)
+    return { available: false, reason: "The practice cat is out of test money until HonorCat refills it. Start a pot for a real opponent, or invite a friend." };
+  return { available: true, reason: null };
+}
+
 export async function practiceJoin(db: Db, potId: string) {
   const pots = potsAddress();
   const c = publicClient();

@@ -374,7 +374,9 @@ export function PotView({ id }: { id: string }) {
   const who = useActor();
   const live = useLivePrice(pot?.market?.instrument ?? null, Number(pot?.data.window ?? 30));
   const nowS = Math.floor(useNow() / 1000);
-  const fresh = useSearchParams().get("new") === "1";
+  const q = useSearchParams();
+  const fresh = q.get("new") === "1";
+  const practiceFailed = q.get("practice") === "failed";
   const { tech } = useTechMode();
   const names = useNames([pot?.owners.yes, pot?.owners.no, pot?.data.joiner, ...(pot?.events ?? []).flatMap((e) => [e.args.creator, e.args.joiner, e.args.taker, e.args.from, e.args.to])]);
 
@@ -412,6 +414,11 @@ export function PotView({ id }: { id: string }) {
           </p>
         )}
         <p style={{ margin: 0, fontSize: 19, color: C.body }}>{STATE_TEXT[pot.state]}</p>
+        {practiceFailed && pot.state === "Open" && (
+          <p role="alert" style={{ margin: 0, fontSize: 17, color: C.signalInk, maxWidth: 760 }}>
+            The practice cat could not take the other side just now. Your pot is open and waits for a real opponent: send the link, or take it back below and get your deposit back.
+          </p>
+        )}
         {fresh && pot.state === "Open" && <p style={{ margin: 0, fontSize: 17, color: C.ink }}>Your pot is open. Send the link to whoever takes the other side.</p>}
       </header>
 

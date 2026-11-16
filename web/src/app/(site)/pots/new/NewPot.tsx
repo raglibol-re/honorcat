@@ -48,6 +48,11 @@ export function NewPot() {
     if (!who.actor || !market || center === null) return;
     setErr(null);
     try {
+      if (practice) {
+        setStep("Checking the practice cat");
+        const ps = await getJson<{ available: boolean; reason: string | null }>(`/api/hc/practice`);
+        if (!ps.available) throw new Error(ps.reason ?? "The practice cat cannot play right now.");
+      }
       setStep("Reading the market's depth");
       const prep = await prepare(market.symbol, who.actor.account);
       if (BigInt(prep.cap) < n) throw new Error(`This market's order book allows pots up to $${(Number(prep.cap) / 1e6).toFixed(2)} right now (a quarter of a dollar per contract within 5 cents of the price).`);
@@ -55,7 +60,13 @@ export function NewPot() {
       const r = await createPot(who.actor, prep, { side, notional: n, bandCenter, tolerance: Math.min(tol, MAX_TOLERANCE), graceDays: Number(grace) }, setStep);
       if (practice && r.potId) {
         setStep("The practice cat is taking the other side");
-        await getJson(`/api/hc/practice`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ potId: r.potId }) });
+        try {
+          await getJson(`/api/hc/practice`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ potId: r.potId }) });
+        } catch {
+          // The pot exists; it now waits for a real opponent and can be taken back on its page.
+          router.push(`/pots/${r.potId}?practice=failed`);
+          return;
+        }
       }
       setStep("Done");
       if (r.potId) router.push(`/pots/${r.potId}${practice ? "" : "?new=1"}`);

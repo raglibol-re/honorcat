@@ -131,8 +131,9 @@ export async function submitPasskeyPotCall(db: Db, input: { account: Address; st
   );
   await logRequest(db, input.account, null, `pot:${what}`, 0n, res.ok ? res.tx : undefined);
   if (!res.ok) throw new GaslessError(`${what} failed: ${res.error}`, 502);
-  await afterPotTx(db, res.tx, potId);
-  return { tx: res.tx, potId };
+  // A create has no pot id in its arguments: take it from the contract's own event in the receipt.
+  const ids = await afterPotTx(db, res.tx, potId);
+  return { tx: res.tx, potId: potId ?? ids[0] ?? null };
 }
 
 /** Forwards a wallet-signed pot call (EIP-3009 deposit, signed exit request, handshake). */
@@ -153,8 +154,9 @@ export async function forwardPotCall(db: Db, data: Hex) {
   const res = await sendRelayCalls(db, "pot_forward", [{ ...memoCall(pots, data, ref, { v: 1, t: "pot", ref, why: `${call.functionName}, signed by the user; HonorCat paid the fee` }), label: call.functionName }]);
   if (payer) await logRequest(db, payer, null, `pot:${call.functionName}`, 0n, res.ok ? res.tx : undefined);
   if (!res.ok) throw new GaslessError(`${call.functionName} failed: ${res.error}`, 502);
-  await afterPotTx(db, res.tx, potId);
-  return { tx: res.tx, potId };
+  // A create has no pot id in its arguments: take it from the contract's own event in the receipt.
+  const ids = await afterPotTx(db, res.tx, potId);
+  return { tx: res.tx, potId: potId ?? ids[0] ?? null };
 }
 
 /** After a pot transaction: read the affected pot (a new pot's id from its PotCreated log). */

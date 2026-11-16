@@ -1,15 +1,19 @@
 import { connection } from "next/server";
 import { z } from "zod";
-import { errorResponse, getDb, nudgeRelay, practiceAddress, practiceJoin } from "@/server/relay";
+import { errorResponse, getDb, nudgeRelay, practiceAddress, practiceJoin, practiceStatus } from "@/server/relay";
 
 export const maxDuration = 60;
 
 const body = z.object({ potId: z.string().regex(/^\d+$/) });
 
-/** Who the practice cat is (HonorCat's testnet account). */
+/** Who the practice cat is (HonorCat's testnet account) and whether it can play right now. */
 export async function GET() {
   await connection();
-  return Response.json({ address: practiceAddress(), maxNotional: "2000000" });
+  try {
+    return Response.json({ address: practiceAddress(), maxNotional: "2000000", ...(await practiceStatus(await getDb())) });
+  } catch (err) {
+    return errorResponse(err);
+  }
 }
 
 /** The practice cat takes the other side of a small open pot (test money). */
