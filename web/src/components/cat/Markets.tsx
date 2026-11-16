@@ -160,7 +160,7 @@ function Outcome({ m, picked, onPick, detail }: { m: MarketItem; picked: boolean
           {!ok && <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{reason}</span>}
         </span>
       </span>
-      <span aria-hidden="true" style={{ height: 10, background: picked ? C.muted : C.grid, position: "relative" }}>
+      <span aria-hidden="true" style={{ height: 8, background: picked ? C.muted : C.grid, position: "relative" }}>
         <span style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${w}%`, background: picked ? C.signal : ok ? C.ink : C.faint, transition: "width 600ms ease" }} />
       </span>
       <span style={{ fontFamily: F.cond, fontSize: 24, fontWeight: 600, lineHeight: 1, textAlign: "right" }}>{pct(chance)}</span>
@@ -187,7 +187,7 @@ export function EventBlocks({ items, picked, onPick, detail }: { items: MarketIt
               <h3 style={{ margin: 0, fontFamily: F.cond, fontSize: 24, fontWeight: 600, lineHeight: 1.05 }}>{g.title}</h3>
             </div>
           </div>
-          <div style={{ display: "flex", flexDirection: "column" }}>
+          <div style={{ display: "flex", flexDirection: "column", paddingLeft: "min(66px, 10vw)" }}>
             {g.items.map((m) => (
               <Outcome key={m.symbol} m={m} picked={picked === m.symbol} onPick={onPick} detail={detail} />
             ))}

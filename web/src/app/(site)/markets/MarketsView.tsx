@@ -22,6 +22,12 @@ export function MarketsView() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 44 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 15, color: C.muted }}>
+        <GeminiMark size={28} />
+        <span>
+          Every market here is a live prediction market on <strong style={{ color: C.ink }}>Gemini</strong>, read straight from its order books.
+        </span>
+      </div>
       <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 8, alignItems: "baseline" }}>
           <h2 style={{ margin: 0, fontFamily: F.cond, fontSize: 36, fontWeight: 600 }}>By category</h2>
@@ -65,10 +71,7 @@ export function MarketsView() {
       {groups.size === 0 && <p style={{ margin: 0, fontSize: 17 }}>No market passes right now. Check back in a few minutes.</p>}
       {[...groups.entries()].map(([category, items]) => (
         <section key={category} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <h2 style={{ margin: 0, fontFamily: F.cond, fontSize: 36, fontWeight: 600, display: "flex", alignItems: "center", gap: 10 }}>
-            <GeminiMark size={22} />
-            {category}
-          </h2>
+          <h2 style={{ margin: 0, fontFamily: F.cond, fontSize: 36, fontWeight: 600 }}>{category}</h2>
           <EventBlocks items={items} detail />
         </section>
       ))}
