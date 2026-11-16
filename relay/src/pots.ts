@@ -678,6 +678,10 @@ export async function openLevelWindow(db: Db, input: { potId: string; side: 0 | 
  * Reads new HonorCatPots logs (in 5,000-block chunks; Arc caps eth_getLogs at 10,000) and
  * refreshes every pot they touch. Covers transactions the relay did not send (wallet users).
  */
+export const POLLER_LAG_BLOCKS = 90n; // ~1 minute of Arc blocks
+/** First block after the Streams filter began covering HonorCatPots (2026-11-16 09:11 UTC). */
+export const STREAMS_POTS_SINCE_BLOCK = 72_538_134n;
+
 export async function indexPots(db: Db, opts: { deadlineMs?: number } = {}) {
   const cfg = getConfig();
   if (!cfg.pots) return null;
@@ -685,7 +689,9 @@ export async function indexPots(db: Db, opts: { deadlineMs?: number } = {}) {
   const started = Date.now();
   const cursor = await db.query<{ value: string }>("SELECT value FROM relay_state WHERE key = 'pots_cursor_v2'");
   let from = cursor[0] ? BigInt(cursor[0].value) + 1n : cfg.pots.deployBlock;
-  const head = await c.getBlockNumber();
+  // Streams is the primary path; the poller trails the chain head by about a minute and only
+  // fills what Streams did not deliver (an outage, a paused stream).
+  const head = (await c.getBlockNumber()) - POLLER_LAG_BLOCKS;
   const touched = new Set<string>();
   while (from <= head && Date.now() - started < (opts.deadlineMs ?? 15_000)) {
     const to = from + 4_999n > head ? head : from + 4_999n;
@@ -763,14 +769,23 @@ export async function potDetail(db: Db, potId: string) {
     "SELECT id, kind, pot_id, payload, status, digest, tx, error, created_at FROM att_requests WHERE pot_id = $1 ORDER BY created_at DESC LIMIT 30",
     [potId],
   );
+  const practice = (await db.query("SELECT 1 FROM practice_pots WHERE pot_id = $1", [potId])).length > 0;
+  const events = await db.query<{ tx_hash: string; block_time: string | null; event_name: string; args: Record<string, string> }>(
+    "SELECT tx_hash, block_time::text AS block_time, event_name, args FROM pot_events WHERE pot_id = $1 ORDER BY block_number, log_index",
+    [potId],
+  );
+  const row2 = market ? await rowBySymbol(db, market.instrument).catch(() => null) : null;
+  const marketFull = market && { ...market, league: row2?.league ?? null, teams: row2?.teams ?? null, startMs: row2?.startMs ?? null, yesMeans: row2?.yesMeans ?? null, closeMs: row2?.closeMs ?? null };
   return {
     potId: row.pot_id,
     state: POT_STATES[row.state],
+    practice,
     data,
     owners: { yes: row.yes_owner, no: row.no_owner },
     createdTx: row.created_tx,
     updatedAt: row.updated_at,
-    market,
+    market: marketFull,
+    events: events.map((e) => ({ name: e.event_name, args: e.args, tx: e.tx_hash, at: e.block_time ? Number(e.block_time) : null })),
     requests: requests.map((r) => ({ id: r.id, kind: r.kind, status: r.status, tx: r.tx, error: r.error, createdAt: r.created_at, payload: payloadOf(r) })),
   };
 }
@@ -992,18 +1007,28 @@ export async function potsEvidence(db: Db) {
             max(block_time)::text AS last_time
        FROM pot_events GROUP BY event_name ORDER BY event_name`,
   );
-  const windows = await db.query<{ n: string; three: string; two: string; none: string }>(
+  const windows = await db.query<{ n: string; three: string; two: string; none: string; quotes: string; onchain: string }>(
     `SELECT count(*)::text AS n,
-            count(*) FILTER (WHERE payload->>'reason' = 'median of three')::text AS three,
-            count(*) FILTER (WHERE payload->>'reason' LIKE 'mean of two%')::text AS two,
-            count(*) FILTER (WHERE (payload->'attestation'->>'valid') = 'false')::text AS none
-       FROM att_requests WHERE kind = 'window' AND status IN ('submitted','ready')`,
+            count(*) FILTER (WHERE (payload->'attestation'->>'valid') = 'true' AND payload->>'reason' LIKE 'median of three%')::text AS three,
+            count(*) FILTER (WHERE (payload->'attestation'->>'valid') = 'true' AND payload->>'reason' LIKE 'mean of two%')::text AS two,
+            count(*) FILTER (WHERE (payload->'attestation'->>'valid') = 'false')::text AS none,
+            count(*) FILTER (WHERE id LIKE 'q:%')::text AS quotes,
+            count(*) FILTER (WHERE (payload->>'median') = 'true')::text AS onchain
+       FROM att_requests WHERE kind = 'window' AND status IN ('submitted','ready') AND payload ? 'attestation'`,
+  );
+  const streamsShare = await db.query<{ total: string; streams: string }>(
+    "SELECT count(*)::text AS total, count(*) FILTER (WHERE source = 'streams')::text AS streams FROM pot_events WHERE block_number >= $1",
+    [STREAMS_POTS_SINCE_BLOCK.toString()],
   );
   const latency = await db.query<{ ms: string | null }>(
     `SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY extract(epoch FROM (updated_at - to_timestamp((payload->>'windowEnd')::bigint))) * 1000)::text AS ms
        FROM att_requests WHERE kind = 'window' AND status = 'submitted' AND payload ? 'windowEnd'`,
   );
-  return { events: byKind, windows: windows[0], medianWindowToPaidMs: latency[0]?.ms ? Number(latency[0].ms) : null, contracts: { pots: getConfig().pots?.address ?? null, fairValue: getConfig().fairValue } };
+  return {
+    streamsSinceFilter: { sinceBlock: STREAMS_POTS_SINCE_BLOCK.toString(), total: Number(streamsShare[0]?.total ?? 0), streams: Number(streamsShare[0]?.streams ?? 0), pollerLagBlocks: Number(POLLER_LAG_BLOCKS) },
+    events: byKind,
+    windows: windows[0],
+    medianWindowToPaidMs: latency[0]?.ms ? Number(latency[0].ms) : null, contracts: { pots: getConfig().pots?.address ?? null, fairValue: getConfig().fairValue } };
 }
 
 /**

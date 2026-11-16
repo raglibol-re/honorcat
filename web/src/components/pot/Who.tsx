@@ -5,6 +5,9 @@ import { erc20Abi, type Address } from "viem";
 import { WalletChoice } from "@/components/cat/WalletChoice";
 import { C, F } from "@/components/cat/tokens";
 import { publicClient, USDC_ADDRESS, addressUrl } from "@/lib/chain";
+import { getJson } from "@/lib/api";
+import { setMyName, useNames } from "@/lib/names";
+import { useTechMode } from "@/components/TechMode";
 import { short } from "@/lib/format";
 import type { Actor } from "@/lib/hc";
 import { createPasskey, forgetPasskey, passkeysSupported, savedPasskey, signInWithPasskey, type PasskeySession } from "@/lib/passkey";
@@ -127,30 +130,119 @@ export function SignIn({ who, purpose }: { who: ActorState; purpose: string }) {
   );
 }
 
-/** One line: who is acting, how much test USDC they hold, where to get more. */
+/**
+ * Who is acting: their name (editable), how much test USDC they hold, a button for test USDC when
+ * they have little, and the address only with technical details on.
+ */
 export function AccountLine({ who }: { who: ActorState }) {
-  if (!who.actor) return null;
-  const a = who.actor.account;
+  const { tech } = useTechMode();
+  const a = who.actor?.account ?? null;
+  const names = useNames([a]);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [note, setNote] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  if (!who.actor || !a) return null;
+  const myName = names[a.toLowerCase()];
+  const low = who.balance !== null && who.balance < 2_000_000n;
+  const run = async (f: () => Promise<void>) => {
+    setBusy(true);
+    setNote(null);
+    try {
+      await f();
+    } catch (e) {
+      setNote((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
   return (
-    <p style={{ margin: 0, fontSize: 15, lineHeight: 1.5, color: C.muted }}>
-      {who.actor.kind === "passkey" ? "Your passkey account" : "Your wallet"}{" "}
-      <a href={addressUrl(a)} target="_blank" rel="noreferrer" style={{ fontFamily: F.mono, fontSize: 14 }}>
-        {short(a)}
-      </a>{" "}
-      holds <strong style={{ color: C.ink }}>{who.balance === null ? "…" : `${(Number(who.balance) / 1e6).toFixed(2)} USDC`}</strong> (test money).{" "}
-      <a href="https://faucet.circle.com" target="_blank" rel="noreferrer">
-        Get test USDC
-      </a>{" "}
-      for Arc testnet at this address, or bring it from another chain on the{" "}
-      <a href="/account">account page</a>.
-      {who.actor.kind === "passkey" && (
-        <>
-          {" "}
-          <button type="button" onClick={who.signOut} style={{ background: "none", border: 0, padding: 0, color: C.muted, textDecoration: "underline", cursor: "pointer", fontSize: 15 }}>
-            Sign out
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <p style={{ margin: 0, fontSize: 15, lineHeight: 1.5, color: C.muted }}>
+        Playing as <strong style={{ color: C.ink }}>{myName ?? (who.actor.kind === "passkey" ? "your passkey account" : "your wallet")}</strong>{" "}
+        {!editing && (
+          <button type="button" onClick={() => (setEditing(true), setDraft(myName ?? ""))} style={{ background: "none", border: 0, padding: 0, color: C.muted, textDecoration: "underline", cursor: "pointer", fontSize: 15 }}>
+            {myName ? "change name" : "set a name"}
           </button>
-        </>
+        )}
+        {tech && (
+          <>
+            {" "}
+            ·{" "}
+            <a href={addressUrl(a)} target="_blank" rel="noreferrer" style={{ fontFamily: F.mono, fontSize: 14 }}>
+              {short(a)}
+            </a>
+          </>
+        )}{" "}
+        · holds <strong style={{ color: C.ink }}>{who.balance === null ? "…" : `${(Number(who.balance) / 1e6).toFixed(2)} USDC`}</strong> (test money).
+        {who.actor.kind === "passkey" && (
+          <>
+            {" "}
+            <button type="button" onClick={who.signOut} style={{ background: "none", border: 0, padding: 0, color: C.muted, textDecoration: "underline", cursor: "pointer", fontSize: 15 }}>
+              Sign out
+            </button>
+          </>
+        )}
+      </p>
+      {editing && (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void run(async () => {
+              await setMyName(who.actor!, draft.trim());
+              setEditing(false);
+              setNote("Saved. Others see this name instead of your address.");
+            });
+          }}
+          style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}
+        >
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            maxLength={24}
+            placeholder="Your name on the rope"
+            aria-label="Display name"
+            style={{ minHeight: 40, padding: "0 10px", border: `1.5px solid ${C.ink}`, background: C.page, fontFamily: F.sans, fontSize: 16, width: 220 }}
+          />
+          <button type="submit" disabled={busy || draft.trim().length < 2} style={{ ...btnQuiet, minHeight: 40, fontSize: 16 }}>
+            Save (one confirmation)
+          </button>
+          <button type="button" onClick={() => setEditing(false)} style={{ background: "none", border: 0, textDecoration: "underline", cursor: "pointer", fontSize: 15 }}>
+            Cancel
+          </button>
+        </form>
       )}
-    </p>
+      {low && (
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <button
+            type="button"
+            disabled={busy}
+            style={{ ...btnQuiet, minHeight: 40, fontSize: 16 }}
+            onClick={() =>
+              run(async () => {
+                const r = await getJson<{ sent: boolean; reason?: string }>("/api/hc/drip", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ account: a }) }).catch((e) => ({
+                  sent: false,
+                  reason: (e as Error).message,
+                }));
+                if (r.sent) {
+                  setNote("2 test USDC are on their way. They arrive in a few seconds.");
+                  setTimeout(() => void who.refresh(), 4000);
+                } else setNote(r.reason === "already sent" ? "This account already got its test USDC. More at faucet.circle.com (Arc testnet)." : `No test USDC right now: ${r.reason}. Try faucet.circle.com (Arc testnet).`);
+              })
+            }
+          >
+            Get 2 test USDC
+          </button>
+          <span style={{ fontSize: 14, color: C.muted }}>
+            Free test money for trying HonorCat, once per account. More at{" "}
+            <a href="https://faucet.circle.com" target="_blank" rel="noreferrer">
+              faucet.circle.com
+            </a>
+            .
+          </span>
+        </div>
+      )}
+      {note && <p style={{ margin: 0, fontSize: 14, color: C.body }}>{note}</p>}
+    </div>
   );
 }

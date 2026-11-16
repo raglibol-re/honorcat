@@ -215,9 +215,9 @@ export { maxUint256 };
 
 /* ------------------------------------------------------------------ test USDC for new accounts */
 
-export const DRIP_AMOUNT = 3_000_000n; // 3 test USDC
-const DRIP_PER_DAY = 10;
-const DRIP_FLOOR = 8_000_000n; // keep at least 8 USDC for gas
+export const DRIP_AMOUNT = 2_000_000n; // 2 test USDC
+const DRIP_PER_DAY = 30;
+const DRIP_FLOOR = 4_000_000n; // keep at least 4 USDC for gas and the practice cat
 
 /**
  * Sends a little test USDC to a new passkey account, once per account, so a first pot needs no

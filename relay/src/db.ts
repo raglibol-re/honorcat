@@ -429,6 +429,17 @@ CREATE TABLE IF NOT EXISTS att_averages (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (request_id, signer)
 );
+-- Pots the practice cat (HonorCat's testnet account) joined (practice.ts).
+CREATE TABLE IF NOT EXISTS practice_pots (
+  pot_id      BIGINT PRIMARY KEY,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- Display names chosen by each account (names.ts).
+CREATE TABLE IF NOT EXISTS display_names (
+  account     TEXT PRIMARY KEY,
+  name        TEXT NOT NULL,
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 -- Pots started together by two friends (drafts.ts): the shared draft they both edit.
 CREATE TABLE IF NOT EXISTS pot_drafts (
   id          TEXT PRIMARY KEY,

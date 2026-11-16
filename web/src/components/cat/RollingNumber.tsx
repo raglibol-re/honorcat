@@ -10,7 +10,7 @@ export function RollingNumber({ value, cell = "1em" }: { value: number | null; c
   if (value === null) return <span>–</span>;
   const digits = String(Math.max(0, Math.round(value))).split("");
   return (
-    <span aria-label={String(Math.round(value))} style={{ display: "inline-flex", margin: "-0.1em 0 -0.12em" }}>
+    <span role="img" aria-label={String(Math.round(value))} style={{ display: "inline-flex", margin: "-0.1em 0 -0.12em" }}>
       {digits.map((d, i) => {
         const fromRight = digits.length - 1 - i;
         return (

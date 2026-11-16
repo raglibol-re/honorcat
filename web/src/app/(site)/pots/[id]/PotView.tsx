@@ -8,7 +8,10 @@ import { GeminiCredit } from "@/components/cat/Markets";
 import { C, F } from "@/components/cat/tokens";
 import { Rope } from "@/components/pot/Rope";
 import { SamplerNotice } from "@/components/pot/SamplerHealth";
-import { sceneOf, STATE_TEXT } from "@/components/pot/scene";
+import { sceneOf, STATE_TEXT, storyOf } from "@/components/pot/scene";
+import { useTechMode } from "@/components/TechMode";
+import { marketLine, marketTitle, yesMeans } from "@/lib/marketName";
+import { displayName, useNames } from "@/lib/names";
 import { useLivePrice } from "@/components/pot/usePrice";
 import { AccountLine, btn, btnQuiet, SignIn, useActor, type ActorState } from "@/components/pot/Who";
 import { getJson, usePolling } from "@/lib/api";
@@ -371,6 +374,8 @@ export function PotView({ id }: { id: string }) {
   const live = useLivePrice(pot?.market?.instrument ?? null, Number(pot?.data.window ?? 30));
   const nowS = Math.floor(useNow() / 1000);
   const fresh = useSearchParams().get("new") === "1";
+  const { tech } = useTechMode();
+  const names = useNames([pot?.owners.yes, pot?.owners.no, pot?.data.joiner, ...(pot?.events ?? []).flatMap((e) => [e.args.creator, e.args.joiner, e.args.taker, e.args.from, e.args.to])]);
 
   if (!pot)
     return error ? (
@@ -382,15 +387,29 @@ export function PotView({ id }: { id: string }) {
       <Cat pose="peek" size={160} />
     );
 
-  const scene = sceneOf(pot, live.smoothed, nowS, who.actor?.account);
   const m = pot.market;
+  const me = who.actor?.account ?? null;
+  const nameOf = (a: string | null) => displayName(a, names, me, tech, a ? "a player" : "open seat");
+  const scene = sceneOf(pot, live.smoothed, nowS, { me, names, tech });
+  const story = storyOf(pot, nameOf);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 40 }}>
       <header style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <span style={{ fontSize: 15, color: C.muted }}>
-          Pot {pot.potId} · closes {formatDate(Number(pot.data.closeTime) * 1000)}
+          Pot {pot.potId} · {m ? marketLine(m) : ""} · trading closes {formatDate(Number(pot.data.closeTime) * 1000)}
         </span>
-        <h1 style={{ margin: 0, fontFamily: F.cond, fontSize: 56, fontWeight: 600, lineHeight: 0.95 }}>{m ? `${m.eventTitle}: ${m.label}` : "Pot"}</h1>
+        <h1 style={{ margin: 0, fontFamily: F.cond, fontSize: 56, fontWeight: 600, lineHeight: 0.95 }}>{m ? marketTitle(m) : "Pot"}</h1>
+        {m && (
+          <p style={{ margin: 0, fontSize: 18, color: C.ink }}>
+            <strong>YES</strong> means: {yesMeans(m)}. <strong style={{ color: C.signalInk }}>NO</strong> means it does not happen.
+          </p>
+        )}
+        {pot.practice && (
+          <p role="note" style={{ margin: 0, padding: "10px 14px", border: `1.5px solid ${C.ink}`, fontSize: 16, lineHeight: 1.45, maxWidth: 760 }}>
+            <strong>Practice pot.</strong> The other side is the practice cat, HonorCat&apos;s own test account. It never leaves on its own; you can leave whenever you like,
+            or hold until Gemini&apos;s result. Test money only.
+          </p>
+        )}
         <p style={{ margin: 0, fontSize: 19, color: C.body }}>{STATE_TEXT[pot.state]}</p>
         {fresh && pot.state === "Open" && <p style={{ margin: 0, fontSize: 17, color: C.ink }}>Your pot is open. Send the link to whoever takes the other side.</p>}
       </header>
@@ -400,6 +419,23 @@ export function PotView({ id }: { id: string }) {
       {pot.state !== "Divided" && pot.state !== "Settled" && pot.state !== "Expired" && <SamplerNotice />}
 
       <Actions pot={pot} who={who} price={live.smoothed} nowS={nowS} />
+
+      {story.length > 0 && (
+        <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <h2 style={{ margin: 0, fontFamily: F.cond, fontSize: 32, fontWeight: 600 }}>What happened</h2>
+          <ol style={{ margin: 0, padding: 0, listStyle: "none", borderTop: `1.5px solid ${C.ink}` }}>
+            {story.map((s, i) => (
+              <li key={i} style={{ display: "flex", flexWrap: "wrap", gap: "2px 16px", padding: "10px 0", borderBottom: `1px solid ${C.faint}`, fontSize: 16, lineHeight: 1.45 }}>
+                <span style={{ color: C.muted, minWidth: 150 }}>{s.at ? formatDate(s.at * 1000) : ""}</span>
+                <span style={{ flex: "1 1 420px" }}>{s.text}</span>
+                <a href={txUrl(s.tx)} target="_blank" rel="noreferrer" style={{ color: C.muted, fontSize: 14 }}>
+                  transaction
+                </a>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
 
       <Windows pot={pot} />
 

@@ -7,7 +7,8 @@ import { addressUrl, txUrl } from "@/lib/chain";
 
 type Evidence = {
   events: { event_name: string; n: string; streams: string; rpc: string; last_tx: string; last_pot: string | null; last_time: string | null }[];
-  windows: { n: string; three: string; two: string; none: string };
+  windows: { n: string; three: string; two: string; none: string; quotes: string; onchain: string };
+  streamsSinceFilter?: { sinceBlock: string; total: number; streams: number; pollerLagBlocks: number };
   medianWindowToPaidMs: number | null;
   contracts: { pots: string | null; fairValue: string | null };
 };
@@ -62,6 +63,7 @@ export function Built() {
   const total = (e?.events ?? []).reduce((s, x) => s + Number(x.n), 0);
   const streams = (e?.events ?? []).reduce((s, x) => s + Number(x.streams), 0);
   const rpc = (e?.events ?? []).reduce((s, x) => s + Number(x.rpc), 0);
+  const ss = e?.streamsSinceFilter;
   const settled = ev("PotSettled");
 
   const arc: Item[] = [
@@ -75,14 +77,28 @@ export function Built() {
   const gemini: Item[] = [
     { what: "Market discovery and quality from the order book", check: "/markets and /api/catalog", status: "done", proof: <>Every active contract ranked by spread and depth: <Link href="/markets">markets</Link>.</> },
     { what: "The live price sets each side's share", check: "the rope matches the book midpoint", status: "done", proof: <>The rope reads Gemini&apos;s book every 2 s and averages 30 s, like the samplers.</> },
-    { what: "A forward-window average prices every exit", check: "the evidence of an exit", status: "done", proof: <>{e ? `${e.windows.n} windows used so far: ${e.windows.three} by the median of three, ${e.windows.two} by the mean of two, ${e.windows.none} without a price.` : "…"} Each pot&apos;s proof page lists every sampler&apos;s average and evidence hash.</> },
+    { what: "A forward-window average prices every exit", check: "the evidence of an exit", status: "done", proof: <>{e
+          ? `${e.windows.n} price windows so far: ${e.windows.three} priced by the median of three, ${e.windows.two} by the mean of two, ${e.windows.none} without a price (${e.windows.quotes} of them fair-value quotes, ${e.windows.onchain} with the rule checked on-chain).`
+          : "…"} Each pot&apos;s proof page lists every sampler&apos;s average and evidence hash.</> },
     { what: "Market status gates exits", check: "no price while halted or under review", status: "done", proof: <>The relay proposes no price unless Gemini reports the contract active and open; without a price nothing moves.</> },
     { what: "Gemini's settlement ends the pots nobody left", check: "a pot held to settlement", status: settled ? "done" : "partly", proof: settled ? <>{last("PotSettled")}.</> : <>The first pot held to the end is waiting for Gemini&apos;s result.</> },
     { what: "Depth sets the cap on a pot's size", check: "creation refused above the cap", status: "done", proof: <>The signer set attests the contracts within 5 cents on the thinner side; the contract allows 25 cents of pot per contract, at most $25 (contract tests: AboveCap).</> },
     { what: "“Data provided by Gemini” wherever prices appear", check: "page check", status: "done", proof: <>On the rope, the pot, proof, markets and landing pages.</> },
   ];
   const quicknode: Item[] = [
-    { what: "Streams is the primary source for every pot event", check: "events show source = streams", status: streams > 0 ? "done" : "partly", proof: <>{e ? `${total} pot events: ${streams} first seen by Streams, ${rpc} by RPC polling.` : "…"} The filter covers the pot contract since today; earlier events were backfilled by polling.</> },
+    {
+      what: "Streams is the primary source for every pot event",
+      check: "the share of events first seen by Streams since the filter was set",
+      status: ss && ss.total > 0 && ss.streams / ss.total >= 0.5 ? "done" : "partly",
+      proof: (
+        <>
+          {ss
+            ? `Since block ${ss.sinceBlock} (when the filter began covering the pot contract): ${ss.streams} of ${ss.total} pot events first seen by Streams (${ss.total ? Math.round((100 * ss.streams) / ss.total) : 0}%). `
+            : "… "}
+          The RPC poller now trails the chain head by {ss?.pollerLagBlocks ?? 90} blocks (about a minute), so Streams delivers first and polling only fills gaps. All time: {total} events, {streams} by Streams, {rpc} by polling.
+        </>
+      ),
+    },
     { what: "Filtered on QuickNode's side; RPC polling as the fallback", check: "the filter and the poller", status: "done", proof: <>The stream&apos;s filter keeps only our contracts&apos; logs (and Memo logs of our transactions); the relay polls the chain from its last block as a fallback. Per-delivery delay: <Link href="/live">live</Link>.</> },
     { what: "Backfill after downtime", check: "a documented run", status: "done", proof: <>The pot indexer resumes from its stored block; it backfilled every pot event from the contract&apos;s deploy block today.</> },
   ];

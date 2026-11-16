@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { closesIn, GeminiCredit, MarketList, midYes, type MarketItem } from "@/components/cat/Markets";
 import { C, F } from "@/components/cat/tokens";
 import { useLivePrice } from "@/components/pot/usePrice";
 import { Reliability } from "@/components/pot/Reliability";
+import { marketLine, marketTitle, yesMeans } from "@/lib/marketName";
 import { AccountLine, btn, SignIn, useActor } from "@/components/pot/Who";
+import { getJson } from "@/lib/api";
 import { createPot, MAX_TOLERANCE, NO, prepare, worstCase, YES } from "@/lib/hc";
 
 const label: React.CSSProperties = { fontSize: 15, fontWeight: 600, color: C.ink };
@@ -22,6 +24,11 @@ export function NewPot() {
   const [amount, setAmount] = useState("5");
   const [tolPts, setTolPts] = useState("2");
   const [grace, setGrace] = useState("3");
+  const [practice, setPractice] = useState(false); // the practice cat takes the other side at once
+  useEffect(() => {
+    // /pots/new?practice=1 (the landing's "Try it alone") starts with practice on.
+    if (new URLSearchParams(window.location.search).get("practice") === "1") void Promise.resolve().then(() => (setPractice(true), setAmount("1")));
+  }, []);
   const [accept, setAccept] = useState(""); // the YES price (%) the creator accepts; empty = the current price
   const [step, setStep] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -35,7 +42,7 @@ export function NewPot() {
   const mine = center === null ? null : worstCase(side, n, center, tol);
   const theirs = center === null ? null : worstCase(1 - side, n, center, tol);
   const bad =
-    !market ? "Pick a market." : n <= 0n ? "Enter an amount." : Number(amount) > MAX_N ? `Up to $${MAX_N} on the test version.` : Number(grace) < 1 ? "At least one day for settlement." : center === null ? "Waiting for the price." : null;
+    !market ? "Pick a market." : n <= 0n ? "Enter an amount." : practice && n > 2_000_000n ? "The practice cat plays pots up to $2." : Number(amount) > MAX_N ? `Up to $${MAX_N} on the test version.` : Number(grace) < 1 ? "At least one day for settlement." : center === null ? "Waiting for the price." : null;
 
   async function submit() {
     if (!who.actor || !market || center === null) return;
@@ -46,8 +53,12 @@ export function NewPot() {
       if (BigInt(prep.cap) < n) throw new Error(`This market's order book allows pots up to $${(Number(prep.cap) / 1e6).toFixed(2)} right now (a quarter of a dollar per contract within 5 cents of the price).`);
       const bandCenter = own !== null ? center : (prep.midPpm ?? center);
       const r = await createPot(who.actor, prep, { side, notional: n, bandCenter, tolerance: Math.min(tol, MAX_TOLERANCE), graceDays: Number(grace) }, setStep);
+      if (practice && r.potId) {
+        setStep("The practice cat is taking the other side");
+        await getJson(`/api/hc/practice`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ potId: r.potId }) });
+      }
       setStep("Done");
-      if (r.potId) router.push(`/pots/${r.potId}?new=1`);
+      if (r.potId) router.push(`/pots/${r.potId}${practice ? "" : "?new=1"}`);
       else router.push(`/pots`);
     } catch (e) {
       setErr((e as Error).message);
@@ -71,8 +82,10 @@ export function NewPot() {
         <h2 style={{ margin: 0, fontFamily: F.cond, fontSize: 32, fontWeight: 600 }}>1. The question</h2>
         {market ? (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "baseline", borderTop: `1.5px solid ${C.ink}`, borderBottom: `1.5px solid ${C.ink}`, padding: "14px 0" }}>
-            <span style={{ fontSize: 20, fontWeight: 600 }}>
-              {market.eventTitle}: {market.label}
+            <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <span style={{ fontSize: 14, color: C.muted }}>{marketLine(market)}</span>
+              <span style={{ fontSize: 20, fontWeight: 600 }}>{marketTitle(market)}</span>
+              <span style={{ fontSize: 15 }}>YES means: {yesMeans(market)}.</span>
             </span>
             <span style={{ color: C.muted }}>
               {p === null ? "" : `${(p * 100).toFixed(1)}% YES now · `}closes {closesIn(market.closeMs)}
@@ -141,8 +154,15 @@ export function NewPot() {
           ) : (
             <>
               <AccountLine who={who} />
+              <label style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 16, lineHeight: 1.45, cursor: "pointer" }}>
+                <input type="checkbox" checked={practice} onChange={(e) => (setPractice(e.target.checked), e.target.checked && Number(amount) > 2 && setAmount("2"))} style={{ width: 20, height: 20, marginTop: 2 }} />
+                <span>
+                  <strong>Practise alone:</strong> the practice cat (HonorCat&apos;s own test account) takes the other side right away, so you can watch the rope and leave
+                  within two minutes. Up to $2, test money only.
+                </span>
+              </label>
               <button type="button" style={{ ...btn, alignSelf: "flex-start", opacity: bad || step ? 0.6 : 1 }} disabled={!!bad || !!step} onClick={submit}>
-                {step ?? `Start the pot`}
+                {step ?? (practice ? "Start and play the practice cat" : "Start the pot")}
               </button>
               {bad && <p style={{ margin: 0, color: C.muted }}>{bad}</p>}
             </>

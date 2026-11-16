@@ -104,3 +104,5 @@ export { preparePasskeyPotCall, submitPasskeyPotCall, forwardPotCall, afterPotTx
 export { potsAbi } from "./potsAbi";
 export { savePushSub, pushPublicKey, notifyPot } from "./push";
 export { createDraft, getDraft, actOnDraft, DRAFT_TOLERANCE, type DraftAction } from "./drafts";
+export { practiceJoin, practiceAddress, isPractice, PRACTICE_MAX_NOTIONAL } from "./practice";
+export { setName, namesOf, nameMessage } from "./names";

@@ -10,7 +10,8 @@ import { Reliability } from "@/components/pot/Reliability";
 import { useLivePrice } from "@/components/pot/usePrice";
 import { AccountLine, btn, btnQuiet, SignIn, useActor } from "@/components/pot/Who";
 import { getJson, usePolling } from "@/lib/api";
-import { short } from "@/lib/format";
+import { displayName, useNames } from "@/lib/names";
+import { useTechMode } from "@/components/TechMode";
 import { createPot, joinPot, prepare, worstCase, YES, type HcPot } from "@/lib/hc";
 
 const POTS = "0xc890C990048f45cb268d076E4A3dB25270Ea1e59" as const;
@@ -67,6 +68,9 @@ export function Together({ id }: { id: string }) {
   }, [id]);
 
   const d = mine && draft && mine.version > draft.version ? mine : draft;
+  const { tech } = useTechMode();
+  const names = useNames([d?.host?.account, d?.guest?.account]);
+  const nm = (a: string) => displayName(a, names, null, tech, "your friend");
   const live = useLivePrice(d?.symbol ?? null);
 
   if (!d) return error ? <p>{error}</p> : <Cat pose="peek" size={140} />;
@@ -112,7 +116,7 @@ export function Together({ id }: { id: string }) {
       );
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 24, maxWidth: 680 }}>
-        <h1 style={{ margin: 0, fontFamily: F.cond, fontSize: 56, fontWeight: 600, lineHeight: 0.95 }}>{d.host ? `${short(d.host.account)} invites you to a pot` : "A pot for two"}</h1>
+        <h1 style={{ margin: 0, fontFamily: F.cond, fontSize: 56, fontWeight: 600, lineHeight: 0.95 }}>{d.host ? `${nm(d.host.account)} invites you to a pot` : "A pot for two"}</h1>
         <p style={{ margin: 0, fontSize: 19, lineHeight: 1.45, color: C.body }}>
           You pick the question and the sides together. Then each of you puts in your side once; the starting split is the market&apos;s price at that moment.
         </p>
@@ -152,7 +156,7 @@ export function Together({ id }: { id: string }) {
       <header style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <h1 style={{ margin: 0, fontFamily: F.cond, fontSize: 56, fontWeight: 600, lineHeight: 0.95 }}>A pot for two</h1>
         <p style={{ margin: 0, fontSize: 18, color: C.body }}>
-          You ({isHost ? "started it" : "invited"}) and {other ? short(other.account) : "a friend, once they open the link"}. Changes show up for both of you within seconds.
+          You ({isHost ? "started it" : "invited"}) and {other ? nm(other.account) : "a friend, once they open the link"}. Changes show up for both of you within seconds.
         </p>
         {!who.actor && <SignIn who={who} purpose="Sign in with the account you sat down with." />}
       </header>
@@ -247,7 +251,7 @@ export function Together({ id }: { id: string }) {
           {hostPays !== null && guestPays !== null && mySide !== null && (
             <p style={{ margin: 0, fontSize: 17, lineHeight: 1.55, color: C.body }}>
               You take <strong>{sideName(mySide)}</strong> and put in up to <strong>${(Number(isHost ? hostPays : guestPays) / 1e6).toFixed(2)}</strong>;{" "}
-              {other ? short(other.account) : "your friend"} up to ${(Number(isHost ? guestPays : hostPays) / 1e6).toFixed(2)}. The starting split is the market&apos;s 30-second average
+              {other ? nm(other.account) : "your friend"} up to ${(Number(isHost ? guestPays : hostPays) / 1e6).toFixed(2)}. The starting split is the market&apos;s 30-second average
               when your friend puts in their side (now about {p === null ? "…" : `${(p * 100).toFixed(1)}%`} YES); anything above each share comes straight back. After that, each
               side&apos;s share follows the price, either of you can leave at it, and Gemini&apos;s result decides the rest. The leaving side pays a 1% fee to the other.
             </p>

@@ -8,6 +8,7 @@ import { usePolling } from "@/lib/api";
 import { formatDate, short } from "@/lib/format";
 import { sideOf, type HcPotSummary } from "@/lib/hc";
 import { useNow } from "@/lib/useNow";
+import { useTechMode } from "@/components/TechMode";
 
 const STATE_SHORT: Record<string, string> = {
   Open: "waiting for the other side",
@@ -20,6 +21,7 @@ const STATE_SHORT: Record<string, string> = {
 };
 
 function Rows({ pots, me }: { pots: HcPotSummary[]; me?: string | null }) {
+  const { tech } = useTechMode();
   return (
     <div style={{ borderTop: `1.5px solid ${C.ink}` }}>
       {pots.map((p) => {
@@ -37,7 +39,7 @@ function Rows({ pots, me }: { pots: HcPotSummary[]; me?: string | null }) {
             <span style={{ fontSize: 16 }}>${n.toFixed(2)}</span>
             <span style={{ fontSize: 15, color: C.muted }}>{side === null ? "" : side === 0 ? "you hold YES · " : "you hold NO · "}{STATE_SHORT[p.state]}</span>
             <span style={{ fontSize: 14, color: C.muted }}>closes {formatDate(Number(p.data.closeTime) * 1000)}</span>
-            {side === null && p.owners.yes && <span style={{ fontSize: 14, color: C.muted }}>by {short(p.owners.yes ?? p.owners.no ?? "")}</span>}
+            {tech && side === null && p.owners.yes && <span style={{ fontSize: 14, color: C.muted }}>{short(p.owners.yes ?? p.owners.no ?? "")}</span>}
           </Link>
         );
       })}

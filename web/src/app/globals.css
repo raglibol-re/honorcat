@@ -158,3 +158,6 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .hc-cat-tail, .hc-cat-blink, .hc-cat-balance, .hc-cat-wobble, .hc-cat-float, .hc-cat-z, .hc-cat-peek { animation: none; }
 }
+
+/* Visible to screen readers only (plain labels for animated amounts). */
+.hc-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }

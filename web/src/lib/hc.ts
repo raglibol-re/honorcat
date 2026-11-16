@@ -66,7 +66,20 @@ export type AttRequest = {
     memo?: string;
   };
 };
-export type PotMarket = { conditionId: Hex; instrument: string; eventTicker: string; contractTicker: string; eventTitle: string; label: string };
+export type PotMarket = {
+  conditionId: Hex;
+  instrument: string;
+  eventTicker: string;
+  contractTicker: string;
+  eventTitle: string;
+  label: string;
+  league?: string | null;
+  teams?: string | null;
+  startMs?: number | null;
+  yesMeans?: string | null;
+  closeMs?: number | null;
+};
+export type PotEvent = { name: string; args: Record<string, string>; tx: string; at: number | null };
 export type HcPot = {
   potId: string;
   state: PotStateName;
@@ -76,6 +89,8 @@ export type HcPot = {
   updatedAt: string;
   market: PotMarket | null;
   requests: AttRequest[];
+  events?: PotEvent[];
+  practice?: boolean;
 };
 export type HcPotSummary = Omit<HcPot, "requests" | "createdTx" | "market"> & { market: { eventTitle: string; label: string; instrument: string; eventTicker: string } | null };
 

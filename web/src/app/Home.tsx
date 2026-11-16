@@ -7,6 +7,9 @@ import { CatHead, Ears, EyesLarge } from "@/components/cat/shapes";
 import { C, F } from "@/components/cat/tokens";
 import { Rope } from "@/components/pot/Rope";
 import { sceneOf, STATE_TEXT } from "@/components/pot/scene";
+import { useTechMode } from "@/components/TechMode";
+import { marketTitle } from "@/lib/marketName";
+import { useNames } from "@/lib/names";
 import { useLivePrice } from "@/components/pot/usePrice";
 import { usePolling } from "@/lib/api";
 import type { HcPot, HcPotSummary } from "@/lib/hc";
@@ -33,14 +36,16 @@ function LivePot({ data }: { data: HomeData }) {
   const symbol = pot?.market?.instrument ?? data.market?.symbol ?? null;
   const live = useLivePrice(symbol);
   const nowS = Math.floor(useNow() / 1000);
+  const { tech } = useTechMode();
+  const names = useNames([pot?.owners.yes, pot?.owners.no, pot?.data.joiner]);
   if (data.potId && pot) {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <p style={{ margin: 0, fontSize: 17, color: C.muted }}>
-          Live now: pot {pot.potId} on <strong style={{ color: C.ink }}>{pot.market ? `${pot.market.eventTitle}: ${pot.market.label}` : "a Gemini market"}</strong>. {STATE_TEXT[pot.state]}{" "}
+          Live now: pot {pot.potId} on <strong style={{ color: C.ink }}>{pot.market ? marketTitle(pot.market) : "a Gemini market"}</strong>. {STATE_TEXT[pot.state]}{" "}
           <Link href={`/pots/${pot.potId}`}>Open it</Link>.
         </p>
-        <Rope {...sceneOf(pot, live.smoothed, nowS)} trail={live.trail} speed={live.speed} />
+        <Rope {...sceneOf(pot, live.smoothed, nowS, { names, tech })} trail={live.trail} speed={live.speed} />
       </div>
     );
   }
@@ -95,8 +100,16 @@ export function Home({ data }: { data: HomeData }) {
           <p style={{ margin: 0, fontSize: 21, lineHeight: 1.45, color: C.body, maxWidth: 520 }}>
             Two people, one pot, one question on Gemini. While the market runs, each side&apos;s share follows the price, and either of you can step off the rope at that share.
           </p>
+          <ol aria-label="A worked example" style={{ margin: 0, paddingLeft: 22, display: "flex", flexDirection: "column", gap: 4, fontSize: 17, lineHeight: 1.45, color: C.ink, maxWidth: 560 }}>
+            <li>Ana takes YES on &ldquo;Boston wins&rdquo; at 60%, Ben takes NO: a $10 pot, Ana puts in $6, Ben $4.</li>
+            <li>Boston leads and the market moves to 75%: Ana&apos;s share is now $7.50, Ben&apos;s $2.50.</li>
+            <li>Ana steps off and gets $7.40 (the $0.10 fee goes to Ben); or both hold and the side that was right gets all $10.</li>
+          </ol>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "12px 28px", alignItems: "center" }}>
             <StartButton />
+            <Link href="/pots/new?practice=1" style={{ fontSize: 19, fontWeight: 500, padding: "14px 0" }}>
+              Try it alone
+            </Link>
             <Link href="/pots/together" style={{ fontSize: 19, fontWeight: 500, padding: "14px 0" }}>
               Start one with a friend
             </Link>

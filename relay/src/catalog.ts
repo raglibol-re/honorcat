@@ -52,6 +52,14 @@ export type CatalogRow = {
   ask: number | null;
   eventVolume24h: number | null; // USD, per event (Gemini publishes no per-contract figure)
   image: string | null;
+  /** League or series in plain words ("NBA", "College football", "Bitcoin"), when Gemini says. */
+  league?: string | null;
+  /** Both teams in full ("Orlando Magic at Boston Celtics") for games. */
+  teams?: string | null;
+  /** When the game or event starts (ms), when Gemini gives it. */
+  startMs?: number | null;
+  /** What YES means, from the contract's own rule ("Boston wins the Pro Basketball game …"). */
+  yesMeans?: string | null;
   seenAt: number; // ms, last time the events list included it
   book: BookStats | null;
 };
@@ -137,9 +145,12 @@ export function bookStats(raw: { bids?: { price: string; amount: string }[]; ask
 
 /* ------------------------------------------------------------------ events list → rows */
 
+type RichNode = { value?: string; content?: RichNode[] };
+type RichText = { content?: RichNode[] } | string | null;
 type ListedContract = {
   ticker: string;
   label: string;
+  description?: RichText;
   status: string;
   marketState?: string | null;
   instrumentSymbol?: string;
@@ -149,6 +160,8 @@ type ListedContract = {
 export type ListedEvent = {
   ticker: string;
   title: string;
+  startTime?: string | null;
+  participants?: { name?: string; side?: string }[] | null;
   category: string;
   subcategory?: { name?: string } | string | null;
   status: string;
@@ -159,6 +172,40 @@ export type ListedEvent = {
 };
 
 const num = (v?: string | null) => (v === undefined || v === null || v === "" || Number.isNaN(Number(v)) ? null : Number(v));
+
+const LEAGUES: Record<string, string> = {
+  NBA: "NBA", WNBA: "WNBA", NFL: "NFL", NHL: "NHL", MLB: "MLB", MLS: "MLS", NCAAF: "College football", NCAAB: "College basketball",
+  CFB: "College football", CBB: "College basketball", EPL: "Premier League", UCL: "Champions League", UFC: "UFC", PGA: "PGA Tour", F1: "Formula 1",
+};
+
+/** Plain text of Gemini's rich-text rule. */
+function textOf(d: RichText): string {
+  if (!d) return "";
+  if (typeof d === "string") return d;
+  const walk = (nodes: RichNode[] | undefined): string => (nodes ?? []).map((n) => (n.value ?? "") + walk(n.content)).join("");
+  return walk(d.content);
+}
+
+/** "If Boston wins …, this market will resolve to Yes." → "Boston wins …". */
+export function yesMeansOf(rule: string): string | null {
+  const m = /If (.+?), this (?:market|contract) will resolve to Yes/i.exec(rule);
+  if (!m) return null;
+  const s = m[1]!.replace(/\s+/g, " ").trim();
+  return s.length > 220 ? `${s.slice(0, 217)}…` : s;
+}
+
+function leagueOf(e: ListedEvent, sub: string | null): string | null {
+  const prefix = e.ticker.split("-")[0]?.toUpperCase() ?? "";
+  return LEAGUES[prefix] ?? sub ?? null;
+}
+
+function teamsOf(e: ListedEvent): string | null {
+  const ps = (e.participants ?? []).filter((p) => p.name);
+  if (ps.length !== 2) return null;
+  const away = ps.find((p) => p.side === "away");
+  const home = ps.find((p) => p.side === "home");
+  return away && home ? `${away.name} at ${home.name}` : `${ps[0]!.name} vs ${ps[1]!.name}`;
+}
 
 export function rowsFromEvent(e: ListedEvent, now: number): Omit<CatalogRow, "book">[] {
   if (e.status !== "active") return [];
@@ -179,6 +226,10 @@ export function rowsFromEvent(e: ListedEvent, now: number): Omit<CatalogRow, "bo
       ask: num(c.prices?.bestAsk),
       eventVolume24h: num(e.volume24h),
       image: e.imageUrl ?? null,
+      league: leagueOf(e, sub),
+      teams: teamsOf(e),
+      startMs: e.startTime ? new Date(e.startTime).getTime() : null,
+      yesMeans: yesMeansOf(textOf(c.description ?? null)),
       seenAt: now,
     }))
     .filter((r) => Number.isFinite(r.closeMs) && r.closeMs > now);

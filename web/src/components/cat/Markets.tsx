@@ -23,6 +23,10 @@ export type MarketItem = {
   ask: number | null;
   eventVolume24h: number | null;
   image: string | null;
+  league?: string | null;
+  teams?: string | null;
+  startMs?: number | null;
+  yesMeans?: string | null;
   book: MarketBook | null;
   quality: MarketQuality;
 };
@@ -98,7 +102,7 @@ const usd = (x: number | null) => (x === null ? "–" : x >= 1000 ? `$${(x / 100
 
 /* ------------------------------------------------------------------ events, grouped */
 
-type EventGroup = { key: string; title: string; category: string; subcategory: string | null; image: string | null; closeMs: number; volume: number | null; items: MarketItem[] };
+type EventGroup = { key: string; title: string; category: string; subcategory: string | null; image: string | null; closeMs: number; volume: number | null; league: string | null; teams: string | null; startMs: number | null; items: MarketItem[] };
 
 /** Contracts grouped by their Gemini event, in the order the list ranks them. */
 export function groupByEvent(items: MarketItem[]): EventGroup[] {
@@ -106,7 +110,20 @@ export function groupByEvent(items: MarketItem[]): EventGroup[] {
   for (const m of items) {
     const g = map.get(m.eventTicker);
     if (g) g.items.push(m);
-    else map.set(m.eventTicker, { key: m.eventTicker, title: m.eventTitle, category: m.category, subcategory: m.subcategory, image: m.image, closeMs: m.closeMs, volume: m.eventVolume24h, items: [m] });
+    else
+      map.set(m.eventTicker, {
+        key: m.eventTicker,
+        title: m.eventTitle,
+        category: m.category,
+        subcategory: m.subcategory,
+        image: m.image,
+        closeMs: m.closeMs,
+        volume: m.eventVolume24h,
+        league: m.league ?? null,
+        teams: m.teams ?? null,
+        startMs: m.startMs ?? null,
+        items: [m],
+      });
   }
   return [...map.values()];
 }
@@ -154,6 +171,11 @@ function Outcome({ m, picked, onPick, detail }: { m: MarketItem; picked: boolean
     >
       <span style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
         <span style={{ fontSize: 16, fontWeight: 600, lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis" }}>{m.label}</span>
+        {m.yesMeans && (
+          <span style={{ fontSize: 12.5, lineHeight: 1.35, color: picked ? C.faint : C.body }} title={m.yesMeans}>
+            YES if {m.yesMeans.length > 90 ? `${m.yesMeans.slice(0, 88)}…` : m.yesMeans}
+          </span>
+        )}
         <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 12, color: picked ? C.faint : m.quality.status === "unavailable" ? C.signalInk : C.muted }}>
           {picked ? <span style={{ fontWeight: 600 }}>Picked</span> : <QualityMark q={m.quality} small />}
           {detail && ok && <span>{`${bid === null ? "–" : Math.round(bid * 100)}¢ / ${ask === null ? "–" : Math.round(ask * 100)}¢ · ${usd(m.quality.minDepthUsd)} near the price`}</span>}
@@ -182,9 +204,16 @@ export function EventBlocks({ items, picked, onPick, detail }: { items: MarketIt
             <Thumb src={g.image} size={52} />
             <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0, flex: 1 }}>
               <span style={{ fontSize: 13, color: C.muted }}>
-                {[g.category, g.subcategory, `closes in ${closesIn(g.closeMs)}`, g.volume ? `${usd(g.volume)} traded today` : null].filter(Boolean).join(" · ")}
+                {[
+                  g.league ?? g.subcategory ?? g.category,
+                  g.startMs ? new Date(g.startMs).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : null,
+                  `trading closes in ${closesIn(g.closeMs)}`,
+                  g.volume ? `${usd(g.volume)} traded today` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
               </span>
-              <h3 style={{ margin: 0, fontFamily: F.cond, fontSize: 24, fontWeight: 600, lineHeight: 1.05 }}>{g.title}</h3>
+              <h3 style={{ margin: 0, fontFamily: F.cond, fontSize: 24, fontWeight: 600, lineHeight: 1.05 }}>{g.teams ?? g.title}</h3>
             </div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", paddingLeft: "min(66px, 10vw)" }}>
