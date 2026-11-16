@@ -32,8 +32,10 @@ const client = createPublicClient({ chain: arcTestnet, transport: http(process.e
 const log = (m: string) => console.log(`[${new Date().toISOString().slice(11, 19)}] ${m}`);
 const source = new WsBookSource();
 const sampler = new Sampler(account, source, httpIo(values.api!), client as never, log);
-// Two-sided pots: windows, co-signatures, nets and bowls (same key, same book stream).
-const potSampler = new PotSampler(account, source, potsHttpIo(values.api!), (m) => log(`[pots] ${m}`));
+// Two-sided pots (windows, co-signatures, nets and bowls): same key, its own stream, because each
+// sampler sets the full list of markets it watches.
+const potSource = new WsBookSource();
+const potSampler = new PotSampler(account, potSource, potsHttpIo(values.api!), (m) => log(`[pots] ${m}`));
 
 const started = Date.now();
 const idleExit = values["idle-exit"] ? Number(values["idle-exit"]) * 1000 : Infinity;
@@ -65,5 +67,6 @@ for (;;) {
   await new Promise((r) => setTimeout(r, 250));
 }
 source.close();
+potSource.close();
 log("sampler stopped");
 process.exit(0);

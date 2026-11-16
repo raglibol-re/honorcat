@@ -19,6 +19,14 @@
 - Work in cycles per docs/improve.md, everything in the agreed priority order.
 
 ## Rubric cycle log
+- 2026-11-16: D2 relay done and verified on Arc testnet (pots 1-3). Window requests per join, exit,
+  net and bowl; each sampler signs its own window average inside its evidence record; the relay
+  proposes the exact median of three (mean of two within 0.5 points, else no price) and submits
+  with two co-signatures; depth (cap) and outcome attestations; passkey and wallet (EIP-3009,
+  signed exit) actions with HonorCat paying gas; a pots log indexer. Run `relay/scripts/pots-e2e.ts`:
+  pot 3 created gaslessly, joined at 76.5% (median of three), exit priced at the median of three,
+  divided on-chain (tx 0xbeed0b6b...a498). Pot 1 failed its join correctly (refund, "fewer than two
+  valid windows") while the local samplers had a stream bug (fixed: one WebSocket per sampler).
 - 2026-11-16: D1 done. HonorCatPots built in the agreed order (core, cap, partial, handshake, nets and
   bowls, takeover), 77 contract tests incl. stateful invariants and symbolic checks, Slither 35/35
   reviewed, deployed on Arc testnet at 0xc890C990048f45cb268d076E4A3dB25270Ea1e59 (an earlier
