@@ -13,6 +13,8 @@
  *   takeover   YES asks to leave; a third wallet takes its place at the exit price; pot stays Live
  *   bowl       YES sets a bowl below the price (wallet pays its own gas); the samplers file the exit
  *   hold       stop once live (settlement happens later)
+ *   together   two friends: a shared draft (host and guest agree the terms), then each puts in a side;
+ *              the pot is never listed among the open offers
  *
  * Usage: tsx --env-file=../.env scripts/pots-e2e.ts [--scenario exit] [--api https://honorcat.vercel.app] [--notional 2] [--symbol GEMI-…]
  */
@@ -139,6 +141,25 @@ async function main() {
   }
   log(`funded both with ${Number(notional + 500_000n) / 1e6} USDC`);
 
+  // Together: the shared draft first (host = creator, guest = joiner), terms agreed through the API.
+  const together = values.scenario === "together";
+  let draftId = "";
+  let hostToken = "";
+  let guestToken = "";
+  if (together) {
+    const d = await api<{ id: string; token: string }>(`/api/hc/drafts`, { method: "POST", body: JSON.stringify({ account: creator.address, kind: "wallet" }) });
+    draftId = d.id;
+    hostToken = d.token;
+    const sit = await api<{ token: string }>(`/api/hc/drafts/${draftId}`, { method: "POST", body: JSON.stringify({ action: "sit", account: joiner.address, kind: "wallet" }) });
+    guestToken = sit.token;
+    const t = await api<{ draft: { version: number } }>(`/api/hc/drafts/${draftId}`, {
+      method: "POST",
+      body: JSON.stringify({ action: "terms", token: hostToken, symbol, label: "e2e", notional: notional.toString(), hostSide: 0 }),
+    });
+    await api(`/api/hc/drafts/${draftId}`, { method: "POST", body: JSON.stringify({ action: "agree", token: guestToken, version: t.draft.version }) });
+    log(`draft ${draftId}: guest sat down and agreed to version ${t.draft.version}`);
+  }
+
   // 3. Prepare: rule, conditionId, close, depth attestation (2-of-3).
   const prep = await api<Prepared>(`/api/hc/prepare`, { method: "POST", body: JSON.stringify({ symbol, account: creator.address }) });
   log(`prepared ${prep.market.eventTitle} / ${prep.market.label}: cap ${Number(prep.cap) / 1e6} USDC, mid ${prep.midPpm}`);
@@ -167,6 +188,13 @@ async function main() {
   const potId = created.potId ?? list.pots[0]?.potId;
   if (!potId) throw new Error("created, but the pot is not indexed");
   log(`created pot ${potId} (tx ${created.tx}), escrow ${Number(escrow) / 1e6}`);
+  if (together) {
+    await api(`/api/hc/drafts/${draftId}`, { method: "POST", body: JSON.stringify({ action: "created", token: hostToken, potId }) });
+    const offers = await api<{ pots: { potId: string }[] }>(`/api/hc/pots?state=open&limit=200`);
+    const listed = offers.pots.some((x) => x.potId === potId);
+    log(`draft ${draftId} linked to pot ${potId}; listed among open offers: ${listed}`);
+    if (listed) throw new Error("a pot started together must not be offered to others");
+  }
 
   // 5. Join (NO), gasless; the entry price is the window average after this request.
   const pot = await client.readContract({ address: prep.pots, abi: potsAbi, functionName: "pot", args: [BigInt(potId)] });
@@ -181,6 +209,12 @@ async function main() {
   const jr = live.requests.find((r) => r.id.endsWith(":0"));
   log(`LIVE: entry ${JSON.stringify((jr?.payload?.attestation as { priceYes?: number })?.priceYes)} ppm (${String(jr?.payload?.reason)}), deposits YES ${Number(live.data.depYes) / 1e6} NO ${Number(live.data.depNo) / 1e6}`);
   const scenario = values.scenario!;
+  if (together) {
+    const d = await api<{ status: string }>(`/api/hc/drafts/${draftId}`);
+    log(`draft ${draftId}: ${d.status}`);
+    if (d.status !== "joined") process.exitCode = 1;
+    return;
+  }
   if (scenario === "hold") return;
   const id = BigInt(potId);
   const balances = async (who: [string, { address: Address }][]) => {

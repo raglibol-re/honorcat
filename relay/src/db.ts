@@ -429,6 +429,13 @@ CREATE TABLE IF NOT EXISTS att_averages (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (request_id, signer)
 );
+-- Pots started together by two friends (drafts.ts): the shared draft they both edit.
+CREATE TABLE IF NOT EXISTS pot_drafts (
+  id          TEXT PRIMARY KEY,
+  data        JSONB NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 -- Browser push subscriptions per pot (push.ts).
 CREATE TABLE IF NOT EXISTS push_subs (
   endpoint    TEXT NOT NULL,

@@ -97,6 +97,9 @@ export function Home({ data }: { data: HomeData }) {
           </p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "12px 28px", alignItems: "center" }}>
             <StartButton />
+            <Link href="/pots/together" style={{ fontSize: 19, fontWeight: 500, padding: "14px 0" }}>
+              Start one with a friend
+            </Link>
             <Link href="/pots" style={{ fontSize: 19, fontWeight: 500, padding: "14px 0" }}>
               Take an open side
             </Link>

@@ -786,6 +786,8 @@ export async function listPotsHc(db: Db, opts: { owner?: string; states?: number
   if (opts.states?.length) {
     args.push(opts.states);
     where.push(`state = ANY($${args.length}::smallint[])`);
+    // Pots two friends start together are reserved for the friend, so not offered to anyone else.
+    if (opts.states.length === 1 && opts.states[0] === 1) where.push("NOT EXISTS (SELECT 1 FROM pot_drafts d WHERE d.data->>'potId' = pots.pot_id::text)");
   }
   args.push(opts.limit ?? 50);
   const rows = await db.query<PotListRow>(

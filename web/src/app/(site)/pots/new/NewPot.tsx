@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { closesIn, GeminiCredit, MarketList, midYes, type MarketItem } from "@/components/cat/Markets";
@@ -60,6 +61,9 @@ export function NewPot() {
         <h1 style={{ margin: 0, fontFamily: F.cond, fontSize: 64, fontWeight: 600, lineHeight: 0.95 }}>Start a pot</h1>
         <p style={{ margin: 0, fontSize: 19, lineHeight: 1.45, color: C.body, maxWidth: 680 }}>
           Pick a question on Gemini and a side. Someone takes the other side. While the market runs, each side&apos;s share of the pot follows the price, and either of you can leave at that share.
+        </p>
+        <p style={{ margin: 0, fontSize: 17, color: C.body }}>
+          Playing with a friend? <Link href="/pots/together">Start one together</Link>: you pick the question and the sides with them, and it is only for the two of you.
         </p>
       </header>
 

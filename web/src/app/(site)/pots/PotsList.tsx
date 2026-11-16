@@ -57,9 +57,14 @@ export function PotsList() {
     <div style={{ display: "flex", flexDirection: "column", gap: 40 }}>
       <header style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-end", gap: 16 }}>
         <h1 style={{ margin: 0, fontFamily: F.cond, fontSize: 64, fontWeight: 600, lineHeight: 0.95 }}>Pots</h1>
-        <Link href="/pots/new" style={{ ...btn, display: "inline-flex", alignItems: "center", textDecoration: "none" }}>
-          Start a pot
-        </Link>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <Link href="/pots/together" style={{ ...btn, background: "transparent", color: C.ink, border: `1.5px solid ${C.ink}`, display: "inline-flex", alignItems: "center", textDecoration: "none" }}>
+            With a friend
+          </Link>
+          <Link href="/pots/new" style={{ ...btn, display: "inline-flex", alignItems: "center", textDecoration: "none" }}>
+            Start a pot
+          </Link>
+        </div>
       </header>
 
       <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
