@@ -31,7 +31,8 @@ import { getConfig } from "./config";
 import type { Db } from "./db";
 import { fetchMarketState, readBook } from "./gemini";
 import { bookStats, rowBySymbol } from "./catalog";
-import { memoCall } from "./memo";
+import { decodeMemoBody, decodeMemoLog, memoCall } from "./memo";
+import { ARC_MEMO } from "./arc";
 import { potsAbi } from "./potsAbi";
 import { sendRelayCalls } from "./txs";
 import { evidenceHash, evidenceRootOf, recordFromJson, verifyRecord } from "./trigger/evidence";
@@ -466,6 +467,7 @@ export async function submitReady(db: Db, requestId: string) {
   ]);
   if (res.ok) {
     await db.query("UPDATE att_requests SET status = 'submitted', tx = $2, error = NULL, updated_at = now() WHERE id = $1", [requestId, res.tx]);
+    await recordMemo(db, requestId, res.tx).catch(() => {});
     if (req.pot_id) await syncPot(db, BigInt(String(req.pot_id))).catch(() => {});
     return res.tx;
   }
@@ -522,6 +524,10 @@ export async function potsHousekeeping(db: Db, own: LocalAccount | null) {
   // Ready but not yet submitted (e.g. a failed send).
   await db.query("UPDATE att_requests SET status = 'ready' WHERE status = 'failed' AND kind <> 'depth' AND error LIKE '%085de625%' AND created_at > now() - interval '15 minutes'");
   for (const r of await db.query<{ id: string }>("SELECT id FROM att_requests WHERE status = 'ready' AND kind <> 'depth' AND updated_at < now() - interval '10 seconds'")) await submitReady(db, r.id);
+
+  // Memos of earlier payouts, read back from the chain (a few per pass).
+  for (const r of await db.query<{ id: string; tx: string }>("SELECT id, tx FROM att_requests WHERE status = 'submitted' AND tx IS NOT NULL AND NOT (payload ? 'memo') ORDER BY updated_at DESC LIMIT 5"))
+    await recordMemo(db, r.id, r.tx as Hex).catch(() => {});
 
   const rows = await db.query<PotRow>("SELECT pot_id::text AS pot_id, state, data, condition_id FROM pots WHERE state BETWEEN 1 AND 4");
   const address = potsAddress();
@@ -922,4 +928,19 @@ export async function potsEvidence(db: Db) {
        FROM att_requests WHERE kind = 'window' AND status = 'submitted' AND payload ? 'windowEnd'`,
   );
   return { events: byKind, windows: windows[0], medianWindowToPaidMs: latency[0]?.ms ? Number(latency[0].ms) : null, contracts: { pots: getConfig().pots?.address ?? null, fairValue: getConfig().fairValue } };
+}
+
+/**
+ * Reads the Arc Memo the payout transaction carried back from the chain (not from what the relay
+ * meant to send) and keeps it with the request, so the pot page shows the reason as recorded on Arc.
+ */
+export async function recordMemo(db: Db, requestId: string, tx: Hex) {
+  const receipt = await publicClient().waitForTransactionReceipt({ hash: tx, timeout: 30_000 });
+  const memos = receipt.logs
+    .filter((l) => l.address.toLowerCase() === ARC_MEMO.toLowerCase())
+    .map((l) => decodeMemoLog({ topics: l.topics as Hex[], data: l.data, logIndex: l.logIndex, transactionHash: l.transactionHash, blockNumber: l.blockNumber }))
+    .filter((m): m is Extract<NonNullable<ReturnType<typeof decodeMemoLog>>, { kind: "memo" }> => m?.kind === "memo");
+  const texts = memos.map((m) => decodeMemoBody(m.memo).body?.why ?? decodeMemoBody(m.memo).text);
+  if (!texts.length) return;
+  await db.query("UPDATE att_requests SET payload = payload || $2::jsonb WHERE id = $1", [requestId, JSON.stringify({ memo: texts.join(" | "), memoBlockTime: null })]);
 }

@@ -59,6 +59,8 @@ export type AttRequest = {
     attestation?: WindowAttestation;
     reason?: string;
     averages?: { signer: Address; ppm: string; valid: boolean; sampleCount: number; evidenceHash: Hex }[];
+    /** The reason as recorded on Arc (the payout transaction's Memo, decoded from the chain). */
+    memo?: string;
   };
 };
 export type PotMarket = { conditionId: Hex; instrument: string; eventTicker: string; contractTicker: string; eventTitle: string; label: string };

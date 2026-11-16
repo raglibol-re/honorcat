@@ -300,6 +300,11 @@ function Windows({ pot }: { pot: HcPot }) {
                 )}
                 {r.error && <span style={{ color: C.signalInk, fontSize: 14 }}>{r.error.slice(0, 120)}</span>}
               </div>
+              {r.payload.memo && (
+                <span style={{ fontSize: 14, color: C.body }}>
+                  Memo on Arc: <em>{r.payload.memo}</em>
+                </span>
+              )}
               {r.payload.averages && (
                 <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexWrap: "wrap", gap: "2px 20px", fontSize: 14, color: C.muted }}>
                   {r.payload.averages.map((x) => (
