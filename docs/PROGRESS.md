@@ -19,6 +19,11 @@
 - Work in cycles per docs/improve.md, everything in the agreed priority order.
 
 ## Rubric cycle log
+- 2026-11-16: polish P2 done: pick your cat (fur and name, signed together) on first sign-in; cats
+  beside names in lists, offers, invitations and the honor record; each player's cat on its post
+  reacting to its side; name filter with the `obscenity` library. The practice pool is at $4 again
+  after the test runs (each new test player gets the $2 welcome); refill by hand from
+  faucet.circle.com until Circle's faucet API is unlocked.
 - 2026-11-16: polish spec (docs/polish-spec.md) started. P1 done: practice pots kept out of the
   honor record and public numbers; passkey creates now return the pot id (before, the practice cat
   never joined a passkey player's pot and the page fell back to the list); the practice cat is

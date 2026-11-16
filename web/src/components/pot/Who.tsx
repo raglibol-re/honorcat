@@ -6,7 +6,8 @@ import { WalletChoice } from "@/components/cat/WalletChoice";
 import { C, F } from "@/components/cat/tokens";
 import { publicClient, USDC_ADDRESS, addressUrl } from "@/lib/chain";
 import { getJson } from "@/lib/api";
-import { setMyName, useNames } from "@/lib/names";
+import { FUR_KEYS, FURS, furOf, hasOwnCat, namesLoaded, nickname, setMyName, useNames, type Fur } from "@/lib/names";
+import { CatName, PlayerCat } from "@/components/cat/PlayerCat";
 import { useTechMode } from "@/components/TechMode";
 import { short } from "@/lib/format";
 import type { Actor } from "@/lib/hc";
@@ -158,30 +159,31 @@ export function AccountLine({ who }: { who: ActorState }) {
   const a = who.actor?.account ?? null;
   const names = useNames([a]);
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState("");
   const [note, setNote] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
   if (!who.actor || !a) return null;
   const myName = names[a.toLowerCase()];
+  const picked = hasOwnCat(a, names);
   const low = who.balance !== null && who.balance < 2_000_000n;
-  const run = async (f: () => Promise<void>) => {
-    setBusy(true);
-    setNote(null);
-    try {
-      await f();
-    } catch (e) {
-      setNote((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  };
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {((!picked && namesLoaded(a)) || editing) && (
+        <CatPicker
+          who={who}
+          first={!picked}
+          initialName={myName ?? nickname(a)}
+          initialFur={furOf(a)}
+          onDone={(n) => {
+            setEditing(false);
+            setNote(n);
+          }}
+          onCancel={picked ? () => setEditing(false) : undefined}
+        />
+      )}
       <p style={{ margin: 0, fontSize: 15, lineHeight: 1.5, color: C.muted }}>
-        Playing as <strong style={{ color: C.ink }}>{myName ?? (who.actor.kind === "passkey" ? "your passkey account" : "your wallet")}</strong>{" "}
-        {!editing && (
-          <button type="button" onClick={() => (setEditing(true), setDraft(myName ?? ""))} style={{ background: "none", border: 0, padding: 0, color: C.muted, textDecoration: "underline", cursor: "pointer", fontSize: 15 }}>
-            {myName ? "change name" : "set a name"}
+        Playing as <strong style={{ color: C.ink }}><CatName account={a} name={myName ?? nickname(a)} /></strong>{" "}
+        {picked && !editing && (
+          <button type="button" onClick={() => setEditing(true)} style={{ background: "none", border: 0, padding: 0, color: C.muted, textDecoration: "underline", cursor: "pointer", fontSize: 15 }}>
+            change your cat
           </button>
         )}
         {tech && (
@@ -203,38 +205,108 @@ export function AccountLine({ who }: { who: ActorState }) {
           </>
         )}
       </p>
-      {editing && (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            void run(async () => {
-              await setMyName(who.actor!, draft.trim());
-              setEditing(false);
-              setNote("Saved. Others see this name instead of your address.");
-            });
-          }}
-          style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}
-        >
-          <input
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            maxLength={24}
-            placeholder="Your name on the rope"
-            aria-label="Display name"
-            style={{ minHeight: 40, padding: "0 10px", border: `1.5px solid ${C.ink}`, background: C.page, fontFamily: F.sans, fontSize: 16, width: 220 }}
-          />
-          <button type="submit" disabled={busy || draft.trim().length < 2} style={{ ...btnQuiet, minHeight: 40, fontSize: 16 }}>
-            Save (one confirmation)
-          </button>
-          <button type="button" onClick={() => setEditing(false)} style={{ background: "none", border: 0, textDecoration: "underline", cursor: "pointer", fontSize: 15 }}>
-            Cancel
-          </button>
-        </form>
-      )}
       {low && !who.fundsNote && <p style={{ margin: 0, fontSize: 14, color: C.muted }}>Test money is added to your account automatically when a pot needs it.</p>}
       {low && who.fundsNote && <FundsHelp account={a} reason={who.fundsNote} />}
       {note && <p style={{ margin: 0, fontSize: 14, color: C.body }}>{note}</p>}
     </div>
+  );
+}
+
+/**
+ * Pick your cat: a fur colour and a name. This is how others see you everywhere (on the rope, in
+ * invitations, lists and the honor record); your address stays under "Show technical details".
+ * Saved with one signature or passkey confirmation. Display only: never used to authorise anything.
+ */
+export function CatPicker({
+  who,
+  first,
+  initialName,
+  initialFur,
+  onDone,
+  onCancel,
+}: {
+  who: ActorState;
+  first: boolean;
+  initialName: string;
+  initialFur: Fur;
+  onDone: (note: string) => void;
+  onCancel?: () => void;
+}) {
+  const [fur, setFur] = useState<Fur>(initialFur);
+  const [name, setName] = useState(initialName);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const clean = name.replace(/\s+/g, " ").trim();
+  const bad = clean.length < 2 ? "At least 2 characters." : clean.length > 20 ? "At most 20 characters." : null;
+  return (
+    <form
+      aria-label="Your cat"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        if (bad || !who.actor) return;
+        setBusy(true);
+        setErr(null);
+        try {
+          const n = await setMyName(who.actor, clean, fur);
+          onDone(`Saved. Others now see ${n}, your ${FURS[fur].label.toLowerCase()} cat, instead of your address.`);
+        } catch (x) {
+          setErr((x as Error).message);
+        } finally {
+          setBusy(false);
+        }
+      }}
+      style={{ display: "flex", flexDirection: "column", gap: 12, padding: "14px 16px", border: `1.5px solid ${C.ink}`, maxWidth: 620 }}
+    >
+      <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+        <PlayerCat fur={fur} pose="sit" size={86} mood="up" />
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <strong style={{ fontFamily: F.cond, fontSize: 26, fontWeight: 600, lineHeight: 1 }}>{first ? "Pick your cat" : "Change your cat"}</strong>
+          <span style={{ fontSize: 15, lineHeight: 1.45, color: C.body }}>Others see your cat and its name on the rope, in invitations and in the honor record, never your address.</span>
+        </div>
+      </div>
+      <div role="radiogroup" aria-label="Fur colour" style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+        {FUR_KEYS.map((f) => (
+          <button
+            key={f}
+            type="button"
+            role="radio"
+            aria-checked={fur === f}
+            aria-label={FURS[f].label}
+            onClick={() => setFur(f)}
+            style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "6px 8px", minWidth: 64, minHeight: 44, background: "transparent", cursor: "pointer", border: fur === f ? `2.5px solid ${C.ink}` : `1px solid ${C.faint}` }}
+          >
+            <PlayerCat fur={f} pose="face" size={30} label="" />
+            <span style={{ fontSize: 13, color: C.ink }}>{FURS[f].label}</span>
+          </button>
+        ))}
+      </div>
+      <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <span style={{ fontSize: 15, fontWeight: 600 }}>Your cat&apos;s name (2 to 20 characters)</span>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          maxLength={20}
+          autoComplete="nickname"
+          style={{ minHeight: 44, padding: "0 10px", border: `1.5px solid ${C.ink}`, background: C.page, fontFamily: F.sans, fontSize: 17, maxWidth: 320 }}
+        />
+      </label>
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+        <button type="submit" disabled={busy || !!bad} style={{ ...btn, minHeight: 44, fontSize: 17 }}>
+          {busy ? "Confirm in your passkey or wallet…" : "This is my cat"}
+        </button>
+        {onCancel && (
+          <button type="button" onClick={onCancel} style={{ background: "none", border: 0, textDecoration: "underline", cursor: "pointer", fontSize: 15 }}>
+            Keep the current one
+          </button>
+        )}
+        <span style={{ fontSize: 14, color: C.muted }}>{bad ?? "One confirmation; it costs nothing."}</span>
+      </div>
+      {err && (
+        <p role="alert" style={{ margin: 0, color: C.signalInk, fontSize: 15 }}>
+          {err}
+        </p>
+      )}
+    </form>
   );
 }
 

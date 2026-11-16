@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { CatName } from "@/components/cat/PlayerCat";
+import { nickname, useNames } from "@/lib/names";
 import { HcFooterLinks, HcHeader } from "@/components/cat/Chrome";
 import { GeminiCredit } from "@/components/cat/Markets";
 import { CatHead, Ears, EyesLarge } from "@/components/cat/shapes";
@@ -9,7 +11,6 @@ import { Rope } from "@/components/pot/Rope";
 import { sceneOf, STATE_TEXT } from "@/components/pot/scene";
 import { useTechMode } from "@/components/TechMode";
 import { marketTitle } from "@/lib/marketName";
-import { useNames } from "@/lib/names";
 import { useLivePrice } from "@/components/pot/usePrice";
 import { usePolling } from "@/lib/api";
 import type { HcPot, HcPotSummary } from "@/lib/hc";
@@ -65,6 +66,7 @@ function OpenOffers() {
   const { data } = usePolling<{ pots: HcPotSummary[] }>("/api/hc/pots?state=open", 15_000);
   const now = useNow();
   const offers = (data?.pots ?? []).filter((p) => Number(p.data.closeTime) * 1000 > now + 5 * 60_000).slice(0, 5);
+  const names = useNames(offers.map((p) => p.owners.yes ?? p.owners.no));
   if (!offers.length) return null;
   return (
     <section className="hc-wrap" style={{ paddingTop: 56, display: "flex", flexDirection: "column", gap: 12 }}>
@@ -72,10 +74,12 @@ function OpenOffers() {
       <ul style={{ margin: 0, padding: 0, listStyle: "none", borderTop: `1.5px solid ${C.ink}` }}>
         {offers.map((p) => {
           const creatorYes = Number(p.data.creatorSide) === 0;
+          const creator = p.owners.yes ?? p.owners.no;
           return (
             <li key={p.potId} style={{ borderBottom: `1px solid ${C.faint}` }}>
               <Link href={`/pots/${p.potId}`} className="hc-row" style={{ display: "flex", flexWrap: "wrap", gap: "4px 20px", alignItems: "baseline", padding: "14px 6px", textDecoration: "none", color: C.ink }}>
                 <span style={{ fontSize: 18, fontWeight: 600, flex: "1 1 320px" }}>{p.market ? marketTitle(p.market) : `Pot ${p.potId}`}</span>
+                {creator && <span style={{ fontSize: 16 }}><CatName account={creator} name={names[creator.toLowerCase()] ?? nickname(creator.toLowerCase())} /> waits</span>}
                 <span style={{ fontSize: 16 }}>${(Number(p.data.notional) / 1e6).toFixed(2)} pot</span>
                 <span style={{ fontSize: 16, color: C.muted }}>
                   take {creatorYes ? "NO" : "YES"} near {(Number(p.data.bandCenter) / 10_000).toFixed(1)}% YES

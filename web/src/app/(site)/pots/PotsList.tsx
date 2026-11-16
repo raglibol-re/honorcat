@@ -9,6 +9,8 @@ import { formatDate, short } from "@/lib/format";
 import { sideOf, type HcPotSummary } from "@/lib/hc";
 import { useNow } from "@/lib/useNow";
 import { marketTitle } from "@/lib/marketName";
+import { CatName } from "@/components/cat/PlayerCat";
+import { nickname, useNames } from "@/lib/names";
 import { useTechMode } from "@/components/TechMode";
 
 const STATE_SHORT: Record<string, string> = {
@@ -23,6 +25,7 @@ const STATE_SHORT: Record<string, string> = {
 
 function Rows({ pots, me }: { pots: HcPotSummary[]; me?: string | null }) {
   const { tech } = useTechMode();
+  const names = useNames(pots.flatMap((p) => [p.owners.yes, p.owners.no]));
   return (
     <div style={{ borderTop: `1.5px solid ${C.ink}` }}>
       {pots.map((p) => {
@@ -43,7 +46,12 @@ function Rows({ pots, me }: { pots: HcPotSummary[]; me?: string | null }) {
             <span style={{ fontSize: 16 }}>${n.toFixed(2)}</span>
             <span style={{ fontSize: 15, color: C.muted }}>{side === null ? "" : side === 0 ? "you hold YES · " : "you hold NO · "}{STATE_SHORT[p.state]}</span>
             <span style={{ fontSize: 14, color: C.muted }}>closes {formatDate(Number(p.data.closeTime) * 1000)}</span>
-            {tech && side === null && p.owners.yes && <span style={{ fontSize: 14, color: C.muted }}>{short(p.owners.yes ?? p.owners.no ?? "")}</span>}
+            {side === null && (p.owners.yes ?? p.owners.no) && (
+              <span style={{ fontSize: 15, color: C.muted }}>
+                <CatName account={p.owners.yes ?? p.owners.no} name={names[(p.owners.yes ?? p.owners.no)!.toLowerCase()] ?? nickname((p.owners.yes ?? p.owners.no)!.toLowerCase())} />
+                {tech ? ` · ${short(p.owners.yes ?? p.owners.no ?? "")}` : ""}
+              </span>
+            )}
           </Link>
         );
       })}

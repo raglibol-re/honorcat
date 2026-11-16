@@ -105,6 +105,6 @@ export { potsAbi } from "./potsAbi";
 export { savePushSub, pushPublicKey, notifyPot } from "./push";
 export { createDraft, getDraft, actOnDraft, DRAFT_TOLERANCE, type DraftAction } from "./drafts";
 export { practiceJoin, practiceStatus, practiceAddress, isPractice, PRACTICE_MAX_NOTIONAL } from "./practice";
-export { setName, namesOf, nameMessage } from "./names";
+export { setName, namesOf, catsOf, nameMessage, cleanName, FURS } from "./names";
 export { welcome, topUp, refillPool, poolStatus } from "./funding";
 export { GATEWAY_SOURCES, GATEWAY_WALLET, GATEWAY_MINTER, gatewayBalances, prepareGatewayMove, completeGatewayMove } from "./gateway";

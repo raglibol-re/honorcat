@@ -458,6 +458,8 @@ CREATE TABLE IF NOT EXISTS push_subs (
 );
 -- The sampler's EIP-712 Average signature, checked on-chain by the MedianResolver.
 ALTER TABLE att_averages ADD COLUMN IF NOT EXISTS avg_signature TEXT;
+-- Each player's cat: its fur colour (names.ts FURS), chosen with the name.
+ALTER TABLE display_names ADD COLUMN IF NOT EXISTS fur TEXT;
 -- HonorCatPots events (pots.ts indexPots), kept apart from the retired vault's chain_events.
 CREATE TABLE IF NOT EXISTS pot_events (
   tx_hash      TEXT    NOT NULL,

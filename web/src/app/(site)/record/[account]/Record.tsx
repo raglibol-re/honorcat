@@ -2,6 +2,9 @@
 
 import Link from "next/link";
 import { Cat } from "@/components/cat/Cat";
+import { PlayerCat } from "@/components/cat/PlayerCat";
+import { useTechMode } from "@/components/TechMode";
+import { nickname, useNames } from "@/lib/names";
 import { C, F } from "@/components/cat/tokens";
 import { usePolling } from "@/lib/api";
 import { addressUrl, txUrl } from "@/lib/chain";
@@ -27,6 +30,9 @@ type HonorRecord = {
 /** An honor record: what an account did in its pots, from the contract's events. Facts only, no score. */
 export function Record({ account }: { account: string }) {
   const { data: r, error } = usePolling<HonorRecord>(`/api/hc/record/${account}`, 15_000);
+  const names = useNames([account]);
+  const { tech } = useTechMode();
+  const name = names[account.toLowerCase()] ?? nickname(account.toLowerCase());
   if (!r) return error ? <p>{error}</p> : <Cat pose="peek" size={140} />;
   const facts: [string, number | string][] = [
     ["Pots played", r.pots],
@@ -45,12 +51,20 @@ export function Record({ account }: { account: string }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
       <header style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <h1 style={{ margin: 0, fontFamily: F.cond, fontSize: 56, fontWeight: 600, lineHeight: 0.95 }}>Honor record</h1>
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 16 }}>
+          <PlayerCat account={account} pose="sit" size={110} label={`${name}'s cat`} />
+          <h1 style={{ margin: 0, fontFamily: F.cond, fontSize: 56, fontWeight: 600, lineHeight: 0.95 }}>{name}&apos;s honor record</h1>
+        </div>
         <p style={{ margin: 0, fontSize: 17, color: C.body }}>
-          <a href={addressUrl(r.account)} target="_blank" rel="noreferrer" style={{ fontFamily: F.mono, fontSize: 15 }}>
-            {short(r.account, 6)}
-          </a>
-          . Facts from the pot contract&apos;s events on Arc testnet, nothing else.
+          Facts from the pot contract&apos;s events on Arc testnet, nothing else. Practice pots do not count.
+          {tech && (
+            <>
+              {" "}
+              <a href={addressUrl(r.account)} target="_blank" rel="noreferrer" style={{ fontFamily: F.mono, fontSize: 15 }}>
+                {short(r.account, 6)}
+              </a>
+            </>
+          )}
         </p>
       </header>
       <dl style={{ margin: 0, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 0, borderTop: `1.5px solid ${C.ink}` }}>

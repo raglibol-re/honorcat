@@ -143,3 +143,14 @@ QuickNode
 - [x] A new visitor creates a pot, watches the rope and exits within two minutes, alone, at phone
       width [relay/scripts/phone-solo.mjs, iPhone 13 viewport, new passkey: pot 18 created,
       joined by the practice cat, left and paid out in 102 s, no sideways scrolling].
+### P2. Your own cat instead of an address
+- [x] On first sign-in a person picks a fur colour (six) and a name for their cat, saved with one
+      signature or passkey confirmation; it is their identity on the rope, in invitations, in
+      lists and on the honor record (checked in the browser: new passkey, ginger "Mochi" saved in 2.6 s).
+- [x] Player addresses appear only under "Show technical details" (sampler signers stay on the proof pages).
+- [x] Names are display only (never used to authorise), 2 to 20 characters, plain characters,
+      reserved names refused and offensive names filtered, also when spaced out
+      (`obscenity` library; relay/test/names.test.ts).
+- [x] Three cats in the pot view: each player's cat on its post, tail high when its side is up 3
+      points since the entry price and ears low when it is down, and the market cat on the rope;
+      players without a chosen cat get a stable fur that is never HonorCat's black.

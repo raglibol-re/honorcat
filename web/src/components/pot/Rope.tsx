@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Cat, type CatPose } from "@/components/cat/Cat";
+import { Cat, type CatPose, type Mood } from "@/components/cat/Cat";
+import { FURS, type Fur } from "@/lib/names";
 import { RollingNumber } from "@/components/cat/RollingNumber";
 import { C, F } from "@/components/cat/tokens";
 
@@ -27,7 +28,10 @@ export type RopeProps = {
   big?: boolean;
   /** The pot's size at creation, when it differs (after partial exits). */
   startedAt?: bigint | null;
+  /** Each player's cat at its post (null: an open seat), with how it feels about its side. */
+  cats?: { yes: PostCat | null; no: PostCat | null };
 };
+export type PostCat = { fur: Fur; mood: Mood; name: string };
 
 /* The drawing, in the approved mockup's units: 1440 wide, the 0..100 scale from x 40 to x 1400. */
 const VW = 1440;
@@ -179,10 +183,29 @@ function Countdown({ start, end, now }: { start: number; end: number; now: numbe
   );
 }
 
+/** A player's cat sitting on top of its post, facing the rope. */
+function PostCatView({ c, side, w }: { c: PostCat; side: 0 | 1; w: number }) {
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: `${pctX(side)}%`,
+        top: `${((TOP - 20) / VH) * 100}%`,
+        width: w,
+        // Keep the cats inside the stage (no sideways scrolling on phones) and facing the rope.
+        transform: `translate(${side === 0 ? "-30%" : "-70%"}, -92%) scaleX(${side === 0 ? 1 : -1})`,
+      }}
+    >
+      <Cat pose="sit" size={w} fur={FURS[c.fur]} mood={c.mood} label={`${c.name}'s cat, on the ${side === 0 ? "YES" : "NO"} post`} />
+    </div>
+  );
+}
+
 /**
  * The rope view: the pot hangs as a rope between two posts over the 0 to 100 scale of the YES
  * chance (the approved mockup's ruler). The cat stands at the 30-second price; left of it is YES's
- * share (ink), right of it NO's (signal), both in dollars over the posts. Paw prints show where the
+ * share, right of it NO's, each in its player's fur colour, both in dollars over the posts. Each
+ * player's cat sits on its post and perks up or droops with its side. Paw prints show where the
  * price has been; nets and bowls sit at their levels; an exit shows a countdown ring and the
  * exit-price stamp; at settlement the cat walks to the post of the side that receives the pot.
  */
@@ -207,6 +230,11 @@ export function Rope(p: RopeProps) {
   const split = price ?? 0.5;
   const fs = p.big ? 96 : 52;
   const nameFs = p.big ? 30 : 18;
+  const postW = Math.max(52, Math.min(p.big ? 200 : 120, width * 0.095));
+  // The rope in each player's fur; the same fur on both sides: NO's part in the signal colour.
+  const yesFur = p.cats?.yes ? FURS[p.cats.yes.fur].hex : C.ink;
+  const noFurRaw = p.cats?.no ? FURS[p.cats.no.fur].hex : C.signal;
+  const noFur = p.cats?.yes && p.cats?.no && p.cats.yes.fur === p.cats.no.fur ? C.signal : noFurRaw;
 
   // Paw trail: distinct recent positions, oldest faintest, alternating heights above the rope.
   const trail = (p.trail ?? []).map((t) => t.mid).filter((m, i, a) => i === 0 || Math.abs(m - a[i - 1]!) > 0.002).slice(-14);
@@ -246,13 +274,12 @@ export function Rope(p: RopeProps) {
             <Level key={i} {...l} />
           ))}
           {/* the posts */}
-          <rect x={X0 - 8} y={TOP - 10} width="16" height={GROUND - TOP + 10} fill={C.ink} />
-          <circle cx={X0} cy={TOP - 12} r="11" fill={C.ink} />
-          <rect x={X0 + SPAN - 8} y={TOP - 10} width="16" height={GROUND - TOP + 10} fill={C.signal} />
-          <circle cx={X0 + SPAN} cy={TOP - 12} r="11" fill={C.signal} />
-          {/* the rope: YES's share in ink up to the cat, NO's in signal after it */}
-          <path d={ropePath(0, split)} fill="none" stroke={C.ink} strokeWidth={p.big ? 7 : 6} strokeLinecap="round" />
-          <path d={ropePath(split, 1)} fill="none" stroke={C.signal} strokeWidth={p.big ? 7 : 6} strokeLinecap="round" />
+          <rect x={X0 - 8} y={TOP - 20} width="16" height={GROUND - TOP + 20} fill={C.ink} />
+          <rect x={X0 + SPAN - 8} y={TOP - 20} width="16" height={GROUND - TOP + 20} fill={C.signal} />
+          {/* the rope: an ink cord, filled with YES's fur up to the cat and NO's fur after it */}
+          <path d={ropePath(0, 1)} fill="none" stroke={C.ink} strokeWidth={p.big ? 11 : 10} strokeLinecap="round" />
+          <path d={ropePath(0, split)} fill="none" stroke={yesFur} strokeWidth={p.big ? 7 : 6} strokeLinecap="round" />
+          <path d={ropePath(split, 1)} fill="none" stroke={noFur} strokeWidth={p.big ? 7 : 6} strokeLinecap="round" />
           {/* where the price has been */}
           {trail.map((m, i, a) => (
             <PawMark key={i} x={xOf(m)} y={yOf(m) - (i % 2 ? 20 : 32)} dir={i > 0 && m < a[i - 1]! ? -1 : 1} opacity={0.2 + (0.6 * (i + 1)) / a.length} />
@@ -272,7 +299,10 @@ export function Rope(p: RopeProps) {
           )}
         </svg>
 
-        {/* the cat, standing on the rope */}
+        {p.cats?.yes && <PostCatView c={p.cats.yes} side={0} w={postW} />}
+        {p.cats?.no && <PostCatView c={p.cats.no} side={1} w={postW} />}
+
+        {/* the market cat, standing on the rope */}
         <div
           style={{
             position: "absolute",

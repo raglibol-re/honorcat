@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Cat } from "@/components/cat/Cat";
+import { PlayerCat } from "@/components/cat/PlayerCat";
 import { GeminiCredit } from "@/components/cat/Markets";
 import { C, F } from "@/components/cat/tokens";
 import { Rope } from "@/components/pot/Rope";
@@ -60,7 +61,7 @@ function Feedback({ a, account }: { a: ReturnType<typeof useAction>; account?: s
 
 /* ------------------------------------------------------------------ actions by role */
 
-function Actions({ pot, who, price, nowS }: { pot: HcPot; who: ActorState; price: number | null; nowS: number }) {
+function Actions({ pot, who, price, nowS, nameOf }: { pot: HcPot; who: ActorState; price: number | null; nowS: number; nameOf: (a: string | null) => string }) {
   const a = useAction();
   const me = who.actor?.account ?? null;
   const mySide = sideOf(pot, me);
@@ -109,6 +110,19 @@ function Actions({ pot, who, price, nowS }: { pot: HcPot; who: ActorState; price
     const dep = worstCase(side, n, Number(d.bandCenter), Number(d.tolerance));
     return (
       <section style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 680 }}>
+        {(() => {
+          const creator = creatorSide === YES ? pot.owners.yes : pot.owners.no;
+          return (
+            creator && (
+              <div style={{ display: "flex", alignItems: "flex-end", gap: 14 }}>
+                <PlayerCat account={creator} pose="sit" size={96} label={`${nameOf(creator)}'s cat, waiting at its post`} />
+                <p style={{ margin: 0, fontSize: 19, lineHeight: 1.4 }}>
+                  <strong>{nameOf(creator)}</strong> is waiting at the {creatorSide === YES ? "YES" : "NO"} post for someone to take the other side.
+                </p>
+              </div>
+            )
+          );
+        })()}
         <h2 style={h2}>Take the {side === YES ? "YES" : "NO"} side</h2>
         <p style={{ margin: 0, color: C.body, fontSize: 17, lineHeight: 1.5 }}>
           You put in up to <strong>{$(dep)}</strong>. Your starting share is set by the 30-second average price right after you join (it must stay within{" "}
@@ -426,7 +440,7 @@ export function PotView({ id }: { id: string }) {
 
       {pot.state !== "Divided" && pot.state !== "Settled" && pot.state !== "Expired" && <SamplerNotice />}
 
-      <Actions pot={pot} who={who} price={live.smoothed} nowS={nowS} />
+      <Actions pot={pot} who={who} price={live.smoothed} nowS={nowS} nameOf={nameOf} />
 
       {story.length > 0 && (
         <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>

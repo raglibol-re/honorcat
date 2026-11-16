@@ -1,6 +1,6 @@
 "use client";
 
-import { useId } from "react";
+import { createContext, useContext, useId } from "react";
 import { C, F } from "./tokens";
 
 /**
@@ -22,7 +22,9 @@ export type CatPose =
   | "sleep"
   | "peek"
   | "box"
-  | "lives";
+  | "lives"
+  | "sit"
+  | "face";
 
 export const POSE_TEXT: Record<CatPose, string> = {
   rope: "A black cat balancing on a rope, arms and tail out.",
@@ -38,7 +40,16 @@ export const POSE_TEXT: Record<CatPose, string> = {
   peek: "A black cat peeking in from the edge: loading.",
   box: "A black cat looking into an empty box: nothing here.",
   lives: "Nine paw marks: the cat's lives.",
+  sit: "A black cat sitting at its post.",
+  face: "A black cat's face.",
 };
+
+/** How a player's cat at its post feels about its side: up since the start, about even, or down. */
+export type Mood = "up" | "even" | "down";
+const MOOD_TEXT: Record<Mood, string> = { up: "tail high: its side is up since the start", even: "calm: its side is about even", down: "ears low: its side is down since the start" };
+
+/** The cat's fur (body colour) and, for light furs, an ink outline. Lines and the eyes stay as they are. */
+const FurCtx = createContext<{ body: string; line: string; w: number }>({ body: C.ink, line: "none", w: 0 });
 
 const VIEW: Record<CatPose, [number, number]> = {
   rope: [140, 110],
@@ -54,6 +65,8 @@ const VIEW: Record<CatPose, [number, number]> = {
   peek: [120, 80],
   box: [170, 100],
   lives: [180, 24],
+  sit: [120, 104],
+  face: [60, 62],
 };
 
 const origin = (x: number, y: number) => ({ transformOrigin: `${x}px ${y}px`, transformBox: "view-box" as const });
@@ -82,24 +95,26 @@ function Eyes({ cx, cy, open = true, look = 0 }: { cx: number; cy: number; open?
 }
 
 /** Round head with pointed ears, centred on (cx, cy). */
-function Head({ cx, cy, r = 20, eyesOpen = true, look = 0 }: { cx: number; cy: number; r?: number; eyesOpen?: boolean; look?: number }) {
+function Head({ cx, cy, r = 20, eyesOpen = true, look = 0, earsLow = false }: { cx: number; cy: number; r?: number; eyesOpen?: boolean; look?: number; earsLow?: boolean }) {
+  const k = useContext(FurCtx);
+  const lift = earsLow ? 0.35 : 0;
   return (
     <g>
       <polygon
-        points={`${cx - r * 0.92},${cy - r * 0.2} ${cx - r * 0.78},${cy - r * 1.55} ${cx - r * 0.18},${cy - r * 0.92}`}
-        fill={C.ink}
-        stroke={C.ink}
+        points={`${cx - r * 0.92},${cy - r * 0.2} ${cx - r * (0.78 + lift)},${cy - r * (1.55 - lift)} ${cx - r * 0.18},${cy - r * 0.92}`}
+        fill={k.body}
+        stroke={k.line === "none" ? k.body : k.line}
         strokeWidth="2"
         strokeLinejoin="round"
       />
       <polygon
-        points={`${cx + r * 0.18},${cy - r * 0.92} ${cx + r * 0.78},${cy - r * 1.55} ${cx + r * 0.92},${cy - r * 0.2}`}
-        fill={C.ink}
-        stroke={C.ink}
+        points={`${cx + r * 0.18},${cy - r * 0.92} ${cx + r * (0.78 + lift)},${cy - r * (1.55 - lift)} ${cx + r * 0.92},${cy - r * 0.2}`}
+        fill={k.body}
+        stroke={k.line === "none" ? k.body : k.line}
         strokeWidth="2"
         strokeLinejoin="round"
       />
-      <circle cx={cx} cy={cy} r={r} fill={C.ink} />
+      <circle cx={cx} cy={cy} r={r} fill={k.body} stroke={k.line} strokeWidth={k.w} />
       <Eyes cx={cx} cy={cy + 1} open={eyesOpen} look={look} />
       <path d={`M${cx - 2} ${cy + 9} h4 l-2 2.4 z`} fill={C.signal} />
     </g>
@@ -107,7 +122,8 @@ function Head({ cx, cy, r = 20, eyesOpen = true, look = 0 }: { cx: number; cy: n
 }
 
 /** The cute sitting cat, feet on y = base, centred on x. `tail`: how the tail sits. */
-function Sitting({ x, base, tail = "up", eyesOpen = true, look = 0, feet = true }: { x: number; base: number; tail?: "up" | "out" | "low"; eyesOpen?: boolean; look?: number; feet?: boolean }) {
+function Sitting({ x, base, tail = "up", eyesOpen = true, look = 0, feet = true, earsLow = false }: { x: number; base: number; tail?: "up" | "out" | "low"; eyesOpen?: boolean; look?: number; feet?: boolean; earsLow?: boolean }) {
+  const k = useContext(FurCtx);
   const ty = base - 6;
   const tailD =
     tail === "out"
@@ -118,16 +134,17 @@ function Sitting({ x, base, tail = "up", eyesOpen = true, look = 0, feet = true 
   return (
     <g>
       <g className="hc-cat-tail" style={origin(x + 18, ty)}>
-        <path d={tailD} fill="none" stroke={C.ink} strokeWidth="7" strokeLinecap="round" />
+        {k.w > 0 && <path d={tailD} fill="none" stroke={k.line} strokeWidth={7 + 2 * k.w} strokeLinecap="round" />}
+        <path d={tailD} fill="none" stroke={k.body} strokeWidth="7" strokeLinecap="round" />
       </g>
-      <ellipse cx={x} cy={base - 20} rx="23" ry="21" fill={C.ink} />
+      <ellipse cx={x} cy={base - 20} rx="23" ry="21" fill={k.body} stroke={k.line} strokeWidth={k.w} />
       {feet && (
         <>
-          <ellipse cx={x - 10} cy={base - 2} rx="8.5" ry="4.5" fill={C.ink} />
-          <ellipse cx={x + 10} cy={base - 2} rx="8.5" ry="4.5" fill={C.ink} />
+          <ellipse cx={x - 10} cy={base - 2} rx="8.5" ry="4.5" fill={k.body} stroke={k.line} strokeWidth={k.w} />
+          <ellipse cx={x + 10} cy={base - 2} rx="8.5" ry="4.5" fill={k.body} stroke={k.line} strokeWidth={k.w} />
         </>
       )}
-      <Head cx={x} cy={base - 48} eyesOpen={eyesOpen} look={look} />
+      <Head cx={x} cy={base - 48} eyesOpen={eyesOpen} look={look} earsLow={earsLow} />
     </g>
   );
 }
@@ -147,7 +164,8 @@ function PawMark({ x, y, filled, s = 1 }: { x: number; y: number; filled: boolea
   );
 }
 
-function Scene({ pose, lives, uid }: { pose: CatPose; lives: number; uid: string }) {
+function Scene({ pose, lives, uid, mood }: { pose: CatPose; lives: number; uid: string; mood: Mood }) {
+  const k = useContext(FurCtx);
   switch (pose) {
     case "rope":
     case "wobble": {
@@ -157,8 +175,8 @@ function Scene({ pose, lives, uid }: { pose: CatPose; lives: number; uid: string
           <path d="M0 96 Q70 102 140 96" fill="none" stroke={C.ink} strokeWidth="2.5" />
           <g className={wob ? "hc-cat-wobble" : "hc-cat-balance"} style={origin(70, 96)}>
             {/* arms out for balance */}
-            <path d="M52 70 L30 62" stroke={C.ink} strokeWidth="6" strokeLinecap="round" />
-            <path d="M88 70 L110 62" stroke={C.ink} strokeWidth="6" strokeLinecap="round" />
+            <path d="M52 70 L30 62" stroke={k.body} strokeWidth="6" strokeLinecap="round" />
+            <path d="M88 70 L110 62" stroke={k.body} strokeWidth="6" strokeLinecap="round" />
             <Sitting x={70} base={96} tail="out" look={wob ? 1.4 : 0} />
           </g>
           {wob && (
@@ -192,10 +210,10 @@ function Scene({ pose, lives, uid }: { pose: CatPose; lives: number; uid: string
           <g className="hc-cat-float" style={origin(60, 60)}>
             <g transform="rotate(-8 60 60)">
               {/* legs out */}
-              <path d="M44 74 L32 90" stroke={C.ink} strokeWidth="7" strokeLinecap="round" />
-              <path d="M76 74 L88 90" stroke={C.ink} strokeWidth="7" strokeLinecap="round" />
-              <path d="M48 52 L30 40" stroke={C.ink} strokeWidth="6" strokeLinecap="round" />
-              <path d="M72 52 L90 40" stroke={C.ink} strokeWidth="6" strokeLinecap="round" />
+              <path d="M44 74 L32 90" stroke={k.body} strokeWidth="7" strokeLinecap="round" />
+              <path d="M76 74 L88 90" stroke={k.body} strokeWidth="7" strokeLinecap="round" />
+              <path d="M48 52 L30 40" stroke={k.body} strokeWidth="6" strokeLinecap="round" />
+              <path d="M72 52 L90 40" stroke={k.body} strokeWidth="6" strokeLinecap="round" />
               <Sitting x={60} base={86} tail="up" feet={false} />
             </g>
           </g>
@@ -235,8 +253,8 @@ function Scene({ pose, lives, uid }: { pose: CatPose; lives: number; uid: string
           <line x1="10" y1="66" x2="10" y2="30" stroke={C.ink} strokeWidth="2.5" />
           <line x1="130" y1="66" x2="130" y2="30" stroke={C.ink} strokeWidth="2.5" />
           {/* curled up, eyes open, resting */}
-          <ellipse cx="74" cy="76" rx="30" ry="15" fill={C.ink} />
-          <path d="M100 82 C 110 90, 92 96, 70 92" fill="none" stroke={C.ink} strokeWidth="6" strokeLinecap="round" />
+          <ellipse cx="74" cy="76" rx="30" ry="15" fill={k.body} stroke={k.line} strokeWidth={k.w} />
+          <path d="M100 82 C 110 90, 92 96, 70 92" fill="none" stroke={k.body} strokeWidth="6" strokeLinecap="round" />
           <Head cx={48} cy={66} r={16} />
         </>
       );
@@ -257,7 +275,7 @@ function Scene({ pose, lives, uid }: { pose: CatPose; lives: number; uid: string
         <>
           <line x1="0" y1="96" x2="120" y2="96" stroke={C.ink} strokeWidth="2" />
           <Sitting x={56} base={96} tail="up" />
-          <path d="M70 66 Q88 62 98 52" fill="none" stroke={C.ink} strokeWidth="7" strokeLinecap="round" />
+          <path d="M70 66 Q88 62 98 52" fill="none" stroke={k.body} strokeWidth="7" strokeLinecap="round" />
           <PawMark x={100} y={46} filled s={0.9} />
         </>
       );
@@ -275,8 +293,8 @@ function Scene({ pose, lives, uid }: { pose: CatPose; lives: number; uid: string
       return (
         <>
           <line x1="0" y1="96" x2="140" y2="96" stroke={C.ink} strokeWidth="2" />
-          <path d="M100 90 C 118 94, 112 70, 100 72" fill="none" stroke={C.ink} strokeWidth="6" strokeLinecap="round" className="hc-cat-tail" style={origin(100, 90)} />
-          <ellipse cx="74" cy="80" rx="34" ry="16" fill={C.ink} />
+          <path d="M100 90 C 118 94, 112 70, 100 72" fill="none" stroke={k.body} strokeWidth="6" strokeLinecap="round" className="hc-cat-tail" style={origin(100, 90)} />
+          <ellipse cx="74" cy="80" rx="34" ry="16" fill={k.body} stroke={k.line} strokeWidth={k.w} />
           <Head cx={46} cy={74} r={17} eyesOpen={false} />
           <g className="hc-cat-z" fill={C.ink} style={{ fontFamily: F.cond, fontWeight: 700 }}>
             <text x="92" y="44" fontSize="18">Z</text>
@@ -299,8 +317,8 @@ function Scene({ pose, lives, uid }: { pose: CatPose; lives: number; uid: string
             </g>
           </g>
           <line x1="0" y1="60" x2="120" y2="60" stroke={C.ink} strokeWidth="3" />
-          <ellipse cx="44" cy="58" rx="8" ry="4.5" fill={C.ink} />
-          <ellipse cx="76" cy="58" rx="8" ry="4.5" fill={C.ink} />
+          <ellipse cx="44" cy="58" rx="8" ry="4.5" fill={k.body} stroke={k.line} strokeWidth={k.w} />
+          <ellipse cx="76" cy="58" rx="8" ry="4.5" fill={k.body} stroke={k.line} strokeWidth={k.w} />
         </>
       );
     }
@@ -318,6 +336,24 @@ function Scene({ pose, lives, uid }: { pose: CatPose; lives: number; uid: string
           <line x1="100" y1="62" x2="156" y2="62" stroke={C.ink} strokeWidth="2.5" />
         </>
       );
+    case "sit":
+      // A player's cat at its post: tail high when its side is up, ears low when down.
+      return (
+        <>
+          <line x1="0" y1="96" x2="120" y2="96" stroke={C.ink} strokeWidth="2" />
+          <g transform={mood === "down" ? "translate(0 4) scale(1 0.96)" : undefined}>
+            <Sitting x={60} base={96} tail={mood === "up" ? "up" : mood === "down" ? "low" : "out"} look={mood === "down" ? 0 : 1} earsLow={mood === "down"} />
+          </g>
+          {mood === "up" && (
+            <g stroke={C.ink} strokeWidth="2" strokeLinecap="round">
+              <path d="M28 30 l-8 -6" />
+              <path d="M24 44 l-10 -1" />
+            </g>
+          )}
+        </>
+      );
+    case "face":
+      return <Head cx={30} cy={36} r={20} />;
     case "lives":
       return (
         <>
@@ -333,11 +369,29 @@ function Scene({ pose, lives, uid }: { pose: CatPose; lives: number; uid: string
  * `<Cat pose="rope" size={160} />`. `size` is the width in px; the height follows the pose.
  * `label` overrides the text alternative; `lives` (0..9) fills paw marks for pose "lives".
  */
-export function Cat({ pose, size = 160, label, lives = 9 }: { pose: CatPose; size?: number; label?: string; lives?: number }) {
+export function Cat({
+  pose,
+  size = 160,
+  label,
+  lives = 9,
+  fur,
+  mood = "even",
+}: {
+  pose: CatPose;
+  size?: number;
+  label?: string;
+  lives?: number;
+  /** The player's fur: colour, name (for the text alternative), and whether it is light (gets an ink outline). Default: HonorCat's black cat. */
+  fur?: { hex: string; label: string; light: boolean };
+  mood?: Mood;
+}) {
   const uid = useId().replace(/[^a-zA-Z0-9_-]/g, "");
   const [w, h] = VIEW[pose];
   const n = Math.max(0, Math.min(9, Math.round(lives)));
-  const text = label ?? (pose === "lives" ? `${n} of 9 lives left.` : POSE_TEXT[pose]);
+  const furWord = fur ? fur.label.toLowerCase() : "black";
+  const base = POSE_TEXT[pose].replace("A black cat", `A ${furWord} cat`).replace("Two black cats", `Two ${furWord} cats`);
+  const text = label ?? (pose === "lives" ? `${n} of 9 lives left.` : pose === "sit" ? `${base.replace(/\.$/, "")}, ${MOOD_TEXT[mood]}.` : base);
+  const k = fur ? { body: fur.hex, line: fur.light ? C.ink : "none", w: fur.light ? 1.6 : 0 } : { body: C.ink, line: "none", w: 0 };
   return (
     <svg
       viewBox={`0 0 ${w} ${h}`}
@@ -348,7 +402,9 @@ export function Cat({ pose, size = 160, label, lives = 9 }: { pose: CatPose; siz
       style={{ display: "block", overflow: "visible" }}
     >
       <title>{text}</title>
-      <Scene pose={pose} lives={n} uid={uid} />
+      <FurCtx.Provider value={k}>
+        <Scene pose={pose} lives={n} uid={uid} mood={mood} />
+      </FurCtx.Provider>
     </svg>
   );
 }
