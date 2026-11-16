@@ -38,7 +38,7 @@ End-to-end runs (`relay/scripts/pots-e2e.ts --scenario …`, against production,
 | takeover | 4 | YES asked to leave; a third wallet took its place at the exit price; pot stays live |
 | handshake | 5 | both signed 70%; divided at once, no fee |
 | bowl | 6 | YES set a bowl below the price; the samplers saw it hold and filed the exit; divided |
-| hold | 7 | held to the end on a BTC 15-minute market; waiting for Gemini's result (closes 09:30 UTC) |
+| hold | 7 | held to the end on a BTC 15-minute market; Gemini settled YES, samplers co-signed, the pot paid YES at 09:30 UTC (tx 0xc5ecfc86...9dc1; the event arrived through QuickNode Streams) |
 | quote | 2 | `pots-quote.ts`: a signed quote valued both sides on-chain through HonorCatFairValue |
 
 ## Architecture

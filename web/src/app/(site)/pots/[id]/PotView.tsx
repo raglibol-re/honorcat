@@ -20,7 +20,7 @@ const POTS = "0xc890C990048f45cb268d076E4A3dB25270Ea1e59" as const;
 const h2: React.CSSProperties = { margin: 0, fontFamily: F.cond, fontSize: 32, fontWeight: 600 };
 const input: React.CSSProperties = { minHeight: 44, padding: "0 10px", border: `1.5px solid ${C.ink}`, background: C.page, fontFamily: F.sans, fontSize: 17, color: C.ink, width: 120, boxSizing: "border-box" };
 const $ = (base: bigint | string | number) => `$${(Number(base) / 1e6).toFixed(2)}`;
-const KIND_TEXT = ["Entry price", "Exit price", "YES net", "NO net", "YES bowl", "NO bowl"];
+const KIND_TEXT = ["Entry price", "Exit price", "YES net", "NO net", "YES bowl", "NO bowl", "Quote (fair value, moves no money)"];
 
 function useAction() {
   const [step, setStep] = useState<string | null>(null);

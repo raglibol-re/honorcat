@@ -28,7 +28,7 @@ output). Order follows the spec's sections. Milestones: C0, C1, D0 to D5.
 - [x] The exiting side pays the fixed fee to the other side (1%; pot 3 balances).
 - [x] No exits in the lock-out before close, on a failing market, or while halted or under review
       (contract: test_exit_refusedInLockout; relay: marketGate and the too-few-samples tests in relay/test/pots.test.ts).
-- [ ] Without exits Gemini's settlement decides; no settlement by the deadline returns both deposits.
+- [x] Without exits Gemini's settlement decides (pot 7); no settlement by the deadline returns both deposits (contract expiry tests).
 
 ## 3. Extras on the same rules (D2, D4)
 - [x] Net (floor) and bowl (target) file an exit request automatically through the threshold engine (pot 6).
@@ -77,11 +77,11 @@ Gemini
 - [x] Live price sets each side's share [rope view matches the book midpoint].
 - [x] Forward-window average prices every exit [evidence record of an exit, /pots/3/proof].
 - [x] Market status gates exits [test: relay/test/pots.test.ts "market status gate"].
-- [ ] Settlement ends pots nobody left [e2e: pot held to settlement].
+- [x] Settlement ends pots nobody left [e2e: pot 7, tx 0xc5ecfc86...9dc1].
 - [x] Depth is the basis of the cap on N [creation refused above the cap: contract test AboveCap].
 - [x] "Data provided by Gemini" wherever prices appear [page check].
 QuickNode
-- [ ] Streams is the primary source for every pot event [events table shows source=streams].
+- [x] Streams is the primary source for every pot event [events table shows source=streams since the filter update: PotSettled of pot 7; earlier events backfilled by polling].
 - [x] Filter on QuickNode's side for our contracts (now including HonorCatPots); RPC polling as fallback; UI shows the path and
       delay per event [/live, /how-it-is-built].
 - [ ] Backfill from Streams after downtime [documented run].
@@ -113,4 +113,4 @@ QuickNode
 - [x] Exit refused in lock-out, on a failing market and without enough samples.
 - [x] Partial exits in ninths never lose or create a cent (HonorCatPotsPartial fuzz).
 - [x] Handshake, takeover, net and bowl, expiry (contract suites).
-- [ ] End to end against production: held to settlement, ended by exit, one handshake, one takeover.
+- [x] End to end against production: held to settlement (7), ended by exit (3), one handshake (5), one takeover (4).

@@ -25,7 +25,7 @@
   quotes. Contract: HonorCatFairValue (0x8a89...71a5, 7 tests). Fixes found by the runs: the local
   sampler's two samplers shared one stream (fixed); a window was submitted before Arc's block clock
   passed its end (TooEarly; the relay now waits and retries). E2E against production: exit (pot 3),
-  takeover (4), handshake (5), bowl (6), quote (2); pot 7 held to the end, waiting for Gemini's result.
+  takeover (4), handshake (5), bowl (6), quote (2); pot 7 held to the end and settled YES by Gemini's result (tx 0xc5ecfc86...9dc1), delivered through Streams.
 - 2026-11-16: D2 relay done and verified on Arc testnet (pots 1-3). Window requests per join, exit,
   net and bowl; each sampler signs its own window average inside its evidence record; the relay
   proposes the exact median of three (mean of two within 0.5 points, else no price) and submits

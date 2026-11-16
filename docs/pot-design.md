@@ -374,7 +374,7 @@ initialisation).
   (stateless, 0x8a89...71a5) checks a quote against the pot's own signer set and freshness and returns
   a side's share and exit fee. Verified on-chain for pot 2.
 - **Runs against production.** Exit (pot 3), takeover (4), handshake (5), bowl (6), held to
-  settlement (7, waiting for Gemini's result), quote (2): `relay/scripts/pots-e2e.ts`, `pots-quote.ts`.
+  settlement (7, Gemini settled YES), quote (2): `relay/scripts/pots-e2e.ts`, `pots-quote.ts`.
 
 ## 11. Decisions (user, 2026-11-16)
 

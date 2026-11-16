@@ -11,7 +11,7 @@ import { RawReadings } from "./RawReadings";
 
 const POTS = "0xc890C990048f45cb268d076E4A3dB25270Ea1e59";
 const mono: React.CSSProperties = { fontFamily: F.mono, fontSize: 13, wordBreak: "break-all" };
-const KIND_TEXT = ["Entry price", "Exit price", "YES net", "NO net", "YES bowl", "NO bowl"];
+const KIND_TEXT = ["Entry price", "Exit price", "YES net", "NO net", "YES bowl", "NO bowl", "Quote (fair value, moves no money)"];
 
 /**
  * What anyone can check about a pot: the contract, the market rule it commits to, and for every
