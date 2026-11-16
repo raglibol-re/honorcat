@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { closesIn, GeminiCredit, midYes, QualityMark, type CatalogResponse, type MarketItem } from "@/components/cat/Markets";
+import { EventBlocks, GeminiCredit, GeminiMark, type CatalogResponse, type MarketItem } from "@/components/cat/Markets";
 import { C, F } from "@/components/cat/tokens";
 import { usePolling } from "@/lib/api";
 import { formatClock } from "@/lib/format";
@@ -65,48 +65,11 @@ export function MarketsView() {
       {groups.size === 0 && <p style={{ margin: 0, fontSize: 17 }}>No market passes right now. Check back in a few minutes.</p>}
       {[...groups.entries()].map(([category, items]) => (
         <section key={category} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <h2 style={{ margin: 0, fontFamily: F.cond, fontSize: 36, fontWeight: 600 }}>{category}</h2>
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 760 }}>
-              <thead>
-                <tr>
-                  <th style={th}>Market</th>
-                  <th style={{ ...th, textAlign: "right" }}>Chance</th>
-                  <th style={{ ...th, textAlign: "right" }}>Bid</th>
-                  <th style={{ ...th, textAlign: "right" }}>Ask</th>
-                  <th style={{ ...th, textAlign: "right" }}>Depth</th>
-                  <th style={{ ...th, textAlign: "right" }}>Event 24 h volume</th>
-                  <th style={{ ...th, textAlign: "right" }}>Closes in</th>
-                  <th style={th}>Quality</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((m) => {
-                  const bid = m.book?.bid ?? m.bid;
-                  const ask = m.book?.ask ?? m.ask;
-                  const mid = midYes(m);
-                  return (
-                    <tr key={m.symbol}>
-                      <td style={td}>
-                        <span style={{ display: "block", fontSize: 13, color: C.muted }}>{m.eventTitle}</span>
-                        <span style={{ fontWeight: 600 }}>{m.label}</span>
-                      </td>
-                      <td style={{ ...num, fontFamily: F.cond, fontSize: 20, fontWeight: 600 }}>{mid === null ? "–" : `${Math.round(mid * 100)}%`}</td>
-                      <td style={num}>{cents(bid)}</td>
-                      <td style={num}>{cents(ask)}</td>
-                      <td style={num}>{usd(m.quality.minDepthUsd)}</td>
-                      <td style={num}>{m.eventVolume24h === null ? "–" : usd(m.eventVolume24h)}</td>
-                      <td style={num}>{closesIn(m.closeMs)}</td>
-                      <td style={td}>
-                        <QualityMark q={m.quality} small />
-                        {m.quality.reasons.length > 0 && <span style={{ display: "block", fontSize: 12, color: C.muted }}>{m.quality.reasons.join("; ")}</span>}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <h2 style={{ margin: 0, fontFamily: F.cond, fontSize: 36, fontWeight: 600, display: "flex", alignItems: "center", gap: 10 }}>
+            <GeminiMark size={22} />
+            {category}
+          </h2>
+          <EventBlocks items={items} detail />
         </section>
       ))}
 

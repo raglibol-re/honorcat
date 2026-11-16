@@ -70,20 +70,133 @@ export function QualityMark({ q, small }: { q: MarketQuality | null; small?: boo
   );
 }
 
+/** Gemini's own app mark (unmodified, from gemini.com), used only to credit Gemini as the source. */
+export function GeminiMark({ size = 16 }: { size?: number }) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- a small static brand mark
+    <img src="/gemini-mark.png" alt="Gemini" width={size} height={size} style={{ display: "inline-block", width: size, height: size, borderRadius: size * 0.22, verticalAlign: "middle", flex: "none" }} />
+  );
+}
+
 /** "Data provided by Gemini", required wherever a Gemini price appears (Market Data Agreement). */
 export function GeminiCredit({ style }: { style?: React.CSSProperties }) {
   return (
-    <span style={{ fontSize: 13, color: C.muted, ...style }}>
-      Data provided by{" "}
-      <a href="https://www.gemini.com/predictions" target="_blank" rel="noreferrer" style={{ color: "inherit" }}>
-        Gemini
-      </a>
+    <span style={{ fontSize: 13, color: C.muted, display: "inline-flex", alignItems: "center", gap: 6, ...style }}>
+      <GeminiMark size={14} />
+      <span>
+        Data provided by{" "}
+        <a href="https://www.gemini.com/predictions" target="_blank" rel="noreferrer" style={{ color: "inherit" }}>
+          Gemini
+        </a>
+      </span>
     </span>
   );
 }
 
 const pct = (x: number | null) => (x === null ? "–" : `${Math.round(x * 100)}%`);
 const usd = (x: number | null) => (x === null ? "–" : x >= 1000 ? `$${(x / 1000).toFixed(1)}k` : `$${Math.round(x)}`);
+
+/* ------------------------------------------------------------------ events, grouped */
+
+type EventGroup = { key: string; title: string; category: string; subcategory: string | null; image: string | null; closeMs: number; volume: number | null; items: MarketItem[] };
+
+/** Contracts grouped by their Gemini event, in the order the list ranks them. */
+export function groupByEvent(items: MarketItem[]): EventGroup[] {
+  const map = new Map<string, EventGroup>();
+  for (const m of items) {
+    const g = map.get(m.eventTicker);
+    if (g) g.items.push(m);
+    else map.set(m.eventTicker, { key: m.eventTicker, title: m.eventTitle, category: m.category, subcategory: m.subcategory, image: m.image, closeMs: m.closeMs, volume: m.eventVolume24h, items: [m] });
+  }
+  return [...map.values()];
+}
+
+function Thumb({ src, size }: { src: string | null; size: number }) {
+  if (!src || !/^https:\/\/assets\.gemini\.com\//.test(src))
+    return (
+      <span aria-hidden="true" style={{ flex: "none", width: size, height: size, display: "inline-flex", alignItems: "center", justifyContent: "center", background: C.panel, border: `1px solid ${C.faint}` }}>
+        <GeminiMark size={size * 0.45} />
+      </span>
+    );
+  // eslint-disable-next-line @next/next/no-img-element -- Gemini's own event artwork, served by Gemini
+  return <img src={src} alt="" width={size} height={size} loading="lazy" style={{ flex: "none", width: size, height: size, objectFit: "cover", background: C.panel }} />;
+}
+
+/** One possible result of an event: its chance as a bar, pickable when the market works. */
+function Outcome({ m, picked, onPick, detail }: { m: MarketItem; picked: boolean; onPick?: (m: MarketItem) => void; detail?: boolean }) {
+  const ok = usable(m.quality);
+  const chance = midYes(m);
+  const w = chance === null ? 0 : Math.max(2, Math.round(chance * 100));
+  const bid = m.book?.bid ?? m.bid;
+  const ask = m.book?.ask ?? m.ask;
+  const canPick = ok && !!onPick;
+  const reason = m.quality.reasons.join("; ");
+  const Tag = onPick ? "button" : "div";
+  return (
+    <Tag
+      {...(onPick ? { type: "button" as const, role: "radio", "aria-checked": picked, "aria-disabled": !ok, onClick: () => canPick && onPick(m) } : {})}
+      className={canPick ? "hc-row" : undefined}
+      title={ok ? undefined : reason}
+      style={{
+        width: "100%",
+        display: "grid",
+        gridTemplateColumns: "minmax(0, 1.4fr) minmax(80px, 2fr) 56px",
+        alignItems: "center",
+        gap: 14,
+        padding: "9px 10px",
+        border: 0,
+        textAlign: "left",
+        fontFamily: F.sans,
+        background: picked ? C.ink : "transparent",
+        color: picked ? C.page : ok ? C.ink : C.muted,
+        cursor: canPick ? "pointer" : onPick ? "not-allowed" : "default",
+      }}
+    >
+      <span style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
+        <span style={{ fontSize: 16, fontWeight: 600, lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis" }}>{m.label}</span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 12, color: picked ? C.faint : m.quality.status === "unavailable" ? C.signalInk : C.muted }}>
+          {picked ? <span style={{ fontWeight: 600 }}>Picked</span> : <QualityMark q={m.quality} small />}
+          {detail && ok && <span>{`${bid === null ? "–" : Math.round(bid * 100)}¢ / ${ask === null ? "–" : Math.round(ask * 100)}¢ · ${usd(m.quality.minDepthUsd)} near the price`}</span>}
+          {!ok && <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{reason}</span>}
+        </span>
+      </span>
+      <span aria-hidden="true" style={{ height: 10, background: picked ? C.muted : C.grid, position: "relative" }}>
+        <span style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${w}%`, background: picked ? C.signal : ok ? C.ink : C.faint, transition: "width 600ms ease" }} />
+      </span>
+      <span style={{ fontFamily: F.cond, fontSize: 24, fontWeight: 600, lineHeight: 1, textAlign: "right" }}>{pct(chance)}</span>
+    </Tag>
+  );
+}
+
+/**
+ * Gemini's markets as events: the event's own artwork, title, category, close and volume, and each
+ * possible result as a chance bar. With `onPick` the results are a radio group for choosing one.
+ */
+export function EventBlocks({ items, picked, onPick, detail }: { items: MarketItem[]; picked?: string | null; onPick?: (m: MarketItem) => void; detail?: boolean }) {
+  const groups = groupByEvent(items);
+  return (
+    <div role={onPick ? "radiogroup" : undefined} aria-label={onPick ? "Markets" : undefined} style={{ display: "flex", flexDirection: "column", borderTop: `1.5px solid ${C.ink}` }}>
+      {groups.map((g) => (
+        <section key={g.key} style={{ display: "flex", flexDirection: "column", gap: 4, padding: "14px 0 10px", borderBottom: `1px solid ${C.faint}` }}>
+          <div style={{ display: "flex", gap: 14, alignItems: "center", padding: "0 10px" }}>
+            <Thumb src={g.image} size={52} />
+            <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0, flex: 1 }}>
+              <span style={{ fontSize: 13, color: C.muted }}>
+                {[g.category, g.subcategory, `closes in ${closesIn(g.closeMs)}`, g.volume ? `${usd(g.volume)} traded today` : null].filter(Boolean).join(" · ")}
+              </span>
+              <h3 style={{ margin: 0, fontFamily: F.cond, fontSize: 24, fontWeight: 600, lineHeight: 1.05 }}>{g.title}</h3>
+            </div>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            {g.items.map((m) => (
+              <Outcome key={m.symbol} m={m} picked={picked === m.symbol} onPick={onPick} detail={detail} />
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+}
 
 /* ------------------------------------------------------------------ the picker */
 
@@ -109,9 +222,34 @@ export function MarketList({ picked, onPick }: { picked: string | null; onPick: 
   if (q.trim()) qs.set("q", q.trim());
   const { data, error } = usePolling<CatalogResponse>(`/api/catalog?${qs}`, 15_000);
   const sel: React.CSSProperties = { minHeight: 44, border: `1.5px solid ${C.ink}`, background: C.panel, color: C.ink, fontFamily: F.sans, fontSize: 16, padding: "0 10px" };
+  const tab = (on: boolean): React.CSSProperties => ({
+    flex: "none",
+    minHeight: 38,
+    padding: "0 14px",
+    border: `1.5px solid ${C.ink}`,
+    background: on ? C.ink : "transparent",
+    color: on ? C.page : C.ink,
+    fontFamily: F.sans,
+    fontSize: 15,
+    fontWeight: 600,
+    cursor: "pointer",
+  });
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, color: C.muted }}>
+        <GeminiMark size={20} />
+        <span>
+          Live prediction markets from <strong style={{ color: C.ink }}>Gemini</strong>, read from its order books every few seconds.
+        </span>
+      </div>
+      <div role="tablist" aria-label="Category" style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
+        {["", ...(data?.categories ?? [])].map((c) => (
+          <button key={c || "all"} type="button" role="tab" aria-selected={category === c} onClick={() => setCategory(c)} style={tab(category === c)}>
+            {c || "All"}
+          </button>
+        ))}
+      </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
         <input
           type="search"
@@ -121,14 +259,6 @@ export function MarketList({ picked, onPick }: { picked: string | null; onPick: 
           aria-label="Search markets"
           style={{ ...sel, flex: "1 1 220px", padding: "0 12px" }}
         />
-        <select value={category} onChange={(e) => setCategory(e.target.value)} aria-label="Category" style={sel}>
-          <option value="">All categories</option>
-          {(data?.categories ?? []).map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
         <select value={within ?? ""} onChange={(e) => setWithin(e.target.value ? Number(e.target.value) : null)} aria-label="Time to close" style={sel}>
           {WITHIN.map(([t, v]) => (
             <option key={t} value={v ?? ""}>
@@ -144,61 +274,11 @@ export function MarketList({ picked, onPick }: { picked: string | null; onPick: 
         <p style={{ margin: 0, fontSize: 16 }}>{data.summary.length ? "Nothing matches. Clear the search or pick another category." : "The market list is still loading. Give it a minute."}</p>
       )}
 
-      {data && data.items.length > 0 && (
-        <ul role="radiogroup" aria-label="Markets" style={{ margin: 0, padding: 0, listStyle: "none", borderTop: `1.5px solid ${C.ink}`, borderBottom: `1.5px solid ${C.ink}` }}>
-          {data.items.map((m, i) => {
-            const ok = usable(m.quality);
-            const on = picked === m.symbol;
-            const chance = midYes(m);
-            return (
-              <li key={m.symbol} style={{ borderTop: i ? `1px solid ${C.faint}` : "none" }}>
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={on}
-                  aria-disabled={!ok}
-                  onClick={() => ok && onPick(m)}
-                  className={ok ? "hc-row" : undefined}
-                  style={{
-                    width: "100%",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 14,
-                    padding: "11px 10px",
-                    border: 0,
-                    textAlign: "left",
-                    fontFamily: F.sans,
-                    background: on ? C.ink : "transparent",
-                    color: on ? C.page : ok ? C.ink : C.muted,
-                    cursor: ok ? "pointer" : "not-allowed",
-                  }}
-                >
-                  <span style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 0 }}>
-                    <span style={{ fontSize: 13, color: on ? C.faint : C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {m.category} · {m.eventTitle}
-                    </span>
-                    <span style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.25 }}>{m.label}</span>
-                    <span style={{ fontSize: 13, color: on ? C.faint : m.quality.status === "unavailable" ? C.signalInk : C.muted }}>
-                      {m.quality.status === "unavailable" || m.quality.status === "unmeasured"
-                        ? m.quality.reasons.join("; ")
-                        : `spread ${Math.round((m.quality.spread ?? 0) * 100)}¢ · ${usd(m.quality.minDepthUsd)} near the price · ${m.quality.profile} rule`}
-                      {` · closes in ${closesIn(m.closeMs)}`}
-                    </span>
-                  </span>
-                  <span style={{ flex: "none", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
-                    <span style={{ fontFamily: F.cond, fontSize: 26, fontWeight: 600, lineHeight: 1 }}>{pct(chance)}</span>
-                    {on ? <span style={{ fontSize: 13, fontWeight: 600 }}>Picked</span> : <QualityMark q={m.quality} small />}
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+      {data && data.items.length > 0 && <EventBlocks items={data.items} picked={picked} onPick={onPick} />}
       {data && (
         <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
           <span style={{ fontSize: 13, color: C.muted }}>
-            {data.total} contracts, usable first. Chance = middle of the best buy and sell price.{" "}
+            {data.total} results, usable first. Chance = the middle of Gemini’s best buy and sell price.{" "}
             <a href="/markets" style={{ color: "inherit" }}>
               Markets that work today
             </a>
