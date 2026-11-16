@@ -12,6 +12,8 @@ import { GeminiCredit } from "@/components/cat/Markets";
 import { C, F } from "@/components/cat/tokens";
 import { Rope } from "@/components/pot/Rope";
 import { AfterPot } from "@/components/pot/AfterPot";
+import { HelperBubble } from "@/components/helper/Helper";
+import { adviceFree, exitOptions } from "@/lib/helper";
 import { SamplerNotice } from "@/components/pot/SamplerHealth";
 import { sceneOf, STATE_TEXT, storyOf } from "@/components/pot/scene";
 import { useTechMode } from "@/components/TechMode";
@@ -316,7 +318,18 @@ function Actions({ pot, who, price, nowS, nameOf }: { pot: HcPot; who: ActorStat
             const shareOf = own === null ? null : BigInt(Math.floor(Number(ask.amount) * own));
             const fee = feeOf(ask.amount, Number(d.feeBps));
             const est = shareOf === null ? null : shareOf > fee ? shareOf - fee : 0n;
+            const otherName = nameOf(mySide === YES ? pot.owners.no : pot.owners.yes);
+            const lines = exitOptions({
+              leaveAbout: est === null ? "…" : $(est),
+              fee: $(fee),
+              pot: $(n),
+              mine: st ? (mySide === YES ? st.yes : st.no) : "your side happens",
+              other: otherName,
+              chance: price === null ? "the current price" : `${(price * 100).toFixed(1)}%`,
+              part: ask.amount < n ? `${$(ask.amount)} of the pot` : null,
+            }).filter(adviceFree);
             return (
+              <>
               <div role="group" aria-label="Confirm your exit" style={{ display: "flex", flexDirection: "column", gap: 10, padding: "14px 16px", border: `2px solid ${C.ink}`, maxWidth: 640 }}>
                 <strong style={{ fontFamily: F.cond, fontSize: 28, fontWeight: 600 }}>Leave with {ask.what}?</strong>
                 <p style={{ margin: 0, fontSize: 18, lineHeight: 1.45 }}>
@@ -344,6 +357,8 @@ function Actions({ pot, who, price, nowS, nameOf }: { pot: HcPot; who: ActorStat
                   </button>
                 </div>
               </div>
+              <HelperBubble lines={lines} />
+              </>
             );
           })()
         )}

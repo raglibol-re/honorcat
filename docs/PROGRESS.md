@@ -19,6 +19,13 @@
 - Work in cycles per docs/improve.md, everything in the agreed priority order.
 
 ## Rubric cycle log
+- 2026-11-16: GrokCat (docs/grokcat-spec.md, K0 in docs/grokcat-k0.md). No xAI credits and no real
+  money (your rule), so no Grok calls: the helper cat answers from our own templates until credits
+  exist, and is not presented as Grok. Built for approval: the helper cat (light coat, ink outline,
+  signal collar) with seven poses on /design/cat, and one bubble ("options in words") beside the exit
+  confirmation, with the numbers-only-from-our-data and no-advice checks (relay/test/helper.test.ts).
+  Waiting for approval before using it elsewhere. Circle smart accounts: built, hidden until the
+  client key's domain / Modular Wallets setting is confirmed in Circle's console (-32012 "entity config").
 - 2026-11-16: polish P8 to P10: cats in the landing's worked example, QR codes on invitations, a
   preview image per pot link, plain messages everywhere, sixteen pages clean at phone width with
   keyboard and axe (relay/scripts/a11y-check.mjs). Open: Streams' share since the stream resumed

@@ -1,5 +1,6 @@
 import { Cat, POSE_TEXT, type CatPose } from "@/components/cat/Cat";
 import { C, F } from "@/components/cat/tokens";
+import { HelperBubble, HelperCat } from "@/components/helper/Helper";
 
 export const metadata = { title: "Cat poses" };
 
@@ -41,6 +42,45 @@ export default function CatPosesPage() {
             </figcaption>
           </figure>
         ))}
+      </section>
+
+      <section style={{ borderTop: `1.5px solid ${C.ink}`, paddingTop: 20, display: "flex", flexDirection: "column", gap: 20 }}>
+        <h2 style={{ margin: 0, fontFamily: F.cond, fontSize: 36, fontWeight: 600 }}>The helper cat</h2>
+        <p style={{ ...caption, maxWidth: 640 }}>
+          A second cat beside the market cat: a light coat with an ink outline and a signal-coloured collar, so it is never mistaken for a player&apos;s cat. It explains and informs; it never moves money
+          and never says which side to take. For approval before use.
+        </p>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "28px 40px" }}>
+          {(
+            [
+              ["corner", "Peeking in from the corner"],
+              ["talk", "Talking"],
+              ["think", "Thinking"],
+              ["shrug", "Shrugging (does not know)"],
+              ["point", "Pointing at the rope"],
+              ["sit", "Playing the opponent on its post"],
+              ["sleep", "Asleep (no AI available, or muted)"],
+            ] as const
+          ).map(([pose, name]) => (
+            <figure key={pose} style={{ margin: 0, display: "flex", flexDirection: "column", gap: 8, width: 200 }}>
+              <div style={{ height: 140, display: "flex", alignItems: "flex-end" }}>
+                <HelperCat pose={pose} size={pose === "corner" ? 120 : 170} />
+              </div>
+              <figcaption style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <span style={{ fontSize: 17, fontWeight: 600 }}>{name}</span>
+                <span style={{ fontFamily: F.mono, fontSize: 12, color: C.muted }}>pose=&quot;{pose}&quot;</span>
+              </figcaption>
+            </figure>
+          ))}
+        </div>
+        <h3 style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>A bubble (what a player sees beside the exit confirmation)</h3>
+        <HelperBubble
+          lines={[
+            "Leaving: about $0.49 for you after a $0.01 treat for Practice cat. The final amount is set by the next 30 seconds and cannot be taken back.",
+            "Staying: when Gemini settles, you get $0.65 if Boston beats Orlando, and nothing if not.",
+            "Shaking hands: if Practice cat agrees, the pot splits now at 76.5% with no treat.",
+          ]}
+        />
       </section>
 
       <section style={{ borderTop: `1.5px solid ${C.ink}`, paddingTop: 20, display: "flex", flexDirection: "column", gap: 14 }}>
