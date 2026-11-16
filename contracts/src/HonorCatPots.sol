@@ -79,7 +79,7 @@ contract HonorCatPots is ERC721, EIP712, ReentrancyGuard, Ownable {
         uint64 deadline;
         uint64 cooldownUntil;
         uint64 nonce; // increments with every join or exit request
-        // pending join or exit
+        // pending join or exit: the joiner while Joining, the taker (if any) while ExitRequested
         address joiner;
         uint8 exitSide;
         uint64 requestTime;
@@ -187,6 +187,8 @@ contract HonorCatPots is ERC721, EIP712, ReentrancyGuard, Ownable {
     event ExitFailed(uint256 indexed potId, uint64 nonce, bytes32 evidenceHash);
     event PotDivided(uint256 indexed potId, uint8 exitSide, uint256 notional, uint32 price, uint256 paidYes, uint256 paidNo, uint256 fee, bytes32 evidenceHash);
     event Handshake(uint256 indexed potId, uint32 price, uint256 notional);
+    event TakeoverOffered(uint256 indexed potId, address indexed taker, uint64 nonce);
+    event TakenOver(uint256 indexed potId, uint8 side, address indexed from, address indexed to, uint32 price, uint256 paidExiter, uint256 fee);
     event LevelsSet(uint256 indexed potId, uint8 side, uint32 net, uint32 bowl);
     event LevelTriggered(uint256 indexed potId, uint8 side, uint8 kind, uint32 priceYes, bytes32 evidenceHash);
     event PotSettled(uint256 indexed potId, uint8 outcome, uint256 paidYes, uint256 paidNo, bytes32 evidenceHash);
@@ -462,22 +464,73 @@ contract HonorCatPots is ERC721, EIP712, ReentrancyGuard, Ownable {
         if (p.state != State.ExitRequested) revert WrongState();
         _checkWindow(p, a, KIND_EXIT, sigs);
         if (!a.valid) {
-            p.state = State.Live;
-            p.cooldownUntil = uint64(block.timestamp) + COOLDOWN;
-            emit ExitFailed(a.potId, p.nonce, a.evidenceHash);
+            _exitFailed(a.potId, p, a.evidenceHash);
+            return;
+        }
+        if (p.joiner != address(0)) {
+            _completeTakeover(a.potId, p, a.priceYes);
             return;
         }
         _divide(a.potId, p, p.exitSide, p.exitNotional, a.priceYes, p.feeBps, a.evidenceHash);
     }
 
+    function _exitFailed(uint256 potId, Pot storage p, bytes32 evidenceHash) internal {
+        p.state = State.Live;
+        p.cooldownUntil = uint64(block.timestamp) + COOLDOWN;
+        emit ExitFailed(potId, p.nonce, evidenceHash);
+        _refundTaker(potId, p);
+    }
+
+    /// @dev Returns a taker's escrow (the full notional) when an exit with a takeover does not complete.
+    function _refundTaker(uint256 potId, Pot storage p) internal {
+        address taker = p.joiner;
+        if (taker == address(0)) return;
+        p.joiner = address(0);
+        _pay(potId, taker, p.notional);
+    }
+
+    // ---------------------------------------------------------------- takeover
+
+    /// @notice While a full exit window is open, a third party may take the exiting side's place by
+    ///         escrowing the full notional (the most that side can be worth). Settled at the forward
+    ///         exit price; the first valid call wins.
+    function takeover(uint256 potId, Authorization calldata auth) external nonReentrant {
+        Pot storage p = _pots[potId];
+        if (p.state != State.ExitRequested || p.joiner != address(0) || p.exitNotional != p.notional) revert WrongState();
+        if (block.timestamp >= p.requestTime + DELAY + p.window) revert TooLate();
+        address taker = _payer(auth);
+        p.joiner = taker;
+        _pull(taker, p.notional, keccak256(abi.encode("takeover", potId, taker, p.nonce)), auth);
+        emit TakeoverOffered(potId, taker, p.nonce);
+    }
+
+    /// @dev The exiter receives its share minus the fee, the other side the fee, the taker its escrow
+    ///      minus the share and the exiting side's token. The pot continues with the same N and deposits.
+    function _completeTakeover(uint256 potId, Pot storage p, uint32 price) internal {
+        uint8 side = p.exitSide;
+        uint256 n = p.notional;
+        uint256 cash = side == YES ? yesPart(n, price) : n - yesPart(n, price);
+        uint256 fee = (n * p.feeBps + 9_999) / 10_000;
+        if (fee > cash) fee = cash;
+        address taker = p.joiner;
+        p.joiner = address(0);
+        p.state = State.Live;
+        uint256 tokenId = tokenOf(potId, side);
+        address exiter = ownerOf(tokenId);
+        address other = ownerOf(tokenOf(potId, 1 - side));
+        _transfer(exiter, taker, tokenId); // allowed: the pot is Live again; resets nets and bowls
+        emit TakenOver(potId, side, exiter, taker, price, cash - fee, fee);
+        if (cash - fee > 0) _pay(potId, exiter, cash - fee);
+        if (fee > 0) _pay(potId, other, fee);
+        if (n - cash > 0) _pay(potId, taker, n - cash);
+    }
+
     /// @notice An exit window that got no attestation in time can be abandoned by anyone; the pot continues.
-    function abandonExit(uint256 potId) external {
+    function abandonExit(uint256 potId) external nonReentrant {
         Pot storage p = _pots[potId];
         if (p.state != State.ExitRequested) revert WrongState();
         if (block.timestamp <= p.requestTime + DELAY + p.window + ATTEST_TIMEOUT) revert TooEarly();
-        p.state = State.Live;
-        p.cooldownUntil = uint64(block.timestamp) + COOLDOWN;
-        emit ExitFailed(potId, p.nonce, bytes32(0));
+        _exitFailed(potId, p, bytes32(0));
     }
 
     /// @dev Divides `n` of the pot at YES price `price` (docs/pot-design.md 3.3). Exact: paid sums to n.
@@ -578,6 +631,7 @@ contract HonorCatPots is ERC721, EIP712, ReentrancyGuard, Ownable {
         if (block.timestamp < p.closeTime) revert TooEarly();
         if (a.conditionId != p.conditionId || a.outcome > OUTCOME_VOID) revert InvalidAttestation();
         if (!SignatureChecker.isValidERC1271SignatureNow(p.resolver, outcomeDigest(a), sigs)) revert InvalidAttestation();
+        _refundTaker(a.potId, p); // a pending exit is dropped
 
         uint256 n = p.notional;
         uint256 payYes;
@@ -615,6 +669,7 @@ contract HonorCatPots is ERC721, EIP712, ReentrancyGuard, Ownable {
             _refundEscrowsAndExpire(potId, p);
             return;
         }
+        _refundTaker(potId, p);
         (uint256 payYes, uint256 payNo) = (p.depYes, p.depNo);
         p.notional = 0;
         p.depYes = 0;
