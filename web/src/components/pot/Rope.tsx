@@ -21,7 +21,7 @@ export type RopeProps = {
   /** The exit-price stamp after a division. */
   stamp?: string | null;
   /** Settlement: the cat walks to the side that received the pot (0 YES, 1 NO, 2 both refunded). */
-  winner?: 0 | 1 | 2 | null;
+  receiver?: 0 | 1 | 2 | null;
   trail?: { mid: number }[];
   speed?: number;
   big?: boolean;
@@ -34,7 +34,7 @@ const xOf = (p: number) => L + W * Math.min(1, Math.max(0, p));
 function poseFor(p: RopeProps): CatPose {
   if (p.phase === "waiting") return "sleep";
   if (p.phase === "expired") return "box";
-  if (p.phase === "settled") return p.winner === 2 ? "box" : "land";
+  if (p.phase === "settled") return p.receiver === 2 ? "box" : "land";
   if (p.phase === "divided") return "land";
   if ((p.phase === "exit" || p.phase === "joining") && p.window) return p.window.now < p.window.start ? "crouch" : p.phase === "exit" ? "air" : "rope";
   if (p.price === null) return "peek";
@@ -114,7 +114,7 @@ export function Rope(p: RopeProps) {
   const yes = price === null ? null : n * price;
   const no = price === null ? null : n - n * price;
   const pose = poseFor(p);
-  const catX = p.phase === "settled" && (p.winner === 0 || p.winner === 1) ? (p.winner === 0 ? L : L + W) : price === null ? 50 : xOf(price);
+  const catX = p.phase === "settled" && (p.receiver === 0 || p.receiver === 1) ? (p.receiver === 0 ? L : L + W) : price === null ? 50 : xOf(price);
   const catSize = p.big ? 220 : 120;
   const height = p.big ? "46vh" : 230;
   const fs = p.big ? 96 : 52;

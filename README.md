@@ -2,7 +2,7 @@
 
 **A pot between two sides on a Gemini prediction market, settled in USDC on Arc.** One side takes
 YES, the other NO. Each side's share follows the market price, and either side may leave at any time
-at a fair, forward-priced value. If nobody leaves, Gemini's settlement decides and the winner gets
+at a fair, forward-priced value. If nobody leaves, Gemini's settlement decides and the side that was right receives
 the pot. Fully collateralised, no leverage, no operator access to funds. Testnet only, not financial
 advice.
 

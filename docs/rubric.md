@@ -26,7 +26,8 @@ output). Order follows the spec's sections. Milestones: C0, C1, D0 to D5.
 - [x] Exit is a binding request; the price is the time-weighted average of valid samples taken after
       the request; too few samples means no exit and the pot continues (pot 2: ExitFailed, continued).
 - [x] The exiting side pays the fixed fee to the other side (1%; pot 3 balances).
-- [ ] No exits in the lock-out before close, on a failing market, or while halted or under review.
+- [x] No exits in the lock-out before close, on a failing market, or while halted or under review
+      (contract: test_exit_refusedInLockout; relay: marketGate and the too-few-samples tests in relay/test/pots.test.ts).
 - [ ] Without exits Gemini's settlement decides; no settlement by the deadline returns both deposits.
 
 ## 3. Extras on the same rules (D2, D4)
@@ -75,7 +76,7 @@ Gemini
 - [x] Market discovery and quality ranking from the order book [/markets, /api/catalog].
 - [x] Live price sets each side's share [rope view matches the book midpoint].
 - [x] Forward-window average prices every exit [evidence record of an exit, /pots/3/proof].
-- [ ] Market status gates exits [test: exit refused while halted/under review].
+- [x] Market status gates exits [test: relay/test/pots.test.ts "market status gate"].
 - [ ] Settlement ends pots nobody left [e2e: pot held to settlement].
 - [x] Depth is the basis of the cap on N [creation refused above the cap: contract test AboveCap].
 - [x] "Data provided by Gemini" wherever prices appear [page check].
@@ -87,7 +88,7 @@ QuickNode
 - [x] /how-it-is-built shows these three lists with live evidence per item.
 
 ## 7. The cat (D3)
-- [ ] One cute inline-SVG cat component in the existing colours, all poses (rope, wobble, crouch, air,
+- [x] One cute inline-SVG cat component in the existing colours, all poses (rope, wobble, crouch, air,
       landing, net, bowl, handshake paw, second cat, sleeping, peeking, empty box, nine paw marks).
 - [x] Reduced motion respected; text alternative for every pose.
 - [ ] Pose sheet at /design/cat approved before use.
@@ -102,14 +103,14 @@ QuickNode
 ## 9. Honesty and safety
 - [x] Testnet banner and "not financial advice" on every page (header).
 - [x] Plain terms per pot covering every edge case (/pots/<id>/terms).
-- [ ] Neutral wording (pot, side, share, exit, land); no bet, wager or win.
+- [x] Neutral wording (pot, side, share, exit, land); no bet, wager or win (pages checked by search).
 - [x] Low maximum N on testnet and a note on playing within limits ($25; start page, terms, landing).
 - [x] Testnet only; secrets only in environment variables.
 
 ## 10. Tests that must exist
-- [ ] Stale-price attack: an exit requested just before a jump is priced after the jump.
-- [ ] A short price spike does not move an exit price materially.
-- [ ] Exit refused in lock-out, on a failing market and without enough samples.
+- [x] Stale-price attack: an exit requested just before a jump is priced after the jump (relay/test/pots.test.ts).
+- [x] A short price spike does not move an exit price materially (a 30-point, 2-second spike moves it about 2 points; the median drops a spike one sampler caught).
+- [x] Exit refused in lock-out, on a failing market and without enough samples.
 - [x] Partial exits in ninths never lose or create a cent (HonorCatPotsPartial fuzz).
 - [x] Handshake, takeover, net and bowl, expiry (contract suites).
 - [ ] End to end against production: held to settlement, ended by exit, one handshake, one takeover.

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { getAddress, recoverAddress, recoverMessageAddress, type Address, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { KIND, propose, potConditionId, potParams, rootOf, windowDigest, wouldCosign, type Avg, type WindowAtt } from "../src/pots";
+import { KIND, marketGate, propose, potConditionId, potParams, rootOf, windowDigest, wouldCosign, type Avg, type WindowAtt } from "../src/pots";
 import { PotSampler, type PotsIo, type PotsWork } from "../src/potsSampler";
 import type { BookSource } from "../src/sampler";
 import { evidenceHash, recordFromJson, verifyRecord } from "../src/trigger/evidence";
@@ -13,6 +13,19 @@ const a = (n: number, ppm: number, valid = true): Avg => ({
   valid,
   sampleCount: 10,
   evidenceHash: `0x${String(n).repeat(64)}` as Hex,
+});
+
+describe("market status gate", () => {
+  it("only an active, open market gives a price; halted, under review, closed or unreachable give none", () => {
+    expect(marketGate({ status: "active", marketState: "open" })).toBeNull();
+    expect(marketGate({ status: "active", marketState: null })).toBeNull();
+    expect(marketGate({ status: "active", marketState: "halted" })).toMatch(/halted/);
+    expect(marketGate({ status: "active", marketState: "under_review" })).toMatch(/under_review/);
+    expect(marketGate({ status: "active", marketState: "closed" })).toMatch(/closed/);
+    expect(marketGate({ status: "settled", marketState: "closed" })).toMatch(/settled/);
+    expect(marketGate({ status: "invalid", marketState: null })).toMatch(/invalid/);
+    expect(marketGate(null)).toMatch(/unreachable/);
+  });
 });
 
 describe("price agreement", () => {
@@ -53,7 +66,7 @@ describe("pot sampler", () => {
   const params = potParams(paramsFor("demo"), 30, 10);
   const conditionId = potConditionId(INSTR, params);
 
-  function harness(mid: () => [string, string]) {
+  function harness(mid: (now: number) => [string, string] | null) {
     let now = T0;
     const posted: { id: string; body: { signer: Address; record: unknown; signature: Hex } }[] = [];
     const cosigned: { id: string; signature: Hex }[] = [];
@@ -62,7 +75,9 @@ describe("pot sampler", () => {
       name: "test",
       watch() {},
       async snapshot() {
-        const [bid, ask] = mid();
+        const q = mid(now);
+        if (!q) return null;
+        const [bid, ask] = q;
         return { recv: now, bid, bidSize: "100.00", ask, askSize: "100.00" };
       },
       close() {},
@@ -125,5 +140,55 @@ describe("pot sampler", () => {
     h.setWork({ cosign: [{ requestId: "r", kind: "window", digest: `0x${"12".repeat(32)}`, payload: { attestation: x } }] });
     await h.run(T0 + 1_000);
     expect(h.cosigned).toHaveLength(0);
+  });
+
+  /** Runs one exit window [start, start + 30] through a sampler with a scripted book; returns its average. */
+  async function windowAverage(mid: (now: number) => [string, string] | null, start: number) {
+    const h = harness(mid);
+    h.setWork({ measure: [{ requestId: "w:9:1:1", potId: "9", kind: KIND.exit, windowStart: start, windowEnd: start + 30, instrument: INSTR, params, conditionId }] });
+    await h.run((start + 33) * 1000);
+    const rec = recordFromJson(h.posted[0]!.body.record as never);
+    const d = verifyRecord(rec);
+    return { ppm: Number(rec.averageMicro / 100n), valid: d.code === 0 || d.code === 1, validCount: d.validCount };
+  }
+
+  it("stale-price attack: an exit asked just before a jump is priced after the jump", async () => {
+    // The book jumps from 40% to 70% one second after the request; the window starts at request + 1 s.
+    const request = T0 / 1000 + 4;
+    const r = await windowAverage((now) => (now < (request + 1) * 1000 ? ["0.39", "0.41"] : ["0.69", "0.71"]), request + 1);
+    expect(r.valid).toBe(true);
+    expect(r.ppm).toBe(700_000); // the post-jump price, not the 40% the requester saw
+  });
+
+  it("a short spike does not move an exit price materially", async () => {
+    // 60% throughout, except a 2-second spike to 90% in the middle of the window.
+    const start = T0 / 1000 + 4;
+    const spikeAt = (start + 15) * 1000;
+    const r = await windowAverage((now) => (now >= spikeAt && now < spikeAt + 2000 ? ["0.89", "0.91"] : ["0.59", "0.61"]), start);
+    expect(r.valid).toBe(true);
+    const moved = Math.abs(r.ppm - 600_000) / 10_000; // points
+    // At most one 2-second reading carries the spike; time-weighted over the ~28 s the readings cover.
+    expect(moved).toBeLessThanOrEqual((30 * 2) / 28 + 0.01);
+    expect(moved).toBeLessThan(2.5); // a 30-point spike moves the price by about 2 points
+    // With three samplers the median also drops a spike only one of them caught.
+    const p = propose([a(1, 600_000), a(2, 620_000), a(3, 601_000)]);
+    expect(p.ppm).toBe(601_000n);
+  });
+
+  it("without enough valid samples there is no exit price", async () => {
+    // Gemini's book is missing for most of the window (an outage): fewer than 10 valid readings.
+    const start = T0 / 1000 + 4;
+    const r = await windowAverage((now) => (now < (start + 24) * 1000 ? null : ["0.59", "0.61"]), start);
+    expect(r.valid).toBe(false);
+    expect(r.validCount).toBeLessThan(10);
+    // The relay then proposes no price: the exit fails and the pot continues.
+    expect(propose([a(1, r.ppm, r.valid), a(2, 600_000, false), a(3, 600_000)]).valid).toBe(false);
+  });
+
+  it("a wide or crossed book does not count", async () => {
+    const start = T0 / 1000 + 4;
+    const r = await windowAverage(() => ["0.50", "0.70"], start); // 20-cent spread, above the rule's maximum
+    expect(r.valid).toBe(false);
+    expect(r.validCount).toBe(0);
   });
 });

@@ -154,6 +154,18 @@ export function propose(avgs: Avg[]): Proposal {
   return { valid: false, ppm: 0n, used: avgs, reason: ok.length < 2 ? "fewer than two valid windows" : "no agreement" };
 }
 
+/**
+ * Gemini's own status gates every price: only an active contract whose market is open counts.
+ * Halted, under review, closed, settled or unreachable: no price, so nothing moves.
+ * Returns the reason when blocked, null when the market is open.
+ */
+export function marketGate(st: { status: string; marketState: string | null } | null): string | null {
+  if (!st) return "market status unreachable";
+  if (st.status !== "active") return `market ${st.status}`;
+  if (st.marketState && st.marketState !== "open") return `market ${st.marketState}`;
+  return null;
+}
+
 /** A sampler co-signs a valid proposal only within 0.5 points of its own average; an invalid one always. */
 export function wouldCosign(own: { ppm: bigint; valid: boolean } | null, att: { valid: boolean; priceYes: number }): boolean {
   if (!att.valid) return true;
@@ -366,7 +378,8 @@ export async function maybePropose(db: Db, requestId: string, force = false) {
   if (prop.valid) {
     const m = await marketOf(db, String(p.conditionId));
     const st = m ? await fetchMarketState(m.eventTicker, m.contractTicker) : null;
-    if (!st || st.status !== "active" || (st.marketState && st.marketState !== "open")) prop = { ...prop, valid: false, ppm: 0n, reason: `market ${st?.marketState ?? st?.status ?? "unreachable"}` };
+    const blocked = marketGate(st);
+    if (blocked) prop = { ...prop, valid: false, ppm: 0n, reason: blocked };
   }
   const att: WindowAtt = {
     potId: String(req.pot_id),

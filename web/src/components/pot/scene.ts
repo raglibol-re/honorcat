@@ -35,7 +35,7 @@ export function sceneOf(pot: HcPot, price: number | null, nowS: number, me?: str
     case "Settled": {
       const o = pot.requests.find((r) => r.kind === "outcome")?.payload as { attestation?: { outcome: number } } | undefined;
       const outcome = o?.attestation?.outcome;
-      return { price, notional, names, phase: "settled", winner: outcome === 1 ? 0 : outcome === 0 ? 1 : 2 };
+      return { price, notional, names, phase: "settled", receiver: outcome === 1 ? 0 : outcome === 0 ? 1 : 2 };
     }
     default:
       return { price, notional, names, phase: "expired" };

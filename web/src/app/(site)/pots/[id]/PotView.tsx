@@ -193,7 +193,7 @@ function Actions({ pot, who, price, nowS }: { pot: HcPot; who: ActorState; price
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <h2 style={h2}>Net and bowl</h2>
         <p style={{ margin: 0, color: C.body, fontSize: 17, lineHeight: 1.5 }}>
-          A net catches you if your side&apos;s price falls to it; a bowl takes your winnings when it rises to it. When the 30-second average holds there, the samplers file your exit; it is then priced
+          A net catches you if your side&apos;s price falls to it; a bowl takes your share off the rope when it rises to it. When the 30-second average holds there, the samplers file your exit; it is then priced
           like any other. Now: {lv?.net ? `net ${(lv.net / 10_000).toFixed(1)}%` : "no net"}, {lv?.bowl ? `bowl ${(lv.bowl / 10_000).toFixed(1)}%` : "no bowl"}.
         </p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "flex-end" }}>

@@ -107,7 +107,7 @@ export function Home({ data }: { data: HomeData }) {
 
       <section className="hc-wrap" style={{ paddingTop: 40 }}>
         <p style={{ margin: 0, fontSize: 17, lineHeight: 1.55, color: C.body, maxWidth: 760 }}>
-          Also on the rope: a <strong>net</strong> that catches your side if its price falls to a level, a <strong>bowl</strong> that takes your winnings when it rises to one, <strong>nine lives</strong> to leave a ninth at a
+          Also on the rope: a <strong>net</strong> that catches your side if its price falls to a level, a <strong>bowl</strong> that takes your share off the rope when it rises to one, <strong>nine lives</strong> to leave a ninth at a
           time, a <strong>handshake</strong> to split now at the current price with no fee, and a <strong>takeover</strong>, where someone else steps into the leaving side&apos;s place.
         </p>
         <GeminiCredit style={{ marginTop: 16 }} />
