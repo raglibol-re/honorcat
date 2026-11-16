@@ -17,8 +17,8 @@ export function SamplerNotice() {
   if (!h || h.ok) return null;
   return (
     <p role="status" style={{ margin: 0, padding: "12px 14px", border: `1.5px solid ${C.signal}`, color: C.ink, fontSize: 16, lineHeight: 1.45 }}>
-      Only {h.alive} of the {h.samplers.length} price samplers are running right now, and {h.threshold} must agree. Joins and exits wait until another one is back;
-      nothing is lost, and the market&apos;s result still settles the pot.
+      Only {h.alive} of the {h.samplers.length} price samplers are running right now, and {h.threshold} must agree. Until another one is back, joins and exits
+      cannot be priced (a join is refunded, an exit fails and the pot continues) and the result waits to be settled. Nothing is lost.
     </p>
   );
 }

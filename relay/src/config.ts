@@ -85,6 +85,8 @@ export type Config = {
   pots: { address: Address; deployBlock: bigint } | null;
   /** HonorCatFairValue (stateless reader of a side's value from a signed quote). */
   fairValue: Address | null;
+  /** MedianResolver: the price-agreement rule on-chain; new pots use it. */
+  median: Address | null;
   samplerKey: string | undefined;
 };
 
@@ -130,6 +132,10 @@ export function getConfig(): Config {
     merkle: merkleConfig(env),
     early: earlyConfig(env),
     pots: potsConfig(env),
+    median: (() => {
+      const f = readJson<{ median: string }>(`deployments/${env.ARC_CHAIN_ID}.median.json`);
+      return f && isAddress(f.median) ? getAddress(f.median) : null;
+    })(),
     fairValue: (() => {
       const f = readJson<{ fairValue: string }>(`deployments/${env.ARC_CHAIN_ID}.fairvalue.json`);
       return f && isAddress(f.fairValue) ? getAddress(f.fairValue) : null;

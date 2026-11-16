@@ -429,6 +429,8 @@ CREATE TABLE IF NOT EXISTS att_averages (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (request_id, signer)
 );
+-- The sampler's EIP-712 Average signature, checked on-chain by the MedianResolver.
+ALTER TABLE att_averages ADD COLUMN IF NOT EXISTS avg_signature TEXT;
 -- HonorCatPots events (pots.ts indexPots), kept apart from the retired vault's chain_events.
 CREATE TABLE IF NOT EXISTS pot_events (
   tx_hash      TEXT    NOT NULL,

@@ -5,7 +5,7 @@ import { evaluate, classify, type Sample } from "./trigger/engine";
 import { buildRecord, evidenceHash, recordToJson } from "./trigger/evidence";
 import type { TriggerParams } from "./trigger/params";
 import type { BookSource } from "./sampler";
-import { KIND, P, depthDigest, outcomeDigest, windowDigest, wouldCosign, type CosignTask, type DepthAtt, type LevelWatch, type MeasureTask, type OutcomeAtt, type WindowAtt } from "./pots";
+import { KIND, P, averageTyped, depthDigest, marketGate, outcomeDigest, windowDigest, wouldCosign, type CosignTask, type DepthAtt, type LevelWatch, type MeasureTask, type OutcomeAtt, type WindowAtt } from "./pots";
 
 /**
  * A pot sampler: one of the three independent signers for two-sided pots. It reads Gemini's public
@@ -16,11 +16,12 @@ import { KIND, P, depthDigest, outcomeDigest, windowDigest, wouldCosign, type Co
  * It signs depth (the cap) only if its own reading is at least 80% of the proposed figure, and an
  * outcome only if Gemini's own settlement says the same.
  */
-export type PotsWork = { now: number; measure: MeasureTask[]; cosign: CosignTask[]; levels: LevelWatch[]; pots: Address; chainId: number };
+export type PotsWork = { now: number; measure: MeasureTask[]; cosign: CosignTask[]; levels: LevelWatch[]; pots: Address; chainId: number; median?: Address | null };
+export type SignedAverage = { priceYes: number; valid: boolean; sampleCount: number; signature: Hex };
 
 export type PotsIo = {
   work(signer: Address): Promise<PotsWork>;
-  average(requestId: string, body: { signer: Address; record: unknown; signature: Hex }): Promise<unknown>;
+  average(requestId: string, body: { signer: Address; record: unknown; signature: Hex; average?: SignedAverage }): Promise<unknown>;
   cosign(requestId: string, body: { signer: Address; signature: Hex }): Promise<unknown>;
   level(body: { potId: string; side: 0 | 1; kind: number; windowEnd: number }): Promise<unknown>;
 };
@@ -125,10 +126,20 @@ export class PotSampler {
       const hash = evidenceHash(record);
       const signature = await this.account.signMessage({ message: { raw: hash } });
       const ppm = record.averageMicro / 10n ** BigInt(record.params.priceDecimals);
-      const valid = decision.code === 0 || decision.code === 1;
+      // Gemini's own status counts too: no price while the market is halted, under review or closed.
+      const gate = m.eventTicker ? marketGate(await this.marketState(m.eventTicker, m.contractTicker).catch(() => null)) : null;
+      const valid = (decision.code === 0 || decision.code === 1) && gate === null;
       this.own.set(m.requestId, { ppm, valid });
+      // Pots on the MedianResolver: sign this average itself; the contract computes the price from them.
+      let average: SignedAverage | undefined;
+      if (w.median && m.resolver && m.resolver.toLowerCase() === w.median.toLowerCase()) {
+        const v = { priceYes: Number(ppm), valid, sampleCount: record.validCount, evidenceHash: hash };
+        const typed = averageTyped(w.median, { potId: m.potId, kind: m.kind, nonce: m.nonce, windowStart: m.windowStart, windowEnd: m.windowEnd }, v, { chainId: w.chainId, pots: w.pots });
+        average = { priceYes: v.priceYes, valid, sampleCount: v.sampleCount, signature: await this.account.signTypedData(typed) };
+      }
+      if (gate) this.log(`pot ${m.potId}: ${gate}; this sampler gives no price`);
       try {
-        await this.io.average(m.requestId, { signer: this.address, record: recordToJson(record), signature });
+        await this.io.average(m.requestId, { signer: this.address, record: recordToJson(record), signature, average });
         this.log(`pot ${m.potId}: window ${m.windowStart}-${m.windowEnd} average ${(Number(ppm) / 10_000).toFixed(2)}% (${decision.validCount} valid samples${valid ? "" : ", not valid"})`);
       } catch (err) {
         this.log(`pot ${m.potId}: average not accepted: ${(err as Error).message.slice(0, 160)}`);
@@ -145,7 +156,8 @@ export class PotSampler {
       let why = "";
       if (c.kind === "window") {
         const a = c.payload.attestation as WindowAtt;
-        if (windowDigest(a, at) !== c.digest) why = "digest does not match the proposal";
+        if (w.median && String(c.payload.resolver ?? "").toLowerCase() === w.median.toLowerCase()) why = "pots on the MedianResolver get signed averages, never co-signed prices";
+        else if (windowDigest(a, at) !== c.digest) why = "digest does not match the proposal";
         else {
           // A short-lived host (the app) may have lost its memory: its own signed average is in the payload.
           const mineRow = (c.payload.averages as { signer: string; ppm: string; valid: boolean }[] | undefined)?.find((x) => getAddress(x.signer) === this.address);

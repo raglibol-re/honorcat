@@ -103,7 +103,7 @@ describe("pot sampler", () => {
   it("measures exactly the requested window, signs its own average, then co-signs a close proposal", async () => {
     const h = harness(() => ["0.60", "0.62"]);
     const start = T0 / 1000 + 5;
-    h.setWork({ measure: [{ requestId: "w:1:0:1", potId: "1", kind: KIND.exit, windowStart: start, windowEnd: start + 30, instrument: INSTR, params, conditionId }] });
+    h.setWork({ measure: [{ requestId: "w:1:0:1", potId: "1", kind: KIND.exit, nonce: "0", windowStart: start, windowEnd: start + 30, instrument: INSTR, params, conditionId, eventTicker: "", contractTicker: "", resolver: null }] });
     await h.run(T0 + 30_000);
     expect(h.posted).toHaveLength(0); // the window is not over
     await h.run(T0 + 38_000);
@@ -145,7 +145,7 @@ describe("pot sampler", () => {
   /** Runs one exit window [start, start + 30] through a sampler with a scripted book; returns its average. */
   async function windowAverage(mid: (now: number) => [string, string] | null, start: number) {
     const h = harness(mid);
-    h.setWork({ measure: [{ requestId: "w:9:1:1", potId: "9", kind: KIND.exit, windowStart: start, windowEnd: start + 30, instrument: INSTR, params, conditionId }] });
+    h.setWork({ measure: [{ requestId: "w:9:1:1", potId: "9", kind: KIND.exit, nonce: "1", windowStart: start, windowEnd: start + 30, instrument: INSTR, params, conditionId, eventTicker: "", contractTicker: "", resolver: null }] });
     await h.run((start + 33) * 1000);
     const rec = recordFromJson(h.posted[0]!.body.record as never);
     const d = verifyRecord(rec);

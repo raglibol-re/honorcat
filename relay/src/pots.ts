@@ -20,6 +20,8 @@ import {
   getAddress,
   parseEventLogs,
   hashTypedData,
+  encodeAbiParameters,
+  verifyTypedData,
   recoverAddress,
   verifyMessage,
   type Address,
@@ -269,7 +271,7 @@ export async function syncPot(db: Db, potId: bigint, createdTx?: string) {
     const id = `w:${potId}:${p.nonce}:${kind}`;
     await db.query(
       `INSERT INTO att_requests (id, kind, pot_id, payload, status) VALUES ($1,'window',$2,$3,'measuring') ON CONFLICT (id) DO NOTHING`,
-      [id, potId.toString(), JSON.stringify({ kind, nonce: String(p.nonce), windowStart: start, windowEnd: start + Number(p.window), conditionId: String(p.conditionId).toLowerCase(), minSamples: Number(p.minSamples) })],
+      [id, potId.toString(), JSON.stringify({ kind, nonce: String(p.nonce), windowStart: start, windowEnd: start + Number(p.window), conditionId: String(p.conditionId).toLowerCase(), minSamples: Number(p.minSamples), resolver: String(p.resolver).toLowerCase() })],
     );
   }
   return { state, data };
@@ -280,7 +282,21 @@ export async function syncPot(db: Db, potId: bigint, createdTx?: string) {
 type ReqRow = { id: string; kind: string; pot_id: string | null; payload: Record<string, unknown> | string; status: string; digest: string | null; created_at: string };
 const payloadOf = (r: ReqRow) => (typeof r.payload === "string" ? JSON.parse(r.payload) : r.payload) as Record<string, unknown>;
 
-export type MeasureTask = { requestId: string; potId: string; kind: number; windowStart: number; windowEnd: number; instrument: string; params: TriggerParams; conditionId: Hex };
+export type MeasureTask = {
+  requestId: string;
+  potId: string;
+  kind: number;
+  nonce: string;
+  windowStart: number;
+  windowEnd: number;
+  instrument: string;
+  params: TriggerParams;
+  conditionId: Hex;
+  eventTicker: string;
+  contractTicker: string;
+  /** The pot's resolver; when it is the MedianResolver the sampler signs its own average on-chain-checkable. */
+  resolver: string | null;
+};
 export type CosignTask = { requestId: string; kind: "window" | "depth" | "outcome"; digest: Hex; payload: Record<string, unknown> };
 export type LevelWatch = { potId: string; side: 0 | 1; net: number; bowl: number; setAt: number; window: number; instrument: string; params: TriggerParams; nonce: string };
 
@@ -306,7 +322,20 @@ export async function potsWork(db: Db, signer: Address) {
     const p = payloadOf(r);
     const m = await marketOf(db, String(p.conditionId));
     if (!m) continue;
-    measure.push({ requestId: r.id, potId: String(r.pot_id), kind: Number(p.kind), windowStart: Number(p.windowStart), windowEnd: Number(p.windowEnd), instrument: m.instrument, params: m.params, conditionId: m.conditionId });
+    measure.push({
+      requestId: r.id,
+      potId: String(r.pot_id),
+      kind: Number(p.kind),
+      nonce: String(p.nonce),
+      windowStart: Number(p.windowStart),
+      windowEnd: Number(p.windowEnd),
+      instrument: m.instrument,
+      params: m.params,
+      conditionId: m.conditionId,
+      eventTicker: m.eventTicker,
+      contractTicker: m.contractTicker,
+      resolver: p.resolver ? String(p.resolver) : null,
+    });
   }
   const proposed = await db.query<ReqRow>(
     `SELECT r.* FROM att_requests r WHERE r.status = 'proposed'
@@ -329,7 +358,7 @@ export async function potsWork(db: Db, signer: Address) {
         levels.push({ potId: row.pot_id, side: side as 0 | 1, net: l.net, bowl: l.bowl, setAt: Number(l.setAt), window: Number(d.window), instrument: m.instrument, params: m.params, nonce: String(d.nonce) });
     });
   }
-  return { now, measure, cosign, levels, pots: potsAddress(), chainId: getConfig().chainId };
+  return { now, measure, cosign, levels, pots: potsAddress(), chainId: getConfig().chainId, median: getConfig().median };
 }
 
 /* ------------------------------------------------------------------ averages and proposals */
@@ -337,7 +366,11 @@ export async function potsWork(db: Db, signer: Address) {
 const ppmOf = (averageMicro: bigint, priceDecimals: number) => averageMicro / 10n ** BigInt(priceDecimals);
 
 /** A sampler's own signed window average. Verified fully before it counts. */
-export async function submitAverage(db: Db, requestId: string, input: { signer: Address; record: unknown; signature: Hex }) {
+export async function submitAverage(
+  db: Db,
+  requestId: string,
+  input: { signer: Address; record: unknown; signature: Hex; average?: { priceYes: number; valid: boolean; sampleCount: number; signature: Hex } },
+) {
   const set = signerSet();
   const signer = getAddress(input.signer);
   if (!set.samplers.some((x) => x.toLowerCase() === signer.toLowerCase())) throw Object.assign(new Error("not a sampler of the signer set"), { status: 403 });
@@ -355,12 +388,24 @@ export async function submitAverage(db: Db, requestId: string, input: { signer: 
   const decision = verifyRecord(record); // throws on any inconsistency
   const hash = evidenceHash(record);
   if (!(await verifyMessage({ address: signer, message: { raw: hash }, signature: input.signature }))) throw Object.assign(new Error("bad signature"), { status: 401 });
-  const valid = decision.code === 0 || decision.code === 1; // enough valid samples, fresh at the end
+  let valid = decision.code === 0 || decision.code === 1; // enough valid samples, fresh at the end
   const ppm = ppmOf(record.averageMicro, record.params.priceDecimals);
+  let avgSig: Hex | null = null;
+  const median = getConfig().median;
+  if (median && String(p.resolver ?? "") === median.toLowerCase()) {
+    // The MedianResolver checks the sampler's own signed average on-chain: it must match its record.
+    const v = input.average;
+    if (!v) throw Object.assign(new Error("this pot needs the sampler's signed average"), { status: 400 });
+    if (BigInt(v.priceYes) !== ppm || v.sampleCount !== record.validCount || (v.valid && !valid)) throw Object.assign(new Error("signed average does not match the record"), { status: 400 });
+    const ok = await verifyTypedData({ address: signer, ...averageTyped(median, { potId: String(req.pot_id), kind: Number(p.kind), nonce: String(p.nonce), windowStart: Number(p.windowStart), windowEnd: Number(p.windowEnd) }, { priceYes: v.priceYes, valid: v.valid, sampleCount: v.sampleCount, evidenceHash: hash }), signature: v.signature });
+    if (!ok) throw Object.assign(new Error("bad average signature"), { status: 401 });
+    valid = v.valid; // the sampler's own call, which includes Gemini's market status
+    avgSig = v.signature;
+  }
   await db.query(
-    `INSERT INTO att_averages (request_id, signer, price_ppm, valid, sample_count, evidence_hash, record, signature)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT DO NOTHING`,
-    [requestId, signer.toLowerCase(), ppm.toString(), valid, record.validCount, hash, JSON.stringify(input.record), input.signature],
+    `INSERT INTO att_averages (request_id, signer, price_ppm, valid, sample_count, evidence_hash, record, signature, avg_signature)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT DO NOTHING`,
+    [requestId, signer.toLowerCase(), ppm.toString(), valid, record.validCount, hash, JSON.stringify(input.record), input.signature, avgSig],
   );
   await maybePropose(db, requestId);
   return { accepted: true, ppm: ppm.toString(), valid };
@@ -380,6 +425,8 @@ export async function maybePropose(db: Db, requestId: string, force = false) {
   if (!force && rows.length < set.samplers.length && !(rows.length >= set.threshold && ended)) return null;
   if (rows.length < set.threshold && !force) return null;
   const avgs: Avg[] = rows.map((r) => ({ signer: getAddress(r.signer), ppm: BigInt(r.price_ppm), valid: r.valid, sampleCount: r.sample_count, evidenceHash: r.evidence_hash as Hex }));
+  const median = getConfig().median;
+  if (median && String(p.resolver ?? "") === median.toLowerCase()) return medianReady(db, req, p, avgs, set.samplers.length);
   let prop = propose(avgs);
   // The market must have been open (not halted, not under review) for the window to count.
   if (prop.valid) {
@@ -431,6 +478,8 @@ export async function submitCosig(db: Db, requestId: string, input: { signer: Ad
 /** The M signatures in ascending signer order, concatenated (the MultisigResolver format). */
 export async function signaturesOf(db: Db, requestId: string): Promise<Hex | null> {
   const set = signerSet();
+  const req = (await db.query<ReqRow>("SELECT * FROM att_requests WHERE id = $1", [requestId]))[0];
+  if (req && req.kind === "window" && payloadOf(req).median === true) return medianSignature(db, requestId, payloadOf(req).attestation as WindowAtt);
   const rows = await db.query<{ signer: string; signature: string }>("SELECT signer, signature FROM att_sigs WHERE request_id = $1", [requestId]);
   if (rows.length < set.threshold) return null;
   const sorted = rows.sort((a, b) => (BigInt(a.signer) < BigInt(b.signer) ? -1 : 1)).slice(0, set.threshold);
@@ -613,7 +662,7 @@ export async function openLevelWindow(db: Db, input: { potId: string; side: 0 | 
   await db.query(`INSERT INTO att_requests (id, kind, pot_id, payload, status) VALUES ($1,'window',$2,$3,'measuring') ON CONFLICT (id) DO NOTHING`, [
     id,
     input.potId,
-    JSON.stringify({ kind, nonce: String(d.nonce), windowStart: input.windowEnd - Number(d.window), windowEnd: input.windowEnd, conditionId: row.condition_id, minSamples: Number(d.minSamples), side: input.side }),
+    JSON.stringify({ kind, nonce: String(d.nonce), windowStart: input.windowEnd - Number(d.window), windowEnd: input.windowEnd, conditionId: row.condition_id, minSamples: Number(d.minSamples), side: input.side, resolver: String(d.resolver).toLowerCase() }),
   ]);
   return id;
 }
@@ -678,7 +727,7 @@ export async function preparePot(db: Db, input: { symbol: string; account: Addre
   const mid = b.bid != null && b.ask != null ? (b.bid + b.ask) / 2 : null;
   return {
     conditionId,
-    resolver: signerSet().resolver,
+    resolver: getConfig().median ?? signerSet().resolver,
     pots: potsAddress(),
     chainId: getConfig().chainId,
     closeTime,
@@ -910,7 +959,7 @@ export async function openQuote(db: Db, potId: string) {
   await db.query(`INSERT INTO att_requests (id, kind, pot_id, payload, status) VALUES ($1,'window',$2,$3,'measuring') ON CONFLICT (id) DO NOTHING`, [
     id,
     potId,
-    JSON.stringify({ kind: KIND.quote, nonce: String(d.nonce), windowStart: start, windowEnd: start + Number(d.window), conditionId: row.condition_id, minSamples: Number(d.minSamples) }),
+    JSON.stringify({ kind: KIND.quote, nonce: String(d.nonce), windowStart: start, windowEnd: start + Number(d.window), conditionId: row.condition_id, minSamples: Number(d.minSamples), resolver: String(d.resolver).toLowerCase() }),
   ]);
   return id;
 }
@@ -985,4 +1034,132 @@ export async function samplersHealth(db: Db) {
   });
   const alive = samplers.filter((x) => x.alive).length;
   return { ok: alive >= set.threshold, alive, threshold: set.threshold, samplers, at: now };
+}
+
+/* ------------------------------------------------------------------ MedianResolver (rule on-chain) */
+
+export const MEDIAN_NO_PRICE_DELAY = 60;
+
+const averageTypes = {
+  Average: [
+    { name: "pots", type: "address" },
+    { name: "potId", type: "uint256" },
+    { name: "kind", type: "uint8" },
+    { name: "nonce", type: "uint64" },
+    { name: "windowStart", type: "uint64" },
+    { name: "windowEnd", type: "uint64" },
+    { name: "priceYes", type: "uint32" },
+    { name: "valid", type: "bool" },
+    { name: "sampleCount", type: "uint32" },
+    { name: "evidenceHash", type: "bytes32" },
+  ],
+} as const;
+
+/** The typed data a sampler signs for its own average of one window (MedianResolver.averageDigest). */
+export function averageTyped(
+  median: Address,
+  w: { potId: string; kind: number; nonce: string; windowStart: number; windowEnd: number },
+  v: { priceYes: number; valid: boolean; sampleCount: number; evidenceHash: Hex },
+  at?: { chainId: number; pots: Address },
+) {
+  const chainId = at?.chainId ?? getConfig().chainId;
+  const pots = at?.pots ?? potsAddress();
+  return {
+    domain: { name: "HonorCatMedianResolver", version: "1", chainId, verifyingContract: median },
+    types: averageTypes,
+    primaryType: "Average" as const,
+    message: {
+      pots,
+      potId: BigInt(w.potId),
+      kind: w.kind,
+      nonce: BigInt(w.nonce),
+      windowStart: BigInt(w.windowStart),
+      windowEnd: BigInt(w.windowEnd),
+      priceYes: v.priceYes,
+      valid: v.valid,
+      sampleCount: v.sampleCount,
+      evidenceHash: v.evidenceHash,
+    },
+  };
+}
+
+/**
+ * The attestation the MedianResolver will accept for these averages, by the same rule it applies:
+ * median of three valid, mean of two within 0.5 points, else no price (priceYes 0, sampleCount 0).
+ * "No price" waits for every sampler or 60 s after the window, as the contract requires.
+ */
+export function medianAttestation(w: { potId: string; kind: number; nonce: string; windowStart: number; windowEnd: number }, avgs: Avg[]): WindowAtt {
+  const sorted = [...avgs].sort((a, b) => (BigInt(a.signer) < BigInt(b.signer) ? -1 : 1));
+  const prop = propose(sorted);
+  const ok = prop.valid;
+  return {
+    potId: w.potId,
+    kind: w.kind,
+    nonce: w.nonce,
+    windowStart: String(w.windowStart),
+    windowEnd: String(w.windowEnd),
+    sampleCount: ok ? Math.min(...prop.used.map((a) => a.sampleCount)) : 0,
+    priceYes: ok ? Number(prop.ppm) : 0,
+    valid: ok,
+    evidenceHash: evidenceRootOf(sorted.map((a) => a.evidenceHash)),
+  };
+}
+
+async function medianReady(db: Db, req: ReqRow, p: Record<string, unknown>, avgs: Avg[], samplerCount: number) {
+  const w = { potId: String(req.pot_id), kind: Number(p.kind), nonce: String(p.nonce), windowStart: Number(p.windowStart), windowEnd: Number(p.windowEnd) };
+  const att = medianAttestation(w, avgs);
+  if (!att.valid && avgs.length < samplerCount && Math.floor(Date.now() / 1000) < w.windowEnd + MEDIAN_NO_PRICE_DELAY) return null; // the contract would refuse it yet
+  const reason = att.valid ? propose(avgs).reason : propose(avgs).reason || "no agreement";
+  const digest = windowDigest(att);
+  await db.query("UPDATE att_requests SET status = 'ready', payload = $2, digest = $3, updated_at = now() WHERE id = $1 AND status = 'measuring'", [
+    req.id,
+    JSON.stringify({ ...p, attestation: att, reason: `${reason} (checked on-chain)`, median: true, averages: avgs.map((a) => ({ ...a, ppm: a.ppm.toString() })) }),
+    digest,
+  ]);
+  if (Number(p.kind) !== KIND.quote) await submitReady(db, req.id);
+  return att;
+}
+
+/** 0x01 ‖ abi.encode(WindowAttestation, Average[], bytes[]) with averages in ascending signer order. */
+async function medianSignature(db: Db, requestId: string, a: WindowAtt): Promise<Hex | null> {
+  const rows = await db.query<{ signer: string; price_ppm: string; valid: boolean; sample_count: number; evidence_hash: string; avg_signature: string | null }>(
+    "SELECT signer, price_ppm::text AS price_ppm, valid, sample_count, evidence_hash, avg_signature FROM att_averages WHERE request_id = $1",
+    [requestId],
+  );
+  if (rows.some((r) => !r.avg_signature)) return null;
+  const sorted = rows.sort((x, y) => (BigInt(x.signer) < BigInt(y.signer) ? -1 : 1));
+  const body = encodeAbiParameters(
+    [
+      {
+        type: "tuple",
+        components: [
+          { name: "potId", type: "uint256" },
+          { name: "kind", type: "uint8" },
+          { name: "nonce", type: "uint64" },
+          { name: "windowStart", type: "uint64" },
+          { name: "windowEnd", type: "uint64" },
+          { name: "sampleCount", type: "uint32" },
+          { name: "priceYes", type: "uint32" },
+          { name: "valid", type: "bool" },
+          { name: "evidenceHash", type: "bytes32" },
+        ],
+      },
+      {
+        type: "tuple[]",
+        components: [
+          { name: "priceYes", type: "uint32" },
+          { name: "valid", type: "bool" },
+          { name: "sampleCount", type: "uint32" },
+          { name: "evidenceHash", type: "bytes32" },
+        ],
+      },
+      { type: "bytes[]" },
+    ],
+    [
+      { potId: BigInt(a.potId), kind: a.kind, nonce: BigInt(a.nonce), windowStart: BigInt(a.windowStart), windowEnd: BigInt(a.windowEnd), sampleCount: a.sampleCount, priceYes: a.priceYes, valid: a.valid, evidenceHash: a.evidenceHash },
+      sorted.map((r) => ({ priceYes: Number(r.price_ppm), valid: r.valid, sampleCount: r.sample_count, evidenceHash: r.evidence_hash as Hex })),
+      sorted.map((r) => r.avg_signature as Hex),
+    ],
+  );
+  return concat(["0x01", body]);
 }

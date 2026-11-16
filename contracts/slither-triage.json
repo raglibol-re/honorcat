@@ -120,6 +120,18 @@
     {
       "key": "timestamp: HonorCatFairValue.fairValue(HonorCatPots,uint8,HonorCatPots.WindowAttestation,bytes,uint256) uses timestamp for comparisons",
       "reason": "Intended: block.timestamp is the protocol clock. The reader refuses a quote window that has not ended yet or ended more than maxAge seconds ago; a validator's few seconds of timestamp drift only shifts that freshness bound slightly and cannot forge a price (the window is signed by the pot's signer set)."
+    },
+    {
+      "key": "unused-return: MedianResolver._multisig(bytes32,bytes) ignores return value by (s,err,None) = ECDSA.tryRecover(digest,signatures)",
+      "reason": "Intended: the third return value (the error argument) is only detail for the error code; err is checked and any error rejects the signature."
+    },
+    {
+      "key": "unused-return: MedianResolver._window(bytes32,bytes) ignores return value by (s,err,None) = ECDSA.tryRecover(averageDigest(a,avgs[i]),sigs[i])",
+      "reason": "Intended: as above; err is checked and any recovery error rejects the average."
+    },
+    {
+      "key": "timestamp: MedianResolver._window(bytes32,bytes) uses timestamp for comparisons",
+      "reason": "Intended: block.timestamp is the protocol clock. It only decides when a 'no price' attestation with fewer than all averages becomes acceptable (60 s after the window); a few seconds of validator drift shift that by seconds and cannot create a price."
     }
   ]
 }
