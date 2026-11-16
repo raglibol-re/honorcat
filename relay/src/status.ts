@@ -1,5 +1,6 @@
 import { nativeToUsdcUnits, usdcBalances } from "./arc";
-import { publicClient, resolverAccount } from "./chain";
+import { publicClient, relaySender } from "./chain";
+import { circleRelay } from "./circleWallet";
 import { getConfig } from "./config";
 import { getState, type Db } from "./db";
 
@@ -15,7 +16,8 @@ type KindRow = { kind: string; n: string; confirmed: string; fee_wei: string | n
 export async function relayStatus(db: Db) {
   const cfg = getConfig();
   const client = publicClient();
-  const resolver = cfg.resolverKey ? resolverAccount().address : null;
+  // The relay's sender: the Circle developer-controlled wallet when configured (it pays the fees).
+  const resolver = cfg.resolverKey || circleRelay() ? relaySender() : null;
 
   const [balances, block, kinds, pots, webhooks, cursor, lastTick] = await Promise.all([
     resolver ? usdcBalances(client, resolver) : null,

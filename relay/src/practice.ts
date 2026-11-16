@@ -1,6 +1,6 @@
 import { encodeFunctionData, erc20Abi, maxUint256, type Address, type Hex } from "viem";
 import { ARC_USDC } from "./arc";
-import { publicClient, resolverAccount } from "./chain";
+import { publicClient, relaySender } from "./chain";
 import { getConfig } from "./config";
 import type { Db } from "./db";
 import { memoCall } from "./memo";
@@ -20,7 +20,7 @@ const PRACTICE_FLOOR = 4_000_000n; // keep this much for gas and gifts
 const ZERO = `0x${"0".repeat(64)}` as Hex;
 
 export function practiceAddress(): Address {
-  return resolverAccount().address;
+  return relaySender();
 }
 
 export async function isPractice(db: Db, potId: string) {

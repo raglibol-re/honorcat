@@ -1,3 +1,5 @@
+import { circleRelay } from "./circleWallet";
+import type { Address } from "viem";
 import { createPublicClient, createWalletClient, http, type PublicClient } from "viem";
 import { privateKeyToAccount, type PrivateKeyAccount } from "viem/accounts";
 import { arcTestnet } from "viem/chains";
@@ -33,4 +35,13 @@ export function resolverWallet() {
     transport: http(getConfig().rpcUrl, { retryCount: 3 }),
     pollingInterval: ARC_RECEIPT_POLL_MS,
   });
+}
+
+/**
+ * The address that sends HonorCat's pot transactions and holds the test-money pool: the Circle
+ * developer-controlled wallet when configured, else the relay key's own address.
+ */
+export function relaySender(): Address {
+  const c = circleRelay();
+  return c ? c.address : resolverAccount().address;
 }

@@ -1,6 +1,6 @@
 import { encodeFunctionData, erc20Abi, getAddress, type Address } from "viem";
 import { ARC_USDC } from "./arc";
-import { publicClient, resolverAccount } from "./chain";
+import { publicClient, relaySender } from "./chain";
 import { getConfig } from "./config";
 import type { Db } from "./db";
 import { logRequest } from "./gasless";
@@ -22,7 +22,7 @@ const POOL_FLOOR = 3_000_000n; // keep $3 for the relay's own gas
 type Result = { sent: boolean; amount?: string; tx?: string; reason?: string };
 
 async function poolBalance() {
-  return publicClient().readContract({ address: ARC_USDC, abi: erc20Abi, functionName: "balanceOf", args: [resolverAccount().address] });
+  return publicClient().readContract({ address: ARC_USDC, abi: erc20Abi, functionName: "balanceOf", args: [relaySender()] });
 }
 
 async function given(db: Db, account: string | null, since: string) {
@@ -86,7 +86,7 @@ export async function refillPool(db: Db, opts: { force?: boolean } = {}) {
   const r = await fetch("https://api.circle.com/v1/faucet/drips", {
     method: "POST",
     headers: { authorization: `Bearer ${key}`, "content-type": "application/json", accept: "application/json" },
-    body: JSON.stringify({ address: resolverAccount().address, blockchain: "ARC-TESTNET", usdc: true, native: false, eurc: false }),
+    body: JSON.stringify({ address: relaySender(), blockchain: "ARC-TESTNET", usdc: true, native: false, eurc: false }),
     signal: AbortSignal.timeout(20_000),
   }).catch((e) => ({ ok: false, status: 0, text: async () => (e as Error).message }) as unknown as Response);
   const body = await r.text().catch(() => "");

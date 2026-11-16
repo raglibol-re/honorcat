@@ -1,3 +1,4 @@
+import { circleRelay, sendViaCircle } from "./circleWallet";
 import {
   BaseError,
   ContractFunctionRevertedError,
@@ -95,6 +96,8 @@ export function revertName(err: unknown): string | undefined {
  * which case any failure aborts. Then: Arc fee floor, send, one receipt (final on Arc), ingest the
  * receipt's logs immediately, record gas paid in USDC per transaction and the pots it touched.
  */
+export { circleRelay };
+
 export async function sendRelayCalls(
   db: Db,
   kind: TxKind,
@@ -102,7 +105,10 @@ export async function sendRelayCalls(
   opts: { atomic?: boolean; memoTxsOf?: boolean } = {},
 ): Promise<TxResult> {
   const client = publicClient();
-  const account = resolverAccount();
+  // Pot transactions go out from the Circle-held relay wallet when it is configured; the retired
+  // products keep their own key.
+  const circle = kind.startsWith("pot_") ? circleRelay() : null;
+  const account = circle ? circle.address : resolverAccount();
   const dropped: { call: RelayCall; error: string }[] = [];
   if (calls.length === 0) return { ok: false, error: "no calls", dropped };
 
@@ -155,7 +161,7 @@ export async function sendRelayCalls(
         });
     const to = single ? live[0]!.target : ARC_MULTICALL3_FROM;
     const started = Date.now();
-    tx = await resolverWallet().sendTransaction({ to, data, ...fees } as never);
+    tx = circle ? await sendViaCircle(to, data, `${kind}`) : await resolverWallet().sendTransaction({ to, data, ...fees } as never);
     await db.query(
       `INSERT INTO relay_txs (tx_hash, kind, pot_id, status) VALUES ($1, $2, $3, 'submitted') ON CONFLICT (tx_hash) DO NOTHING`,
       [tx, kind, potIds.length === 1 ? potIds[0] : null],

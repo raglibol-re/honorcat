@@ -16,6 +16,7 @@
     "sampler": "tsx --env-file-if-exists=../.env scripts/sampler.ts"
   },
   "dependencies": {
+    "@circle-fin/developer-controlled-wallets": "10.8.1",
     "@electric-sql/pglite": "^0.5.16",
     "@openzeppelin/merkle-tree": "1.0.8",
     "pg": "^8.23.1",
