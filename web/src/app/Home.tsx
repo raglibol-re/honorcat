@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CatName } from "@/components/cat/PlayerCat";
+import { CatName, PlayerCat } from "@/components/cat/PlayerCat";
 import { sidesOf } from "@/lib/statement";
 import { nickname, useNames } from "@/lib/names";
 import { HcFooterLinks, HcHeader } from "@/components/cat/Chrome";
@@ -103,12 +103,20 @@ export function Home({ data }: { data: HomeData }) {
       <section className="hc-wrap" style={{ paddingTop: 36, display: "flex", flexWrap: "wrap", gap: "24px 72px", alignItems: "flex-end" }}>
         <div style={{ flex: "1 1 520px", display: "flex", flexDirection: "column", gap: 22, minWidth: 0 }}>
           <h1 style={{ margin: 0, ...cond, fontSize: "clamp(72px, 11vw, 168px)", lineHeight: 0.86, fontWeight: 600, letterSpacing: "-0.01em" }}>Money in the air.</h1>
+          <div aria-hidden="true" style={{ display: "flex", gap: 18, alignItems: "flex-end" }}>
+            <span style={{ display: "inline-flex", alignItems: "flex-end", gap: 6, fontSize: 16, fontWeight: 600 }}>
+              <PlayerCat fur="ginger" pose="sit" size={58} mood="up" label="" /> Mochi
+            </span>
+            <span style={{ display: "inline-flex", alignItems: "flex-end", gap: 6, fontSize: 16, fontWeight: 600 }}>
+              <PlayerCat fur="white" pose="sit" size={58} mood="down" label="" /> Tofu
+            </span>
+          </div>
           <ol aria-label="A worked example" style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 2, fontSize: 18, lineHeight: 1.45 }}>
             {(
               [
-                ["1", "Ana takes YES at 60%, Ben takes NO: Ana puts in $6, Ben $4."],
-                ["2", "The market moves to 75%: Ana’s share is now $7.50, Ben’s $2.50."],
-                ["3", "Ana steps off with $7.40 (a $0.10 fee to Ben), or both hold and the right side gets $10."],
+                ["1", "Mochi holds “Boston beats Orlando” at 60%, Tofu the other side: Mochi puts in $6, Tofu $4."],
+                ["2", "Boston pulls ahead and the market moves to 75%: Mochi’s share is now $7.50, Tofu’s $2.50."],
+                ["3", "Mochi leaves with $7.40 (a $0.10 treat for Tofu), or both hold and the right side gets the $10."],
               ] as const
             ).map(([n, t]) => (
               <li key={n} style={{ display: "flex", gap: 12 }}>

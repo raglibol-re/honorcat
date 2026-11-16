@@ -1,5 +1,8 @@
 "use client";
 
+import { plainError } from "@/lib/messages";
+import { SITE_URL } from "@/lib/site";
+import { InviteQR } from "@/components/pot/InviteQR";
 import { CatState } from "@/components/cat/CatState";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -95,7 +98,7 @@ export function Together({ id }: { id: string }) {
     try {
       await f();
     } catch (e) {
-      setErr((e as Error).message);
+      setErr(plainError(e));
     } finally {
       setStep(null);
     }
@@ -186,6 +189,7 @@ export function Together({ id }: { id: string }) {
               Copy the link
             </button>
           </div>
+          <InviteQR url={`${SITE_URL}/pots/together/${id}`} label="Or let your friend scan this" />
           <p style={{ margin: 0, color: C.muted }}>You can already pick the question while you wait.</p>
         </section>
       )}

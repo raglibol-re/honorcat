@@ -679,8 +679,9 @@ export async function openLevelWindow(db: Db, input: { potId: string; side: 0 | 
  * refreshes every pot they touch. Covers transactions the relay did not send (wallet users).
  */
 export const POLLER_LAG_BLOCKS = 90n; // ~1 minute of Arc blocks
-/** First block after the Streams filter began covering HonorCatPots (2026-11-16 09:11 UTC). */
-export const STREAMS_POTS_SINCE_BLOCK = 72_538_134n;
+// The database was rebuilt from the chain on 2026-11-16 (every older event is marked as found by
+// the poller), and the stream was resumed at about this block: count Streams' share from here.
+export const STREAMS_POTS_SINCE_BLOCK = 72_600_235n;
 
 export async function indexPots(db: Db, opts: { deadlineMs?: number } = {}) {
   const cfg = getConfig();

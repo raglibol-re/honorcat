@@ -1,5 +1,6 @@
 "use client";
 
+import { plainError } from "@/lib/messages";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Cat } from "@/components/cat/Cat";
@@ -43,7 +44,7 @@ export function StartTogether() {
                 saveSeat(r.id, r.token);
                 router.push(`/pots/together/${r.id}`);
               } catch (e) {
-                setErr((e as Error).message);
+                setErr(plainError(e));
                 setBusy(false);
               }
             }}

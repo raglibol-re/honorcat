@@ -49,6 +49,7 @@ export function TechToggle() {
       <span
         role="switch"
         aria-checked={tech}
+        aria-label="Show technical details"
         tabIndex={0}
         onClick={() => setTech(!tech)}
         onKeyDown={(e) => (e.key === " " || e.key === "Enter") && (e.preventDefault(), setTech(!tech))}

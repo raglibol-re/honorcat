@@ -1,5 +1,6 @@
 "use client";
 
+import { plainError } from "@/lib/messages";
 import { useCallback, useEffect, useState } from "react";
 import type { Address } from "viem";
 import { WalletChoice } from "@/components/cat/WalletChoice";
@@ -51,7 +52,7 @@ export function GatewayPanel({ who }: { who: ActorState }) {
     try {
       await f();
     } catch (e) {
-      setErr((e as Error).message.split("\n")[0]!);
+      setErr(plainError(e));
     } finally {
       setStep(null);
     }

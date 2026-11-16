@@ -5,13 +5,14 @@
  *   tsx --env-file=../.env scripts/quicknode-stream.ts            # show settings
  *   tsx --env-file=../.env scripts/quicknode-stream.ts --batch 10 # set batch size (elastic off)
  *   tsx --env-file=../.env scripts/quicknode-stream.ts --filter --status active  # upload filter, resume
+ *   tsx --env-file=../.env scripts/quicknode-stream.ts --url https://…/api/webhooks/quicknode  # webhook address
  */
 import { parseArgs } from "node:util";
 import { STREAMS_FILTER_TEMPLATE } from "../src/indexer/quicknode";
 
 const { values } = parseArgs({
   args: process.argv.slice(2).filter((a) => a !== "--"),
-  options: { batch: { type: "string" }, status: { type: "string" }, filter: { type: "boolean" } },
+  options: { batch: { type: "string" }, status: { type: "string" }, filter: { type: "boolean" }, url: { type: "string" } },
 });
 const key = process.env.QUICKNODE_API_KEY;
 const id = process.env.QUICKNODE_STREAM_ID;
@@ -48,7 +49,7 @@ function summary(j: Record<string, unknown> | null) {
 const before = await call("GET");
 console.log("GET", before.status, JSON.stringify(summary(before.json) ?? before.text.slice(0, 300), null, 1));
 
-if (values.batch || values.status || values.filter) {
+if (values.batch || values.status || values.filter || values.url) {
   const patch: Record<string, unknown> = {};
   if (values.filter) {
     // Fill in our addresses (lowercase) from the env and upload base64-encoded, as the API requires.
@@ -78,6 +79,8 @@ if (values.batch || values.status || values.filter) {
     patch.elastic_batch_enabled = false;
   }
   if (values.status) patch.status = values.status;
+  // The webhook address; the rest of the destination (its security token) stays as it is.
+  if (values.url) patch.destination_attributes = { ...((before.json?.destination_attributes as Record<string, unknown>) ?? {}), url: values.url };
   const res = await call("PATCH", patch);
   console.log("PATCH", res.status, JSON.stringify(summary(res.json) ?? res.json ?? res.text.slice(0, 500), null, 1));
   if (res.status >= 400) console.log("error body:", res.text.slice(0, 800));

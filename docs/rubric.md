@@ -200,3 +200,23 @@ QuickNode
       and every pose has a text alternative (also naming the cat's fur and mood).
 - [x] The closing block shaped like a cat's face (ears and eyes) ends the landing page.
 - [x] No emoji or stock art; one cat component.
+### P8. Landing page and sharing
+- [x] Under the headline, a three-line worked example with two cats (Mochi, ginger; Tofu, white)
+      and dollar amounts: the start, a moment when one leaves, and what each gets.
+- [x] Invitations by link and QR code (the pot page and the friend draft); every pot link carries a
+      preview image with the question, the rope with the cat at the last price and both amounts
+      (/pots/<id>/opengraph-image, checked for pot 22).
+### P9. Clear messages and access
+- [x] Every error and refusal goes through one table of plain sentences that say what happens next
+      (web/src/lib/messages.ts, relay/test/messages.test.ts); bare "HTTP 500" never reaches a page.
+- [x] Animated amounts have a plain text label for screen readers.
+- [x] Sixteen pages checked at phone width and with keyboard only: no sideways scrolling, no axe
+      WCAG 2 A/AA violations, every keyboard stop visible and named (relay/scripts/a11y-check.mjs;
+      fixed: the technical-details switch's name, underlined links in text, a focusable table scroller).
+### P10. Loose ends from the review
+- [x] The sponsor page's count of price windows equals its breakdown (after the rebuild: 2 = 2 + 0 + 0).
+- [x] The memo on Arc is decoded on the pot page (the sponsor page marks it done).
+- [ ] Streams is the primary path again: the stream was terminated by QuickNode during the database
+      outage, resumed with a clean webhook address (honorcat.vercel.app, no double slash); its share
+      is counted from block 72,600,235 (after the rebuild) and shown on /how-it-is-built. Deliveries
+      are still coming back slowly; the RPC poller (90 blocks behind the head) covers every event meanwhile.

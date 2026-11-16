@@ -1,5 +1,6 @@
 "use client";
 
+import { plainError } from "@/lib/messages";
 import { useState } from "react";
 import { WalletChoice } from "@/components/cat/WalletChoice";
 import { C, F } from "@/components/cat/tokens";
@@ -51,7 +52,7 @@ export function RawReadings({ potId }: { potId: string }) {
     try {
       await f();
     } catch (e) {
-      setErr((e as Error).message.split("\n")[0]!);
+      setErr(plainError(e));
     } finally {
       setBusy(false);
     }

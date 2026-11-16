@@ -19,6 +19,10 @@
 - Work in cycles per docs/improve.md, everything in the agreed priority order.
 
 ## Rubric cycle log
+- 2026-11-16: polish P8 to P10: cats in the landing's worked example, QR codes on invitations, a
+  preview image per pot link, plain messages everywhere, sixteen pages clean at phone width with
+  keyboard and axe (relay/scripts/a11y-check.mjs). Open: Streams' share since the stream resumed
+  (QuickNode is delivering again, slowly); the poller covers everything meanwhile.
 - 2026-11-16: production database replaced. The old Neon project `verdict` hit its free monthly
   quota (data transfer: the catalogue was read whole every 10 s per instance) and refused every query
   until 2026-12-01; by your decision a new free Neon project `honorcat` (spring-glade-62475881) was

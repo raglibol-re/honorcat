@@ -1,5 +1,6 @@
 "use client";
 
+import { plainError } from "@/lib/messages";
 import { useCallback, useEffect, useState } from "react";
 import { erc20Abi, type Address } from "viem";
 import { WalletChoice } from "@/components/cat/WalletChoice";
@@ -114,7 +115,7 @@ export function SignIn({ who, purpose }: { who: ActorState; purpose: string }) {
     try {
       who.setSession(await f());
     } catch (e) {
-      setErr((e as Error).message);
+      setErr(plainError(e));
     } finally {
       setBusy(false);
     }
@@ -250,7 +251,7 @@ export function CatPicker({
           const n = await setMyName(who.actor, clean, fur);
           onDone(`Saved. Others now see ${n}, your ${FURS[fur].label.toLowerCase()} cat, instead of your address.`);
         } catch (x) {
-          setErr((x as Error).message);
+          setErr(plainError(x));
         } finally {
           setBusy(false);
         }

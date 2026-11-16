@@ -120,6 +120,8 @@ body {
 .hc { color-scheme: light; font-feature-settings: normal; }
 .hc a { color: #111111; }
 .hc a:hover { color: #B8320F; }
+/* Links inside running text are underlined, so they never rely on colour alone. */
+.hc p a, .hc li a, .hc dd a, .hc figcaption a { text-decoration: underline; text-underline-offset: 2px; }
 .hc a:focus-visible, .hc button:focus-visible { outline: 2px solid #E8421A; outline-offset: 2px; }
 .hc-wrap { max-width: 1360px; margin: 0 auto; padding-left: 40px; padding-right: 40px; box-sizing: border-box; }
 @media (max-width: 600px) { .hc-wrap { padding-left: 20px; padding-right: 20px; } }

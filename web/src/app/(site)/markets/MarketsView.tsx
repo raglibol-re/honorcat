@@ -37,7 +37,7 @@ export function MarketsView() {
             {data.lastSweep ? `; full list last read ${formatClock(data.lastSweep)}` : "; first full read still running"}
           </span>
         </div>
-        <div style={{ overflowX: "auto" }}>
+        <div style={{ overflowX: "auto" }} tabIndex={0} role="region" aria-label="Markets by category (scrolls sideways)">
           <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 560 }}>
             <thead>
               <tr>

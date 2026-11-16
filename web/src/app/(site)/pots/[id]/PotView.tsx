@@ -1,5 +1,7 @@
 "use client";
 
+import { SITE_URL } from "@/lib/site";
+import { InviteQR } from "@/components/pot/InviteQR";
 import { CatState } from "@/components/cat/CatState";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -143,6 +145,7 @@ function Actions({ pot, who, price, nowS, nameOf }: { pot: HcPot; who: ActorStat
               Take the offer back
             </button>
           </div>
+          <InviteQR url={`${SITE_URL}/pots/${pot.potId}`} label="Or let them scan this" />
           <Feedback a={a} account={who.actor?.account ?? null} />
         </section>
       );
@@ -392,7 +395,7 @@ function NotifyButton({ potId, account }: { potId: string; account: string | nul
           await notifyMe(potId, account);
           setState("on");
         } catch (e) {
-          setState((e as Error).message);
+          setState(plainError(e));
         }
       }}
     >
