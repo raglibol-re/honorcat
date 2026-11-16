@@ -87,6 +87,8 @@ Active:
 |---|---|---|
 | **HonorCatPots** | `0xc890C990048f45cb268d076E4A3dB25270Ea1e59` | The two-sided pot (D1): create, forward-priced join and exit, partial exit, handshake, nets and bowls, takeover, settle, expire; positions as ERC-721 (`HCSIDE`) |
 | **HonorCatFairValue** | `0x8a890a0A79371333dEaAF1aFC76D68ffDc7671a5` | Stateless reader: a side's value from a signed QUOTE window (kind 6, never accepted by the pot) |
+| Circle relay wallet | `0xf1eb955bd6329285e39c87ade8199c9750bff569` | Circle developer-controlled wallet (EOA, key held by Circle) that sends every pot transaction, funds new accounts and plays the practice cat |
+| Circle Gateway | `0x0077777d7EBA4688BDeF3E311b846F25870A19B9` / `0x0022222ABE238Cc2C7Bb1f21003F0a260052475B` | GatewayWallet / GatewayMinter (Circle's): one USDC balance across chains, minted into HonorCat accounts on Arc |
 | **MedianResolver** | `0x62FB60fbB5fC1903A4af3dc61186C2ed7f153c62` | The samplers' signer set with the agreement rule on-chain: the contract computes the price from each sampler's own signed average (median of three, mean of two within 0.5 points). New pots use it (pots 8 and later) |
 | MultisigResolver | `0x81d1194069E1aD3a22C17356065d8dF6A4D436c9` | 2-of-3 ERC-1271 signer set of the three samplers; signs every price, depth and outcome attestation |
 | PasskeyAccountFactory | `0xB93e6C63815Af25213c43dEc1B494452c8ED0ea2` | Deploys passkey (WebAuthn P-256) accounts |

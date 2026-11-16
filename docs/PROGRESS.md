@@ -19,6 +19,14 @@
 - Work in cycles per docs/improve.md, everything in the agreed priority order.
 
 ## Rubric cycle log
+- 2026-11-16: Circle depth. (1) The relay sends every pot transaction from a Circle
+  developer-controlled wallet (0xf1eb...f569; entity secret only in env, Circle's recovery file
+  outside the repository; retired products keep their own key); verified: practice pot 14 joined by
+  it, a self-test transaction in 1.6 s. (2) Circle Gateway: deposit on seven chains into one
+  balance, move into a HonorCat account on Arc with one signature (Circle's fee estimate,
+  attestation, mint by the Circle wallet); verified on Arc through the live endpoints (a $0.40 mint
+  in 2.3 s, fee at most $0.004). (3) Vercel use lowered: the app's sampler stays up only for windows
+  to measure or co-sign. Next: Circle smart accounts (Modular Wallets) once the Client Key is set.
 - 2026-11-16: test money without faucets: $2 welcome on first sign-in for every account, automatic
   top-ups before deposits (limits: $10 per account and $80 in total a day, $3 floor), pool refill
   from Circle's faucet API every 3 hours once CIRCLE_API_KEY is set; when the pool cannot help,

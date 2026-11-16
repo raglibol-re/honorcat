@@ -9,6 +9,7 @@ type Evidence = {
   events: { event_name: string; n: string; streams: string; rpc: string; last_tx: string; last_pot: string | null; last_time: string | null }[];
   windows: { n: string; three: string; two: string; none: string; quotes: string; onchain: string };
   streamsSinceFilter?: { sinceBlock: string; total: number; streams: number; pollerLagBlocks: number };
+  circle?: { relayWallet: string | null; sentByCircle: number; gatewayMints: number; lastGatewayMint: string | null; lastCircleTx: string | null; faucetApi: string };
   medianWindowToPaidMs: number | null;
   contracts: { pots: string | null; fairValue: string | null };
 };
@@ -72,7 +73,59 @@ export function Built() {
     { what: "Create-and-fund and divide-and-pay are single transactions", check: "one transaction each, through Multicall3From", status: "done", proof: <>Creating a pot pulls the deposit in the same call; an exit price pays both sides in the same call. Created: {last("PotCreated")}. Divided: {last("PotDivided")}.</> },
     { what: "The reason for every payout travels with it (Arc Memo)", check: "the memo decoded on the pot page", status: "done", proof: <>Every relay transaction carries a Memo with the pot and the reason (for example the exit price and the agreement rule); each pot page shows it with its window, read back from the transaction on Arc.</> },
     { what: "Time from the end of a price window to the payout", check: "measured", status: e?.medianWindowToPaidMs ? "done" : "partly", proof: <>Median from the end of a measured window to the transaction that used it: {e?.medianWindowToPaidMs ? `${(e.medianWindowToPaidMs / 1000).toFixed(1)} s` : "…"} (the samplers wait for the window, agree, and the relay waits for Arc&apos;s block clock).</> },
-    { what: "Funding from other chains through Circle CCTP", check: "a real transfer landing on Arc", status: "partly", proof: <>Bring USDC from an EVM chain or Solana Devnet on the <Link href="/account">account page</Link>. Built and wired to Circle&apos;s CCTP V2; a recorded transfer as evidence is still to come.</> },
+    {
+      what: "Relay keys held by Circle (developer-controlled wallet)",
+      check: "pot transactions sent from the Circle wallet",
+      status: e?.circle?.sentByCircle ? "done" : "partly",
+      proof: (
+        <>
+          Every pot transaction HonorCat sends (prices, settlements, gifts, the practice cat, Gateway mints) is signed by Circle for the wallet{" "}
+          {e?.circle?.relayWallet ? (
+            <a href={addressUrl(e.circle.relayWallet)} target="_blank" rel="noreferrer">
+              {e.circle.relayWallet.slice(0, 10)}…
+            </a>
+          ) : (
+            "…"
+          )}
+          ; the app holds no private key for it. {e?.circle ? `${e.circle.sentByCircle} transactions so far` : ""}
+          {e?.circle?.lastCircleTx && (
+            <>
+              ; newest{" "}
+              <a href={txUrl(e.circle.lastCircleTx)} target="_blank" rel="noreferrer">
+                transaction
+              </a>
+            </>
+          )}
+          . The price samplers keep their own keys on purpose: three independent signers.
+        </>
+      ),
+    },
+    {
+      what: "Funding from other chains with Circle Gateway",
+      check: "a Gateway transfer minted on Arc",
+      status: e?.circle?.gatewayMints ? "done" : "partly",
+      proof: (
+        <>
+          Deposit USDC on Base, Ethereum, Avalanche, Arbitrum, Optimism, Polygon or Arc into one Gateway balance, then move it into a HonorCat account on Arc with one signature: Circle
+          attests, the relay mints. {e?.circle ? `${e.circle.gatewayMints} Gateway mints so far` : ""}
+          {e?.circle?.lastGatewayMint && (
+            <>
+              ; newest{" "}
+              <a href={txUrl(e.circle.lastGatewayMint)} target="_blank" rel="noreferrer">
+                mint
+              </a>
+            </>
+          )}
+          . On the <Link href="/account#gateway">account page</Link>. Solana Devnet still comes over with CCTP.
+        </>
+      ),
+    },
+    {
+      what: "Test money without faucets",
+      check: "new accounts funded, the pool refilled",
+      status: "partly",
+      proof: <>Every new account gets $2 and deposits are topped up from HonorCat&apos;s pool. Refilling the pool from Circle&apos;s faucet API every 3 hours is built; {e?.circle?.faucetApi ?? "…"}.</>,
+    },
   ];
   const gemini: Item[] = [
     { what: "Market discovery and quality from the order book", check: "/markets and /api/catalog", status: "done", proof: <>Every active contract ranked by spread and depth: <Link href="/markets">markets</Link>.</> },

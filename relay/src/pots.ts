@@ -1030,7 +1030,20 @@ export async function potsEvidence(db: Db) {
     `SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY extract(epoch FROM (updated_at - to_timestamp((payload->>'windowEnd')::bigint))) * 1000)::text AS ms
        FROM att_requests WHERE kind = 'window' AND status = 'submitted' AND payload ? 'windowEnd'`,
   );
+  const circleTx = await db.query<{ kind: string; n: string; last: string | null }>(
+    `SELECT kind, count(*)::text AS n, (array_agg(tx_hash ORDER BY submitted_at DESC))[1] AS last FROM relay_txs
+      WHERE kind IN ('pot_gateway','pot_exec','pot_attest','pot_settle','pot_forward','pot_house') AND submitted_at > '2026-11-16T14:20:00Z' GROUP BY kind`,
+  ).catch(() => []);
+  const { circleRelay } = await import("./circleWallet");
   return {
+    circle: {
+      relayWallet: circleRelay()?.address ?? null,
+      sentByCircle: circleTx.reduce((s, r) => s + Number(r.n), 0),
+      gatewayMints: Number(circleTx.find((r) => r.kind === "pot_gateway")?.n ?? 0),
+      lastGatewayMint: circleTx.find((r) => r.kind === "pot_gateway")?.last ?? null,
+      lastCircleTx: circleTx.map((r) => r.last).find(Boolean) ?? null,
+      faucetApi: process.env.CIRCLE_API_KEY ? "key set; Circle requires a mainnet-upgraded account for the faucet API (403 until then)" : "no key",
+    },
     streamsSinceFilter: { sinceBlock: STREAMS_POTS_SINCE_BLOCK.toString(), total: Number(streamsShare[0]?.total ?? 0), streams: Number(streamsShare[0]?.streams ?? 0), pollerLagBlocks: Number(POLLER_LAG_BLOCKS) },
     events: byKind,
     windows: windows[0],
