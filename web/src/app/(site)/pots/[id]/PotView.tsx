@@ -7,6 +7,7 @@ import { Cat } from "@/components/cat/Cat";
 import { GeminiCredit } from "@/components/cat/Markets";
 import { C, F } from "@/components/cat/tokens";
 import { Rope } from "@/components/pot/Rope";
+import { SamplerNotice } from "@/components/pot/SamplerHealth";
 import { sceneOf, STATE_TEXT } from "@/components/pot/scene";
 import { useLivePrice } from "@/components/pot/usePrice";
 import { AccountLine, btn, btnQuiet, SignIn, useActor, type ActorState } from "@/components/pot/Who";
@@ -355,6 +356,8 @@ export function PotView({ id }: { id: string }) {
       </header>
 
       <Rope {...scene} trail={live.trail} speed={live.speed} />
+
+      {pot.state !== "Divided" && pot.state !== "Settled" && pot.state !== "Expired" && <SamplerNotice />}
 
       <Actions pot={pot} who={who} price={live.smoothed} nowS={nowS} />
 

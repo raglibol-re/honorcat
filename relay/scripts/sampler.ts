@@ -38,6 +38,16 @@ const potSource = new WsBookSource();
 const potSampler = new PotSampler(account, potSource, potsHttpIo(values.api!), (m) => log(`[pots] ${m}`));
 
 const started = Date.now();
+let lastStepAt = 0;
+let lastError: string | null = null;
+// On hosts that run it as a web service (Render): a health endpoint on $PORT, also the keep-alive target.
+if (process.env.PORT) {
+  const { createServer } = await import("node:http");
+  createServer((_req, res) => {
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ sampler: account.address, api: values.api, lastStepAt, lastError, potMarkets: potSampler.watching, upSince: started }));
+  }).listen(Number(process.env.PORT), () => log(`health on :${process.env.PORT}`));
+}
 const idleExit = values["idle-exit"] ? Number(values["idle-exit"]) * 1000 : Infinity;
 const maxMs = values.max ? Number(values.max) * 1000 : Infinity;
 let lastBusy = Date.now();
@@ -53,8 +63,10 @@ for (;;) {
   }
   try {
     await potSampler.step();
+    lastStepAt = Date.now();
   } catch (err) {
-    log(`[pots] step failed: ${(err as Error).message.split("\n")[0]}`);
+    lastError = (err as Error).message.split("\n")[0]!;
+    log(`[pots] step failed: ${lastError}`);
     await new Promise((r) => setTimeout(r, 3000));
   }
   const now = Date.now();

@@ -21,12 +21,26 @@ export function nudgeRelay(reason: string, opts: { samplerBudgetMs?: number } = 
         console.log("[relay] tick", JSON.stringify(report));
       }
       // The app's own early-payout sampler (one of three); a lease keeps it to one burst at a time.
+      await pingSamplers().catch(() => {});
       const s = await runAppSampler(await getDb(), { budgetMs: opts.samplerBudgetMs ?? 40_000 });
       if (s.ran && s.pots) console.log("[sampler:vercel] burst", JSON.stringify(s));
     } catch (err) {
       console.error("[relay] tick failed", err);
     }
   });
+}
+
+let lastPing = 0;
+/**
+ * Wakes samplers hosted where idle services sleep (Render's free tier sleeps after 15 minutes
+ * without a request). SAMPLER_PING_URLS: comma-separated health URLs. At most every 5 minutes per
+ * instance; the relay is nudged by Streams every few seconds, so this keeps them awake.
+ */
+async function pingSamplers() {
+  const urls = (process.env.SAMPLER_PING_URLS ?? "").split(",").map((u) => u.trim()).filter(Boolean);
+  if (!urls.length || Date.now() - lastPing < 5 * 60_000) return;
+  lastPing = Date.now();
+  await Promise.all(urls.map((u) => fetch(u, { signal: AbortSignal.timeout(10_000) }).catch(() => null)));
 }
 
 /** Constant-time check of `Authorization: Bearer <secret>`. Fails closed when the secret is unset. */

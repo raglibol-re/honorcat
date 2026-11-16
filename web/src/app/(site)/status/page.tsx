@@ -1,4 +1,5 @@
 import { C, F } from "@/components/cat/tokens";
+import { SamplerList } from "@/components/pot/SamplerHealth";
 import { StatusView } from "./StatusView";
 
 export const metadata = { title: { absolute: "Relay status · HonorCat" } };
@@ -12,6 +13,7 @@ export default function StatusPage() {
           The relay signs outcomes and sends transactions. On Arc it pays gas in USDC, so costs and runway are in USDC.
         </p>
       </div>
+      <SamplerList />
       <StatusView />
     </div>
   );

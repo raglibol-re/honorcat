@@ -288,6 +288,13 @@ export type LevelWatch = { potId: string; side: 0 | 1; net: number; bowl: number
 export async function potsWork(db: Db, signer: Address) {
   const s = signer.toLowerCase();
   const now = Math.floor(Date.now() / 1000);
+  if (signerSet().samplers.some((x) => x.toLowerCase() === s)) {
+    await db.query(
+      `INSERT INTO relay_state (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+       WHERE relay_state.value::bigint < $3`,
+      [`sampler_seen:${s}`, String(now), now - 20],
+    );
+  }
   const measuring = await db.query<ReqRow>(
     `SELECT r.* FROM att_requests r WHERE r.kind = 'window' AND r.status = 'measuring'
        AND NOT EXISTS (SELECT 1 FROM att_averages a WHERE a.request_id = r.id AND a.signer = $1)
@@ -956,4 +963,26 @@ export async function recordMemo(db: Db, requestId: string, tx: Hex) {
   const texts = memos.map((m) => decodeMemoBody(m.memo).body?.why ?? decodeMemoBody(m.memo).text);
   if (!texts.length) return;
   await db.query("UPDATE att_requests SET payload = payload || $2::jsonb WHERE id = $1", [requestId, JSON.stringify({ memo: texts.join(" | "), memoBlockTime: null })]);
+}
+
+/* ------------------------------------------------------------------ sampler health */
+
+export const SAMPLER_ALIVE_S = 120;
+
+/**
+ * Which samplers asked for work recently. With fewer than the threshold alive, no price can be
+ * agreed: joins and exits wait (nothing is lost, but nothing moves). Used by /status, the pot
+ * pages and /api/health/samplers (503 when below the threshold, for an uptime monitor to alert on).
+ */
+export async function samplersHealth(db: Db) {
+  const set = signerSet();
+  const now = Math.floor(Date.now() / 1000);
+  const rows = await db.query<{ key: string; value: string }>("SELECT key, value FROM relay_state WHERE key LIKE 'sampler_seen:%'");
+  const seen = new Map(rows.map((r) => [r.key.slice("sampler_seen:".length), Number(r.value)]));
+  const samplers = set.samplers.map((a) => {
+    const last = seen.get(a.toLowerCase()) ?? null;
+    return { address: a, lastSeen: last, alive: last !== null && now - last <= SAMPLER_ALIVE_S };
+  });
+  const alive = samplers.filter((x) => x.alive).length;
+  return { ok: alive >= set.threshold, alive, threshold: set.threshold, samplers, at: now };
 }
