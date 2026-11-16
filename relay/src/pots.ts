@@ -448,6 +448,16 @@ export async function submitReady(db: Db, requestId: string) {
     why = `Gemini settled ${o.outcome === 1 ? "YES" : o.outcome === 0 ? "NO" : "void"}`;
   } else return null;
   const ref = `pot-${String(req.pot_id)}`;
+  // Arc's block time trails the wall clock by a few seconds: the contract refuses a window that has
+  // not ended by block.timestamp (TooEarly), so wait for the chain's clock first (at most ~20 s).
+  if (req.kind === "window") {
+    const end = Number((p.attestation as WindowAtt).windowEnd);
+    for (let i = 0; i < 20; i++) {
+      const b = await publicClient().getBlock();
+      if (Number(b.timestamp) >= end) break;
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+  }
   const res = await sendRelayCalls(db, req.kind === "outcome" ? "pot_settle" : "pot_attest", [
     { ...memoCall(address, data, ref, { v: 1, t: "pot", ref, pot: String(req.pot_id), why }), potIds: [], label: `${req.kind} ${requestId}` },
   ]);
@@ -456,7 +466,9 @@ export async function submitReady(db: Db, requestId: string) {
     if (req.pot_id) await syncPot(db, BigInt(String(req.pot_id))).catch(() => {});
     return res.tx;
   }
-  await db.query("UPDATE att_requests SET status = 'failed', error = $2, updated_at = now() WHERE id = $1", [requestId, res.error.slice(0, 500)]);
+  // TooEarly (0x085de625) is a timing miss, not a bad attestation: leave it ready for the next pass.
+  const retry = res.error.includes("085de625") || res.error.includes("TooEarly");
+  await db.query("UPDATE att_requests SET status = $3, error = $2, updated_at = now() WHERE id = $1", [requestId, res.error.slice(0, 500), retry ? "ready" : "failed"]);
   return null;
 }
 
@@ -505,7 +517,8 @@ export async function potsHousekeeping(db: Db, own: LocalAccount | null) {
   // Windows with two averages whose wait for the third is over.
   for (const r of await db.query<{ id: string }>("SELECT id FROM att_requests WHERE kind = 'window' AND status = 'measuring'")) await maybePropose(db, r.id);
   // Ready but not yet submitted (e.g. a failed send).
-  for (const r of await db.query<{ id: string }>("SELECT id FROM att_requests WHERE status = 'ready' AND kind <> 'depth' AND updated_at < now() - interval '30 seconds'")) await submitReady(db, r.id);
+  await db.query("UPDATE att_requests SET status = 'ready' WHERE status = 'failed' AND kind <> 'depth' AND error LIKE '%085de625%' AND created_at > now() - interval '15 minutes'");
+  for (const r of await db.query<{ id: string }>("SELECT id FROM att_requests WHERE status = 'ready' AND kind <> 'depth' AND updated_at < now() - interval '10 seconds'")) await submitReady(db, r.id);
 
   const rows = await db.query<PotRow>("SELECT pot_id::text AS pot_id, state, data, condition_id FROM pots WHERE state BETWEEN 1 AND 4");
   const address = potsAddress();

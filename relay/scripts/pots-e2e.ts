@@ -7,7 +7,14 @@
  * Two throwaway wallets are funded from DEPLOYER_PRIVATE_KEY with a few testnet USDC. Samplers must
  * be running (the app's own, plus at least one more: `pnpm --filter @honorcat/relay sampler`).
  *
- * Usage: tsx --env-file=../.env scripts/pots-e2e.ts [--api https://honorcat.vercel.app] [--notional 2] [--symbol GEMI-…]
+ * Scenarios after the pot is live (--scenario):
+ *   exit       YES asks to leave (signed, forwarded); the exit window prices it; Divided
+ *   handshake  both sign the same terms; divided at once, no fee
+ *   takeover   YES asks to leave; a third wallet takes its place at the exit price; pot stays Live
+ *   bowl       YES sets a bowl below the price (wallet pays its own gas); the samplers file the exit
+ *   hold       stop once live (settlement happens later)
+ *
+ * Usage: tsx --env-file=../.env scripts/pots-e2e.ts [--scenario exit] [--api https://honorcat.vercel.app] [--notional 2] [--symbol GEMI-…]
  */
 import { parseArgs } from "node:util";
 import { createPublicClient, createWalletClient, encodeAbiParameters, encodeFunctionData, erc20Abi, http, keccak256, parseSignature, type Address, type Hex } from "viem";
@@ -19,7 +26,12 @@ import { potsAbi } from "../src/potsAbi";
 
 const { values } = parseArgs({
   args: process.argv.slice(2).filter((a) => a !== "--"),
-  options: { api: { type: "string", default: "https://honorcat.vercel.app" }, notional: { type: "string", default: "2" }, symbol: { type: "string" }, hold: { type: "boolean", default: false } },
+  options: {
+    api: { type: "string", default: "https://honorcat.vercel.app" },
+    notional: { type: "string", default: "2" },
+    symbol: { type: "string" },
+    scenario: { type: "string", default: "exit" }, // exit | handshake | takeover | bowl | hold
+  },
 });
 const API = values.api!.replace(/\/$/, "");
 const rpc = process.env.ARC_RPC_URL ?? "https://rpc.testnet.arc.io";
@@ -78,11 +90,35 @@ async function waitState(potId: string, want: string[], maxMs: number) {
   }
 }
 
+const throwaway: ReturnType<typeof privateKeyToAccount>[] = [];
+const fresh = () => {
+  const a = privateKeyToAccount(generatePrivateKey());
+  throwaway.push(a);
+  return a;
+};
+
+/** Returns what is left in the throwaway wallets to the deployer (each pays its own small fee in USDC). */
+async function sweep(to: Address) {
+  for (const a of throwaway) {
+    const w = createWalletClient({ account: a, chain: arcTestnet, transport: http(rpc) });
+    const b = await client.readContract({ address: ARC_USDC, abi: erc20Abi, functionName: "balanceOf", args: [a.address] });
+    const keep = 30_000n; // the transfer's own fee
+    if (b <= keep) continue;
+    try {
+      const h = await w.writeContract({ address: ARC_USDC, abi: erc20Abi, functionName: "transfer", args: [to, b - keep] });
+      await client.waitForTransactionReceipt({ hash: h });
+      log(`swept ${Number(b - keep) / 1e6} USDC from ${a.address} back`);
+    } catch (e) {
+      log(`could not sweep ${a.address}: ${(e as Error).message.split("\n")[0]}`);
+    }
+  }
+}
+
 async function main() {
   const deployer = privateKeyToAccount(process.env.DEPLOYER_PRIVATE_KEY as Hex);
   const wallet = createWalletClient({ account: deployer, chain: arcTestnet, transport: http(rpc) });
-  const creator = privateKeyToAccount(generatePrivateKey());
-  const joiner = privateKeyToAccount(generatePrivateKey());
+  const creator = fresh();
+  const joiner = fresh();
   const notional = BigInt(Math.round(Number(values.notional) * 1e6));
 
   // 1. A market with enough depth for this notional.
@@ -144,27 +180,110 @@ async function main() {
   if (live.state !== "Live") throw new Error(`join failed: ${JSON.stringify(live.requests[0]?.payload?.reason)}`);
   const jr = live.requests.find((r) => r.id.endsWith(":0"));
   log(`LIVE: entry ${JSON.stringify((jr?.payload?.attestation as { priceYes?: number })?.priceYes)} ppm (${String(jr?.payload?.reason)}), deposits YES ${Number(live.data.depYes) / 1e6} NO ${Number(live.data.depNo) / 1e6}`);
-  if (values.hold) return;
+  const scenario = values.scenario!;
+  if (scenario === "hold") return;
+  const id = BigInt(potId);
+  const balances = async (who: [string, { address: Address }][]) => {
+    for (const [n, w] of who) {
+      const b = await client.readContract({ address: ARC_USDC, abi: erc20Abi, functionName: "balanceOf", args: [w.address] });
+      log(`${n} balance ${Number(b) / 1e6} USDC`);
+    }
+  };
+  const exitRequest = async () => {
+    await sleep(3000);
+    const deadline = BigInt(Math.floor(Date.now() / 1000) + 600);
+    const digest = await client.readContract({ address: prep.pots, abi: potsAbi, functionName: "exitRequestDigest", args: [id, 0, notional, deadline] });
+    const sig = await creator.sign({ hash: digest });
+    const exitData = encodeFunctionData({ abi: potsAbi, functionName: "requestExitFor", args: [id, 0, notional, deadline, sig] });
+    const ex = await api<{ tx: Hex }>(`/api/hc/forward`, { method: "POST", body: JSON.stringify({ data: exitData }) });
+    log(`exit requested (tx ${ex.tx})`);
+  };
 
-  // 6. Exit (creator, YES side, full), signed and forwarded.
-  await sleep(3000);
-  const deadline = BigInt(Math.floor(Date.now() / 1000) + 600);
-  const digest = await client.readContract({ address: prep.pots, abi: potsAbi, functionName: "exitRequestDigest", args: [BigInt(potId), 0, notional, deadline] });
-  const sig = await creator.sign({ hash: digest });
-  const exitData = encodeFunctionData({ abi: potsAbi, functionName: "requestExitFor", args: [BigInt(potId), 0, notional, deadline, sig] });
-  const ex = await api<{ tx: Hex }>(`/api/hc/forward`, { method: "POST", body: JSON.stringify({ data: exitData }) });
-  log(`exit requested (tx ${ex.tx}); waiting for the window`);
-  const end = await waitState(potId, ["Divided", "Live"], 6 * 60_000);
-  const er = end.requests.find((r) => r.id.endsWith(":1"));
-  log(`${end.state}: ${String(er?.payload?.reason)} tx ${er?.tx}`);
-  for (const [n, w] of [["creator", creator], ["joiner", joiner]] as const) {
-    const b = await client.readContract({ address: ARC_USDC, abi: erc20Abi, functionName: "balanceOf", args: [w.address] });
-    log(`${n} balance ${Number(b) / 1e6} USDC`);
+  if (scenario === "exit") {
+    await exitRequest();
+    const end = await waitState(potId, ["Divided", "Live"], 6 * 60_000);
+    const er = end.requests.find((r) => r.id.endsWith(":1"));
+    log(`${end.state}: ${String(er?.payload?.reason)} tx ${er?.tx}`);
+    await balances([["creator", creator], ["joiner", joiner]]);
+    if (end.state !== "Divided") process.exitCode = 1;
+    return;
   }
-  if (end.state !== "Divided") process.exitCode = 1;
+
+  if (scenario === "handshake") {
+    const priceYes = 700_000; // both agree on 70% YES
+    const deadline = BigInt(Math.floor(Date.now() / 1000) + 900);
+    const potNow = (await client.readContract({ address: prep.pots, abi: potsAbi, functionName: "pot", args: [id] })) as unknown as { nonce: bigint };
+    const domain = { name: "HonorCatPots", version: "1", chainId: arcTestnet.id, verifyingContract: prep.pots } as const;
+    const types = {
+      Handshake: [
+        { name: "potId", type: "uint256" },
+        { name: "priceYes", type: "uint32" },
+        { name: "notional", type: "uint256" },
+        { name: "potNonce", type: "uint64" },
+        { name: "deadline", type: "uint256" },
+      ],
+    } as const;
+    const message = { potId: id, priceYes, notional, potNonce: potNow.nonce, deadline };
+    for (const [side, w] of [[0, creator], [1, joiner]] as const) {
+      const signature = await w.signTypedData({ domain, types, primaryType: "Handshake", message });
+      const r = await api<{ submitted: boolean; tx?: Hex }>(`/api/hc/pots/${potId}/handshake`, {
+        method: "POST",
+        body: JSON.stringify({ side, priceYes, notional: notional.toString(), deadline: Number(deadline), signature }),
+      });
+      log(`${side === 0 ? "YES" : "NO"} signed the handshake: ${r.submitted ? `submitted, tx ${r.tx}` : "waiting for the other side"}`);
+    }
+    const end = await waitState(potId, ["Divided"], 60_000);
+    log(`${end.state} by handshake at 70% YES, no fee`);
+    await balances([["creator", creator], ["joiner", joiner]]);
+    return;
+  }
+
+  if (scenario === "takeover") {
+    const taker = fresh();
+    const h = await wallet.writeContract({ address: ARC_USDC, abi: erc20Abi, functionName: "transfer", args: [taker.address, notional + 200_000n] });
+    await client.waitForTransactionReceipt({ hash: h });
+    log(`taker ${taker.address} funded`);
+    await exitRequest();
+    const pr = (await client.readContract({ address: prep.pots, abi: potsAbi, functionName: "pot", args: [id] })) as unknown as { nonce: bigint };
+    const action = keccak256(encodeAbiParameters([{ type: "string" }, { type: "uint256" }, { type: "address" }, { type: "uint64" }], ["takeover", id, taker.address, pr.nonce]));
+    const data = encodeFunctionData({ abi: potsAbi, functionName: "takeover", args: [id, await auth(taker, prep.pots, notional, action)] });
+    const t = await api<{ tx: Hex }>(`/api/hc/forward`, { method: "POST", body: JSON.stringify({ data }) });
+    log(`takeover offered (tx ${t.tx}); waiting for the exit window`);
+    await sleep(5000);
+    const end = await waitState(potId, ["Live", "Divided"], 6 * 60_000);
+    const yesOwner = await client.readContract({ address: prep.pots, abi: potsAbi, functionName: "ownerOf", args: [id * 2n] });
+    log(`${end.state}; YES is now held by ${yesOwner} (${String(yesOwner).toLowerCase() === taker.address.toLowerCase() ? "the taker" : "not the taker"})`);
+    await balances([["creator", creator], ["joiner", joiner], ["taker", taker]]);
+    if (String(yesOwner).toLowerCase() !== taker.address.toLowerCase()) process.exitCode = 1;
+    return;
+  }
+
+  if (scenario === "bowl") {
+    // YES's own price is the YES price; a bowl below it is reached at once and holds.
+    const live2 = (await client.readContract({ address: prep.pots, abi: potsAbi, functionName: "pot", args: [id] })) as unknown as { notional: bigint };
+    const bowl = Math.max(10_000, (prep.midPpm ?? 500_000) - 100_000);
+    const cw = createWalletClient({ account: creator, chain: arcTestnet, transport: http(rpc) });
+    const tx = await cw.writeContract({ address: prep.pots, abi: potsAbi, functionName: "setLevels", args: [id, 0, 0, bowl] });
+    await client.waitForTransactionReceipt({ hash: tx });
+    await api(`/api/hc/pots/${potId}`, { method: "POST" });
+    log(`YES set a bowl at ${(bowl / 10_000).toFixed(1)}% (tx ${tx}); the samplers watch for a full window above it (notional ${Number(live2.notional) / 1e6})`);
+    const filed = await waitState(potId, ["ExitRequested", "Divided"], 6 * 60_000);
+    log(`${filed.state}: the bowl filed the exit`);
+    const end = await waitState(potId, ["Divided", "Live"], 6 * 60_000);
+    log(`${end.state}`);
+    await balances([["creator", creator], ["joiner", joiner]]);
+    if (end.state !== "Divided") process.exitCode = 1;
+    return;
+  }
+  throw new Error(`unknown scenario ${scenario}`);
 }
 
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+main()
+  .catch((e) => {
+    console.error(e);
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    await sweep(privateKeyToAccount(process.env.DEPLOYER_PRIVATE_KEY as Hex).address).catch(() => {});
+    process.exit(process.exitCode ?? 0);
+  });
