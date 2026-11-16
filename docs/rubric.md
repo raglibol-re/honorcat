@@ -40,7 +40,7 @@ output). Order follows the spec's sections. Milestones: C0, C1, D0 to D5.
 - [x] Design document before code: states Open, Live, ExitRequested, Divided, Settled, Expired and
       every transition; no path strands funds (docs/pot-design.md; Joining added for forward-priced joins).
 - [x] Integer fixed-point math; rounding defined for every division; written proof that payouts sum
-      to the pot exactly (pot-design 3.3; fuzz and symbolic checks).
+      to the pot exactly (pot-design 3.3; fuzz-tested; halmos timed out, so not machine-proven).
 - [x] EIP-712 M-of-N price attestations bound to chain, contract, pot, window start and end, sample
       count and evidence hash; signer, window, ordering and replay checks on-chain.
 - [x] Anyone may submit a valid attestation or settlement.
@@ -51,7 +51,7 @@ output). Order follows the spec's sections. Milestones: C0, C1, D0 to D5.
 - [x] Pausing stops new pots only; exits, settlements and expiries always work.
 - [x] Claimable balances for blocked recipients.
 - [x] Unit, fuzz and invariant tests (conservation, no double division, no division without a valid
-      attestation, no exit in lock-out); symbolic tests with halmos; what is proven vs tested stated
+      attestation, no exit in lock-out); symbolic checks with halmos ran but timed out (no counterexample, not a proof); what is proven vs tested stated
       plainly (pot-design 12).
 - [ ] Threat model: stale-price exit, thin-book manipulation, colluding signers, exit-request
       griefing, takeover front-running, creator-chosen tolerance; what stops each and what does not.
