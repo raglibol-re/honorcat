@@ -141,6 +141,22 @@ function Thumb({ src, size }: { src: string | null; size: number }) {
   return <img src={src} alt="" width={size} height={size} loading="lazy" style={{ flex: "none", width: size, height: size, objectFit: "cover", background: C.panel }} />;
 }
 
+/** One sentence on why a market works for a pot, or why it does not, from its measured quality. */
+export function whyLine(q: MarketItem["quality"]): string {
+  const c = (x: number | null) => (x === null ? "?" : `${Math.round(x * 100)}¢`);
+  const reasons = q.reasons.join("; ");
+  switch (q.status) {
+    case "works":
+      return `Works: a ${c(q.spread)} spread and ${usd(q.minDepthUsd ?? 0)} resting near the price keep a 30-second average steady.`;
+    case "borderline":
+      return `Borderline: ${reasons || "thin, but within the rules"}; an exit may sometimes fail to be priced.`;
+    case "unmeasured":
+      return "Not measured yet: HonorCat reads this order book within a few minutes.";
+    default:
+      return `Does not work now: ${reasons || "the order book fails the rules"}.`;
+  }
+}
+
 /** One possible result of an event: its chance as a bar, pickable when the market works. */
 function Outcome({ m, picked, onPick, detail }: { m: MarketItem; picked: boolean; onPick?: (m: MarketItem) => void; detail?: boolean }) {
   const ok = usable(m.quality);
@@ -184,8 +200,8 @@ function Outcome({ m, picked, onPick, detail }: { m: MarketItem; picked: boolean
         <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 12, color: picked ? C.faint : m.quality.status === "unavailable" ? C.signalInk : C.muted }}>
           {picked ? <span style={{ fontWeight: 600 }}>Picked</span> : <QualityMark q={m.quality} small />}
           {detail && ok && <span>{`${bid === null ? "–" : Math.round(bid * 100)}¢ / ${ask === null ? "–" : Math.round(ask * 100)}¢ · ${usd(m.quality.minDepthUsd)} near the price`}</span>}
-          {!ok && <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{reason}</span>}
         </span>
+        <span style={{ fontSize: 12.5, lineHeight: 1.35, color: picked ? C.faint : ok ? C.body : C.signalInk }}>{whyLine(m.quality)}</span>
       </span>
       <span aria-hidden="true" style={{ height: 8, background: picked ? C.muted : C.grid, position: "relative" }}>
         <span style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${w}%`, background: picked ? C.signal : ok ? C.ink : C.faint, transition: "width 600ms ease" }} />

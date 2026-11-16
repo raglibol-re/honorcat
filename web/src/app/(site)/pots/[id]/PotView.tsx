@@ -12,6 +12,7 @@ import { GeminiCredit } from "@/components/cat/Markets";
 import { C, F } from "@/components/cat/tokens";
 import { Rope } from "@/components/pot/Rope";
 import { AfterPot } from "@/components/pot/AfterPot";
+import { PriceChart } from "@/components/pot/PriceChart";
 import { HelperBubble } from "@/components/helper/Helper";
 import { adviceFree, exitOptions } from "@/lib/helper";
 import { SamplerNotice } from "@/components/pot/SamplerHealth";
@@ -608,6 +609,8 @@ export function PotView({ id }: { id: string }) {
       {pot.state !== "Divided" && pot.state !== "Settled" && pot.state !== "Expired" && <SamplerNotice />}
 
       <Actions pot={pot} who={who} price={live.smoothed} nowS={nowS} nameOf={nameOf} />
+
+      <PriceChart pot={pot} />
 
       {story.length > 0 && (
         <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
