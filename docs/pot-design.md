@@ -341,8 +341,11 @@ Tests (`forge test`, 77 in total, 62 for the pots):
 
 - *Proven on paper* (section 3.3): the split sums exactly; every division, partial exit, takeover,
   settlement and expiry pays out exactly what goes in; deposits stay within the pot.
-- *Proven by symbolic execution*: see the halmos result below; where halmos timed out, the property is
-  fuzz-tested, not proven.
+- *Symbolic execution (halmos 0.3.3)*: all three checks (`check_split`, `check_divide`,
+  `check_bandEscrowCovers`) ran on the contract's own arithmetic and **timed out** after 120 s each
+  without a counterexample. The SMT solver does not settle 256-bit non-linear multiplication and
+  division in that time. So these are **not machine-proven**: they rest on the paper proofs above and
+  on fuzz tests (`testFuzz_split`, `testFuzz_divide`, `testFuzz_partialConservation`).
 - *Tested, not proven*: every state-machine property (balance equation, terminal states, no division
   without an attestation, no exit in lock-out) by unit tests and stateful invariants. A different
   sequence of calls than the fuzzer tried could, in principle, break them; none has.
