@@ -11,8 +11,8 @@ const barlow = Barlow({ subsets: ["latin"], weight: ["400", "500", "600"], varia
 const barlowCondensed = Barlow_Condensed({ subsets: ["latin"], weight: ["500", "600", "700"], variable: "--font-barlow-condensed" });
 
 export const metadata: Metadata = {
-  title: { default: "HonorCat · Promises that always land", template: "%s · HonorCat" },
-  description: "Get paid before it happens: money set aside for a group, paid out the moment a live Gemini market says the event is very likely. Testnet demo.",
+  title: { default: "HonorCat · Money in the air", template: "%s · HonorCat" },
+  description: "Two people, one pot, one question on Gemini. Each side's share follows the price and either can step off at that share. Test version on Arc testnet.",
 };
 
 export const viewport: Viewport = {
