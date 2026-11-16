@@ -47,7 +47,7 @@ const money = (base: bigint) => Number(base) / 1e6;
 function Dollars({ v }: { v: number }) {
   const cents = Math.round(v * 100);
   return (
-    <span style={{ display: "inline-flex", alignItems: "baseline" }}>
+    <span style={{ display: "inline-flex", alignItems: "baseline", fontVariantNumeric: "tabular-nums" }}>
       $<RollingNumber value={Math.floor(cents / 100)} />.{String(cents % 100).padStart(2, "0")}
     </span>
   );
@@ -114,9 +114,9 @@ export function Rope(p: RopeProps) {
   const yes = price === null ? null : n * price;
   const no = price === null ? null : n - n * price;
   const pose = poseFor(p);
-  const catX = p.phase === "settled" && (p.winner === 0 || p.winner === 1) ? (p.winner === 0 ? L : L + W) : p.phase === "waiting" || price === null ? 50 : xOf(price);
+  const catX = p.phase === "settled" && (p.winner === 0 || p.winner === 1) ? (p.winner === 0 ? L : L + W) : price === null ? 50 : xOf(price);
   const catSize = p.big ? 220 : 120;
-  const height = p.big ? "52vh" : 280;
+  const height = p.big ? "46vh" : 230;
   const fs = p.big ? 96 : 52;
   const nameFs = p.big ? 30 : 18;
   const split = price === null ? 50 : xOf(price);

@@ -235,7 +235,15 @@ export async function syncPot(db: Db, potId: bigint, createdTx?: string) {
   // Remember the size at creation (nine lives are ninths of it) and the last division's price.
   const prev = (await db.query<{ data: Record<string, unknown> | string }>("SELECT data FROM pots WHERE pot_id = $1", [potId.toString()]))[0];
   const prevData = prev ? ((typeof prev.data === "string" ? JSON.parse(prev.data) : prev.data) as Record<string, unknown>) : null;
-  const data = { ...jsonify(p), levels, initialNotional: (prevData?.initialNotional as string | undefined) ?? String(p.notional) };
+  let initialNotional = (prevData?.initialNotional as string | undefined) ?? (String(p.notional) !== "0" ? String(p.notional) : undefined);
+  if (!initialNotional) {
+    // First seen after a full division: the size at creation is in the PotCreated event.
+    const created = await c
+      .getContractEvents({ address, abi: potsAbi, eventName: "PotCreated", args: { potId }, fromBlock: getConfig().pots!.deployBlock })
+      .catch(() => []);
+    initialNotional = created[0] ? String((created[0].args as { notional: bigint }).notional) : "0";
+  }
+  const data = { ...jsonify(p), levels, initialNotional };
   await db.query(
     `INSERT INTO pots (pot_id, condition_id, state, data, yes_owner, no_owner, created_tx) VALUES ($1,$2,$3,$4,$5,$6,$7)
      ON CONFLICT (pot_id) DO UPDATE SET state = EXCLUDED.state, data = EXCLUDED.data, yes_owner = EXCLUDED.yes_owner,

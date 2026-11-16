@@ -13,7 +13,9 @@ export function sceneOf(pot: HcPot, price: number | null, nowS: number, me?: str
     else names.yes = name(joiner);
   }
   const levels = { yes: d.levels?.[0] ?? null, no: d.levels?.[1] ?? null };
-  const notional = BigInt(d.notional === "0" ? (d as { initialNotional?: string }).initialNotional ?? "0" : d.notional);
+  // After a full division the pot's notional is 0: show the pot it was (deposits are kept on-chain).
+  const initial = (d as { initialNotional?: string }).initialNotional;
+  const notional = BigInt(d.notional !== "0" ? d.notional : initial && initial !== "0" ? initial : (BigInt(d.depYes) + BigInt(d.depNo)).toString());
   const start = Number(d.requestTime) + 1;
   const win = { start, end: start + Number(d.window), now: nowS };
   const lastDivision = pot.requests.find((r) => r.kind === "window" && r.payload.kind === 1 && r.status === "submitted" && r.payload.attestation?.valid);
