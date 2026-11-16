@@ -40,6 +40,7 @@ End-to-end runs (`relay/scripts/pots-e2e.ts --scenario …`, against production,
 | bowl | 6 | YES set a bowl below the price; the samplers saw it hold and filed the exit; divided |
 | hold | 7 | held to the end on a BTC 15-minute market; Gemini settled YES, samplers co-signed, the pot paid YES at 09:30 UTC (tx 0xc5ecfc86...9dc1; the event arrived through QuickNode Streams) |
 | quote | 2 | `pots-quote.ts`: a signed quote valued both sides on-chain through HonorCatFairValue |
+| exit, rule on-chain | 8, 9 | join and exit priced by the MedianResolver from three signed averages; pot 9 ran while Streams was paused (docs/streams-backfill.md) |
 
 ## Architecture
 
@@ -84,6 +85,7 @@ Active:
 |---|---|---|
 | **HonorCatPots** | `0xc890C990048f45cb268d076E4A3dB25270Ea1e59` | The two-sided pot (D1): create, forward-priced join and exit, partial exit, handshake, nets and bowls, takeover, settle, expire; positions as ERC-721 (`HCSIDE`) |
 | **HonorCatFairValue** | `0x8a890a0A79371333dEaAF1aFC76D68ffDc7671a5` | Stateless reader: a side's value from a signed QUOTE window (kind 6, never accepted by the pot) |
+| **MedianResolver** | `0x62FB60fbB5fC1903A4af3dc61186C2ed7f153c62` | The samplers' signer set with the agreement rule on-chain: the contract computes the price from each sampler's own signed average (median of three, mean of two within 0.5 points). New pots use it (pots 8 and later) |
 | MultisigResolver | `0x81d1194069E1aD3a22C17356065d8dF6A4D436c9` | 2-of-3 ERC-1271 signer set of the three samplers; signs every price, depth and outcome attestation |
 | PasskeyAccountFactory | `0xB93e6C63815Af25213c43dEc1B494452c8ED0ea2` | Deploys passkey (WebAuthn P-256) accounts |
 | PasskeyAccount (implementation) | `0xCe60d5aF6F912f0565092A139FEF1bC764b32c65` | |

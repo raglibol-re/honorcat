@@ -84,7 +84,7 @@ QuickNode
 - [x] Streams is the primary source for every pot event [events table shows source=streams since the filter update: PotSettled of pot 7; earlier events backfilled by polling].
 - [x] Filter on QuickNode's side for our contracts (now including HonorCatPots); RPC polling as fallback; UI shows the path and
       delay per event [/live, /how-it-is-built].
-- [ ] Backfill from Streams after downtime [documented run].
+- [x] Backfill from Streams after downtime [documented run: docs/streams-backfill.md].
 - [x] /how-it-is-built shows these three lists with live evidence per item.
 
 ## 7. The cat (D3)

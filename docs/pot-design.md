@@ -376,6 +376,21 @@ initialisation).
 - **Runs against production.** Exit (pot 3), takeover (4), handshake (5), bowl (6), held to
   settlement (7, Gemini settled YES), quote (2): `relay/scripts/pots-e2e.ts`, `pots-quote.ts`.
 
+## 14. The agreement rule on-chain (2026-11-16)
+
+Before: each sampler co-signed the relay's proposed price if it was within 0.5 points of its own
+average; the contract saw only the co-signed price. Now (MedianResolver, 0x62FB...3c62, pots 8 and
+later): each sampler signs its own `Average(pots, potId, kind, nonce, windowStart, windowEnd,
+priceYes, valid, sampleCount, evidenceHash)`; the window attestation carries those averages, and
+the resolver computes the price itself (median of three valid, mean of two within 5,000 ppm,
+otherwise no price) and accepts the attestation only if it says exactly that, with the evidence
+root over the averages in signer order. The relay cannot pick the price. "No price" needs all
+three averages or 60 s after the window, so leaving out agreeing averages cannot fail an exit at
+once. A sampler's `valid` now includes Gemini's market status (halted, under review or closed: no
+price), which was the relay's check before. Depth and outcomes stay plain 2-of-3 signatures;
+samplers never sign a raw window digest for these pots. Tests: `MedianResolver.t.sol` (8, incl. a
+fuzz of the rule against a reference).
+
 ## 11. Decisions (user, 2026-11-16)
 
 1. Price agreement: each sampler signs its own window average; the proposal is the exact median of

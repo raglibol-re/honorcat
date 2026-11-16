@@ -19,6 +19,14 @@
 - Work in cycles per docs/improve.md, everything in the agreed priority order.
 
 ## Rubric cycle log
+- 2026-11-16 (improvements): sampler health (heartbeat, /api/health/samplers 503 below 2 of 3,
+  notice on pot pages, list on /status); MedianResolver (0x62FB...3c62) computes the price on-chain
+  from each sampler's signed average, samplers include Gemini's market status in their own
+  validity, new pots use it (pots 8, 9 verified); invite sharing, web-push notifications per pot,
+  open offers on the landing, the creator's own entry price, a reliability note per market
+  (spread, depth, trades), one approval per passkey account, test USDC for new passkey accounts,
+  waiting copy; Streams backfill run recorded (docs/streams-backfill.md); daily e2e workflow.
+  Sampler hosting stays as it is (user decision): the Vercel sampler plus two on the local machine.
 - 2026-11-16: D3/D4/D5. Pages: start a pot, pot with the rope view, big screen, pots list, terms and
   proof per pot, honor record, how-it-is-built, How it works and Developers rewritten, landing with
   one live pot. Relay: handshake offers, pot_events (Streams primary, RPC fallback, backfilled),
@@ -114,6 +122,14 @@
 - (none) D2 to D5 done; see the rubric for what is still open.
 
 ## Later
+- Delete the Render service `honorcat-sampler` (created, then dropped by your decision; it has no key
+  and cannot sign). Render dashboard: honorcat-sampler, Settings, Delete Web Service.
+- Repository secret `E2E_FUNDER_KEY` (a testnet key with a few test USDC) for the daily e2e
+  workflow (.github/workflows/e2e.yml).
+- The relay wallet funds test USDC for new passkey accounts only above 11 USDC; top it up from
+  faucet.circle.com (Arc testnet) to enable that.
+- While the laptop is off, only the Vercel sampler runs: nothing can be priced or settled until it
+  is back (see /status).
 - Vault pots 26-31 ($0.01 each) are past their deadline and only need the public `expire` call
   (refunds their creator). Calling it from here was blocked by the permission check; either allow it
   or set AUTO_EXPIRE=true in Vercel and the relay does it.

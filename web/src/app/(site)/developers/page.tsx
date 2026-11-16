@@ -18,7 +18,8 @@ const ENDPOINTS: [string, string][] = [
 const CONTRACTS: [string, string, string][] = [
   ["HonorCatPots", "0xc890C990048f45cb268d076E4A3dB25270Ea1e59", "The pot: create, forward-priced join and exit, partial exits, handshake, nets and bowls, takeover, settle, expire. Sides are ERC-721 tokens (HCSIDE, tokenId = potId × 2 + side)."],
   ["HonorCatFairValue", "0x8a890a0A79371333dEaAF1aFC76D68ffDc7671a5", "fairValue(pots, side, quote, sigs, maxAge) → (share, exitFee, priceYes). Stateless; reverts on anything stale, unsigned or not a quote."],
-  ["MultisigResolver", "0x81d1194069E1aD3a22C17356065d8dF6A4D436c9", "The samplers' 2-of-3 signer set (ERC-1271). Signs prices, depth and outcomes."],
+  ["MedianResolver", "0x62FB60fbB5fC1903A4af3dc61186C2ed7f153c62", "The signer set of new pots: computes each price on-chain from the samplers' own signed averages (median of three, mean of two within 0.5 points); plain 2-of-3 for depth and outcomes."],
+  ["MultisigResolver", "0x81d1194069E1aD3a22C17356065d8dF6A4D436c9", "The samplers' 2-of-3 signer set of pots 1 to 7 (ERC-1271): co-signed prices, depth and outcomes."],
 ];
 
 const mono = { fontFamily: F.mono, fontSize: 14, wordBreak: "break-all" } as const;

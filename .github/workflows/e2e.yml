@@ -1,0 +1,41 @@
+# A daily end-to-end run against production (Arc testnet, test USDC): a $1 pot is created, joined
+# and divided through the app, the relay and the samplers. Fails when any part is down, including
+# when fewer than two samplers are running. Needs the repository secret E2E_FUNDER_KEY: a testnet
+# key holding a few test USDC (the throwaway wallets' leftovers are swept back to it).
+name: e2e
+
+on:
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: exit | handshake | takeover | bowl
+        default: exit
+  schedule:
+    - cron: "17 7 * * *"
+
+concurrency:
+  group: e2e
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Samplers up?
+        run: curl -sf https://honorcat.vercel.app/api/health/samplers
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --filter "@honorcat/relay..."
+      - name: Run the pot end to end
+        working-directory: relay
+        env:
+          DEPLOYER_PRIVATE_KEY: ${{ secrets.E2E_FUNDER_KEY }}
+        run: pnpm exec tsx scripts/pots-e2e.ts --scenario "${{ github.event.inputs.scenario || 'exit' }}" --notional 1
