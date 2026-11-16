@@ -5,6 +5,8 @@ import { getDb, setState, type Db } from "./db";
 import { pollLogs } from "./indexer/rpcPoller";
 import { processOpenPots, type ActionReport } from "./resolver";
 import { processEarly, type EarlyAction } from "./early";
+import { indexPots, potsHousekeeping } from "./pots";
+import { privateKeyToAccount } from "viem/accounts";
 import { GeminiSource } from "./sources/gemini";
 import { ManualSource } from "./sources/manual";
 import type { ResultSource } from "./sources/types";
@@ -15,6 +17,7 @@ export type TickReport = {
   indexed?: { from: string; to: string; inserted: number } | null;
   actions?: ActionReport[];
   early?: EarlyAction[];
+  pots?: unknown;
   errors: string[];
   ms: number;
 };
@@ -73,6 +76,16 @@ export async function runTick(opts: { reason: string; force?: boolean; skipIndex
         report.early = await processEarly(db);
       } catch (err) {
         report.errors.push(`early: ${(err as Error).message.split("\n")[0]}`);
+      }
+    }
+    if (cfg.pots && cfg.resolverKey) {
+      try {
+        const indexed = await indexPots(db, { deadlineMs: 15_000 });
+        const own = cfg.samplerKey ? privateKeyToAccount(cfg.samplerKey as `0x${string}`) : null;
+        const house = await potsHousekeeping(db, own);
+        if (indexed?.touched || house.calls) report.pots = { indexed, house };
+      } catch (err) {
+        report.errors.push(`pots: ${(err as Error).message.split(String.fromCharCode(10))[0]}`);
       }
     }
     await setState(db, "last_tick", JSON.stringify({ at: new Date().toISOString(), reason: opts.reason }));

@@ -97,3 +97,8 @@ export { runAppSampler } from "./samplerHost";
 export * as catalog from "./catalog";
 export type { CatalogRow, Quality, BookStats, CategorySummary, Profile } from "./catalog";
 export { readBook, depthSnapshot, DepthStream, GEMINI_REST, type RawBook, type MarketState } from "./gemini";
+
+export * as pots from "./pots";
+export { PotSampler, potsHttpIo, type PotsIo, type PotsWork } from "./potsSampler";
+export { preparePasskeyPotCall, submitPasskeyPotCall, forwardPotCall, afterPotTx } from "./potsActions";
+export { potsAbi } from "./potsAbi";

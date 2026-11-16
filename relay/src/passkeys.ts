@@ -146,7 +146,7 @@ export async function getPasskey(db: Db, credentialId: string): Promise<PasskeyR
   return x ? { credentialId: x.credential_id, qx: x.qx, qy: x.qy, rpId: x.rp_id, rpIdHash: x.rp_id_hash, account: getAddress(x.account) } : null;
 }
 
-async function passkeyByAccount(db: Db, account: Address) {
+export async function passkeyByAccount(db: Db, account: Address) {
   const r = await db.query<{ credential_id: string }>("SELECT credential_id FROM passkeys WHERE account = $1 LIMIT 1", [account.toLowerCase()]);
   return r[0] ? getPasskey(db, r[0].credential_id) : null;
 }

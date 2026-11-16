@@ -380,6 +380,63 @@ CREATE TABLE IF NOT EXISTS early_samples (
   PRIMARY KEY (early_id, signer, t)
 );
 
+-- Two-sided pots (pots.ts): projection of HonorCatPots state, read from the chain after each event.
+CREATE TABLE IF NOT EXISTS pots (
+  pot_id        BIGINT PRIMARY KEY,
+  condition_id  TEXT NOT NULL,
+  state         SMALLINT NOT NULL,
+  data          JSONB NOT NULL,          -- the contract's Pot struct (numbers as strings) + owners
+  yes_owner     TEXT,
+  no_owner      TEXT,
+  created_tx    TEXT,
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS pots_state_idx ON pots (state);
+-- Market and rule behind a conditionId (written when a pot is prepared).
+CREATE TABLE IF NOT EXISTS pot_markets (
+  condition_id   TEXT PRIMARY KEY,
+  instrument     TEXT NOT NULL,
+  event_ticker   TEXT NOT NULL,
+  contract_ticker TEXT NOT NULL,
+  event_title    TEXT NOT NULL,
+  label          TEXT NOT NULL,
+  params         JSONB NOT NULL,         -- TriggerParams (the rule) as strings
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- Attestation requests (windows, depth, outcomes) and what each sampler contributed.
+CREATE TABLE IF NOT EXISTS att_requests (
+  id          TEXT PRIMARY KEY,          -- w:<pot>:<nonce>:<kind> | d:<uuid> | o:<pot>
+  kind        TEXT NOT NULL,             -- window | depth | outcome
+  pot_id      BIGINT,
+  payload     JSONB NOT NULL,            -- what is measured, then the struct to sign
+  status      TEXT NOT NULL,             -- measuring | proposed | ready | submitted | failed
+  digest      TEXT,
+  tx          TEXT,
+  error       TEXT,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS att_requests_status_idx ON att_requests (status, kind);
+CREATE TABLE IF NOT EXISTS att_averages (
+  request_id  TEXT NOT NULL,
+  signer      TEXT NOT NULL,
+  price_ppm   BIGINT NOT NULL,
+  valid       BOOLEAN NOT NULL,
+  sample_count INTEGER NOT NULL,
+  evidence_hash TEXT NOT NULL,
+  record      JSONB NOT NULL,
+  signature   TEXT NOT NULL,             -- the sampler's EIP-191 signature over evidence_hash
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (request_id, signer)
+);
+CREATE TABLE IF NOT EXISTS att_sigs (
+  request_id  TEXT NOT NULL,
+  signer      TEXT NOT NULL,
+  signature   TEXT NOT NULL,             -- raw ECDSA over the EIP-712 digest (MultisigResolver format)
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (request_id, signer)
+);
+
 -- Market catalogue (catalog.ts): every active Gemini contract with its quotes and last book reading.
 CREATE TABLE IF NOT EXISTS market_catalog (
   symbol    TEXT PRIMARY KEY,

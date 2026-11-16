@@ -5,6 +5,8 @@ import { getConfig } from "./config";
 import { getState, setState, type Db } from "./db";
 import { armedPots, submitEarlySamples, submitEarlySignature } from "./early";
 import { RestBookSource, Sampler, type SamplerIo } from "./sampler";
+import { openLevelWindow, potsWork, submitAverage, submitCosig } from "./pots";
+import { PotSampler, type PotsIo } from "./potsSampler";
 import type { Sample } from "./trigger/engine";
 
 /**
@@ -20,6 +22,15 @@ function directIo(db: Db): SamplerIo {
     armed: (signer) => armedPots(db, signer),
     submit: (id, sub) => submitEarlySignature(db, id, sub),
     samples: (id, signer, samples, signature) => submitEarlySamples(db, id, signer, samples, signature),
+  };
+}
+
+function potsDirectIo(db: Db): PotsIo {
+  return {
+    work: (signer) => potsWork(db, signer),
+    average: (id, body) => submitAverage(db, id, body),
+    cosign: (id, body) => submitCosig(db, id, body),
+    level: (body) => openLevelWindow(db, body),
   };
 }
 
@@ -64,15 +75,29 @@ export async function runAppSampler(db: Db, opts: { budgetMs: number }): Promise
       save: (id, s) => setState(db, `sampler_samples:${id}`, ser(s)),
     },
   );
+  const account = privateKeyToAccount(cfg.samplerKey as `0x${string}`);
+  const potSampler = cfg.pots
+    ? new PotSampler(account, new RestBookSource(), potsDirectIo(db), (m) => console.log(`[pots:vercel] ${m}`), {
+        load: async (i) => {
+          const v = await getState(db, `pot_samples:${i}`);
+          return v ? de(v) : [];
+        },
+        save: (i, s) => setState(db, `pot_samples:${i}`, ser(s)),
+      })
+    : null;
+  const steps = async () => {
+    await sampler.step().catch((e) => console.error("[sampler:vercel]", (e as Error).message));
+    if (potSampler) await potSampler.step().catch((e) => console.error("[pots:vercel]", (e as Error).message));
+  };
   try {
     const end = now + opts.budgetMs;
-    await sampler.step();
-    if (sampler.watching === 0) return { ran: true, pots: 0 };
+    await steps();
+    if (sampler.watching === 0 && !potSampler?.busy) return { ran: true, pots: 0 };
     while (Date.now() < end) {
-      await sampler.step();
+      await steps();
       await new Promise((r) => setTimeout(r, 250));
     }
-    return { ran: true, pots: sampler.watching };
+    return { ran: true, pots: sampler.watching + (potSampler?.watching ?? 0) };
   } finally {
     await setState(db, LEASE_KEY, `${holder}|0`);
   }

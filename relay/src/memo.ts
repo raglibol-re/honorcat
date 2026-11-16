@@ -34,7 +34,7 @@ export const memoAbi = parseAbi([
 
 export type MemoBody = {
   v: 1;
-  t: "fund" | "payout" | "refund" | "expire" | "refunds" | "withdraw" | "early" | "record";
+  t: "fund" | "payout" | "refund" | "expire" | "refunds" | "withdraw" | "early" | "record" | "pot";
   ref?: string;
   why?: string;
   pot?: string;

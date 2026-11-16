@@ -1,0 +1,70 @@
+import { Cat, POSE_TEXT, type CatPose } from "@/components/cat/Cat";
+import { C, F } from "@/components/cat/tokens";
+
+export const metadata = { title: "Cat poses" };
+
+const POSES: [CatPose, string][] = [
+  ["rope", "Balancing on the rope"],
+  ["wobble", "Wobbling (price moving fast)"],
+  ["crouch", "Crouching (exit requested)"],
+  ["air", "In the air (exit window)"],
+  ["land", "Landing on its feet"],
+  ["net", "Resting in the net"],
+  ["bowl", "Eating at the bowl"],
+  ["paw", "Giving a paw (handshake)"],
+  ["second", "A second cat (takeover)"],
+  ["sleep", "Sleeping (waiting for an opponent)"],
+  ["peek", "Peeking in (loading)"],
+  ["box", "Looking into an empty box (not found)"],
+];
+
+const caption = { margin: 0, fontSize: 14, lineHeight: 1.4, color: C.muted, maxWidth: 240 } as const;
+
+export default function CatPosesPage() {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 40 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <h1 style={{ margin: 0, fontFamily: F.cond, fontSize: 64, fontWeight: 600, lineHeight: 0.95 }}>Cat poses</h1>
+        <p style={{ margin: 0, fontSize: 19, lineHeight: 1.45, color: C.body, maxWidth: 680 }}>For approval before use.</p>
+      </div>
+
+      <section style={{ borderTop: `1.5px solid ${C.ink}`, paddingTop: 20, display: "flex", flexWrap: "wrap", gap: "36px 48px" }}>
+        {POSES.map(([pose, name]) => (
+          <figure key={pose} style={{ margin: 0, display: "flex", flexDirection: "column", gap: 8, width: 240 }}>
+            <div style={{ height: 150, display: "flex", alignItems: "flex-end" }}>
+              <Cat pose={pose} size={pose === "second" || pose === "box" ? 230 : 180} />
+            </div>
+            <figcaption style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <span style={{ fontSize: 17, fontWeight: 600 }}>{name}</span>
+              <span style={{ fontFamily: F.mono, fontSize: 12, color: C.muted }}>pose=&quot;{pose}&quot;</span>
+              <p style={caption}>{POSE_TEXT[pose]}</p>
+            </figcaption>
+          </figure>
+        ))}
+      </section>
+
+      <section style={{ borderTop: `1.5px solid ${C.ink}`, paddingTop: 20, display: "flex", flexDirection: "column", gap: 14 }}>
+        <h2 style={{ margin: 0, fontFamily: F.cond, fontSize: 36, fontWeight: 600 }}>Nine lives</h2>
+        <p style={caption}>Partial exits in ninths: filled marks are the lives left.</p>
+        <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 10 }}>
+          {Array.from({ length: 10 }, (_, n) => (
+            <li key={n} style={{ display: "flex", alignItems: "center", gap: 16, borderBottom: `1px solid ${C.faint}`, paddingBottom: 8 }}>
+              <span style={{ fontFamily: F.mono, fontSize: 13, width: 24, color: C.muted }}>{n}</span>
+              <Cat pose="lives" lives={n} size={220} />
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section style={{ borderTop: `1.5px solid ${C.ink}`, paddingTop: 20, display: "flex", flexDirection: "column", gap: 14 }}>
+        <h2 style={{ margin: 0, fontFamily: F.cond, fontSize: 36, fontWeight: 600 }}>Sizes</h2>
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 32 }}>
+          <Cat pose="rope" size={56} />
+          <Cat pose="rope" size={120} />
+          <Cat pose="rope" size={420} />
+        </div>
+        <p style={caption}>Motion (tail sway, blink, wobble, float) stops when the system asks for reduced motion.</p>
+      </section>
+    </div>
+  );
+}

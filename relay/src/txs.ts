@@ -35,7 +35,15 @@ export type TxKind =
   | "early_join"
   | "early_settle"
   | "early_record"
-  | "cctp_receive";
+  | "cctp_receive"
+  | "pot_create"
+  | "pot_join"
+  | "pot_exit"
+  | "pot_attest"
+  | "pot_settle"
+  | "pot_house"
+  | "pot_exec"
+  | "pot_forward";
 
 type VaultFunction = "resolve" | "expire" | "fundWithAuthorization" | "createPotWithAuthorization";
 

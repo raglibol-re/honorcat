@@ -1,0 +1,698 @@
+/**
+ * Relay for two-sided pots (HonorCatPots). It never decides a price itself: samplers measure and
+ * sign, the relay checks, aggregates by a fixed rule and submits. Anyone else could do the same with
+ * the same signatures (the contract checks them, not the relay).
+ *
+ * Window attestations (join, exit, net, bowl), per docs/pot-design.md 4:
+ * 1. A pot enters Joining or ExitRequested: the relay opens a request for that exact window.
+ * 2. Each sampler measures the window from its own book readings, builds its evidence record and
+ *    signs the record hash (its own average). The relay verifies the record (`verifyRecord`).
+ * 3. Proposal: three valid averages → their exact median; two → their mean, only if within 0.5
+ *    points; otherwise `valid = false` (the join or exit does not happen). The evidence hash is the
+ *    root of the signers' record hashes, so anyone can check the relay had no discretion.
+ * 4. Each sampler co-signs the proposal only if it is within 0.5 points of its own average.
+ * 5. With M co-signatures (ascending signer order, the MultisigResolver format) the relay submits.
+ */
+import { randomUUID } from "node:crypto";
+import {
+  concat,
+  encodeFunctionData,
+  getAddress,
+  parseEventLogs,
+  hashTypedData,
+  recoverAddress,
+  verifyMessage,
+  type Address,
+  type Hex,
+  type LocalAccount,
+} from "viem";
+import { publicClient } from "./chain";
+import { getConfig } from "./config";
+import type { Db } from "./db";
+import { fetchMarketState, readBook } from "./gemini";
+import { bookStats, rowBySymbol } from "./catalog";
+import { memoCall } from "./memo";
+import { potsAbi } from "./potsAbi";
+import { sendRelayCalls } from "./txs";
+import { evidenceHash, evidenceRootOf, recordFromJson, verifyRecord } from "./trigger/evidence";
+import { conditionIdForTrigger, paramsFor, type TriggerParams } from "./trigger/params";
+
+export const POT_STATES = ["None", "Open", "Joining", "Live", "ExitRequested", "Divided", "Settled", "Expired"] as const;
+export type PotState = (typeof POT_STATES)[number];
+export const KIND = { join: 0, exit: 1, netYes: 2, netNo: 3, bowlYes: 4, bowlNo: 5 } as const;
+export const AGREE_PPM = 5_000n; // 0.5 points
+export const P = 1_000_000n;
+export const DELAY = 1; // seconds, matches the contract
+
+const domain = (chainId: number, verifyingContract: Address) => ({ name: "HonorCatPots", version: "1", chainId, verifyingContract });
+
+const windowTypes = {
+  Window: [
+    { name: "potId", type: "uint256" },
+    { name: "kind", type: "uint8" },
+    { name: "nonce", type: "uint64" },
+    { name: "windowStart", type: "uint64" },
+    { name: "windowEnd", type: "uint64" },
+    { name: "sampleCount", type: "uint32" },
+    { name: "priceYes", type: "uint32" },
+    { name: "valid", type: "bool" },
+    { name: "evidenceHash", type: "bytes32" },
+  ],
+} as const;
+const depthTypes = {
+  Depth: [
+    { name: "conditionId", type: "bytes32" },
+    { name: "account", type: "address" },
+    { name: "contracts5c", type: "uint64" },
+    { name: "closeTime", type: "uint64" },
+    { name: "validUntil", type: "uint64" },
+  ],
+} as const;
+const outcomeTypes = {
+  Outcome: [
+    { name: "potId", type: "uint256" },
+    { name: "conditionId", type: "bytes32" },
+    { name: "outcome", type: "uint8" },
+    { name: "evidenceHash", type: "bytes32" },
+  ],
+} as const;
+
+export type WindowAtt = { potId: string; kind: number; nonce: string; windowStart: string; windowEnd: string; sampleCount: number; priceYes: number; valid: boolean; evidenceHash: Hex };
+export type DepthAtt = { conditionId: Hex; account: Address; contracts5c: string; closeTime: string; validUntil: string };
+export type OutcomeAtt = { potId: string; conditionId: Hex; outcome: number; evidenceHash: Hex };
+
+export function potsAddress(): Address {
+  const p = getConfig().pots;
+  if (!p) throw new Error("HonorCatPots is not configured (POTS_ADDRESS or deployments/<chain>.pots.json)");
+  return p.address;
+}
+
+function signerSet() {
+  const e = getConfig().early;
+  if (!e) throw new Error("the sampler signer set is not configured (RESOLVER_ADDRESS, SAMPLERS)");
+  return e;
+}
+
+export function windowDigest(a: WindowAtt, at?: { chainId: number; pots: Address }): Hex {
+  return hashTypedData({
+    domain: at ? domain(at.chainId, at.pots) : domain(getConfig().chainId, potsAddress()),
+    types: windowTypes,
+    primaryType: "Window",
+    message: {
+      potId: BigInt(a.potId),
+      kind: a.kind,
+      nonce: BigInt(a.nonce),
+      windowStart: BigInt(a.windowStart),
+      windowEnd: BigInt(a.windowEnd),
+      sampleCount: a.sampleCount,
+      priceYes: a.priceYes,
+      valid: a.valid,
+      evidenceHash: a.evidenceHash,
+    },
+  });
+}
+
+export function depthDigest(d: DepthAtt, at?: { chainId: number; pots: Address }): Hex {
+  return hashTypedData({
+    domain: at ? domain(at.chainId, at.pots) : domain(getConfig().chainId, potsAddress()),
+    types: depthTypes,
+    primaryType: "Depth",
+    message: { conditionId: d.conditionId, account: d.account, contracts5c: BigInt(d.contracts5c), closeTime: BigInt(d.closeTime), validUntil: BigInt(d.validUntil) },
+  });
+}
+
+export function outcomeDigest(o: OutcomeAtt, at?: { chainId: number; pots: Address }): Hex {
+  return hashTypedData({
+    domain: at ? domain(at.chainId, at.pots) : domain(getConfig().chainId, potsAddress()),
+    types: outcomeTypes,
+    primaryType: "Outcome",
+    message: { potId: BigInt(o.potId), conditionId: o.conditionId, outcome: o.outcome, evidenceHash: o.evidenceHash },
+  });
+}
+
+/* ------------------------------------------------------------------ the agreement rule (pure) */
+
+export type Avg = { signer: Address; ppm: bigint; valid: boolean; sampleCount: number; evidenceHash: Hex };
+export type Proposal = { valid: boolean; ppm: bigint; used: Avg[]; reason: string };
+
+/**
+ * Three valid averages: the exact median. Two: their mean (floored), only if within 0.5 points.
+ * Anything else: no agreement (`valid = false`): the join or exit does not happen.
+ */
+export function propose(avgs: Avg[]): Proposal {
+  const ok = avgs.filter((a) => a.valid).sort((a, b) => (a.ppm < b.ppm ? -1 : a.ppm > b.ppm ? 1 : 0));
+  if (ok.length >= 3) {
+    const m = ok[Math.floor((ok.length - 1) / 2)]!;
+    if (ok.length % 2 === 1) return { valid: true, ppm: m.ppm, used: ok, reason: "median of three" };
+  }
+  if (ok.length === 2) {
+    const d = ok[1]!.ppm - ok[0]!.ppm;
+    if (d <= AGREE_PPM) return { valid: true, ppm: (ok[0]!.ppm + ok[1]!.ppm) / 2n, used: ok, reason: "mean of two within 0.5 points" };
+    return { valid: false, ppm: 0n, used: ok, reason: `two samplers ${Number(d) / 10_000} points apart` };
+  }
+  return { valid: false, ppm: 0n, used: avgs, reason: ok.length < 2 ? "fewer than two valid windows" : "no agreement" };
+}
+
+/** A sampler co-signs a valid proposal only within 0.5 points of its own average; an invalid one always. */
+export function wouldCosign(own: { ppm: bigint; valid: boolean } | null, att: { valid: boolean; priceYes: number }): boolean {
+  if (!att.valid) return true;
+  if (!own || !own.valid) return false;
+  const d = own.ppm > BigInt(att.priceYes) ? own.ppm - BigInt(att.priceYes) : BigInt(att.priceYes) - own.ppm;
+  return d <= AGREE_PPM;
+}
+
+/** Evidence root over the used records, ascending signer order (the existing construction). */
+export function rootOf(used: Avg[]): Hex {
+  const sorted = [...used].sort((a, b) => (BigInt(a.signer) < BigInt(b.signer) ? -1 : 1));
+  return evidenceRootOf(sorted.map((a) => a.evidenceHash));
+}
+
+/* ------------------------------------------------------------------ the rule for a market */
+
+/** The rule a pot's market is measured with; its conditionId commits to instrument and rule. */
+export function potParams(base: TriggerParams, windowS: number, minSamples: number): TriggerParams {
+  return { ...base, windowMs: windowS * 1000, intervalMs: 2000, minValidSamples: minSamples, thresholdBps: 5000 };
+}
+
+export function potConditionId(instrument: string, params: TriggerParams): Hex {
+  return conditionIdForTrigger({ instrument, side: "yes", mode: "early-only", params });
+}
+
+const paramsToJson = (p: TriggerParams) => Object.fromEntries(Object.entries(p).map(([k, v]) => [k, String(v)]));
+const paramsFromJson = (j: Record<string, string>): TriggerParams =>
+  Object.fromEntries(Object.entries(j).map(([k, v]) => [k, Number(v)])) as unknown as TriggerParams;
+
+export async function registerMarket(
+  db: Db,
+  m: { instrument: string; eventTicker: string; contractTicker: string; eventTitle: string; label: string; params: TriggerParams },
+): Promise<Hex> {
+  const conditionId = potConditionId(m.instrument, m.params);
+  await db.query(
+    `INSERT INTO pot_markets (condition_id, instrument, event_ticker, contract_ticker, event_title, label, params)
+     VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (condition_id) DO NOTHING`,
+    [conditionId.toLowerCase(), m.instrument, m.eventTicker, m.contractTicker, m.eventTitle, m.label, JSON.stringify(paramsToJson(m.params))],
+  );
+  return conditionId;
+}
+
+type MarketRow = { condition_id: string; instrument: string; event_ticker: string; contract_ticker: string; event_title: string; label: string; params: Record<string, string> | string };
+export async function marketOf(db: Db, conditionId: string) {
+  const r = (await db.query<MarketRow>("SELECT * FROM pot_markets WHERE condition_id = $1", [conditionId.toLowerCase()]))[0];
+  if (!r) return null;
+  const params = paramsFromJson(typeof r.params === "string" ? JSON.parse(r.params) : r.params);
+  return { conditionId: r.condition_id as Hex, instrument: r.instrument, eventTicker: r.event_ticker, contractTicker: r.contract_ticker, eventTitle: r.event_title, label: r.label, params };
+}
+
+/* ------------------------------------------------------------------ projection from the chain */
+
+type PotStruct = Record<string, unknown>;
+const jsonify = (o: PotStruct) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, typeof v === "bigint" ? v.toString() : v]));
+
+/** Reads a pot and its owners from the chain into `pots`, and opens the request for a pending window. */
+export async function syncPot(db: Db, potId: bigint, createdTx?: string) {
+  const c = publicClient();
+  const address = potsAddress();
+  const p = (await c.readContract({ address, abi: potsAbi, functionName: "pot", args: [potId] })) as unknown as PotStruct;
+  const state = Number(p.state);
+  if (state === 0) return null;
+  const owner = async (side: 0 | 1) =>
+    c
+      .readContract({ address, abi: potsAbi, functionName: "ownerOf", args: [potId * 2n + BigInt(side)] })
+      .then((a) => (a as string).toLowerCase())
+      .catch(() => null);
+  const [yes, no] = await Promise.all([owner(0), owner(1)]);
+  const levels = await Promise.all(
+    [0n, 1n].map((s) =>
+      c
+        .readContract({ address, abi: potsAbi, functionName: "levels", args: [potId * 2n + s] })
+        .then((l) => {
+          const [net, bowl, setAt] = l as readonly [number, number, bigint];
+          return { net, bowl, setAt: setAt.toString() };
+        })
+        .catch(() => null),
+    ),
+  );
+  const data = { ...jsonify(p), levels };
+  await db.query(
+    `INSERT INTO pots (pot_id, condition_id, state, data, yes_owner, no_owner, created_tx) VALUES ($1,$2,$3,$4,$5,$6,$7)
+     ON CONFLICT (pot_id) DO UPDATE SET state = EXCLUDED.state, data = EXCLUDED.data, yes_owner = EXCLUDED.yes_owner,
+       no_owner = EXCLUDED.no_owner, created_tx = COALESCE(pots.created_tx, EXCLUDED.created_tx), updated_at = now()`,
+    [potId.toString(), String(p.conditionId).toLowerCase(), state, JSON.stringify(data), yes, no, createdTx ?? null],
+  );
+  if (state === 2 || state === 4) {
+    const kind = state === 2 ? KIND.join : KIND.exit;
+    const start = Number(p.requestTime) + DELAY;
+    const id = `w:${potId}:${p.nonce}:${kind}`;
+    await db.query(
+      `INSERT INTO att_requests (id, kind, pot_id, payload, status) VALUES ($1,'window',$2,$3,'measuring') ON CONFLICT (id) DO NOTHING`,
+      [id, potId.toString(), JSON.stringify({ kind, nonce: String(p.nonce), windowStart: start, windowEnd: start + Number(p.window), conditionId: String(p.conditionId).toLowerCase(), minSamples: Number(p.minSamples) })],
+    );
+  }
+  return { state, data };
+}
+
+/* ------------------------------------------------------------------ sampler work */
+
+type ReqRow = { id: string; kind: string; pot_id: string | null; payload: Record<string, unknown> | string; status: string; digest: string | null; created_at: string };
+const payloadOf = (r: ReqRow) => (typeof r.payload === "string" ? JSON.parse(r.payload) : r.payload) as Record<string, unknown>;
+
+export type MeasureTask = { requestId: string; potId: string; kind: number; windowStart: number; windowEnd: number; instrument: string; params: TriggerParams; conditionId: Hex };
+export type CosignTask = { requestId: string; kind: "window" | "depth" | "outcome"; digest: Hex; payload: Record<string, unknown> };
+export type LevelWatch = { potId: string; side: 0 | 1; net: number; bowl: number; setAt: number; window: number; instrument: string; params: TriggerParams; nonce: string };
+
+/** What a sampler should do now: windows to measure, proposals to co-sign, levels to watch. */
+export async function potsWork(db: Db, signer: Address) {
+  const s = signer.toLowerCase();
+  const now = Math.floor(Date.now() / 1000);
+  const measuring = await db.query<ReqRow>(
+    `SELECT r.* FROM att_requests r WHERE r.kind = 'window' AND r.status = 'measuring'
+       AND NOT EXISTS (SELECT 1 FROM att_averages a WHERE a.request_id = r.id AND a.signer = $1)
+       AND r.created_at > now() - interval '30 minutes'`,
+    [s],
+  );
+  const measure: MeasureTask[] = [];
+  for (const r of measuring) {
+    const p = payloadOf(r);
+    const m = await marketOf(db, String(p.conditionId));
+    if (!m) continue;
+    measure.push({ requestId: r.id, potId: String(r.pot_id), kind: Number(p.kind), windowStart: Number(p.windowStart), windowEnd: Number(p.windowEnd), instrument: m.instrument, params: m.params, conditionId: m.conditionId });
+  }
+  const proposed = await db.query<ReqRow>(
+    `SELECT r.* FROM att_requests r WHERE r.status = 'proposed'
+       AND NOT EXISTS (SELECT 1 FROM att_sigs g WHERE g.request_id = r.id AND g.signer = $1)
+       AND r.created_at > now() - interval '30 minutes'`,
+    [s],
+  );
+  const cosign: CosignTask[] = proposed.map((r) => ({ requestId: r.id, kind: r.kind as CosignTask["kind"], digest: r.digest as Hex, payload: payloadOf(r) }));
+  const live = await db.query<{ pot_id: string; data: Record<string, unknown> | string; condition_id: string }>(
+    "SELECT pot_id::text AS pot_id, data, condition_id FROM pots WHERE state = 3",
+  );
+  const levels: LevelWatch[] = [];
+  for (const row of live) {
+    const d = (typeof row.data === "string" ? JSON.parse(row.data) : row.data) as Record<string, unknown>;
+    const lv = (d.levels as ({ net: number; bowl: number; setAt: string } | null)[] | undefined) ?? [];
+    const m = await marketOf(db, row.condition_id);
+    if (!m) continue;
+    lv.forEach((l, side) => {
+      if (l && (l.net > 0 || l.bowl > 0))
+        levels.push({ potId: row.pot_id, side: side as 0 | 1, net: l.net, bowl: l.bowl, setAt: Number(l.setAt), window: Number(d.window), instrument: m.instrument, params: m.params, nonce: String(d.nonce) });
+    });
+  }
+  return { now, measure, cosign, levels, pots: potsAddress(), chainId: getConfig().chainId };
+}
+
+/* ------------------------------------------------------------------ averages and proposals */
+
+const ppmOf = (averageMicro: bigint, priceDecimals: number) => averageMicro / 10n ** BigInt(priceDecimals);
+
+/** A sampler's own signed window average. Verified fully before it counts. */
+export async function submitAverage(db: Db, requestId: string, input: { signer: Address; record: unknown; signature: Hex }) {
+  const set = signerSet();
+  const signer = getAddress(input.signer);
+  if (!set.samplers.some((x) => x.toLowerCase() === signer.toLowerCase())) throw Object.assign(new Error("not a sampler of the signer set"), { status: 403 });
+  const req = (await db.query<ReqRow>("SELECT * FROM att_requests WHERE id = $1", [requestId]))[0];
+  if (!req || req.kind !== "window") throw Object.assign(new Error("unknown window"), { status: 404 });
+  if (req.status !== "measuring") return { accepted: false, reason: `request is ${req.status}` };
+  const p = payloadOf(req);
+  const record = recordFromJson(input.record as never);
+  const m = await marketOf(db, String(p.conditionId));
+  if (!m) throw Object.assign(new Error("market of this pot is unknown"), { status: 409 });
+  if (record.signer.toLowerCase() !== signer.toLowerCase()) throw Object.assign(new Error("record signer mismatch"), { status: 400 });
+  if (record.vault.toLowerCase() !== potsAddress().toLowerCase() || record.potId !== BigInt(String(req.pot_id))) throw Object.assign(new Error("record is for another pot"), { status: 400 });
+  if (record.conditionId.toLowerCase() !== String(p.conditionId)) throw Object.assign(new Error("record rule does not match the pot"), { status: 400 });
+  if (record.windowStart !== Number(p.windowStart) * 1000 || record.windowEnd !== Number(p.windowEnd) * 1000) throw Object.assign(new Error("record window does not match"), { status: 400 });
+  const decision = verifyRecord(record); // throws on any inconsistency
+  const hash = evidenceHash(record);
+  if (!(await verifyMessage({ address: signer, message: { raw: hash }, signature: input.signature }))) throw Object.assign(new Error("bad signature"), { status: 401 });
+  const valid = decision.code === 0 || decision.code === 1; // enough valid samples, fresh at the end
+  const ppm = ppmOf(record.averageMicro, record.params.priceDecimals);
+  await db.query(
+    `INSERT INTO att_averages (request_id, signer, price_ppm, valid, sample_count, evidence_hash, record, signature)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT DO NOTHING`,
+    [requestId, signer.toLowerCase(), ppm.toString(), valid, record.validCount, hash, JSON.stringify(input.record), input.signature],
+  );
+  await maybePropose(db, requestId);
+  return { accepted: true, ppm: ppm.toString(), valid };
+}
+
+/** Proposes once every sampler has reported, or two have and 20 s passed since the window ended. */
+export async function maybePropose(db: Db, requestId: string, force = false) {
+  const req = (await db.query<ReqRow>("SELECT * FROM att_requests WHERE id = $1", [requestId]))[0];
+  if (!req || req.status !== "measuring") return null;
+  const p = payloadOf(req);
+  const rows = await db.query<{ signer: string; price_ppm: string; valid: boolean; sample_count: number; evidence_hash: string }>(
+    "SELECT signer, price_ppm::text AS price_ppm, valid, sample_count, evidence_hash FROM att_averages WHERE request_id = $1",
+    [requestId],
+  );
+  const set = signerSet();
+  const ended = Math.floor(Date.now() / 1000) > Number(p.windowEnd) + 20;
+  if (!force && rows.length < set.samplers.length && !(rows.length >= set.threshold && ended)) return null;
+  if (rows.length < set.threshold && !force) return null;
+  const avgs: Avg[] = rows.map((r) => ({ signer: getAddress(r.signer), ppm: BigInt(r.price_ppm), valid: r.valid, sampleCount: r.sample_count, evidenceHash: r.evidence_hash as Hex }));
+  let prop = propose(avgs);
+  // The market must have been open (not halted, not under review) for the window to count.
+  if (prop.valid) {
+    const m = await marketOf(db, String(p.conditionId));
+    const st = m ? await fetchMarketState(m.eventTicker, m.contractTicker) : null;
+    if (!st || st.status !== "active" || (st.marketState && st.marketState !== "open")) prop = { ...prop, valid: false, ppm: 0n, reason: `market ${st?.marketState ?? st?.status ?? "unreachable"}` };
+  }
+  const att: WindowAtt = {
+    potId: String(req.pot_id),
+    kind: Number(p.kind),
+    nonce: String(p.nonce),
+    windowStart: String(p.windowStart),
+    windowEnd: String(p.windowEnd),
+    sampleCount: prop.used.length ? Math.min(...prop.used.map((a) => a.sampleCount)) : 0,
+    priceYes: Number(prop.ppm),
+    valid: prop.valid,
+    evidenceHash: avgs.length ? rootOf(prop.used.length ? prop.used : avgs) : (`0x${"0".repeat(64)}` as Hex),
+  };
+  const digest = windowDigest(att);
+  await db.query("UPDATE att_requests SET status = 'proposed', payload = $2, digest = $3, updated_at = now() WHERE id = $1 AND status = 'measuring'", [
+    requestId,
+    JSON.stringify({ ...p, attestation: att, reason: prop.reason, averages: avgs.map((a) => ({ ...a, ppm: a.ppm.toString() })) }),
+    digest,
+  ]);
+  return att;
+}
+
+/** A sampler's co-signature (raw ECDSA over the EIP-712 digest). With M of them the relay submits. */
+export async function submitCosig(db: Db, requestId: string, input: { signer: Address; signature: Hex }) {
+  const set = signerSet();
+  const req = (await db.query<ReqRow>("SELECT * FROM att_requests WHERE id = $1", [requestId]))[0];
+  if (!req || req.status !== "proposed" || !req.digest) return { accepted: false };
+  const who = await recoverAddress({ hash: req.digest as Hex, signature: input.signature });
+  if (who.toLowerCase() !== input.signer.toLowerCase() || !set.samplers.some((x) => x.toLowerCase() === who.toLowerCase())) {
+    throw Object.assign(new Error("signature is not from a sampler of the set"), { status: 401 });
+  }
+  await db.query("INSERT INTO att_sigs (request_id, signer, signature) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING", [requestId, who.toLowerCase(), input.signature]);
+  const n = await db.query<{ n: string }>("SELECT count(*)::text AS n FROM att_sigs WHERE request_id = $1", [requestId]);
+  if (Number(n[0]!.n) >= set.threshold) {
+    await db.query("UPDATE att_requests SET status = 'ready', updated_at = now() WHERE id = $1 AND status = 'proposed'", [requestId]);
+    if (req.kind !== "depth") await submitReady(db, requestId);
+  }
+  return { accepted: true };
+}
+
+/** The M signatures in ascending signer order, concatenated (the MultisigResolver format). */
+export async function signaturesOf(db: Db, requestId: string): Promise<Hex | null> {
+  const set = signerSet();
+  const rows = await db.query<{ signer: string; signature: string }>("SELECT signer, signature FROM att_sigs WHERE request_id = $1", [requestId]);
+  if (rows.length < set.threshold) return null;
+  const sorted = rows.sort((a, b) => (BigInt(a.signer) < BigInt(b.signer) ? -1 : 1)).slice(0, set.threshold);
+  return concat(sorted.map((r) => r.signature as Hex));
+}
+
+const toWindowArg = (a: WindowAtt) => ({
+  potId: BigInt(a.potId),
+  kind: a.kind,
+  nonce: BigInt(a.nonce),
+  windowStart: BigInt(a.windowStart),
+  windowEnd: BigInt(a.windowEnd),
+  sampleCount: a.sampleCount,
+  priceYes: a.priceYes,
+  valid: a.valid,
+  evidenceHash: a.evidenceHash,
+});
+
+/** Submits a ready window or outcome attestation (with a Memo explaining it). Anyone could do this. */
+export async function submitReady(db: Db, requestId: string) {
+  const req = (await db.query<ReqRow>("SELECT * FROM att_requests WHERE id = $1", [requestId]))[0];
+  if (!req || req.status !== "ready") return null;
+  const sigs = await signaturesOf(db, requestId);
+  if (!sigs) return null;
+  const p = payloadOf(req);
+  const address = potsAddress();
+  let data: Hex;
+  let why: string;
+  if (req.kind === "window") {
+    const a = p.attestation as WindowAtt;
+    const fn = a.kind === KIND.join ? "resolveJoin" : a.kind === KIND.exit ? "resolveExit" : "triggerLevel";
+    data = encodeFunctionData({ abi: potsAbi, functionName: fn, args: [toWindowArg(a), sigs] });
+    const what = a.kind === KIND.join ? "entry price" : a.kind === KIND.exit ? "exit price" : "level held";
+    why = a.valid ? `${what} ${(a.priceYes / 10_000).toFixed(2)}% (YES), window ${a.windowStart}-${a.windowEnd}, ${String(p.reason)}` : `no ${what}: ${String(p.reason)}`;
+  } else if (req.kind === "outcome") {
+    const o = p.attestation as OutcomeAtt;
+    data = encodeFunctionData({ abi: potsAbi, functionName: "settle", args: [{ potId: BigInt(o.potId), conditionId: o.conditionId, outcome: o.outcome, evidenceHash: o.evidenceHash }, sigs] });
+    why = `Gemini settled ${o.outcome === 1 ? "YES" : o.outcome === 0 ? "NO" : "void"}`;
+  } else return null;
+  const ref = `pot-${String(req.pot_id)}`;
+  const res = await sendRelayCalls(db, req.kind === "outcome" ? "pot_settle" : "pot_attest", [
+    { ...memoCall(address, data, ref, { v: 1, t: "pot", ref, pot: String(req.pot_id), why }), potIds: [], label: `${req.kind} ${requestId}` },
+  ]);
+  if (res.ok) {
+    await db.query("UPDATE att_requests SET status = 'submitted', tx = $2, updated_at = now() WHERE id = $1", [requestId, res.tx]);
+    if (req.pot_id) await syncPot(db, BigInt(String(req.pot_id))).catch(() => {});
+    return res.tx;
+  }
+  await db.query("UPDATE att_requests SET status = 'failed', error = $2, updated_at = now() WHERE id = $1", [requestId, res.error.slice(0, 500)]);
+  return null;
+}
+
+/* ------------------------------------------------------------------ depth (cap) at creation */
+
+/** Contracts within 5 cents of the mid on the thinner side, in hundredths of a contract. */
+export async function measureContracts5c(instrument: string): Promise<bigint | null> {
+  const raw = await readBook(instrument);
+  if (!raw) return null;
+  const s = bookStats(raw, Date.now());
+  if (s.bid === null || s.ask === null) return 0n;
+  return BigInt(Math.floor(Math.min(s.bidDepth, s.askDepth) * 100));
+}
+
+/** Opens a depth request, signed at once by `own` (the app's sampler); others co-sign within seconds. */
+export async function requestDepth(db: Db, input: { conditionId: Hex; account: Address; instrument: string; closeTime: number }, own: LocalAccount | null) {
+  const c5 = await measureContracts5c(input.instrument);
+  if (c5 === null) throw Object.assign(new Error("Gemini did not return this market's order book"), { status: 502 });
+  const d: DepthAtt = { conditionId: input.conditionId, account: getAddress(input.account), contracts5c: c5.toString(), closeTime: String(input.closeTime), validUntil: String(Math.floor(Date.now() / 1000) + 120) };
+  const id = `d:${randomUUID()}`;
+  const digest = depthDigest(d);
+  await db.query("INSERT INTO att_requests (id, kind, payload, status, digest) VALUES ($1,'depth',$2,'proposed',$3)", [id, JSON.stringify({ attestation: d, instrument: input.instrument }), digest]);
+  if (own) await submitCosig(db, id, { signer: own.address, signature: await own.sign!({ hash: digest }) });
+  return { id, depth: d };
+}
+
+export async function depthResult(db: Db, id: string) {
+  const r = (await db.query<ReqRow>("SELECT * FROM att_requests WHERE id = $1 AND kind = 'depth'", [id]))[0];
+  if (!r) return null;
+  const sigs = await signaturesOf(db, id);
+  return { depth: payloadOf(r).attestation as DepthAtt, signatures: sigs };
+}
+
+/* ------------------------------------------------------------------ housekeeping and settlement */
+
+type PotRow = { pot_id: string; state: number; data: Record<string, unknown> | string; condition_id: string };
+
+/**
+ * One pass over running pots: propose stalled windows, open settlement requests after the close,
+ * and send the permissionless clean-ups (abandon a window that timed out, expire after the
+ * deadline, cancel an unjoined offer after the close).
+ */
+export async function potsHousekeeping(db: Db, own: LocalAccount | null) {
+  if (!getConfig().pots) return { checked: 0 };
+  const now = Math.floor(Date.now() / 1000);
+  // Windows with two averages whose wait for the third is over.
+  for (const r of await db.query<{ id: string }>("SELECT id FROM att_requests WHERE kind = 'window' AND status = 'measuring'")) await maybePropose(db, r.id);
+  // Ready but not yet submitted (e.g. a failed send).
+  for (const r of await db.query<{ id: string }>("SELECT id FROM att_requests WHERE status = 'ready' AND kind <> 'depth' AND updated_at < now() - interval '30 seconds'")) await submitReady(db, r.id);
+
+  const rows = await db.query<PotRow>("SELECT pot_id::text AS pot_id, state, data, condition_id FROM pots WHERE state BETWEEN 1 AND 4");
+  const address = potsAddress();
+  const calls: { fn: "abandonJoin" | "abandonExit" | "expire" | "cancel"; pot: bigint }[] = [];
+  for (const row of rows) {
+    const d = (typeof row.data === "string" ? JSON.parse(row.data) : row.data) as Record<string, string>;
+    const pot = BigInt(row.pot_id);
+    const close = Number(d.closeTime);
+    const deadline = Number(d.deadline);
+    const windowOver = Number(d.requestTime) + DELAY + Number(d.window) + 600;
+    if (now >= deadline) calls.push({ fn: "expire", pot });
+    else if (row.state === 1 && now >= close) calls.push({ fn: "cancel", pot });
+    else if (row.state === 2 && now > windowOver) calls.push({ fn: "abandonJoin", pot });
+    else if (row.state === 4 && now > windowOver) calls.push({ fn: "abandonExit", pot });
+    if ((row.state === 3 || row.state === 4) && now >= close) await openOutcome(db, pot, row.condition_id, own);
+  }
+  for (const c of calls) {
+    const data = encodeFunctionData({ abi: potsAbi, functionName: c.fn, args: [c.pot] });
+    const ref = `pot-${c.pot}`;
+    const res = await sendRelayCalls(db, "pot_house", [{ ...memoCall(address, data, ref, { v: 1, t: "pot", ref, pot: c.pot.toString(), why: c.fn }), potIds: [], label: `${c.fn} ${c.pot}` }]);
+    if (res.ok) await syncPot(db, c.pot).catch(() => {});
+  }
+  return { checked: rows.length, calls: calls.length };
+}
+
+/** After the close: if Gemini has settled the contract, propose the outcome; the app's sampler signs. */
+async function openOutcome(db: Db, pot: bigint, conditionId: string, own: LocalAccount | null) {
+  const id = `o:${pot}`;
+  if ((await db.query("SELECT 1 FROM att_requests WHERE id = $1", [id])).length) return;
+  const m = await marketOf(db, conditionId);
+  if (!m) return;
+  const st = await fetchMarketState(m.eventTicker, m.contractTicker);
+  if (!st) return;
+  let outcome: number | null = null;
+  if (st.resolutionSide === "yes") outcome = 1;
+  else if (st.resolutionSide === "no") outcome = 0;
+  else if (st.status === "invalid") outcome = 2;
+  if (outcome === null) return;
+  const o: OutcomeAtt = { potId: pot.toString(), conditionId: conditionId as Hex, outcome, evidenceHash: `0x${"0".repeat(64)}` as Hex };
+  const digest = outcomeDigest(o);
+  await db.query("INSERT INTO att_requests (id, kind, pot_id, payload, status, digest) VALUES ($1,'outcome',$2,$3,'proposed',$4) ON CONFLICT DO NOTHING", [
+    id,
+    pot.toString(),
+    JSON.stringify({ attestation: o, eventTicker: m.eventTicker, contractTicker: m.contractTicker, status: st.status, resolutionSide: st.resolutionSide }),
+    digest,
+  ]);
+  if (own) await submitCosig(db, id, { signer: own.address, signature: await own.sign!({ hash: digest }) });
+}
+
+/* ------------------------------------------------------------------ nets and bowls */
+
+/**
+ * A sampler saw a side's own price hold beyond its net or bowl over [end − W, end]. The relay opens
+ * one request for exactly that window so every sampler measures the same seconds.
+ */
+export async function openLevelWindow(db: Db, input: { potId: string; side: 0 | 1; kind: number; windowEnd: number }) {
+  const row = (await db.query<PotRow>("SELECT pot_id::text AS pot_id, state, data, condition_id FROM pots WHERE pot_id = $1", [input.potId]))[0];
+  if (!row || row.state !== 3) return null;
+  const d = (typeof row.data === "string" ? JSON.parse(row.data) : row.data) as Record<string, unknown>;
+  const kind = input.kind;
+  if (kind < 2 || kind > 5 || (kind - 2) % 2 !== input.side) throw Object.assign(new Error("bad level kind"), { status: 400 });
+  const id = `w:${input.potId}:${d.nonce}:${kind}`;
+  await db.query(`INSERT INTO att_requests (id, kind, pot_id, payload, status) VALUES ($1,'window',$2,$3,'measuring') ON CONFLICT (id) DO NOTHING`, [
+    id,
+    input.potId,
+    JSON.stringify({ kind, nonce: String(d.nonce), windowStart: input.windowEnd - Number(d.window), windowEnd: input.windowEnd, conditionId: row.condition_id, minSamples: Number(d.minSamples), side: input.side }),
+  ]);
+  return id;
+}
+
+/* ------------------------------------------------------------------ indexing */
+
+/**
+ * Reads new HonorCatPots logs (in 5,000-block chunks; Arc caps eth_getLogs at 10,000) and
+ * refreshes every pot they touch. Covers transactions the relay did not send (wallet users).
+ */
+export async function indexPots(db: Db, opts: { deadlineMs?: number } = {}) {
+  const cfg = getConfig();
+  if (!cfg.pots) return null;
+  const c = publicClient();
+  const started = Date.now();
+  const cursor = await db.query<{ value: string }>("SELECT value FROM relay_state WHERE key = 'pots_cursor'");
+  let from = cursor[0] ? BigInt(cursor[0].value) + 1n : cfg.pots.deployBlock;
+  const head = await c.getBlockNumber();
+  const touched = new Set<string>();
+  while (from <= head && Date.now() - started < (opts.deadlineMs ?? 15_000)) {
+    const to = from + 4_999n > head ? head : from + 4_999n;
+    const logs = await c.getLogs({ address: cfg.pots.address, fromBlock: from, toBlock: to });
+    for (const l of parseEventLogs({ abi: potsAbi, logs })) {
+      const id = (l.args as { potId?: bigint; tokenId?: bigint }).potId ?? ((l.args as { tokenId?: bigint }).tokenId !== undefined ? (l.args as { tokenId: bigint }).tokenId / 2n : undefined);
+      if (typeof id === "bigint") touched.add(id.toString());
+    }
+    await db.query(
+      "INSERT INTO relay_state (key, value) VALUES ('pots_cursor', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
+      [to.toString()],
+    );
+    from = to + 1n;
+  }
+  for (const id of touched) await syncPot(db, BigInt(id));
+  return { touched: touched.size, to: (from - 1n).toString() };
+}
+
+/* ------------------------------------------------------------------ preparing a pot */
+
+export const POT_WINDOW_S = 30;
+export const POT_MIN_SAMPLES = 10;
+export const CAP_PER_CENTI = 2_500n; // 0.25 USDC per contract, per hundredth of a contract
+export const MAX_NOTIONAL = 25_000_000n;
+
+/**
+ * Everything a creator needs before signing `create`: the market's rule and conditionId, the trading
+ * close, and the signer set's depth attestation (the cap). The app's sampler signs the depth at
+ * once; the other samplers co-sign within seconds if their own reading agrees.
+ */
+export async function preparePot(db: Db, input: { symbol: string; account: Address }, own: LocalAccount | null) {
+  const row = await rowBySymbol(db, input.symbol);
+  if (!row) throw Object.assign(new Error("unknown market"), { status: 404 });
+  const closeTime = Math.floor(row.closeMs / 1000);
+  if (row.closeMs - Date.now() < 15 * 60_000) throw Object.assign(new Error("this market closes too soon for a pot"), { status: 409 });
+  const params = potParams(paramsFor("demo"), POT_WINDOW_S, POT_MIN_SAMPLES);
+  const conditionId = await registerMarket(db, { instrument: row.symbol, eventTicker: row.eventTicker, contractTicker: row.contractTicker, eventTitle: row.eventTitle, label: row.label, params });
+  const { id, depth } = await requestDepth(db, { conditionId, account: input.account, instrument: row.symbol, closeTime }, own);
+  const cap = BigInt(depth.contracts5c) * CAP_PER_CENTI;
+  const b = row.book?.bid != null && row.book?.ask != null ? row.book : row;
+  const mid = b.bid != null && b.ask != null ? (b.bid + b.ask) / 2 : null;
+  return {
+    conditionId,
+    resolver: signerSet().resolver,
+    pots: potsAddress(),
+    chainId: getConfig().chainId,
+    closeTime,
+    window: POT_WINDOW_S,
+    minSamples: POT_MIN_SAMPLES,
+    depthId: id,
+    depth,
+    cap: (cap < MAX_NOTIONAL ? cap : MAX_NOTIONAL).toString(),
+    midPpm: mid === null ? null : Math.round(mid * 1e6),
+    market: { symbol: row.symbol, eventTicker: row.eventTicker, contractTicker: row.contractTicker, eventTitle: row.eventTitle, label: row.label, category: row.category, closeMs: row.closeMs },
+  };
+}
+
+type PotListRow = PotRow & { yes_owner: string | null; no_owner: string | null; created_tx: string | null; updated_at: string };
+
+/** A pot with its market and its attestation requests, for the pages. */
+export async function potDetail(db: Db, potId: string) {
+  const row = (
+    await db.query<PotListRow>(
+      "SELECT pot_id::text AS pot_id, state, data, condition_id, yes_owner, no_owner, created_tx, updated_at FROM pots WHERE pot_id = $1",
+      [potId],
+    )
+  )[0];
+  if (!row) return null;
+  const data = typeof row.data === "string" ? JSON.parse(row.data) : row.data;
+  const market = await marketOf(db, row.condition_id);
+  const requests = await db.query<ReqRow & { tx: string | null; error: string | null }>(
+    "SELECT id, kind, pot_id, payload, status, digest, tx, error, created_at FROM att_requests WHERE pot_id = $1 ORDER BY created_at DESC LIMIT 30",
+    [potId],
+  );
+  return {
+    potId: row.pot_id,
+    state: POT_STATES[row.state],
+    data,
+    owners: { yes: row.yes_owner, no: row.no_owner },
+    createdTx: row.created_tx,
+    updatedAt: row.updated_at,
+    market,
+    requests: requests.map((r) => ({ id: r.id, kind: r.kind, status: r.status, tx: r.tx, error: r.error, createdAt: r.created_at, payload: payloadOf(r) })),
+  };
+}
+
+export async function listPotsHc(db: Db, opts: { owner?: string; states?: number[]; limit?: number } = {}) {
+  const where: string[] = [];
+  const args: unknown[] = [];
+  if (opts.owner) {
+    args.push(opts.owner.toLowerCase());
+    const i = args.length;
+    where.push(`(yes_owner = $${i} OR no_owner = $${i} OR lower(data->>'joiner') = $${i})`);
+  }
+  if (opts.states?.length) {
+    args.push(opts.states);
+    where.push(`state = ANY($${args.length}::smallint[])`);
+  }
+  args.push(opts.limit ?? 50);
+  const rows = await db.query<PotListRow>(
+    `SELECT pot_id::text AS pot_id, state, data, condition_id, yes_owner, no_owner, created_tx, updated_at FROM pots ${where.length ? "WHERE " + where.join(" AND ") : ""} ORDER BY pot_id DESC LIMIT $${args.length}`,
+    args,
+  );
+  const out = [];
+  for (const r of rows) {
+    const m = await marketOf(db, r.condition_id);
+    out.push({
+      potId: r.pot_id,
+      state: POT_STATES[r.state],
+      data: typeof r.data === "string" ? JSON.parse(r.data) : r.data,
+      owners: { yes: r.yes_owner, no: r.no_owner },
+      market: m && { eventTitle: m.eventTitle, label: m.label, instrument: m.instrument, eventTicker: m.eventTicker },
+      updatedAt: r.updated_at,
+    });
+  }
+  return out;
+}

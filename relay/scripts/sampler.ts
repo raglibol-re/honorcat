@@ -13,6 +13,7 @@ import { createPublicClient, http, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { arcTestnet } from "viem/chains";
 import { httpIo, Sampler, WsBookSource } from "../src/sampler";
+import { PotSampler, potsHttpIo } from "../src/potsSampler";
 
 const { values } = parseArgs({
   args: process.argv.slice(2).filter((a) => a !== "--"),
@@ -31,6 +32,8 @@ const client = createPublicClient({ chain: arcTestnet, transport: http(process.e
 const log = (m: string) => console.log(`[${new Date().toISOString().slice(11, 19)}] ${m}`);
 const source = new WsBookSource();
 const sampler = new Sampler(account, source, httpIo(values.api!), client as never, log);
+// Two-sided pots: windows, co-signatures, nets and bowls (same key, same book stream).
+const potSampler = new PotSampler(account, source, potsHttpIo(values.api!), (m) => log(`[pots] ${m}`));
 
 const started = Date.now();
 const idleExit = values["idle-exit"] ? Number(values["idle-exit"]) * 1000 : Infinity;
@@ -46,11 +49,17 @@ for (;;) {
     log(`step failed: ${(err as Error).message.split("\n")[0]}`);
     await new Promise((r) => setTimeout(r, 3000));
   }
+  try {
+    await potSampler.step();
+  } catch (err) {
+    log(`[pots] step failed: ${(err as Error).message.split("\n")[0]}`);
+    await new Promise((r) => setTimeout(r, 3000));
+  }
   const now = Date.now();
-  if (sampler.watching > 0) lastBusy = now;
+  if (sampler.watching > 0 || potSampler.busy) lastBusy = now;
   if (now - lastLog > 60_000) {
     lastLog = now;
-    log(`watching ${sampler.watching} pot(s)`);
+    log(`watching ${sampler.watching} early pot(s), ${potSampler.watching} pot market(s)`);
   }
   if (now - lastBusy > idleExit || now - started > maxMs) break;
   await new Promise((r) => setTimeout(r, 250));

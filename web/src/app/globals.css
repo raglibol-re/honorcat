@@ -140,3 +140,21 @@ body {
 @media (prefers-reduced-motion: reduce) { .hc-roll, .hc-glide { transition: none; } .hc-swap, .hc-tick { animation: none; } }
 /* Choice rows (wallet menu): an ink wash on hover, no shadow, no radius. */
 .hc-row:hover:not(:disabled) { background: #F6F4EE !important; }
+/* The cat (components/cat/Cat.tsx): tail sway, an occasional blink, pose motions. */
+@keyframes hc-cat-tail { 0%, 100% { transform: rotate(-7deg); } 50% { transform: rotate(9deg); } }
+@keyframes hc-cat-blink { 0%, 91%, 100% { transform: scaleY(1); } 94% { transform: scaleY(0.1); } 97% { transform: scaleY(1); } }
+@keyframes hc-cat-balance { 0%, 100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
+@keyframes hc-cat-wobble { 0%, 100% { transform: rotate(-8deg); } 50% { transform: rotate(8deg); } }
+@keyframes hc-cat-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes hc-cat-z { 0%, 100% { opacity: 0.35; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-3px); } }
+@keyframes hc-cat-peek { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(3px); } }
+.hc-cat-tail { animation: hc-cat-tail 2.6s ease-in-out infinite; }
+.hc-cat-blink { animation: hc-cat-blink 5.5s ease-in-out infinite; }
+.hc-cat-balance { animation: hc-cat-balance 3.2s ease-in-out infinite; }
+.hc-cat-wobble { animation: hc-cat-wobble 0.5s ease-in-out infinite; }
+.hc-cat-float { animation: hc-cat-float 1.6s ease-in-out infinite; }
+.hc-cat-z { animation: hc-cat-z 2.4s ease-in-out infinite; }
+.hc-cat-peek { animation: hc-cat-peek 2.8s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .hc-cat-tail, .hc-cat-blink, .hc-cat-balance, .hc-cat-wobble, .hc-cat-float, .hc-cat-z, .hc-cat-peek { animation: none; }
+}

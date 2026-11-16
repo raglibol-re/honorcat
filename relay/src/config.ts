@@ -32,6 +32,9 @@ const schema = z.object({
   MERKLE_BOOK_ADDRESS: z.string().optional(),
   // The samplers' M-of-N resolver and the sampler addresses (default: deployments/<chain>.samplers.json).
   RESOLVER_ADDRESS: z.string().optional(),
+  // The two-sided pot contract (default: deployments/<chain>.pots.json).
+  POTS_ADDRESS: z.string().optional(),
+  POTS_DEPLOY_BLOCK: z.coerce.bigint().optional(),
   SAMPLERS: z.string().optional(), // comma-separated sampler addresses
   SAMPLER_KEY: z.string().optional(), // the Vercel app's own sampler key
   /** Smallest amount (USDC, decimal) the relay will sponsor gas for. */
@@ -78,6 +81,8 @@ export type Config = {
   passkeys: { factory: Address } | null;
   merkle: { book: Address } | null;
   early: { resolver: Address; samplers: Address[]; threshold: number } | null;
+  /** HonorCatPots (two-sided pots); null if not deployed/configured. */
+  pots: { address: Address; deployBlock: bigint } | null;
   samplerKey: string | undefined;
 };
 
@@ -122,6 +127,7 @@ export function getConfig(): Config {
     passkeys: passkeysConfig(env),
     merkle: merkleConfig(env),
     early: earlyConfig(env),
+    pots: potsConfig(env),
     samplerKey: env.SAMPLER_KEY,
   };
   return cached;
@@ -164,6 +170,13 @@ function earlyConfig(env: z.infer<typeof schema>): Config["early"] {
   const samplers = samplerList ? samplerList.split(",").map((s) => s.trim()) : f ? [f.samplerVercel, f.samplerGithub, f.samplerLocal] : [];
   if (!resolver || !isAddress(resolver) || samplers.length < 2 || !samplers.every((s) => isAddress(s))) return null;
   return { resolver: getAddress(resolver), samplers: samplers.map((s) => getAddress(s)), threshold: f?.threshold ?? 2 };
+}
+
+function potsConfig(env: z.infer<typeof schema>): Config["pots"] {
+  const f = readJson<{ pots: string; deployBlock: number }>(`deployments/${env.ARC_CHAIN_ID}.pots.json`);
+  const a = env.POTS_ADDRESS ?? f?.pots;
+  if (!a || !isAddress(a)) return null;
+  return { address: getAddress(a), deployBlock: env.POTS_DEPLOY_BLOCK ?? (f ? BigInt(f.deployBlock) : 0n) };
 }
 
 function readJson<T>(relative: string | undefined): T | undefined {
