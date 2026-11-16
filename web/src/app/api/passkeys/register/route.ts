@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { after } from "next/server";
-import { dripTestUsdc, errorResponse, getDb, registerPasskey } from "@/server/relay";
+import { errorResponse, getDb, registerPasskey, welcome } from "@/server/relay";
 import { rpIdOf } from "@/server/webauthn";
 
 const body = z.object({
@@ -24,7 +24,7 @@ export async function POST(req: Request) {
     });
     // A little test USDC for the new account (once, budgeted), so a first pot needs no faucet.
     after(async () => {
-      const r = await dripTestUsdc(await getDb(), rec.account).catch((e) => ({ sent: false, reason: (e as Error).message }));
+      const r = await welcome(await getDb(), rec.account).catch((e) => ({ sent: false, reason: (e as Error).message }));
       console.log("[drip]", rec.account, JSON.stringify(r));
     });
     return Response.json({ account: rec.account, credentialId: rec.credentialId, rpId: rec.rpId }, { status: 201 });

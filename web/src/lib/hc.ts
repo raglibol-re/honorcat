@@ -197,6 +197,19 @@ async function walletSend(adapter: WalletAdapter, account: Address, pots: Addres
 
 export type Step = (s: string) => void;
 
+/**
+ * Makes sure the account can pay `need` before a deposit: HonorCat's test-money pool sends the
+ * shortfall (testnet). Silent when the account already has enough.
+ */
+export async function ensureFunds(account: Address, need: bigint, onStep?: Step) {
+  const bal = (await publicClient.readContract({ address: USDC_ADDRESS, abi: approveAbi2, functionName: "balanceOf", args: [account] })) as bigint;
+  if (bal >= need + 100_000n) return;
+  onStep?.("Adding test money to your account");
+  const r = await getJson<{ sent: boolean; reason?: string }>("/api/hc/topup", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ account, need: need.toString() }) });
+  if (!r.sent && r.reason !== "enough already") throw new Error(`Could not add test money: ${r.reason}`);
+}
+const approveAbi2 = [{ type: "function", name: "balanceOf", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] }] as const;
+
 /* ------------------------------------------------------------------ actions */
 
 export async function prepare(symbol: string, account: Address) {
@@ -230,6 +243,7 @@ export async function createPot(actor: Actor, prep: Prepared, o: { side: number;
   const d = prep.depth;
   const depth = { conditionId: d.conditionId, account: d.account, contracts5c: BigInt(d.contracts5c), closeTime: BigInt(d.closeTime), validUntil: BigInt(d.validUntil) };
   const escrow = worstCase(o.side, o.notional, o.bandCenter, o.tolerance);
+  await ensureFunds(actor.account, escrow, onStep);
   if (actor.kind === "passkey") {
     const data = encodeFunctionData({ abi: potsAbi, functionName: "create", args: [c, depth, sigs, noAuth(actor.account)] });
     return passkeyCall(actor.session, actor.account, data, escrow, onStep);
@@ -241,6 +255,7 @@ export async function joinPot(actor: Actor, pots: Address, p: HcPot, onStep?: St
   const side = 1 - Number(p.data.creatorSide);
   const escrow = worstCase(side, BigInt(p.data.notional), Number(p.data.bandCenter), Number(p.data.tolerance));
   const potId = BigInt(p.potId);
+  await ensureFunds(actor.account, escrow, onStep);
   if (actor.kind === "passkey") {
     const data = encodeFunctionData({ abi: potsAbi, functionName: "requestJoin", args: [potId, noAuth(actor.account)] });
     return passkeyCall(actor.session, actor.account, data, escrow, onStep);
@@ -265,6 +280,7 @@ export async function setLevels(actor: Actor, pots: Address, p: HcPot, side: num
 export async function takeover(actor: Actor, pots: Address, p: HcPot, onStep?: Step) {
   const potId = BigInt(p.potId);
   const n = BigInt(p.data.notional);
+  await ensureFunds(actor.account, n, onStep);
   if (actor.kind === "passkey") {
     return passkeyCall(actor.session, actor.account, encodeFunctionData({ abi: potsAbi, functionName: "takeover", args: [potId, noAuth(actor.account)] }), n, onStep);
   }

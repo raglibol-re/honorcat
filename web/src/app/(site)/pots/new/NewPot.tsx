@@ -8,7 +8,7 @@ import { C, F } from "@/components/cat/tokens";
 import { useLivePrice } from "@/components/pot/usePrice";
 import { Reliability } from "@/components/pot/Reliability";
 import { marketLine, marketTitle, yesMeans } from "@/lib/marketName";
-import { AccountLine, btn, SignIn, useActor } from "@/components/pot/Who";
+import { AccountLine, FundsHelp, btn, SignIn, useActor } from "@/components/pot/Who";
 import { getJson } from "@/lib/api";
 import { createPot, MAX_TOLERANCE, NO, prepare, worstCase, YES } from "@/lib/hc";
 
@@ -172,6 +172,7 @@ export function NewPot() {
               {err}
             </p>
           )}
+          {err?.startsWith("Could not add test money") && who.actor && <FundsHelp account={who.actor.account} reason={err.replace(/^Could not add test money: /, "")} />}
           <p style={{ margin: 0, fontSize: 14, color: C.muted }}>Test version on Arc testnet: test money only. Not financial advice. Play within limits.</p>
         </section>
       )}

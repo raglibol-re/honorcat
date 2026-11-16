@@ -13,7 +13,7 @@ import { useTechMode } from "@/components/TechMode";
 import { marketLine, marketTitle, yesMeans } from "@/lib/marketName";
 import { displayName, useNames } from "@/lib/names";
 import { useLivePrice } from "@/components/pot/usePrice";
-import { AccountLine, btn, btnQuiet, SignIn, useActor, type ActorState } from "@/components/pot/Who";
+import { AccountLine, FundsHelp, btn, btnQuiet, SignIn, useActor, type ActorState } from "@/components/pot/Who";
 import { getJson, usePolling } from "@/lib/api";
 import { txUrl } from "@/lib/chain";
 import { formatDate, short } from "@/lib/format";
@@ -47,9 +47,10 @@ function useAction() {
   return { step, err, done, run };
 }
 
-function Feedback({ a }: { a: ReturnType<typeof useAction> }) {
+function Feedback({ a, account }: { a: ReturnType<typeof useAction>; account?: string | null }) {
   return (
     <>
+      {a.err?.startsWith("Could not add test money") && account && <FundsHelp account={account} reason={a.err.replace(/^Could not add test money: /, "")} />}
       {a.step && <p style={{ margin: 0, color: C.body }} aria-live="polite">{a.step}…</p>}
       {a.done && <p style={{ margin: 0, color: C.ink }} aria-live="polite">{a.done}</p>}
       {a.err && <p role="alert" style={{ margin: 0, color: C.signalInk }}>{a.err}</p>}
@@ -101,7 +102,7 @@ function Actions({ pot, who, price, nowS }: { pot: HcPot; who: ActorState; price
               Take the offer back
             </button>
           </div>
-          <Feedback a={a} />
+          <Feedback a={a} account={who.actor?.account ?? null} />
         </section>
       );
     const side = 1 - creatorSide;
@@ -123,7 +124,7 @@ function Actions({ pot, who, price, nowS }: { pot: HcPot; who: ActorState; price
             </button>
           </>
         )}
-        <Feedback a={a} />
+        <Feedback a={a} account={who.actor?.account ?? null} />
       </section>
     );
   }
@@ -146,7 +147,7 @@ function Actions({ pot, who, price, nowS }: { pot: HcPot; who: ActorState; price
               Take over with {$(n)}
             </button>
           )}
-          <Feedback a={a} />
+          <Feedback a={a} account={who.actor?.account ?? null} />
         </section>
       );
     return null;
@@ -274,7 +275,7 @@ function Actions({ pot, who, price, nowS }: { pot: HcPot; who: ActorState; price
           </button>
         )}
       </div>
-      <Feedback a={a} />
+      <Feedback a={a} account={who.actor?.account ?? null} />
     </section>
   );
 }

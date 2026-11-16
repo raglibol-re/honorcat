@@ -6,6 +6,7 @@ import { pollLogs } from "./indexer/rpcPoller";
 import { processOpenPots, type ActionReport } from "./resolver";
 import { processEarly, type EarlyAction } from "./early";
 import { indexPots, potsHousekeeping } from "./pots";
+import { refillPool } from "./funding";
 import { privateKeyToAccount } from "viem/accounts";
 import { GeminiSource } from "./sources/gemini";
 import { ManualSource } from "./sources/manual";
@@ -88,6 +89,8 @@ export async function runTick(opts: { reason: string; force?: boolean; skipIndex
         report.errors.push(`pots: ${(err as Error).message.split(String.fromCharCode(10))[0]}`);
       }
     }
+    // The test-money pool refills itself from Circle's faucet API (at most every 3 hours).
+    await refillPool(db).catch((err) => report.errors.push(`refill: ${(err as Error).message.split(String.fromCharCode(10))[0]}`));
     await setState(db, "last_tick", JSON.stringify({ at: new Date().toISOString(), reason: opts.reason }));
   } finally {
     await db.query("UPDATE relay_lease SET until = now(), holder = NULL WHERE id = 1 AND holder = $1", [holder]);

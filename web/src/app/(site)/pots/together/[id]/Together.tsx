@@ -8,7 +8,7 @@ import { MarketList, type MarketItem } from "@/components/cat/Markets";
 import { C, F } from "@/components/cat/tokens";
 import { Reliability } from "@/components/pot/Reliability";
 import { useLivePrice } from "@/components/pot/usePrice";
-import { AccountLine, btn, btnQuiet, SignIn, useActor } from "@/components/pot/Who";
+import { AccountLine, FundsHelp, btn, btnQuiet, SignIn, useActor } from "@/components/pot/Who";
 import { getJson, usePolling } from "@/lib/api";
 import { displayName, useNames } from "@/lib/names";
 import { useTechMode } from "@/components/TechMode";
@@ -327,6 +327,7 @@ export function Together({ id }: { id: string }) {
           </Link>
         )}
         {err && <p role="alert" style={{ margin: 0, color: C.signalInk }}>{err}</p>}
+        {err?.startsWith("Could not add test money") && who.actor && <FundsHelp account={who.actor.account} reason={err.replace(/^Could not add test money: /, "")} />}
         <p style={{ margin: 0, fontSize: 14, color: C.muted }}>Test version on Arc testnet: test money only. Not financial advice. Play within limits.</p>
       </section>
     </div>
