@@ -237,3 +237,6 @@ QuickNode
       left; `--sitter`, pot 25: net became a proposal, the full exit signed in advance went alone).
 - [x] 6. QuickNode Streams first for every pot event, RPC polling as the fallback; /status shows the
       share first seen by Streams (34 of 34 since the stream resumed).
+- [x] 7. README: what HonorCat is, an architecture diagram (Mermaid), setup, run, test and deploy; the
+      economic design and its risks; every contract address; how HonorCat uses Arc; the Stream setup;
+      Grok Bot; a dated build log.
