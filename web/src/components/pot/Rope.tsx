@@ -228,7 +228,6 @@ export function Rope(p: RopeProps) {
   }, []);
 
   const price = p.price;
-  const n = money(p.notional);
   // One side rounded to the cent, the other the pot minus it: the two always add up to the pot.
   const shares = price === null ? null : splitPot(p.notional, price);
   const yes = shares === null ? null : Number(shares.yes) / 1e6;
