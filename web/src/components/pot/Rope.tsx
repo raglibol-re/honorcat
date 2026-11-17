@@ -6,7 +6,7 @@ import { FURS, type Fur } from "@/lib/names";
 import { splitPot } from "@/lib/shares";
 import { RollingNumber } from "@/components/cat/RollingNumber";
 import { C, F } from "@/components/cat/tokens";
-import { useHome } from "@/lib/currency";
+import { money as fmt, useHome } from "@/lib/currency";
 
 export type RopePhase = "waiting" | "joining" | "live" | "exit" | "divided" | "settled" | "expired";
 export type SideLevels = { net: number; bowl: number } | null | undefined; // ppm of the side's own price, 0 = unset
@@ -363,8 +363,8 @@ export function Rope(p: RopeProps) {
 
       <figcaption style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", fontSize: p.big ? 20 : 14, color: C.muted }}>
         <span>
-          Pot ${n.toFixed(2)}
-          {p.startedAt && p.startedAt !== p.notional ? ` (started at $${money(p.startedAt).toFixed(2)})` : ""}.{" "}
+          Pot {fmt(p.notional)}
+          {p.startedAt && p.startedAt !== p.notional ? ` (started at ${fmt(p.startedAt)})` : ""}.{" "}
           {price === null ? "Reading the price." : `The cat stands at ${(price * 100).toFixed(1)}% chance, averaged over 30 seconds.`}
         </span>
         <span>Data provided by Gemini.</span>
