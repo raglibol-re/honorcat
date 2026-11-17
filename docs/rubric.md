@@ -275,3 +275,10 @@ QuickNode
       every payout becomes a receipt sentence ("You left at 74.5% and received $7.40.") with how
       long it took after the request, its own fee, and a link to the transaction that carries the
       memo (`web/src/lib/receipts.ts`, tested in `relay/test/receipts.test.ts`).
+- [x] Part 4, send to a player: on the account page (passkey and wallet players) and as "Send my $X
+      to…" on a pot that paid you, find a player by HonorCat name; each match shows its cat and short
+      address (names are not unique) and the confirm step repeats both. Passkey players sign the
+      transfer and HonorCat pays the fee (memo `t: "send"`, the pot id for a share); wallet players
+      send from the wallet. Checked on production: $0.10 to Willow, tx 0x71243c66…27ab.
+      "Withdraw everything" for pot players now uses the same transfer (it was limited to the old
+      guarantee customers and returned 403).
