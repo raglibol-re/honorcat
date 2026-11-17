@@ -97,19 +97,31 @@ export function SendTo({ actor, balance, amount, potId, title = "Send to a playe
             players.length === 0 ? (
               <p style={{ margin: 0, fontSize: 15, color: C.muted }}>No player with that name yet.</p>
             ) : (
-              <fieldset style={{ margin: 0, padding: 0, border: 0, display: "flex", flexDirection: "column", gap: 4 }}>
-                <legend style={{ fontSize: 15, color: C.body, padding: 0, marginBottom: 4 }}>Pick the right cat: names are not unique</legend>
-                {players.map((p) => (
-                  <label key={p.account} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 8px", border: `1.5px solid ${pick?.account === p.account ? C.ink : C.faint}`, cursor: "pointer" }}>
-                    <input type="radio" name={`${id}-to`} checked={pick?.account === p.account} onChange={() => setPick(p)} />
-                    <span aria-hidden="true" style={{ width: 30, flex: "none" }}>
-                      <PlayerCat account={p.account} fur={furOf(p.fur)} pose="face" size={30} label="" />
-                    </span>
-                    <span style={{ fontSize: 17, fontWeight: 600 }}>{nameOf(p)}</span>
-                    <span style={{ fontFamily: F.mono, fontSize: 13, color: C.muted, marginLeft: "auto" }}>{shortAddr(p.account)}</span>
-                  </label>
-                ))}
-              </fieldset>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <span id={`${id}-pick`} style={{ fontSize: 15, color: C.body }}>Pick the right cat: names are not unique</span>
+                <div role="radiogroup" aria-labelledby={`${id}-pick`} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  {players.map((p) => {
+                    const on = pick?.account === p.account;
+                    return (
+                      <button
+                        key={p.account}
+                        type="button"
+                        role="radio"
+                        aria-checked={on}
+                        aria-label={`${nameOf(p)}, ${shortAddr(p.account)}`}
+                        onClick={() => setPick(p)}
+                        style={{ display: "flex", alignItems: "center", gap: 10, minHeight: 48, padding: "6px 10px", border: `${on ? 2.5 : 1.5}px solid ${on ? C.ink : C.faint}`, background: on ? C.panel : "transparent", color: C.ink, font: "inherit", textAlign: "left", cursor: "pointer" }}
+                      >
+                        <span aria-hidden="true" style={{ width: 30, flex: "none" }}>
+                          <PlayerCat account={p.account} fur={furOf(p.fur)} pose="face" size={30} label="" />
+                        </span>
+                        <span style={{ fontSize: 17, fontWeight: 600 }}>{nameOf(p)}</span>
+                        <span style={{ fontFamily: F.mono, fontSize: 13, color: C.muted, marginLeft: "auto" }}>{shortAddr(p.account)}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             )
           )}
           <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 15, color: C.body }}>
