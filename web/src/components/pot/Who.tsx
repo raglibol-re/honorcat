@@ -309,7 +309,7 @@ export function CatPicker({
         <PlayerCat fur={fur} pose="sit" size={86} mood="up" />
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <strong style={{ fontFamily: F.cond, fontSize: 26, fontWeight: 600, lineHeight: 1 }}>{first ? "Pick your cat" : "Change your cat"}</strong>
-          <span style={{ fontSize: 15, lineHeight: 1.45, color: C.body }}>Others see your cat and its name on the rope, in invitations and in the honor record, never your address.</span>
+          <span style={{ fontSize: 15, lineHeight: 1.45, color: C.body }}>Others see your cat and its name, never your address.</span>
         </div>
       </div>
       <div role="radiogroup" aria-label="Fur colour" style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -323,13 +323,15 @@ export function CatPicker({
             onClick={() => setFur(f)}
             style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "6px 8px", minWidth: 64, minHeight: 44, background: "transparent", cursor: "pointer", border: fur === f ? `2.5px solid ${C.ink}` : `1px solid ${C.faint}` }}
           >
-            <PlayerCat fur={f} pose="face" size={30} label="" />
+            <span aria-hidden="true" style={{ display: "inline-flex" }}>
+              <PlayerCat fur={f} pose="face" size={30} label="" />
+            </span>
             <span style={{ fontSize: 13, color: C.ink }}>{FURS[f].label}</span>
           </button>
         ))}
       </div>
       <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        <span style={{ fontSize: 15, fontWeight: 600 }}>Your cat&apos;s name (2 to 20 characters)</span>
+        <span style={{ fontSize: 15, fontWeight: 600 }}>Your cat&apos;s name</span>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
