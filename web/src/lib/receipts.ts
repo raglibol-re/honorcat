@@ -2,9 +2,10 @@
  * Arc in plain words: fees in cents, a receipt sentence for every payout, and how long it took.
  * Pure (the relay's tests check it); every number comes from the pot's own events and receipts.
  */
+import { money } from "./currency";
 export type ReceiptEvent = { name: string; args: Record<string, string | undefined>; tx: string; at: number | null };
 
-const usd = (base: string | number | bigint) => `$${(Number(base) / 1e6).toFixed(2)}`;
+const usd = (base: string | number | bigint) => money(base);
 const pc = (ppm: string | number | undefined) => `${(Number(ppm ?? 0) / 10_000).toFixed(1)}%`;
 
 /** A network fee in USDC base units as cents: "0.6¢", "1.2¢", or "$0.03" from three cents up. */

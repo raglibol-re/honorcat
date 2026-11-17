@@ -1,4 +1,5 @@
 import { formatUnits, parseUnits } from "viem";
+import { inEuros, money } from "@/lib/currency";
 
 export function formatUsdc(base: string | bigint): string {
   const n = Number(formatUnits(BigInt(base), 6));
@@ -7,7 +8,7 @@ export function formatUsdc(base: string | bigint): string {
 
 /** "$0.25": consumer-facing amount. Amounts are USDC (6 decimals), a dollar stablecoin. */
 export function formatMoney(base: string | bigint): string {
-  return `$${formatUsdc(base)}`;
+  return inEuros() ? money(base) : `$${formatUsdc(base)}`;
 }
 
 export function parseUsdc(input: string): bigint {

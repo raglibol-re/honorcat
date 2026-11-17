@@ -3,6 +3,7 @@ import { displayName, furOf } from "@/lib/names";
 import { sidesOf } from "@/lib/statement";
 import type { Mood } from "@/components/cat/Cat";
 import type { PostCat, RopeProps } from "./Rope";
+import { money } from "@/lib/currency";
 
 export type NameOpts = { me?: string | null; names?: Record<string, string>; tech?: boolean };
 
@@ -62,7 +63,7 @@ export function sceneOf(pot: HcPot, price: number | null, nowS: number, o: NameO
         startedAt,
         cats,
         sides,
-        window: { label: partial ? `${who} is leaving with $${(Number(d.exitNotional) / 1e6).toFixed(2)} of the pot (a partial exit). Exit price` : `${who} is leaving. Exit price`, ...win },
+        window: { label: partial ? `${who} is leaving with ${money(d.exitNotional)} of the pot (a partial exit). Exit price` : `${who} is leaving. Exit price`, ...win },
       };
     }
     case "Divided":
@@ -87,7 +88,7 @@ export const STATE_TEXT: Record<string, string> = {
   Expired: "Closed: every deposit went back.",
 };
 
-const usd = (base: string | number | bigint) => `$${(Number(base) / 1e6).toFixed(2)}`;
+const usd = (base: string | number | bigint) => money(base);
 
 /**
  * The pot's story in plain words, from its own events: who did what, at which price, what each side

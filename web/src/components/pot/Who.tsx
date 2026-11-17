@@ -14,6 +14,7 @@ import { short } from "@/lib/format";
 import type { Actor } from "@/lib/hc";
 import { createPasskey, forgetPasskey, passkeysSupported, savedPasskey, signInWithPasskey, type PasskeySession } from "@/lib/passkey";
 import { useWallet } from "@/lib/wallet/context";
+import { inEuros, money } from "@/lib/currency";
 
 export const btn: React.CSSProperties = {
   minHeight: 52,
@@ -230,7 +231,7 @@ export function AccountLine({ who }: { who: ActorState }) {
             </a>
           </>
         )}{" "}
-        · holds <strong style={{ color: C.ink }}>{who.balance === null ? "…" : `${(Number(who.balance) / 1e6).toFixed(2)} USDC`}</strong> (test money).
+        · holds <strong style={{ color: C.ink }}>{who.balance === null ? "…" : inEuros() ? `${money(who.balance)} (in test USDC)` : `${(Number(who.balance) / 1e6).toFixed(2)} USDC`}</strong> (test money).
         {who.actor.kind === "wallet" && who.wallet.kind === "circle" && (
           <>
             {" "}

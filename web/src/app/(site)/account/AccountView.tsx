@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { isAddress, type Address, type Hex } from "viem";
 import { usePolling } from "@/lib/api";
 import { addressUrl, txUrl } from "@/lib/chain";
-import { formatUsdc } from "@/lib/format";
+
 import { CatHead, Ears, EyesSmall } from "@/components/cat/shapes";
 import { C, F } from "@/components/cat/tokens";
 import { useWallet } from "@/lib/wallet/context";
@@ -15,6 +15,8 @@ import { forgetPasskey, passkeysSupported, savedPasskey, signInWithPasskey, type
 import { SendTo } from "@/components/pot/SendTo";
 import { sendUsdc } from "@/lib/send";
 import { plainError } from "@/lib/messages";
+import { money, useHome } from "@/lib/currency";
+import { CurrencySwitch } from "@/components/cat/Currency";
 
 type AccountData = {
   account: Address;
@@ -105,6 +107,7 @@ export function AccountView() {
 }
 
 function Signed({ session, onSignOut }: { session: PasskeySession; onSignOut: () => void }) {
+  useHome();
   const { data } = usePolling<AccountData>(`/api/accounts/${session.account}`, 5000);
   const [to, setTo] = useState("");
   const [busy, setBusy] = useState(false);
@@ -137,7 +140,7 @@ function Signed({ session, onSignOut }: { session: PasskeySession; onSignOut: ()
             <EyesSmall />
           </div>
           <span style={{ fontFamily: F.cond, fontSize: "clamp(72px, 24vw, 132px)", fontWeight: 700, lineHeight: 0.92, letterSpacing: "-0.01em" }}>
-            {balance === null ? "…" : `$${formatUsdc(balance)}`}
+            {balance === null ? "…" : money(balance)}
           </span>
           <span style={{ fontSize: 15, color: C.faint }}>
             test USDC on Arc
@@ -177,6 +180,8 @@ function Signed({ session, onSignOut }: { session: PasskeySession; onSignOut: ()
 
       <SendTo actor={{ kind: "passkey", session, account: session.account }} balance={balance} />
 
+      <CurrencySwitch />
+
       {data && data.guarantees.length > 0 && (
         <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <h2 style={{ margin: 0, fontFamily: F.cond, fontSize: 44, fontWeight: 600, lineHeight: 1 }}>Your guarantees</h2>
@@ -214,6 +219,7 @@ function Signed({ session, onSignOut }: { session: PasskeySession; onSignOut: ()
 function WalletMoney({ account, solana }: { account: Address; solana: string | null }) {
   const { data } = usePolling<AccountData>(`/api/accounts/${account}`, 5000);
   const wallet = useWallet();
+  useHome();
   return (
     <section style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 480 }}>
       <div style={{ display: "flex", flexDirection: "column" }}>
@@ -223,7 +229,7 @@ function WalletMoney({ account, solana }: { account: Address; solana: string | n
             <span style={{ fontFamily: F.cond, fontSize: 30, fontWeight: 600 }}>{solana ? "Your Solana wallet’s Arc account" : "Your wallet on Arc"}</span>
             <EyesSmall />
           </div>
-          <span style={{ fontFamily: F.cond, fontSize: 96, fontWeight: 700, lineHeight: 0.92 }}>${data ? formatUsdc(data.usdc) : "…"}</span>
+          <span style={{ fontFamily: F.cond, fontSize: 96, fontWeight: 700, lineHeight: 0.92 }}>{data ? money(data.usdc) : "…"}</span>
           <a href={addressUrl(account)} target="_blank" rel="noreferrer" style={{ fontFamily: F.mono, fontSize: 13, color: C.faint }}>
             {account.slice(0, 8)}…{account.slice(-6)}
           </a>
@@ -234,6 +240,7 @@ function WalletMoney({ account, solana }: { account: Address; solana: string | n
           ? `Payouts go to this Arc account. Your Solana wallet (${solana.slice(0, 4)}…${solana.slice(-4)}) controls it: signing the same HonorCat message on any device opens it again.`
           : "Payouts go straight to this address on Arc. Nothing to withdraw: the USDC is already in your wallet, and Circle CCTP can move it to any other supported chain."}
       </p>
+      <CurrencySwitch />
       {!solana && <SendTo actor={{ kind: "wallet", adapter: wallet.adapter, account }} balance={data ? BigInt(data.usdc) : null} />}
     </section>
   );

@@ -36,11 +36,13 @@ import { useNow } from "@/lib/useNow";
 import { plainError } from "@/lib/messages";
 import { shareOf } from "@/lib/shares";
 import { notifyMe, pushSupported } from "@/lib/push";
+import { money, useHome } from "@/lib/currency";
+import { RateNote } from "@/components/cat/Currency";
 
 const POTS = "0xc890C990048f45cb268d076E4A3dB25270Ea1e59" as const;
 const h2: React.CSSProperties = { margin: 0, fontFamily: F.cond, fontSize: 32, fontWeight: 600 };
 const input: React.CSSProperties = { minHeight: 44, padding: "0 10px", border: `1.5px solid ${C.ink}`, background: C.page, fontFamily: F.sans, fontSize: 17, color: C.ink, width: 120, boxSizing: "border-box" };
-const $ = (base: bigint | string | number) => `$${(Number(base) / 1e6).toFixed(2)}`;
+const $ = (base: bigint | string | number) => money(base);
 /** What a measured window was for; nets and bowls by the side they belong to. */
 const kindText = (k: number, st: Sides | null) => {
   const side = (s: number) => (st ? `“${s === 0 ? st.yes : st.no}”` : s === 0 ? "YES" : "NO");
@@ -606,6 +608,7 @@ function Windows({ pot, tech }: { pot: HcPot; tech: boolean }) {
 /* ------------------------------------------------------------------ page */
 
 export function PotView({ id }: { id: string }) {
+  useHome();
   const { data: pot, error } = usePolling<HcPot>(`/api/hc/pots/${id}`, 3000);
   const who = useActor();
   const live = useLivePrice(pot?.market?.instrument ?? null, Number(pot?.data.window ?? 30));
@@ -677,6 +680,7 @@ export function PotView({ id }: { id: string }) {
       </header>
 
       <Rope {...scene} trail={live.trail} speed={live.speed} />
+      <RateNote />
 
       <Receipts
         events={pot.events ?? []}

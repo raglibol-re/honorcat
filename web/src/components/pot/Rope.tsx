@@ -6,6 +6,7 @@ import { FURS, type Fur } from "@/lib/names";
 import { splitPot } from "@/lib/shares";
 import { RollingNumber } from "@/components/cat/RollingNumber";
 import { C, F } from "@/components/cat/tokens";
+import { useHome } from "@/lib/currency";
 
 export type RopePhase = "waiting" | "joining" | "live" | "exit" | "divided" | "settled" | "expired";
 export type SideLevels = { net: number; bowl: number } | null | undefined; // ppm of the side's own price, 0 = unset
@@ -63,12 +64,15 @@ const money = (base: bigint) => Number(base) / 1e6;
 
 /** Dollars that roll like an odometer; screen readers get the plain amount. */
 function Dollars({ v }: { v: number }) {
-  const cents = Math.round(v * 100);
+  const { home, rate } = useHome();
+  const eur = home === "EURC" && rate;
+  const sym = eur ? "€" : "$";
+  const cents = Math.round(v * (eur ? rate.eurcPerUsdc : 1) * 100);
   return (
     <span style={{ display: "inline-flex", alignItems: "baseline", fontVariantNumeric: "tabular-nums" }}>
-      <span className="hc-sr">{`$${(cents / 100).toFixed(2)}`}</span>
+      <span className="hc-sr">{`${sym}${(cents / 100).toFixed(2)}`}</span>
       <span aria-hidden="true" style={{ display: "inline-flex", alignItems: "baseline" }}>
-        $<RollingNumber value={Math.floor(cents / 100)} />.{String(cents % 100).padStart(2, "0")}
+        {sym}<RollingNumber value={Math.floor(cents / 100)} />.{String(cents % 100).padStart(2, "0")}
       </span>
     </span>
   );
