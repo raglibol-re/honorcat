@@ -49,7 +49,7 @@ export function RateNote({ always = false }: { always?: boolean }) {
   if (!rate) return <p style={note}>Looking up the euro rate… until then, amounts are in dollars (USDC).</p>;
   return (
     <p style={note}>
-      Euro amounts at {rateText(rate)} (Circle Swap Kit rate on Arc, {formatClock(rate.fetchedAt)}). Pots still hold and pay test USDC; euro payouts come later.
+      Euro amounts at {rateText(rate)} (Circle Swap Kit rate for Arc, {formatClock(rate.fetchedAt)}). Pots still hold and pay test USDC; euro payouts come later.
     </p>
   );
 }
