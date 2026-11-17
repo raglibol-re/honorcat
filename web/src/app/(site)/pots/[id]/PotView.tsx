@@ -14,6 +14,8 @@ import { C, F } from "@/components/cat/tokens";
 import { Rope } from "@/components/pot/Rope";
 import { AfterPot } from "@/components/pot/AfterPot";
 import { PriceChart } from "@/components/pot/PriceChart";
+import { FeeNote, Receipts, useFees } from "@/components/pot/Receipts";
+import { cents } from "@/lib/receipts";
 import { AgentPanel } from "@/components/agent/AgentPanel";
 import type { AgentInfo } from "@/lib/agent";
 import { HelperBubble } from "@/components/helper/Helper";
@@ -120,6 +122,7 @@ function Actions({ pot, who, price, nowS, nameOf }: { pot: HcPot; who: ActorStat
   const [bowl, setBowl] = useState("");
   // The exit the player is about to confirm (amount of the pot to divide, in words).
   const [ask, setAsk] = useState<{ amount: bigint; what: string } | null>(null);
+  const fees = useFees();
   // The helper cat on nets and bowls: shown once the player starts on them; and the wish box.
   const [levelsHelp, setLevelsHelp] = useState(false);
   const [wish, setWish] = useState("");
@@ -189,6 +192,7 @@ function Actions({ pot, who, price, nowS, nameOf }: { pot: HcPot; who: ActorStat
             <button type="button" style={{ ...btn, alignSelf: "flex-start" }} disabled={!!a.step || tooLate} onClick={() => a.run((s) => joinPot(who.actor!, POTS, pot, s), "Joined. The entry price is being measured.")}>
               {tooLate ? "Too close to the market's close" : `Give your word (${$(dep)})`}
             </button>
+            <FeeNote fees={fees} payer={who.actor.kind === "wallet" ? "wallet" : "honorcat"} />
           </>
         )}
         <Feedback a={a} account={who.actor?.account ?? null} />
@@ -282,7 +286,8 @@ function Actions({ pot, who, price, nowS, nameOf }: { pot: HcPot; who: ActorStat
             </div>
             <p style={{ margin: 0, color: C.body, fontSize: 16, lineHeight: 1.5 }}>
               <strong>Leaving:</strong> your share is priced over the next 30 seconds, and you give a treat for the other cat of {$(feeOf(n, Number(d.feeBps)))} (1%).{" "}
-              <strong>Handshake:</strong> if both of you agree, the pot splits now at the current price, with no fee.
+              <strong>Handshake:</strong> if both of you agree, the pot splits now at the current price, with no fee.{" "}
+              <FeeNote fees={fees} payer={who.actor?.kind === "wallet" ? "wallet" : "honorcat"} />
             </p>
             {(other || mineOffer) && (
               <div style={{ display: "flex", alignItems: "flex-end", gap: 4 }}>
@@ -657,6 +662,14 @@ export function PotView({ id }: { id: string }) {
 
       <Rope {...scene} trail={live.trail} speed={live.speed} />
 
+      <Receipts
+        events={pot.events ?? []}
+        fees={pot.fees ?? {}}
+        mySide={mine}
+        name={(side) => nameOf(side === 0 ? pot.owners.yes : pot.owners.no)}
+        says={(side) => (st ? (side === 0 ? st.yes : st.no) : side === 0 ? "YES" : "NO")}
+      />
+
       {(pot.state === "Divided" || pot.state === "Live" || pot.state === "ExitRequested") && <ExitSummary pot={pot} nameOf={nameOf} st={st} />}
 
       {mine !== null && pot.state === "Live" && <ThreeNumbers pot={pot} side={mine} price={live.smoothed} st={st} />}
@@ -676,7 +689,10 @@ export function PotView({ id }: { id: string }) {
             {story.map((s, i) => (
               <li key={i} style={{ display: "flex", flexWrap: "wrap", gap: "2px 16px", padding: "10px 0", borderBottom: `1px solid ${C.faint}`, fontSize: 16, lineHeight: 1.45 }}>
                 <span style={{ color: C.muted, minWidth: 150 }}>{s.at ? formatDate(s.at * 1000) : ""}</span>
-                <span style={{ flex: "1 1 420px" }}>{s.text}</span>
+                <span style={{ flex: "1 1 420px" }}>
+                  {s.text}
+                  {cents(pot.fees?.[s.tx.toLowerCase()]) && <span style={{ color: C.muted, fontSize: 14 }}> Arc fee {cents(pot.fees?.[s.tx.toLowerCase()])}.</span>}
+                </span>
                 <a href={txUrl(s.tx)} target="_blank" rel="noreferrer" style={{ color: C.muted, fontSize: 14 }}>
                   transaction
                 </a>

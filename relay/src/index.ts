@@ -111,3 +111,4 @@ export { GATEWAY_SOURCES, GATEWAY_WALLET, GATEWAY_MINTER, gatewayBalances, prepa
 export { addNote, notesOf, noteMessage, playersOf, type NoteKind } from "./potNotes";
 export { agentActionsOf, agentEvidence, createSeat, inviteAgent, revokeSeat, seatAct, seatByToken, seatMessage, seatsOf, SEAT_ACTIONS, SEAT_MAX_NOTIONAL, SEAT_MAX_POTS, type Seat } from "./agentSeats";
 export { agentInfoOf, attachMessage, attachSitter, cleanPowers, decide, decideProposal, detachSitter, type Power, type Powers } from "./catSitter";
+export { feeTable, txFees } from "./pots";

@@ -270,3 +270,8 @@ QuickNode
 - [x] Every market links to its page on Gemini (`https://www.gemini.com/predictions/<slug>`, the slug
       from Gemini's events API, checked to open that event): in the market lists, on the start page and
       on every pot page (finished games looked up by ticker); also in Grok Bot's market tool.
+- [x] Part 6, Arc in plain words: each action shows its Arc network fee in cents next to it
+      (`/api/hc/fees`, the 7-day average per action from the relay's own receipts) and who pays it;
+      every payout becomes a receipt sentence ("You left at 74.5% and received $7.40.") with how
+      long it took after the request, its own fee, and a link to the transaction that carries the
+      memo (`web/src/lib/receipts.ts`, tested in `relay/test/receipts.test.ts`).

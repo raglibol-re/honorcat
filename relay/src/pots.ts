@@ -14,6 +14,7 @@
  * 5. With M co-signatures (ascending signer order, the MultisigResolver format) the relay submits.
  */
 import { GEMINI_REST } from "./gemini";
+import { nativeToUsdcUnits } from "./arc";
 import { randomUUID } from "node:crypto";
 import {
   concat,
@@ -789,11 +790,31 @@ export async function potDetail(db: Db, potId: string) {
     updatedAt: row.updated_at,
     market: marketFull,
     events: events.map((e) => ({ name: e.event_name, args: e.args, tx: e.tx_hash, at: e.block_time ? Number(e.block_time) : null })),
+    // The network fee of each of this pot's transactions, in USDC base units (from the receipts).
+    fees: await txFees(db, [...new Set(events.map((e) => e.tx_hash))]),
     requests: requests.map((r) => ({ id: r.id, kind: r.kind, status: r.status, tx: r.tx, error: r.error, createdAt: r.created_at, payload: payloadOf(r) })),
   };
 }
 
 /** League, both teams, start and what YES means for a market, from the catalogue (when still listed). */
+/** Network fees (USDC base units) of some transactions, from the relay's receipts. */
+export async function txFees(db: Db, txs: string[]): Promise<Record<string, string>> {
+  if (!txs.length) return {};
+  const rows = await db.query<{ tx_hash: string; fee_wei: string | null }>(
+    "SELECT lower(tx_hash) AS tx_hash, fee_wei::text AS fee_wei FROM relay_txs WHERE lower(tx_hash) = ANY($1::text[]) AND fee_wei IS NOT NULL",
+    [txs.map((t) => t.toLowerCase())],
+  );
+  return Object.fromEntries(rows.map((r) => [r.tx_hash, nativeToUsdcUnits(BigInt(r.fee_wei!)).toString()]));
+}
+
+/** The average network fee per kind of pot transaction (USDC base units), for "fee in cents" labels. */
+export async function feeTable(db: Db): Promise<Record<string, string>> {
+  const rows = await db.query<{ kind: string; avg: string | null }>(
+    "SELECT kind, (avg(fee_wei))::bigint::text AS avg FROM relay_txs WHERE kind LIKE 'pot_%' AND fee_wei IS NOT NULL AND submitted_at > now() - interval '7 days' GROUP BY kind",
+  );
+  return Object.fromEntries(rows.filter((r) => r.avg).map((r) => [r.kind, nativeToUsdcUnits(BigInt(r.avg!)).toString()]));
+}
+
 /** Gemini's page slug for an event no longer in the active catalogue (finished games), cached. */
 const slugCache = new Map<string, string | null>();
 async function eventSlug(eventTicker: string): Promise<string | null> {

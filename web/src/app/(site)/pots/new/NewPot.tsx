@@ -12,6 +12,7 @@ import { AccountLine, FundsHelp, btn, SignIn, useActor } from "@/components/pot/
 import { useTechMode } from "@/components/TechMode";
 import { PlayerCat } from "@/components/cat/PlayerCat";
 import { GeminiLink } from "@/components/cat/GeminiLink";
+import { FeeNote, useFees } from "@/components/pot/Receipts";
 import { getJson } from "@/lib/api";
 import { plainError } from "@/lib/messages";
 import { createPot, MAX_TOLERANCE, NO, prepare, worstCase, YES } from "@/lib/hc";
@@ -55,6 +56,7 @@ export function NewPot() {
   const [step, setStep] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const live = useLivePrice(market?.symbol ?? null);
+  const fees = useFees();
   const st = market ? sidesOf(market) : null;
 
   const p = live.smoothed ?? (market ? midYes(market) : null);
@@ -288,6 +290,7 @@ export function NewPot() {
               <button type="button" style={{ ...btn, alignSelf: "flex-start", opacity: bad || step ? 0.6 : 1 }} disabled={!!bad || !!step} onClick={submit}>
                 {step ?? (practice ? (opponent === "bot" && seat ? "Give your word and invite my Grok Bot" : "Give your word and play the practice cat") : "Give your word")}
               </button>
+              <FeeNote fees={fees} payer={who.actor.kind === "wallet" ? "wallet" : "honorcat"} />
               {bad && <p style={{ margin: 0, color: C.muted }}>{bad}</p>}
             </>
           )}
