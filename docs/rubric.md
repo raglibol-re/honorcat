@@ -298,3 +298,8 @@ QuickNode
       players, fees in cents) with what it does for the player and a live count, rate or transaction
       (`/api/hc/evidence` `everyday`), and marks Modular Wallets, Onramp, Earn and Bridge as not yet.
       The README has the same table. CCTP is described as built earlier and not on the current pages.
+- [x] Part 1, Onramp as a marked demo: "Add money by card or bank" on /account follows Circle's USDC
+      Onramp Demo sample (amount, debit card or bank transfer, Circle's payment window), labelled
+      "Demo: no money moves", invents no price or fee, and says why: Onramp needs a Circle API key, and
+      its sandbox cannot finish a purchase on Arc testnet (test bank deposits land only on Ethereum,
+      DEPOSIT_SETTLED is not emitted in sandbox). The rest of part 1 waits for Modular Wallets.

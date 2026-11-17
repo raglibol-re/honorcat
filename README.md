@@ -218,7 +218,8 @@ counts, rates and newest transactions from `/api/hc/evidence`).
 | Circle CCTP V2 | Built earlier for USDC from Solana Devnet and six EVM testnets (`/api/cctp/receive`); the current pages use Gateway for this job | Not on the current pages |
 | Sends between players | Send USDC to another player by name (cat and short address confirmed); "send my share" after a pot | Count, total and newest send |
 | Circle Modular Wallets | Built (passkey smart accounts, gas sponsored); switches on once the Circle console is set up | Not live yet |
-| Onramp, Earn, Bridge on exit, EURC payouts | Need a Circle smart account per player | Not built yet; Onramp would be a marked demo (no test cards) |
+| Circle Onramp Kit | Add money by debit card or bank transfer (the USDC Onramp Demo sample's steps) | A marked demo on /account: needs a Circle API key, and the sandbox cannot settle on Arc testnet |
+| Earn, Bridge on exit, EURC payouts | Need a Circle smart account per player | Not built yet |
 
 ## Setup
 

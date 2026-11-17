@@ -139,10 +139,22 @@ export function Built() {
       proof: <>A pot action costs about {feeCents("pot_exec")}, a forwarded wallet action {feeCents("pot_forward")}, a price on-chain {feeCents("pot_attest")}, a Gateway mint {feeCents("pot_gateway")}: paid by HonorCat in USDC, shown next to each button and on each receipt.</>,
     },
     {
-      what: "Circle Modular Wallets, Onramp, Earn and Bridge on exit",
+      what: "Circle Onramp Kit: add money by debit card or bank transfer",
+      check: "a marked demo on the account page",
+      status: "partly",
+      proof: (
+        <>
+          The steps of Circle&apos;s USDC Onramp Demo sample, clearly marked as a demo on the <Link href="/account">account page</Link>; no money moves and no price is made up (Circle&apos;s window
+          would show it). Not live because Onramp needs a Circle API key, and its test mode cannot finish a purchase on Arc testnet (test bank deposits land only on Ethereum; test purchases are
+          never reported as settled).
+        </>
+      ),
+    },
+    {
+      what: "Circle Modular Wallets, Earn and Bridge on exit",
       check: "not built yet",
       status: "not yet",
-      proof: <>Each needs a Circle smart account per player (Modular Wallets), which waits for the Circle console to be set up. Onramp would be a marked demo on testnet (no test cards).</>,
+      proof: <>Each needs a Circle smart account per player (Modular Wallets), which waits for the Circle console to be set up.</>,
     },
   ];
   const arc: Item[] = [
