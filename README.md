@@ -14,7 +14,7 @@ Live: **https://honorcat.vercel.app**
 - [What it does](#what-it-does) · [Architecture](#architecture) · [Contracts](#contracts-on-arc-testnet-chain-5042002)
 - [Economic design and its risks](#economic-design-and-its-risks) · [How HonorCat uses Arc](#how-honorcat-uses-arc)
 - [The QuickNode Stream](#the-quicknode-stream) · [Grok Bot](#grok-bot) · [Every asset and Circle product](#every-asset-and-circle-product)
-- [Setup, run, test, deploy](#setup) · [Environment variables](#environment-variables) · [Build log](#build-log)
+- [Setup, run, test, deploy](#setup) · [Environment variables](#environment-variables) · [Build log](#build-log) · [Handoff](docs/HANDOFF.md)
 
 ## What it does
 
