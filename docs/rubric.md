@@ -282,3 +282,9 @@ QuickNode
       send from the wallet. Checked on production: $0.10 to Willow, tx 0x71243c66…27ab.
       "Withdraw everything" for pot players now uses the same transfer (it was limited to the old
       guarantee customers and returned 403).
+- [x] Part 2, home currency: players choose dollars (USDC) or euros (EURC) on the account page;
+      balances, pot totals, the rope's shares and the receipts then show in euros at a stated rate
+      ("Euro amounts at 1 USDC = 0.909 EURC (Circle Swap Kit rate for Arc, 8:09 AM). Pots still
+      hold and pay test USDC"). The rate is Circle's Stablecoin Kits rates service on Arc testnet,
+      the endpoint Swap Kit's `getTokenRates` calls (`/api/hc/rate`, cached 10 minutes). Amounts a
+      player types or pays stay in dollars. Real EURC payouts wait for Modular Wallets.

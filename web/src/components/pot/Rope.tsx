@@ -60,7 +60,6 @@ function poseFor(p: RopeProps): CatPose {
   return (p.speed ?? 0) > 1.5 ? "wobble" : "rope";
 }
 
-const money = (base: bigint) => Number(base) / 1e6;
 
 /** Dollars that roll like an odometer; screen readers get the plain amount. */
 function Dollars({ v }: { v: number }) {
