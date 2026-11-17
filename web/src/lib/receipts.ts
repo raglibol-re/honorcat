@@ -23,7 +23,8 @@ export function took(fromS: number | null, toS: number | null): string | null {
   return s < 120 ? `${s} second${s === 1 ? "" : "s"}` : `${Math.round(s / 60)} minutes`;
 }
 
-export type Receipt = { text: string; tx: string; tookS: number | null; at: number | null };
+/** `mine`: what the viewer's side received, in USDC base units (when the viewer holds a side). */
+export type Receipt = { text: string; tx: string; tookS: number | null; at: number | null; mine?: bigint };
 
 /**
  * Receipt sentences for the pot's payouts, from the viewer's side when they hold one
@@ -43,7 +44,7 @@ export function receiptsOf(events: ReceiptEvent[], mySide: number | null, name: 
       if (mySide === exitSide) text = `You left at ${pc(g.price)} and received ${usd(paid(mySide))}.`;
       else if (mySide !== null) text = `${name(exitSide)} left at ${pc(g.price)}; you received ${usd(paid(mySide))}, including a ${usd(fee)} treat.`;
       else text = `${name(exitSide)} left at ${pc(g.price)} and received ${usd(paid(exitSide))}; ${name(1 - exitSide)} received ${usd(paid(1 - exitSide))}.`;
-      out.push({ text, tx: e.tx, tookS: requestedAt !== null && e.at !== null ? e.at - requestedAt : null, at: e.at });
+      out.push({ text, tx: e.tx, tookS: requestedAt !== null && e.at !== null ? e.at - requestedAt : null, at: e.at, ...(mySide !== null ? { mine: BigInt(paid(mySide)) } : {}) });
       requestedAt = null;
     }
     if (e.name === "Handshake") {
@@ -55,7 +56,7 @@ export function receiptsOf(events: ReceiptEvent[], mySide: number | null, name: 
         mySide !== null
           ? `You shook hands at ${pc(g.price)} and received ${usd(paid(mySide))}, with no fee.`
           : `Both sides shook hands at ${pc(g.price)}: ${name(0)} received ${usd(paid(0))}, ${name(1)} ${usd(paid(1))}.`;
-      out.push({ text, tx: e.tx, tookS: 0, at: e.at });
+      out.push({ text, tx: e.tx, tookS: 0, at: e.at, ...(mySide !== null ? { mine: BigInt(paid(mySide)) } : {}) });
     }
     if (e.name === "PotSettled") {
       const o = Number(g.outcome);
@@ -68,7 +69,7 @@ export function receiptsOf(events: ReceiptEvent[], mySide: number | null, name: 
           : mySide !== null
             ? `Gemini's result: ${says(o === 1 ? 0 : 1)}. You received ${usd(paid(mySide))}.`
             : `Gemini's result: ${says(o === 1 ? 0 : 1)}. ${name(o === 1 ? 0 : 1)} received ${usd(paid(o === 1 ? 0 : 1))}.`;
-      out.push({ text, tx: e.tx, tookS: null, at: e.at });
+      out.push({ text, tx: e.tx, tookS: null, at: e.at, ...(mySide !== null ? { mine: BigInt(paid(mySide)) } : {}) });
     }
   }
   return out;

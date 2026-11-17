@@ -4,14 +4,17 @@ import Link from "next/link";
 import { TechOnly } from "@/components/TechMode";
 import { useEffect, useState } from "react";
 import { isAddress, type Address, type Hex } from "viem";
-import { getJson, usePolling } from "@/lib/api";
+import { usePolling } from "@/lib/api";
 import { addressUrl, txUrl } from "@/lib/chain";
 import { formatUsdc } from "@/lib/format";
 import { CatHead, Ears, EyesSmall } from "@/components/cat/shapes";
 import { C, F } from "@/components/cat/tokens";
 import { useWallet } from "@/lib/wallet/context";
 import { WalletChoice } from "@/components/cat/WalletChoice";
-import { forgetPasskey, passkeysSupported, savedPasskey, signChallenge, signInWithPasskey, type PasskeySession } from "@/lib/passkey";
+import { forgetPasskey, passkeysSupported, savedPasskey, signInWithPasskey, type PasskeySession } from "@/lib/passkey";
+import { SendTo } from "@/components/pot/SendTo";
+import { sendUsdc } from "@/lib/send";
+import { plainError } from "@/lib/messages";
 
 type AccountData = {
   account: Address;
@@ -19,9 +22,6 @@ type AccountData = {
   deployed: boolean;
   guarantees: { id: string; merchantName: string; promise: string; refund: string; potStatus: string | null; outcome: boolean | null; seat: number }[];
 };
-
-const post = <T,>(path: string, body: unknown) =>
-  getJson<T>(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
 
 const btn: React.CSSProperties = {
   width: "100%",
@@ -117,22 +117,11 @@ function Signed({ session, onSignOut }: { session: PasskeySession; onSignOut: ()
     setBusy(true);
     setMsg(null);
     try {
-      const p = await post<{ challenge: Hex; deadline: string }>("/api/passkeys/withdraw/prepare", {
-        account: session.account,
-        to,
-        value: balance.toString(),
-      });
-      const assertion = await signChallenge(session, p.challenge);
-      const r = await post<{ tx: Hex }>("/api/passkeys/withdraw", {
-        account: session.account,
-        to,
-        value: balance.toString(),
-        deadline: p.deadline,
-        assertion,
-      });
-      setMsg({ text: "Sent.", tx: r.tx });
+      // The same passkey-signed transfer as sending to a player; HonorCat pays the network fee.
+      const tx = await sendUsdc({ kind: "passkey", session, account: session.account }, to as Address, balance);
+      setMsg({ text: "Sent.", tx });
     } catch (err) {
-      setMsg({ text: err instanceof Error ? err.message : String(err), error: true });
+      setMsg({ text: plainError(err), error: true });
     } finally {
       setBusy(false);
     }
@@ -186,6 +175,8 @@ function Signed({ session, onSignOut }: { session: PasskeySession; onSignOut: ()
         )}
       </form>
 
+      <SendTo actor={{ kind: "passkey", session, account: session.account }} balance={balance} />
+
       {data && data.guarantees.length > 0 && (
         <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <h2 style={{ margin: 0, fontFamily: F.cond, fontSize: 44, fontWeight: 600, lineHeight: 1 }}>Your guarantees</h2>
@@ -222,6 +213,7 @@ function Signed({ session, onSignOut }: { session: PasskeySession; onSignOut: ()
 /** For people who joined with a wallet: payouts land straight in that wallet's address on Arc. */
 function WalletMoney({ account, solana }: { account: Address; solana: string | null }) {
   const { data } = usePolling<AccountData>(`/api/accounts/${account}`, 5000);
+  const wallet = useWallet();
   return (
     <section style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 480 }}>
       <div style={{ display: "flex", flexDirection: "column" }}>
@@ -242,6 +234,7 @@ function WalletMoney({ account, solana }: { account: Address; solana: string | n
           ? `Payouts go to this Arc account. Your Solana wallet (${solana.slice(0, 4)}…${solana.slice(-4)}) controls it: signing the same HonorCat message on any device opens it again.`
           : "Payouts go straight to this address on Arc. Nothing to withdraw: the USDC is already in your wallet, and Circle CCTP can move it to any other supported chain."}
       </p>
+      {!solana && <SendTo actor={{ kind: "wallet", adapter: wallet.adapter, account }} balance={data ? BigInt(data.usdc) : null} />}
     </section>
   );
 }

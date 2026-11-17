@@ -15,7 +15,8 @@ import { Rope } from "@/components/pot/Rope";
 import { AfterPot } from "@/components/pot/AfterPot";
 import { PriceChart } from "@/components/pot/PriceChart";
 import { FeeNote, Receipts, useFees } from "@/components/pot/Receipts";
-import { cents } from "@/lib/receipts";
+import { cents, receiptsOf } from "@/lib/receipts";
+import { SendTo } from "@/components/pot/SendTo";
 import { AgentPanel } from "@/components/agent/AgentPanel";
 import type { AgentInfo } from "@/lib/agent";
 import { HelperBubble } from "@/components/helper/Helper";
@@ -473,6 +474,21 @@ function NotifyButton({ potId, account }: { potId: string; account: string | nul
  * The last division of the pot, in plain words: what each side received, the treat (fee) and the
  * evidence. For a partial exit it says so and shows what remains in the pot.
  */
+/** After a payout: send what this pot paid you on to another player, by name. */
+function ShareSend({ pot, who, mine }: { pot: HcPot; who: ActorState; mine: number | null }) {
+  const [open, setOpen] = useState(false);
+  if (mine === null || !who.actor) return null;
+  const paid = receiptsOf(pot.events ?? [], mine, () => "", () => "").reduce((n, r) => n + (r.mine ?? 0n), 0n);
+  if (paid <= 0n) return null;
+  if (!open)
+    return (
+      <button type="button" onClick={() => setOpen(true)} style={{ ...btnQuiet, alignSelf: "flex-start" }}>
+        Send my ${(Number(paid) / 1e6).toFixed(2)} to…
+      </button>
+    );
+  return <SendTo actor={who.actor} balance={who.balance} amount={paid < (who.balance ?? paid) ? paid : (who.balance ?? paid)} potId={pot.potId} title="Send my share to a player" />;
+}
+
 function ExitSummary({ pot, nameOf, st }: { pot: HcPot; nameOf: (a: string | null) => string; st: Sides | null }) {
   const ev = pot.events ?? [];
   const idx = ev.map((e) => e.name).lastIndexOf("PotDivided");
@@ -669,6 +685,7 @@ export function PotView({ id }: { id: string }) {
         name={(side) => nameOf(side === 0 ? pot.owners.yes : pot.owners.no)}
         says={(side) => (st ? (side === 0 ? st.yes : st.no) : side === 0 ? "YES" : "NO")}
       />
+      <ShareSend pot={pot} who={who} mine={mine} />
 
       {(pot.state === "Divided" || pot.state === "Live" || pot.state === "ExitRequested") && <ExitSummary pot={pot} nameOf={nameOf} st={st} />}
 

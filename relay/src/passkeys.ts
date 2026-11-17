@@ -15,7 +15,7 @@ import { publicClient } from "./chain";
 import { getConfig } from "./config";
 import type { Db } from "./db";
 import { GaslessError, logRequest } from "./gasless";
-import { memoCall } from "./memo";
+import { memoCall, type MemoBody } from "./memo";
 import { sendRelayCalls } from "./txs";
 
 /**
@@ -201,7 +201,24 @@ export async function submitPasskeyWithdraw(
     [input.account.toLowerCase()],
   );
   if (Number(recent[0]?.n ?? 0) >= 5) throw new GaslessError("withdrawal limit reached for today", 429);
+  const ref = input.guaranteeId ? `guarantee-${input.guaranteeId}` : "withdraw";
+  const res = await runPasskeyTransfer(db, pk, input, "withdraw", { v: 1, t: "withdraw", ref, why: "Customer withdrew with a passkey; HonorCat paid the fee" });
+  await logRequest(db, input.account, null, "withdraw", input.value, res.tx);
+  if (!res.ok) throw new GaslessError(`withdrawal failed: ${res.error}`, 502);
+  return { tx: res.tx, account: input.account };
+}
 
+/**
+ * Checks the passkey assertion over `transfer(to, value)` from the account and runs it (deploying the
+ * account first if needed) in one atomic batch paid by the relay, with a memo saying why.
+ */
+export async function runPasskeyTransfer(
+  db: Db,
+  pk: { qx: Hex; qy: Hex; rpIdHash: Hex },
+  input: { account: Address; to: Address; value: bigint; deadline: bigint; assertion: WebAuthnAssertion },
+  kind: "withdraw" | "pot_exec",
+  memo: MemoBody & { ref: string },
+) {
   const data = encodeFunctionData({ abi: erc20Abi, functionName: "transfer", args: [getAddress(input.to), input.value] });
   const nonce = await nonceOf(input.account);
   const challenge = executeDigest(getConfig().chainId, input.account, nonce, ARC_USDC, 0n, data, input.deadline);
@@ -225,23 +242,19 @@ export async function submitPasskeyWithdraw(
       },
     ],
   });
-  const ref = input.guaranteeId ? `guarantee-${input.guaranteeId}` : "withdraw";
-  const res = await sendRelayCalls(
+  return sendRelayCalls(
     db,
-    "withdraw",
+    kind,
     [
       {
         target: factory(),
         callData: encodeFunctionData({ abi: passkeyFactoryAbi, functionName: "createAccount", args: [pk.qx, pk.qy, pk.rpIdHash] }),
         label: "deploy account",
       },
-      { ...memoCall(input.account, exec, ref, { v: 1, t: "withdraw", ref, why: "Customer withdrew with a passkey; HonorCat paid the fee" }), label: "execute" },
+      { ...memoCall(input.account, exec, memo.ref, memo), label: "execute" },
     ],
     { atomic: true, memoTxsOf: true },
   );
-  await logRequest(db, input.account, null, "withdraw", input.value, res.tx);
-  if (!res.ok) throw new GaslessError(`withdrawal failed: ${res.error}`, 502);
-  return { tx: res.tx, account: input.account };
 }
 
 export { toHex };

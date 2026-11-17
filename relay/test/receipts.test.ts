@@ -33,3 +33,10 @@ describe("Arc in plain words", () => {
     expect(receiptsOf(hs, 1, name, says)[0]!.text).toBe("You shook hands at 70.0% and received $3.00, with no fee.");
   });
 });
+
+describe("what the viewer received", () => {
+  it("marks the viewer's own amount on each receipt", () => {
+    expect(receiptsOf(exit, 1, name, says)[0]!.mine).toBe(2_600_000n);
+    expect(receiptsOf(exit, null, name, says)[0]!.mine).toBeUndefined();
+  });
+});
