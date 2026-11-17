@@ -3,6 +3,7 @@ import { z } from "zod";
 import { catalogList, liveQuality } from "@/server/catalog";
 import { getDb, seatAct, seatByToken, type Seat } from "@/server/relay";
 import { sidesOf } from "@/lib/statement";
+import { geminiEventUrl } from "@/lib/geminiLink";
 
 /**
  * HonorCat as tools for a player's agent (their Grok Bot, added as a custom "Remote HTTPS" connector
@@ -83,7 +84,7 @@ function handlerFor(seat: Seat) {
               const s = sidesOf(m);
               const bid = m.book?.bid ?? m.bid;
               const ask = m.book?.ask ?? m.ask;
-              return { symbol: m.symbol, yes: s.yes, no: s.no, chance: bid != null && ask != null ? Math.round(((bid + ask) / 2) * 1000) / 10 : null, closes: new Date(m.closeMs).toISOString(), works: m.quality.status };
+              return { symbol: m.symbol, gemini: geminiEventUrl(m.slug), yes: s.yes, no: s.no, chance: bid != null && ask != null ? Math.round(((bid + ask) / 2) * 1000) / 10 : null, closes: new Date(m.closeMs).toISOString(), works: m.quality.status };
             }),
             source: "Data provided by Gemini.",
           });

@@ -78,6 +78,7 @@ export type PotMarket = {
   startMs?: number | null;
   yesMeans?: string | null;
   closeMs?: number | null;
+  slug?: string | null;
 };
 export type PotEvent = { name: string; args: Record<string, string>; tx: string; at: number | null };
 export type HcPot = {

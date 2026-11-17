@@ -265,3 +265,8 @@ QuickNode
       tx 0xad981c8b…ccaf); the item says exactly what was run (from Arc) and what was not (other chains).
 - [x] Full team names everywhere, also inside spreads, totals and events that list only short names
       (relay/test/statement.test.ts; no "Los Angeles C" left on /markets, /pots/new, /pots or /).
+
+## 15. Everyday app (2026-11-17), built in the order agreed
+- [x] Every market links to its page on Gemini (`https://www.gemini.com/predictions/<slug>`, the slug
+      from Gemini's events API, checked to open that event): in the market lists, on the start page and
+      on every pot page (finished games looked up by ticker); also in Grok Bot's market tool.

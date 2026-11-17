@@ -13,6 +13,7 @@
  * 4. Each sampler co-signs the proposal only if it is within 0.5 points of its own average.
  * 5. With M co-signatures (ascending signer order, the MultisigResolver format) the relay submits.
  */
+import { GEMINI_REST } from "./gemini";
 import { randomUUID } from "node:crypto";
 import {
   concat,
@@ -776,7 +777,8 @@ export async function potDetail(db: Db, potId: string) {
     [potId],
   );
   const row2 = market ? await rowBySymbol(db, market.instrument).catch(() => null) : null;
-  const marketFull = market && { ...market, league: row2?.league ?? null, teams: row2?.teams ?? null, startMs: row2?.startMs ?? null, yesMeans: row2?.yesMeans ?? null, closeMs: row2?.closeMs ?? null };
+  const slug = row2?.slug ?? (market ? await eventSlug(market.eventTicker) : null);
+  const marketFull = market && { ...market, league: row2?.league ?? null, teams: row2?.teams ?? null, startMs: row2?.startMs ?? null, yesMeans: row2?.yesMeans ?? null, closeMs: row2?.closeMs ?? null, slug };
   return {
     potId: row.pot_id,
     state: POT_STATES[row.state],
@@ -792,9 +794,20 @@ export async function potDetail(db: Db, potId: string) {
 }
 
 /** League, both teams, start and what YES means for a market, from the catalogue (when still listed). */
+/** Gemini's page slug for an event no longer in the active catalogue (finished games), cached. */
+const slugCache = new Map<string, string | null>();
+async function eventSlug(eventTicker: string): Promise<string | null> {
+  if (slugCache.has(eventTicker)) return slugCache.get(eventTicker)!;
+  const r = await fetch(`${GEMINI_REST}/v1/prediction-markets/events/${encodeURIComponent(eventTicker)}`, { signal: AbortSignal.timeout(4000) }).catch(() => null);
+  const j = r?.ok ? ((await r.json().catch(() => null)) as { slug?: unknown } | null) : null;
+  const slug = typeof j?.slug === "string" && /^[a-z0-9-]+$/.test(j.slug) ? j.slug : null;
+  slugCache.set(eventTicker, slug);
+  return slug;
+}
+
 async function namesFor(db: Db, instrument: string) {
   const r = await rowBySymbol(db, instrument).catch(() => null);
-  return { league: r?.league ?? null, teams: r?.teams ?? null, startMs: r?.startMs ?? null, yesMeans: r?.yesMeans ?? null, closeMs: r?.closeMs ?? null };
+  return { league: r?.league ?? null, teams: r?.teams ?? null, startMs: r?.startMs ?? null, yesMeans: r?.yesMeans ?? null, closeMs: r?.closeMs ?? null, slug: r?.slug ?? null };
 }
 
 export async function listPotsHc(db: Db, opts: { owner?: string; states?: number[]; limit?: number } = {}) {

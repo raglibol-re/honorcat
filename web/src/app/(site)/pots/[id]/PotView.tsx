@@ -8,6 +8,7 @@ import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Cat } from "@/components/cat/Cat";
 import { PlayerCat } from "@/components/cat/PlayerCat";
+import { GeminiLink } from "@/components/cat/GeminiLink";
 import { GeminiCredit } from "@/components/cat/Markets";
 import { C, F } from "@/components/cat/tokens";
 import { Rope } from "@/components/pot/Rope";
@@ -614,6 +615,12 @@ export function PotView({ id }: { id: string }) {
       <header style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <span style={{ fontSize: 15, color: C.muted }}>
           Pot {pot.potId} · {m ? marketLine(m) : ""} · trading closes {formatDate(Number(pot.data.closeTime) * 1000)}
+          {m?.slug && (
+            <>
+              {" · "}
+              <GeminiLink slug={m.slug} label="the market on Gemini" size={15} />
+            </>
+          )}
         </span>
         <h1 style={{ margin: 0, fontFamily: F.cond, fontSize: "clamp(34px, 7vw, 56px)", fontWeight: 600, lineHeight: 0.95 }}>{st ? `${st.yes}?` : "Pot"}</h1>
         {st && (

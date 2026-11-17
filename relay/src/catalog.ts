@@ -60,6 +60,8 @@ export type CatalogRow = {
   startMs?: number | null;
   /** What YES means, from the contract's own rule ("Boston wins the Pro Basketball game …"). */
   yesMeans?: string | null;
+  /** Gemini's page for the event: https://www.gemini.com/predictions/<slug>. */
+  slug?: string | null;
   seenAt: number; // ms, last time the events list included it
   book: BookStats | null;
 };
@@ -160,6 +162,7 @@ type ListedContract = {
 export type ListedEvent = {
   ticker: string;
   title: string;
+  slug?: string | null;
   startTime?: string | null;
   participants?: { name?: string; side?: string }[] | null;
   category: string;
@@ -230,6 +233,7 @@ export function rowsFromEvent(e: ListedEvent, now: number): Omit<CatalogRow, "bo
       teams: teamsOf(e),
       startMs: e.startTime ? new Date(e.startTime).getTime() : null,
       yesMeans: yesMeansOf(textOf(c.description ?? null)),
+      slug: typeof e.slug === "string" && /^[a-z0-9-]+$/.test(e.slug) ? e.slug : null,
       seenAt: now,
     }))
     .filter((r) => Number.isFinite(r.closeMs) && r.closeMs > now);

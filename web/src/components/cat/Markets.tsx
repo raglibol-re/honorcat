@@ -5,6 +5,7 @@ import { useState } from "react";
 import { usePolling } from "@/lib/api";
 import { expandTeams, fullLabel, rememberTeams, sidesOf } from "@/lib/statement";
 import { CatHead } from "./shapes";
+import { GeminiLink } from "./GeminiLink";
 import { C, F } from "./tokens";
 
 /* ------------------------------------------------------------------ shared types (mirror server/catalog.ts) */
@@ -19,6 +20,8 @@ export type MarketItem = {
   category: string;
   subcategory: string | null;
   eventTitle: string;
+  /** Gemini's page for the event: https://www.gemini.com/predictions/<slug>. */
+  slug?: string | null;
   label: string;
   closeMs: number;
   bid: number | null;
@@ -104,7 +107,7 @@ const usd = (x: number | null) => (x === null ? "–" : x >= 1000 ? `$${(x / 100
 
 /* ------------------------------------------------------------------ events, grouped */
 
-type EventGroup = { key: string; title: string; category: string; subcategory: string | null; image: string | null; closeMs: number; volume: number | null; league: string | null; teams: string | null; startMs: number | null; items: MarketItem[] };
+type EventGroup = { key: string; slug: string | null; title: string; category: string; subcategory: string | null; image: string | null; closeMs: number; volume: number | null; league: string | null; teams: string | null; startMs: number | null; items: MarketItem[] };
 
 /** Contracts grouped by their Gemini event, in the order the list ranks them. */
 export function groupByEvent(items: MarketItem[]): EventGroup[] {
@@ -120,6 +123,7 @@ export function groupByEvent(items: MarketItem[]): EventGroup[] {
     else
       map.set(m.eventTicker, {
         key: m.eventTicker,
+        slug: m.slug ?? null,
         title: full(m.eventTitle, m.eventTitle),
         category: m.category,
         subcategory: m.subcategory,
@@ -239,7 +243,10 @@ export function EventBlocks({ items, picked, onPick, detail }: { items: MarketIt
                   .filter(Boolean)
                   .join(" · ")}
               </span>
-              <h3 style={{ margin: 0, fontFamily: F.cond, fontSize: 24, fontWeight: 600, lineHeight: 1.05 }}>{g.teams ?? g.title}</h3>
+              <div style={{ display: "flex", gap: 12, alignItems: "baseline", flexWrap: "wrap" }}>
+                <h3 style={{ margin: 0, fontFamily: F.cond, fontSize: 24, fontWeight: 600, lineHeight: 1.05 }}>{g.teams ?? g.title}</h3>
+                <GeminiLink slug={g.slug} size={13} />
+              </div>
             </div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", paddingLeft: "min(66px, 10vw)" }}>

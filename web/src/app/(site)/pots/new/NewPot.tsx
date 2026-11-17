@@ -11,6 +11,7 @@ import { marketLine, sidesOf, yesMeans } from "@/lib/marketName";
 import { AccountLine, FundsHelp, btn, SignIn, useActor } from "@/components/pot/Who";
 import { useTechMode } from "@/components/TechMode";
 import { PlayerCat } from "@/components/cat/PlayerCat";
+import { GeminiLink } from "@/components/cat/GeminiLink";
 import { getJson } from "@/lib/api";
 import { plainError } from "@/lib/messages";
 import { createPot, MAX_TOLERANCE, NO, prepare, worstCase, YES } from "@/lib/hc";
@@ -160,6 +161,7 @@ export function NewPot() {
             <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
               <span style={{ fontSize: 14, color: C.muted }}>{marketLine(market)}</span>
               <span style={{ fontSize: 20, fontWeight: 600 }}>{st.yes}?</span>
+              <GeminiLink slug={market.slug} label="See this market on Gemini" />
               {tech && (
                 <span style={{ fontSize: 14, color: C.muted }}>
                   Technical: YES on {market.symbol} settles YES if {yesMeans(market).charAt(0).toLowerCase() + yesMeans(market).slice(1)}.
