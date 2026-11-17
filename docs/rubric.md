@@ -288,3 +288,13 @@ QuickNode
       hold and pay test USDC"). The rate is Circle's Stablecoin Kits rates service on Arc testnet,
       the endpoint Swap Kit's `getTokenRates` calls (`/api/hc/rate`, cached 10 minutes). Amounts a
       player types or pays stay in dollars. Real EURC payouts wait for Modular Wallets.
+- [x] Part 3, money from anywhere (funding side): the Gateway panel uses the unified-balance flow and
+      words of Circle's "Arc multichain wallet" sample and the Unified Balance Kit (deposit, confirmed
+      vs pending, spend): a deposit made on this device shows as pending with its chain's finality
+      wait until the confirmed balance grows. Gateway addresses checked against docs.arc.io. Bridge on
+      exit waits for Modular Wallets.
+- [x] Part 7, evidence: /how-it-is-built lists every asset (USDC, EURC) and every Circle product
+      (Developer-controlled Wallets, Gateway unified balance, Stablecoin Kits rates, sends between
+      players, fees in cents) with what it does for the player and a live count, rate or transaction
+      (`/api/hc/evidence` `everyday`), and marks Modular Wallets, Onramp, Earn and Bridge as not yet.
+      The README has the same table. CCTP is described as built earlier and not on the current pages.

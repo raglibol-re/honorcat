@@ -14,10 +14,32 @@ const input: React.CSSProperties = { minHeight: 44, padding: "0 10px", border: `
 const usd = (v: number) => `$${v.toFixed(2)}`;
 
 /**
- * Add USDC from another chain with Circle Gateway: a wallet deposits on any supported chain into
- * one unified balance, then moves it to the player's HonorCat account on Arc with one signature.
- * Circle attests the transfer and HonorCat's relay mints it on Arc (no fee to or from Arc).
+ * Money from anywhere: Circle's unified balance (Circle Gateway, the flow of the "Arc multichain
+ * wallet" sample and of the Unified Balance Kit's deposit / getBalances / spend). A wallet deposits
+ * USDC on any supported chain; once that chain has finalised it the deposit is confirmed and joins
+ * one unified balance; the player spends it into their HonorCat account on Arc with one signature.
+ * Circle attests the burn intent and HonorCat's relay mints it on Arc.
  */
+type Pending = { domain: number; name: string; amount: number; tx: string; at: number; before: number; wait: string };
+const PENDING_KEY = "honorcat.gateway.pending";
+const readPending = (): Pending[] => {
+  try {
+    return JSON.parse(localStorage.getItem(PENDING_KEY) ?? "[]") as Pending[];
+  } catch {
+    return [];
+  }
+};
+const writePending = (list: Pending[]) => {
+  try {
+    localStorage.setItem(PENDING_KEY, JSON.stringify(list));
+  } catch {
+    /* private mode: pending deposits are not remembered */
+  }
+};
+const ago = (ms: number) => {
+  const m = Math.max(0, Math.round((Date.now() - ms) / 60_000));
+  return m < 1 ? "just now" : m === 1 ? "1 minute ago" : `${m} minutes ago`;
+};
 export function GatewayPanel({ who }: { who: ActorState }) {
   const wallet = useWallet();
   const depositor = wallet.kind === "evm" ? wallet.account : null;
@@ -28,11 +50,21 @@ export function GatewayPanel({ who }: { who: ActorState }) {
   const [step, setStep] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  // Deposits made on this device that their chain has not finalised yet (Unified Balance: "pending").
+  const [pending, setPending] = useState<Pending[]>([]);
+  useEffect(() => {
+    void Promise.resolve().then(() => setPending(readPending()));
+  }, []);
 
   const load = useCallback(async () => {
     if (!depositor) return;
     try {
-      setBalances(await gatewayBalances(depositor));
+      const b = await gatewayBalances(depositor);
+      setBalances(b);
+      // A deposit is confirmed once the confirmed balance on its chain has grown by its amount.
+      const left = readPending().filter((p) => Number(b.find((x) => x.domain === p.domain)?.balance ?? 0) < p.before + p.amount - 0.000001 && Date.now() - p.at < 24 * 3600_000);
+      writePending(left);
+      setPending(left);
     } catch {
       /* keep the last value */
     }
@@ -63,10 +95,10 @@ export function GatewayPanel({ who }: { who: ActorState }) {
 
   return (
     <section id="gateway" style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 720 }}>
-      <h2 style={{ margin: 0, fontFamily: F.cond, fontSize: 36, fontWeight: 600 }}>Add USDC from another chain</h2>
+      <h2 style={{ margin: 0, fontFamily: F.cond, fontSize: 36, fontWeight: 600 }}>Add USDC from any chain</h2>
       <p style={{ margin: 0, fontSize: 16, lineHeight: 1.5, color: C.body }}>
-        With Circle Gateway your USDC on Base, Ethereum, Avalanche, Arbitrum, Optimism or Polygon becomes one balance you can spend on Arc at once. Deposit it once from your
-        wallet; after that, moving it into your HonorCat account takes one signature and a few seconds.
+        Circle&apos;s unified balance (Circle Gateway) turns your USDC on Base, Ethereum, Avalanche, Arbitrum, Optimism or Polygon into one balance. Deposit from your wallet on
+        any of them; once that chain has finalised the deposit it is confirmed, and spending it into your HonorCat account on Arc takes one signature and a few seconds.
       </p>
 
       {!depositor ? (
@@ -74,11 +106,11 @@ export function GatewayPanel({ who }: { who: ActorState }) {
       ) : (
         <>
           <div style={{ borderTop: `1.5px solid ${C.ink}`, paddingTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
-            <strong style={{ fontSize: 17 }}>Your Gateway balance: {balances === null ? "…" : usd(total)}</strong>
+            <strong style={{ fontSize: 17 }}>Your unified balance: {balances === null ? "…" : `${usd(total)} confirmed`}</strong>
             {held.map((b) => (
               <div key={b.domain} style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", fontSize: 16 }}>
                 <span style={{ minWidth: 160 }}>{b.name}</span>
-                <span>{usd(Number(b.balance))}</span>
+                <span>{usd(Number(b.balance))} confirmed</span>
                 {recipient && (
                   <button
                     type="button"
@@ -90,22 +122,30 @@ export function GatewayPanel({ who }: { who: ActorState }) {
                         const v = BigInt(Math.floor(Number(b.balance) * 1e6)) - 50_000n;
                         if (v <= 0n) throw new Error("Too little to move after Circle's fee.");
                         const r = await gatewayMove(wallet.adapter, { sourceDomain: b.domain, depositor, recipient, value: v }, setStep);
-                        setNote(`Moved $${(Number(r.value) / 1e6).toFixed(2)} into your HonorCat account on Arc. Transaction: ${txUrl(r.tx)}`);
+                        setNote(`Spent $${(Number(r.value) / 1e6).toFixed(2)} from your unified balance into your HonorCat account on Arc. Transaction: ${txUrl(r.tx)}`);
                         await load();
                         await who.refresh();
                       })
                     }
                   >
-                    Move into my HonorCat account
+                    Spend into my HonorCat account
                   </button>
                 )}
               </div>
             ))}
-            {balances !== null && held.length === 0 && <span style={{ fontSize: 15, color: C.muted }}>Nothing deposited yet.</span>}
+            {pending.map((p) => (
+              <div key={p.tx} style={{ display: "flex", gap: 12, flexWrap: "wrap", fontSize: 16, color: C.body }}>
+                <span style={{ minWidth: 160 }}>{p.name}</span>
+                <span>
+                  {usd(p.amount)} pending: deposited {ago(p.at)}, confirmed once {p.name} has finalised it ({p.wait})
+                </span>
+              </div>
+            ))}
+            {balances !== null && held.length === 0 && pending.length === 0 && <span style={{ fontSize: 15, color: C.muted }}>Nothing deposited yet.</span>}
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <strong style={{ fontSize: 17 }}>Deposit</strong>
+            <strong style={{ fontSize: 17 }}>Deposit into your unified balance</strong>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
               <select value={chainId} onChange={(e) => setChainId(Number(e.target.value))} aria-label="From chain" style={{ ...input, minWidth: 200 }}>
                 {GATEWAY_CHAINS.map((c) => (
@@ -121,8 +161,13 @@ export function GatewayPanel({ who }: { who: ActorState }) {
                 disabled={!!step || !(Number(amount) > 0)}
                 onClick={() =>
                   run(async () => {
+                    const domain = chosen.domain;
+                    const before = Number(balances?.find((b) => b.domain === domain)?.balance ?? 0);
                     const tx = await gatewayDeposit(wallet.adapter, chosen, BigInt(Math.round(Number(amount) * 1e6)), setStep);
-                    setNote(`Deposited on ${chosen.name} (${tx.slice(0, 10)}…). It counts once ${chosen.name} has finalised it: ${chosen.wait}. Then move it into your HonorCat account above.`);
+                    const list = [...readPending(), { domain, name: chosen.name, amount: Number(amount), tx, at: Date.now(), before, wait: chosen.wait }];
+                    writePending(list);
+                    setPending(list);
+                    setNote(`Deposited on ${chosen.name} (${tx.slice(0, 10)}…). It is pending until ${chosen.name} has finalised it (${chosen.wait}); then spend it into your HonorCat account above.`);
                     await load();
                   })
                 }
@@ -131,7 +176,8 @@ export function GatewayPanel({ who }: { who: ActorState }) {
               </button>
             </div>
             <span style={{ fontSize: 14, color: C.muted }}>
-              Your wallet pays {chosen.name}&apos;s own network fee for the deposit. It counts after {chosen.wait}. Need test USDC there?{" "}
+              Your wallet pays {chosen.name}&apos;s own network fee for the deposit. It is confirmed after {chosen.wait}. Spending to Arc costs Circle&apos;s small Gateway fee, taken from the unified
+              balance. Need test USDC there?{" "}
               <a href="https://faucet.circle.com" target="_blank" rel="noreferrer">
                 faucet.circle.com
               </a>

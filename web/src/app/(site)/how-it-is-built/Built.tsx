@@ -11,6 +11,13 @@ type Evidence = {
   streamsSinceFilter?: { sinceBlock: string; total: number; streams: number; pollerLagBlocks: number };
   circle?: { relayWallet: string | null; sentByCircle: number; gatewayMints: number; lastGatewayMint: string | null; lastCircleTx: string | null; faucetApi: string };
   agents?: { agentPots: number; agentActions: number; seats: number } | null;
+  everyday?: {
+    sends: number;
+    sentAmount: string;
+    lastSend: string | null;
+    rate: { eurcPerUsdc: number; fetchedAt: number; source: string } | null;
+    fees: Record<string, string>;
+  };
   medianWindowToPaidMs: number | null;
   contracts: { pots: string | null; fairValue: string | null };
 };
@@ -65,6 +72,79 @@ export function Built() {
   const ss = e?.streamsSinceFilter;
   const settled = ev("PotSettled");
 
+  const ed = e?.everyday;
+  const feeCents = (k: string) => (ed?.fees[k] ? `${(Number(ed.fees[k]) / 10_000).toFixed(2)}¢` : "…");
+  const assets: Item[] = [
+    {
+      what: "USDC: the money in every pot, every payout and every fee",
+      check: "payouts on Arc",
+      status: "done",
+      proof: <>Players deposit, win and get paid in test USDC; on Arc it is also the gas, so nobody needs a second token. Payouts: {last("Paid", "payout")}.</>,
+    },
+    {
+      what: "EURC: amounts in euros for players who think in euros",
+      check: "the live rate behind euro amounts",
+      status: "partly",
+      proof: (
+        <>
+          Choosing euros on the account page shows balances, pots, shares and receipts in EURC at a stated rate
+          {ed?.rate ? ` (now 1 USDC = ${ed.rate.eurcPerUsdc.toFixed(3)} EURC)` : ""}. Display only for now: receiving payouts in EURC (Swap Kit, as in the Arc stablecoin FX sample) needs a Circle
+          smart account per player, which waits for Circle Modular Wallets to be set up.
+        </>
+      ),
+    },
+  ];
+  const circleProducts: Item[] = [
+    {
+      what: "Circle Developer-controlled Wallets: HonorCat's relay pays every player's fees",
+      check: "pot transactions signed by Circle",
+      status: e?.circle?.sentByCircle ? "done" : "partly",
+      proof: <>Passkey players never hold gas: the relay wallet, whose key Circle holds, sends their actions and pays the fee. {e?.circle ? `${e.circle.sentByCircle} transactions so far` : "…"}; details below.</>,
+    },
+    {
+      what: "Circle Gateway (unified balance): money from other chains",
+      check: "a deposit spent into an HonorCat account on Arc",
+      status: e?.circle?.gatewayMints ? "done" : "partly",
+      proof: <>The flow of the Arc multichain wallet sample and the Unified Balance Kit (deposit, confirmed balance, spend): {e?.circle ? `${e.circle.gatewayMints} spends minted on Arc` : "…"}; details below.</>,
+    },
+    {
+      what: "Circle Stablecoin Kits rates (what Swap Kit's getTokenRates returns): the euro rate",
+      check: "the rate and when Circle priced it",
+      status: ed?.rate ? "done" : "partly",
+      proof: ed?.rate ? <>1 USDC = {ed.rate.eurcPerUsdc.toFixed(4)} EURC, priced {new Date(ed.rate.fetchedAt).toLocaleTimeString("en-US")} ({ed.rate.source}).</> : <>The rate is not available right now.</>,
+    },
+    {
+      what: "Sending money to another player by name",
+      check: "sends on Arc",
+      status: ed?.sends ? "done" : "partly",
+      proof: (
+        <>
+          The receiver needs nothing but their HonorCat name; the sender signs with a passkey and HonorCat pays the fee. {ed ? `${ed.sends} sends, $${(Number(ed.sentAmount) / 1e6).toFixed(2)} in all` : "…"}
+          {ed?.lastSend && (
+            <>
+              ; newest{" "}
+              <a href={txUrl(ed.lastSend)} target="_blank" rel="noreferrer">
+                send
+              </a>
+            </>
+          )}
+          .
+        </>
+      ),
+    },
+    {
+      what: "Fees in cents next to every action",
+      check: "the average fee per action over 7 days",
+      status: ed && Object.keys(ed.fees).length ? "done" : "partly",
+      proof: <>A pot action costs about {feeCents("pot_exec")}, a forwarded wallet action {feeCents("pot_forward")}, a price on-chain {feeCents("pot_attest")}, a Gateway mint {feeCents("pot_gateway")}: paid by HonorCat in USDC, shown next to each button and on each receipt.</>,
+    },
+    {
+      what: "Circle Modular Wallets, Onramp, Earn and Bridge on exit",
+      check: "not built yet",
+      status: "not yet",
+      proof: <>Each needs a Circle smart account per player (Modular Wallets), which waits for the Circle console to be set up. Onramp would be a marked demo on testnet (no test cards).</>,
+    },
+  ];
   const arc: Item[] = [
     { what: "USDC is the only asset, including the fee for every transaction", check: "the relay pays gas in USDC", status: "done", proof: <>Gas spent per kind of transaction is on <Link href="/status">status</Link>. Pots, deposits, payouts and fees are all USDC (6 decimals through the ERC-20 view).</> },
     { what: "Join and exit without gas worries", check: "passkey accounts pay nothing; wallets pay a fraction of a cent in USDC", status: "done", proof: <>Passkey accounts sign and HonorCat pays the fee. Browser wallets send ordinary transactions (an exact-amount USDC approval, then the deposit), the way wallets expect, so nothing is ever pulled by an off-chain signature; on Arc the fee is USDC too. EIP-3009 deposits and EIP-712 exit requests remain available through /api/hc/forward for integrators. Joins: {last("JoinRequested")}. Exits: {last("ExitRequested")}.</> },
@@ -99,12 +179,12 @@ export function Built() {
       ),
     },
     {
-      what: "Circle Gateway: a transfer attested by Circle and minted into an HonorCat account on Arc",
+      what: "Circle Gateway (unified balance): a transfer attested by Circle and minted into an HonorCat account on Arc",
       check: "a Gateway transfer run end to end (from Arc's own Gateway balance)",
       status: e?.circle?.gatewayMints ? "done" : "partly",
       proof: (
         <>
-          Deposit USDC on Base, Ethereum, Avalanche, Arbitrum, Optimism, Polygon or Arc into one Gateway balance, then move it into a HonorCat account on Arc with one signature: Circle
+          Deposit USDC on Base, Ethereum, Avalanche, Arbitrum, Optimism, Polygon or Arc into one unified balance; once confirmed, spend it into a HonorCat account on Arc with one signature: Circle
           attests, the relay mints. Run end to end from a Gateway balance on Arc (deposit, Circle&apos;s attestation, mint); deposits on the other chains use the same path but were not run here, as we
           hold no test USDC on them. {e?.circle ? `${e.circle.gatewayMints} Gateway mints recorded since the database was rebuilt` : ""}
           {e?.circle?.lastGatewayMint && (
@@ -115,7 +195,7 @@ export function Built() {
               </a>
             </>
           )}
-          . On the <Link href="/account#gateway">account page</Link>. Solana Devnet still comes over with CCTP.
+          . On the <Link href="/account#gateway">account page</Link>.
         </>
       ),
     },
@@ -178,6 +258,8 @@ export function Built() {
           . Source, tests and the design document are in the repository.
         </p>
       </header>
+      <List title="Every asset" items={assets} />
+      <List title="Every Circle product" items={circleProducts} />
       <List title="Arc" items={arc} />
       <List title="Gemini" items={gemini} />
       <List title="QuickNode" items={quicknode} />

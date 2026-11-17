@@ -13,7 +13,7 @@ Live: **https://honorcat.vercel.app**
 
 - [What it does](#what-it-does) · [Architecture](#architecture) · [Contracts](#contracts-on-arc-testnet-chain-5042002)
 - [Economic design and its risks](#economic-design-and-its-risks) · [How HonorCat uses Arc](#how-honorcat-uses-arc)
-- [The QuickNode Stream](#the-quicknode-stream) · [Grok Bot](#grok-bot) · [Circle](#circle)
+- [The QuickNode Stream](#the-quicknode-stream) · [Grok Bot](#grok-bot) · [Every asset and Circle product](#every-asset-and-circle-product)
 - [Setup, run, test, deploy](#setup) · [Environment variables](#environment-variables) · [Build log](#build-log)
 
 ## What it does
@@ -171,8 +171,11 @@ prices (funds stay safe without them, but exits wait); and real-money use would 
   one transaction, with Multicall3From batching the approval and the call where needed.
 - **Memos.** Every relay transaction carries a Memo with the pot and the reason (exit price, window,
   agreement rule, an agent's reason); the pot page decodes it from the chain.
-- **Funding from other chains.** Circle CCTP V2 (six EVM testnets and Solana Devnet) and Circle
-  Gateway (deposit on seven chains, move into an HonorCat account on Arc with one signature).
+- **Funding from other chains.** Circle Gateway's unified balance (deposit on seven chains; once confirmed, spend it into an HonorCat account
+  on Arc with one signature).
+- **Fees in plain words.** Every action shows its Arc network fee in cents next to it, and every payout
+  becomes a receipt sentence ("You left at 74.5% and received $7.40.") with how long it took and the
+  transaction that carries its Memo.
 
 ## The QuickNode Stream
 
@@ -200,11 +203,22 @@ and handshakes for the player to confirm. Every action is checked against the se
 limits and powers, logged with the agent's one-line reason, and shown on the pot page. It runs on the
 player's own Grok Bot plan and never holds a key or withdraws.
 
-## Circle
+## Every asset and Circle product
 
-The relay sends from a Circle developer-controlled wallet; Circle Gateway brings USDC from other
-chains; Circle smart accounts (Modular Wallets) are built for players and switch on once the passkey
-domain is set in Circle's console.
+What each does for the player, and where to check it live (`/how-it-is-built` shows the current
+counts, rates and newest transactions from `/api/hc/evidence`).
+
+| Asset or product | What it does for the player | Live evidence |
+| --- | --- | --- |
+| USDC | The money in every pot, payout and fee; on Arc also the gas, so no second token | Payouts (`Paid` events) with the newest transaction |
+| EURC | Amounts shown in euros at a stated rate for players who choose euros (display only; pots pay USDC) | The live rate, e.g. 1 USDC = 0.909 EURC |
+| Circle Developer-controlled Wallets | The relay wallet whose key Circle holds sends every passkey player's action and pays the fee | Transactions sent by Circle, newest linked |
+| Circle Gateway (unified balance) | Deposit USDC on Base, Ethereum, Avalanche, Arbitrum, Optimism, Polygon or Arc; spend it into the HonorCat account on Arc with one signature (the Arc multichain wallet sample's flow, the Unified Balance Kit's deposit / getBalances / spend) | Gateway mints on Arc, newest linked |
+| Circle Stablecoin Kits rates (Swap Kit `getTokenRates`) | The USDC/EURC rate behind euro amounts | Rate and the time Circle priced it |
+| Circle CCTP V2 | Built earlier for USDC from Solana Devnet and six EVM testnets (`/api/cctp/receive`); the current pages use Gateway for this job | Not on the current pages |
+| Sends between players | Send USDC to another player by name (cat and short address confirmed); "send my share" after a pot | Count, total and newest send |
+| Circle Modular Wallets | Built (passkey smart accounts, gas sponsored); switches on once the Circle console is set up | Not live yet |
+| Onramp, Earn, Bridge on exit, EURC payouts | Need a Circle smart account per player | Not built yet; Onramp would be a marked demo (no test cards) |
 
 ## Setup
 
@@ -262,7 +276,7 @@ be wrong. Testnet only, test money only, not financial advice.
 
 ## Build log
 
-Built from 2026-11-13 to 2026-11-16 (git log for every step).
+Built from 2026-11-13 to 2026-11-17 (git log for every step).
 
 - **2026-11-13** (4 commits): monorepo; VerdictVault with EIP-712 resolution; Arc deploy script; Next.js on Vercel.
 - **2026-11-14** (39 commits): relay (sources, signer, resolver, indexers), API routes, first end-to-end
@@ -279,3 +293,7 @@ Built from 2026-11-13 to 2026-11-16 (git log for every step).
 - **2026-11-16** (evening): the database moved to a new free Neon project and rebuilt from the chain;
   the helper cat; Circle smart accounts (built, waiting for the console setting); the price chart;
   Grok Bot as an MCP connector (AI opponent and cat sitter) with end-to-end runs; Streams back to 100%.
+- **2026-11-17**: everyday use: fees in cents and receipt sentences with payout times; send money to
+  another player by name and "send my share" after a pot; a home currency (euros at Circle's stated
+  rate); Gateway funding in the unified-balance wording; every asset and Circle product with live
+  evidence; links from every market to its page on Gemini.

@@ -1089,7 +1089,16 @@ export async function potsEvidence(db: Db) {
       WHERE kind IN ('pot_gateway','pot_exec','pot_attest','pot_settle','pot_forward','pot_house') AND submitted_at > '2026-11-16T14:20:00Z' GROUP BY kind`,
   ).catch(() => []);
   const { circleRelay } = await import("./circleWallet");
+  // Everyday use: sends between players (passkey-signed transfers HonorCat paid for), the euro rate.
+  const sends = await db
+    .query<{ n: string; amount: string | null; last: string | null }>(
+      "SELECT count(*)::text AS n, sum(amount)::text AS amount, (array_agg(tx_hash ORDER BY created_at DESC) FILTER (WHERE tx_hash IS NOT NULL))[1] AS last FROM gasless_requests WHERE kind = 'send' AND tx_hash IS NOT NULL",
+    )
+    .catch(() => []);
+  const { eurRate } = await import("./rates");
+  const [rate, fees] = await Promise.all([eurRate(), feeTable(db).catch(() => ({}) as Record<string, string>)]);
   return {
+    everyday: { sends: Number(sends[0]?.n ?? 0), sentAmount: sends[0]?.amount ?? "0", lastSend: sends[0]?.last ?? null, rate, fees },
     circle: {
       relayWallet: circleRelay()?.address ?? null,
       sentByCircle: circleTx.reduce((s, r) => s + Number(r.n), 0),
