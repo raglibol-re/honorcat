@@ -303,3 +303,7 @@ QuickNode
       "Demo: no money moves", invents no price or fee, and says why: Onramp needs a Circle API key, and
       its sandbox cannot finish a purchase on Arc testnet (test bank deposits land only on Ethereum,
       DEPOSIT_SETTLED is not emitted in sandbox). The rest of part 1 waits for Modular Wallets.
+- [x] My money rework (user: "too much text"): balance first; Add money / Send / Withdraw open one at
+      a time; one sign-in and one sign-out; currency as a one-line $ / € switch; the Onramp reason and
+      Gateway details folded away; Grok Bot in one sentence. Signed-in axe check on every view: 0
+      issues, no overflow at phone width.

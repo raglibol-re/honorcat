@@ -171,17 +171,51 @@
   404s. Fixed (8f2acb6), re-audited clean. Secrets check added (`scripts/check-secrets.mjs`): no
   secret values in git history or the production bundle. BACKLOG.md and docs/rubric-evidence.md created.
 
+- 2026-11-17: everyday-app spec (Circle kits, docs.arc.io samples). The user chose "build what works
+  now"; all of it is live and checked on production (docs/rubric.md section 15):
+  - Part 6 (634069d): every action shows its Arc fee in cents (`/api/hc/fees`, 7-day average per
+    action from the relay's receipts); every payout is a receipt sentence with how long it took and
+    the transaction carrying its memo (`web/src/lib/receipts.ts`, tested).
+  - Part 4 (ff0ddf8, c308c3d): send test USDC to another player by name (each match shows its cat
+    and short address; the confirm step repeats both) and "Send my $X to…" on a pot that paid you.
+    Passkey sends are signed transfers the relay pays for (`relay/src/send.ts`, memo `t: "send"`).
+    "Withdraw everything" for pot players used the old guarantee-only path and returned 403; it now
+    uses the same transfer. Production runs: $0.10 to Willow from /account (0x71243c66…27ab) and
+    from pot 28's "Send my $0.49 to…" (0x31d790be…a492), pot 28 paid out in 93 s.
+  - Part 2 (564ea27, d306482): home currency. Euros at a stated rate from Circle's Stablecoin Kits
+    rates endpoint (the one Swap Kit `getTokenRates` uses; the Swap Kit package did not load on
+    Vercel, so the endpoint is called directly). Display only; payouts stay USDC.
+  - Part 3 (dfc4f20): the Gateway panel in the unified-balance words of the Arc multichain wallet
+    sample (which uses direct Gateway like ours); deposits show as pending until finality.
+  - Part 7 (dfc4f20, 435ff2d): every asset and Circle product with a live count, rate or transaction
+    on /how-it-is-built (`/api/hc/evidence` `everyday`) and in the README. CCTP corrected to "built
+    earlier, not on the current pages".
+  - Part 1, Onramp only (435ff2d): "Add money by card or bank" as a clearly marked demo following the
+    USDC Onramp Demo sample; no invented prices; says why (needs a Circle API key; the sandbox cannot
+    settle on Arc testnet).
+  - Also: full team names on pot pages after a game leaves the catalogue (from Gemini's event
+    participants); each pot page has its own title for tabs and the screen-reader route announcement.
+- 2026-11-17: user feedback "too much text" on My money: the page is rebuilt around the balance
+  (`web/src/app/(site)/account/MoneyView.tsx`, 02911f6): balance first with the cat and one Sign out;
+  three actions (Add money, Send, Withdraw) open one at a time; Add money offers "From another chain"
+  (Gateway, two steps) or "Card or bank" (the demo, its reason behind "Why a demo?"); currency as a
+  one-line $ / € switch; Grok Bot in one sentence and only when signed in (it had a second sign-in).
+  The old AccountView/AccountGateway are removed; `/account#gateway` opens Add money, from another
+  chain. Phone height 3,325 px to about 2,100 px. Signed-in axe check on every view: 0 issues (fixed
+  the fur swatches' unnamed pictures on the way), no overflow.
+
 ## In progress
-- Rubric goal (docs/rubric.md), working by docs/improve.md. Evidence in docs/rubric-evidence.md,
-  candidates in BACKLOG.md. 18 of 19 items checked.
+- (none)
 
 ## Next
-- M2 funder flow and live view, M3 recipient flow, evidence on the proof page, post-settlement record,
-  M4 e2e on the demo template.
-- Then: phase I threat model and static analysis, minimal phase H, phase E only if time allows.
+- Once Circle Modular Wallets work (console setting): switch on the built Circle smart accounts, then
+  the rest of the everyday spec: Circle-sponsored gas for new accounts (part 1), Earn (part 5), EURC
+  payouts through Swap Kit (part 2), Bridge on exit (part 3).
 
 ## Blocks current milestone
-- (none)
+- Circle Modular Wallets: the console has no "Modular Wallets" entry the user can find; sign-up fails
+  with -32012 "Cannot find the entity config". Everything above that needs a Circle smart account
+  waits for it.
 
 ## Later
 - CIRCLE_API_KEY is set (Vercel and .env) and valid (Circle's wallet endpoints answer 200), but

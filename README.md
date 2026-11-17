@@ -28,7 +28,7 @@ Live: **https://honorcat.vercel.app**
 | `/record/<address>` | Honor record: the facts and plain labels read from them, no score |
 | [`/grok-bot`](https://honorcat.vercel.app/grok-bot) | How to invite your Grok Bot as an AI opponent or cat sitter |
 | [`/how-it-is-built`](https://honorcat.vercel.app/how-it-is-built), [`/status`](https://honorcat.vercel.app/status) | Arc, Gemini, QuickNode, Grok Bot and Circle with live evidence; relay and Streams health |
-| [`/markets`](https://honorcat.vercel.app/markets), [`/live`](https://honorcat.vercel.app/live), `/how`, `/developers`, `/account` | Market quality; Streams deliveries; how it works; contracts and API; your account, Grok Bot seats, funding from other chains |
+| [`/markets`](https://honorcat.vercel.app/markets), [`/live`](https://honorcat.vercel.app/live), `/how`, `/developers`, `/account` | Market quality; Streams deliveries; how it works; contracts and API; My money: the balance (in $ or €), then Add money (from another chain, or card or bank as a marked demo), Send (to a player by name) and Withdraw, and Grok Bot seats |
 
 End-to-end runs against production (testnet USDC):
 
@@ -297,4 +297,5 @@ Built from 2026-11-13 to 2026-11-17 (git log for every step).
 - **2026-11-17**: everyday use: fees in cents and receipt sentences with payout times; send money to
   another player by name and "send my share" after a pot; a home currency (euros at Circle's stated
   rate); Gateway funding in the unified-balance wording; every asset and Circle product with live
-  evidence; links from every market to its page on Gemini.
+  evidence; links from every market to its page on Gemini; Onramp as a marked demo; My money rebuilt
+  around the balance with add, send and withdraw one at a time.
