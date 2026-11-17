@@ -83,14 +83,16 @@ export function SendTo({ actor, balance, amount, potId, title = "Send to a playe
     );
 
   return (
-    <section aria-labelledby={`${id}-h`} style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 520 }}>
-      <h2 id={`${id}-h`} style={{ margin: 0, fontFamily: F.cond, fontSize: 30, fontWeight: 600 }}>
-        {title}
-      </h2>
+    <section aria-labelledby={title ? `${id}-h` : undefined} aria-label={title ? undefined : "Send to a player"} style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 520 }}>
+      {title && (
+        <h2 id={`${id}-h`} style={{ margin: 0, fontFamily: F.cond, fontSize: 30, fontWeight: 600 }}>
+          {title}
+        </h2>
+      )}
       {!confirm && (
         <>
           <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 15, color: C.body }}>
-            Their HonorCat name
+            Send to (their HonorCat name)
             <input value={q} onChange={(e) => { setQ(e.target.value); setPick(null); if (e.target.value.trim().length < 2) setPlayers(null); }} placeholder="for example Mochi" autoComplete="off" style={field} />
           </label>
           {players && q.trim().length >= 2 && (
@@ -98,7 +100,7 @@ export function SendTo({ actor, balance, amount, potId, title = "Send to a playe
               <p style={{ margin: 0, fontSize: 15, color: C.muted }}>No player with that name yet.</p>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                <span id={`${id}-pick`} style={{ fontSize: 15, color: C.body }}>Pick the right cat: names are not unique</span>
+                <span id={`${id}-pick`} style={{ fontSize: 15, color: C.body }}>Pick their cat</span>
                 <div role="radiogroup" aria-labelledby={`${id}-pick`} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   {players.map((p) => {
                     const on = pick?.account === p.account;
@@ -125,7 +127,7 @@ export function SendTo({ actor, balance, amount, potId, title = "Send to a playe
             )
           )}
           <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 15, color: C.body }}>
-            Amount in test dollars{balance !== null ? ` (you have ${usd(balance)})` : ""}
+            Amount in dollars{balance !== null ? ` (you have ${usd(balance)})` : ""}
             <input value={dollars} onChange={(e) => setDollars(e.target.value.replace(/^\$/, ""))} inputMode="decimal" placeholder="2.50" style={{ ...field, maxWidth: 180 }} />
           </label>
           {tooMuch && <p style={{ margin: 0, fontSize: 15, color: C.signalInk }}>That is more than your account holds.</p>}
@@ -141,11 +143,11 @@ export function SendTo({ actor, balance, amount, potId, title = "Send to a playe
               <PlayerCat account={pick.account} fur={furOf(pick.fur)} pose="sit" size={56} label="" />
             </span>
             <p style={{ margin: 0, fontSize: 19, lineHeight: 1.35 }}>
-              Send <strong>{usd(value)}</strong> to <strong>{nameOf(pick)}</strong>, the cat shown here, at <span style={{ fontFamily: F.mono, fontSize: 15 }}>{shortAddr(pick.account)}</span>?
+              Send <strong>{usd(value)}</strong> to <strong>{nameOf(pick)}</strong> <span style={{ fontFamily: F.mono, fontSize: 15 }}>({shortAddr(pick.account)})</span>?
             </p>
           </div>
           <p style={{ margin: 0, fontSize: 15, color: C.body }}>
-            Arc transfers cannot be called back. Test money only.{" "}
+            This cannot be undone.{" "}
             <FeeNote fees={fees} kind="pot_exec" payer={actor.kind === "wallet" ? "wallet" : "honorcat"} />
           </p>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>

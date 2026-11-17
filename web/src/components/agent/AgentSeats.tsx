@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { C, F } from "@/components/cat/tokens";
 import { HelperCat } from "@/components/helper/Helper";
-import { SignIn, btn, btnQuiet, useActor } from "@/components/pot/Who";
+import { btn, btnQuiet, useActor } from "@/components/pot/Who";
 import { createSeat, revokeSeat, seatsOf, type SeatView } from "@/lib/agent";
 import { formatDate } from "@/lib/format";
 import { plainError } from "@/lib/messages";
@@ -65,18 +65,15 @@ export function AgentSeats() {
   return (
     <section id="agents" style={{ display: "flex", flexDirection: "column", gap: 14, borderTop: `1.5px solid ${C.ink}`, paddingTop: 20 }}>
       <div style={{ display: "flex", alignItems: "flex-end", gap: 14 }}>
-        <HelperCat pose="sit" size={80} label="A cat sitting at its post: your agent" />
+        <HelperCat pose="sit" size={56} label="A cat sitting at its post: your agent" />
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <h2 style={{ margin: 0, fontFamily: F.cond, fontSize: 40, fontWeight: 600, lineHeight: 1 }}>Your Grok Bot</h2>
+          <h2 style={{ margin: 0, fontFamily: F.cond, fontSize: 30, fontWeight: 600, lineHeight: 1 }}>Your Grok Bot</h2>
           <p style={{ margin: 0, fontSize: 16, lineHeight: 1.5, color: C.body }}>
-            Give your Grok Bot a seat: it can play your practice pots when nobody else is around, or mind your own pots as a cat sitter with the powers you choose. It never withdraws.{" "}
-            <Link href="/grok-bot">How to invite your Grok Bot</Link>.
+            It can play practice pots with you or mind your pots. It never withdraws. <Link href="/grok-bot">How it works</Link>
           </p>
         </div>
       </div>
-      {!who.actor ? (
-        <SignIn who={who} purpose="Sign in to give your Grok Bot a seat." />
-      ) : (
+      {!who.actor ? null : (
         <>
           {fresh && (
             <div role="status" style={{ display: "flex", flexDirection: "column", gap: 8, border: `2px solid ${C.ink}`, padding: "12px 14px" }}>
@@ -113,7 +110,7 @@ export function AgentSeats() {
               {busy === "create" ? "Confirm…" : "Give my Grok Bot a seat"}
             </button>
           </form>
-          <p style={{ margin: 0, fontSize: 14, color: C.muted }}>A seat lasts 24 hours, plays pots up to $2 of test money as your opponent and up to 10 of them, and stops the moment you revoke it.</p>
+          <p style={{ margin: 0, fontSize: 14, color: C.muted }}>A seat lasts 24 hours. You can revoke it any time.</p>
           {seats && seats.length > 0 && (
             <ul style={{ margin: 0, padding: 0, listStyle: "none", borderTop: `1px solid ${C.faint}` }}>
               {seats.map((s) => (

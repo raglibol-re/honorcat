@@ -6,8 +6,8 @@ import { C, F } from "@/components/cat/tokens";
 type Method = "card" | "bank";
 
 const METHODS: { id: Method; label: string; note: string }[] = [
-  { id: "card", label: "Debit card", note: "Also Apple Pay and Google Pay, in the US, the UK, select EU countries and other countries. Credit cards are not accepted." },
-  { id: "bank", label: "Bank transfer", note: "In select US states and select EU countries." },
+  { id: "card", label: "Debit card", note: "Or Apple Pay, Google Pay" },
+  { id: "bank", label: "Bank transfer", note: "Select US states and EU countries" },
 ];
 
 const field: React.CSSProperties = { fontFamily: F.sans, fontSize: 17, minHeight: 48, padding: "0 12px", border: `1.5px solid ${C.ink}`, background: C.panel, color: C.ink, boxSizing: "border-box" };
@@ -19,32 +19,29 @@ const field: React.CSSProperties = { fontFamily: F.sans, fontSize: 17, minHeight
  * does not have yet, and its sandbox does not deliver to Arc testnet (bank-transfer test deposits land
  * only on Ethereum; a sandbox purchase is never reported as settled).
  */
-export function OnrampDemo() {
+export function OnrampDemo({ bare = false }: { bare?: boolean }) {
   const id = useId();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(bare);
   const [amount, setAmount] = useState("20");
   const [method, setMethod] = useState<Method>("card");
   const [shown, setShown] = useState(false);
   const ok = /^\d{1,5}(\.\d{0,2})?$/.test(amount.trim()) && Number(amount) > 0;
 
   return (
-    <section aria-labelledby={`${id}-h`} style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 560 }}>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
-        <h2 id={`${id}-h`} style={{ margin: 0, fontFamily: F.cond, fontSize: 30, fontWeight: 600 }}>
+    <section aria-label="Add money by card or bank (demo)" style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 560 }}>
+      {!bare && (
+        <h2 style={{ margin: 0, fontFamily: F.cond, fontSize: 30, fontWeight: 600 }}>
           Add money by card or bank
         </h2>
-        <span style={{ fontSize: 14, fontWeight: 700, padding: "2px 8px", border: `1.5px solid ${C.signalInk}`, color: C.signalInk }}>Demo: no money moves</span>
-      </div>
-      <p style={{ margin: 0, fontSize: 16, lineHeight: 1.5, color: C.body }}>
-        With Circle&apos;s Onramp you would buy USDC with a debit card or a bank transfer, and it would land straight in your HonorCat account on Arc. This test version shows the steps only.
-      </p>
+      )}
+      <span style={{ alignSelf: "flex-start", fontSize: 14, fontWeight: 700, padding: "2px 8px", border: `1.5px solid ${C.signalInk}`, color: C.signalInk }}>Demo: no money moves</span>
 
       {!open ? (
         <button type="button" onClick={() => setOpen(true)} style={{ ...field, background: "transparent", fontWeight: 600, alignSelf: "flex-start", padding: "0 20px", cursor: "pointer" }}>
           Add money (demo)
         </button>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: 14, border: `1.5px dashed ${C.ink}` }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 15, color: C.body }}>
             Amount in dollars
             <input value={amount} onChange={(e) => { setAmount(e.target.value.replace(/^\$/, "")); setShown(false); }} inputMode="decimal" style={{ ...field, maxWidth: 180 }} />
@@ -78,28 +75,23 @@ export function OnrampDemo() {
             onClick={() => setShown(true)}
             style={{ minHeight: 48, padding: "0 20px", alignSelf: "flex-start", background: C.ink, color: C.page, border: 0, fontFamily: F.sans, fontSize: 17, fontWeight: 600, cursor: "pointer", opacity: ok ? 1 : 0.5 }}
           >
-            Continue to Circle&apos;s payment window (demo)
+            Continue (demo)
           </button>
           {shown && (
             <div role="status" style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 16, lineHeight: 1.5 }}>
-              <strong>In the real app, this happens next:</strong>
-              <ol style={{ margin: 0, paddingLeft: 22, display: "flex", flexDirection: "column", gap: 4 }}>
-                <li>Circle&apos;s payment window opens here. It shows the price, its fees and how much USDC you get before you pay anything.</li>
-                <li>The first time, Circle checks who you are (name, date of birth, address, an ID number and a photo).</li>
-                <li>
-                  You pay ${Number(amount).toFixed(2)} by {method === "card" ? "debit card" : "bank transfer"}
-                  {method === "bank" ? "; a bank transfer can take longer to arrive" : ""}.
-                </li>
-                <li>The USDC lands in your HonorCat account on Arc, ready for a pot.</li>
-              </ol>
-              <p style={{ margin: 0, color: C.body }}>
-                <strong>Why this is a demo:</strong> Circle&apos;s Onramp needs a Circle API key, which this test version does not have yet. Circle&apos;s test mode also cannot finish a purchase
-                on Arc testnet: test bank deposits arrive only on Ethereum, and a test purchase is never reported as settled. Until then, add test money with the{" "}
-                <a href="https://faucet.circle.com" target="_blank" rel="noreferrer">
-                  Circle faucet
-                </a>{" "}
-                or from another chain below.
+              <p style={{ margin: 0 }}>
+                Here Circle&apos;s payment window would open: it shows the price and fees, checks your ID the first time, and sends ${Number(amount).toFixed(2)} in USDC to this account.
               </p>
+              <details>
+                <summary style={{ cursor: "pointer", color: C.body }}>Why a demo?</summary>
+                <p style={{ margin: "6px 0 0", color: C.body }}>
+                  Circle&apos;s Onramp needs an API key, and its test mode cannot finish a purchase on Arc testnet. For test money, use the{" "}
+                  <a href="https://faucet.circle.com" target="_blank" rel="noreferrer">
+                    Circle faucet
+                  </a>
+                  .
+                </p>
+              </details>
             </div>
           )}
         </div>

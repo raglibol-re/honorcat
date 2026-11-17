@@ -207,7 +207,7 @@ export function Built() {
               </a>
             </>
           )}
-          . On the <Link href="/account#gateway">account page</Link>.
+          . On the <Link href="/account">account page</Link> (Add money).
         </>
       ),
     },
