@@ -778,8 +778,11 @@ export async function potDetail(db: Db, potId: string) {
     [potId],
   );
   const row2 = market ? await rowBySymbol(db, market.instrument).catch(() => null) : null;
-  const slug = row2?.slug ?? (market ? await eventSlug(market.eventTicker) : null);
-  const marketFull = market && { ...market, league: row2?.league ?? null, teams: row2?.teams ?? null, startMs: row2?.startMs ?? null, yesMeans: row2?.yesMeans ?? null, closeMs: row2?.closeMs ?? null, slug };
+  // A game leaves the catalogue once it starts: then Gemini's event (which keeps its participants
+  // after settlement) gives the page link and both teams in full.
+  const info = market && (!row2?.slug || !row2?.teams) ? await eventInfo(market.eventTicker) : null;
+  const slug = row2?.slug ?? info?.slug ?? null;
+  const marketFull = market && { ...market, league: row2?.league ?? null, teams: row2?.teams ?? info?.teams ?? null, startMs: row2?.startMs ?? null, yesMeans: row2?.yesMeans ?? null, closeMs: row2?.closeMs ?? null, slug };
   return {
     potId: row.pot_id,
     state: POT_STATES[row.state],
@@ -816,14 +819,19 @@ export async function feeTable(db: Db): Promise<Record<string, string>> {
 }
 
 /** Gemini's page slug for an event no longer in the active catalogue (finished games), cached. */
-const slugCache = new Map<string, string | null>();
-async function eventSlug(eventTicker: string): Promise<string | null> {
+const slugCache = new Map<string, { slug: string | null; teams: string | null }>();
+async function eventInfo(eventTicker: string): Promise<{ slug: string | null; teams: string | null }> {
   if (slugCache.has(eventTicker)) return slugCache.get(eventTicker)!;
   const r = await fetch(`${GEMINI_REST}/v1/prediction-markets/events/${encodeURIComponent(eventTicker)}`, { signal: AbortSignal.timeout(4000) }).catch(() => null);
-  const j = r?.ok ? ((await r.json().catch(() => null)) as { slug?: unknown } | null) : null;
+  const j = r?.ok ? ((await r.json().catch(() => null)) as { slug?: unknown; participants?: { name?: string; side?: string }[] } | null) : null;
   const slug = typeof j?.slug === "string" && /^[a-z0-9-]+$/.test(j.slug) ? j.slug : null;
-  slugCache.set(eventTicker, slug);
-  return slug;
+  const ps = (j?.participants ?? []).filter((x) => typeof x.name === "string" && x.name);
+  const away = ps.find((x) => x.side === "away");
+  const home = ps.find((x) => x.side === "home");
+  const teams = ps.length === 2 ? (away && home ? `${away.name} at ${home.name}` : `${ps[0]!.name} vs ${ps[1]!.name}`) : null;
+  const out = { slug, teams };
+  if (r?.ok) slugCache.set(eventTicker, out);
+  return out;
 }
 
 async function namesFor(db: Db, instrument: string) {
