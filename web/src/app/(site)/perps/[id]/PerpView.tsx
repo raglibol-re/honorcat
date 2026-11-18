@@ -8,7 +8,7 @@ import { Lives } from "@/components/perp/Lives";
 import { useLivePrice } from "@/components/pot/usePrice";
 import { SignIn, useActor } from "@/components/pot/Who";
 import { useTechMode } from "@/components/TechMode";
-import { getJson } from "@/lib/api";
+import { getJson, pollDelay, pollFast } from "@/lib/api";
 import { ropesStatus, type HcPot } from "@/lib/hc";
 import { plainError } from "@/lib/messages";
 import { displayName, useNames } from "@/lib/names";
@@ -150,11 +150,15 @@ export function PerpView({ id }: { id: string }) {
           if (/404|no such perp/i.test(String(e))) setMissing(true);
           else setLoadErr(plainError(e));
         });
-    void load();
-    const t = setInterval(load, 5000);
+    let t: ReturnType<typeof setTimeout> | null = null;
+    const loop = async () => {
+      await load();
+      if (alive) t = setTimeout(loop, pollDelay(5000));
+    };
+    void loop();
     return () => {
       alive = false;
-      clearInterval(t);
+      if (t) clearTimeout(t);
     };
   }, [id]);
   const potDb = p?.data.potDb ?? null;
@@ -165,11 +169,15 @@ export function PerpView({ id }: { id: string }) {
       getJson<HcPot>(`/api/hc/pots/${potDb}`)
         .then((r) => alive && setRope(r))
         .catch(() => {});
-    void load();
-    const t = setInterval(load, 5000);
+    let t: ReturnType<typeof setTimeout> | null = null;
+    const loop = async () => {
+      await load();
+      if (alive) t = setTimeout(loop, pollDelay(5000));
+    };
+    void loop();
     return () => {
       alive = false;
-      clearInterval(t);
+      if (t) clearTimeout(t);
     };
   }, [potDb]);
 
@@ -251,6 +259,7 @@ export function PerpView({ id }: { id: string }) {
       await f();
       setStep(null);
       if (ok) toast(ok);
+      pollFast();
       setP(await getPerp(id));
     } catch (e) {
       setErr(plainError(e));

@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { toast } from "@/components/ui/Toast";
+import { pollFast } from "./api";
 import { plainError } from "./messages";
 
 /**
@@ -19,6 +20,7 @@ export function useAction() {
     setStep("Starting");
     try {
       const r = await f(setStep);
+      pollFast();
       const msg = typeof done === "function" ? done(r) : done;
       if (msg) toast(msg);
       return r;

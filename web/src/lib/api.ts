@@ -77,6 +77,19 @@ export async function getJson<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 /** Polls a JSON endpoint while the component is mounted (and the tab is visible). */
+/**
+ * After the player acts, pages that poll check every second for a minute, so the result shows as
+ * soon as it lands instead of at the next slow poll. Called by useAction and the perp page.
+ */
+let fastUntil = 0;
+export function pollFast(ms = 60_000) {
+  fastUntil = Date.now() + ms;
+  if (typeof window !== "undefined") window.dispatchEvent(new Event("hc:poll-fast"));
+}
+
+/** The delay before the next poll: `ms` normally, at most a second right after an action. */
+export const pollDelay = (ms: number) => (Date.now() < fastUntil ? Math.min(ms, 1000) : ms);
+
 export function usePolling<T>(path: string | null, intervalMs: number) {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -94,11 +107,19 @@ export function usePolling<T>(path: string | null, intervalMs: number) {
           setError(err instanceof Error ? err.message : String(err));
         }
       }
-      if (!stopped) timer.current = setTimeout(run, intervalMs);
+      if (!stopped) timer.current = setTimeout(run, Date.now() < fastUntil ? Math.min(intervalMs, 1000) : intervalMs);
     };
+    // An action just happened: check again now, then every second for a while.
+    const wake = () => {
+      if (stopped) return;
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = setTimeout(run, 300);
+    };
+    window.addEventListener("hc:poll-fast", wake);
     run();
     return () => {
       stopped = true;
+      window.removeEventListener("hc:poll-fast", wake);
       if (timer.current) clearTimeout(timer.current);
     };
   }, [path, intervalMs]);

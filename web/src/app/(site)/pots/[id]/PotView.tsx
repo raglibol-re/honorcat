@@ -40,7 +40,7 @@ import {
 import { ActionProgress, Button } from "@/components/ui/Button";
 import { Invite, NotifyButton } from "@/components/pot/Invite";
 import { toast } from "@/components/ui/Toast";
-import { getJson, usePolling } from "@/lib/api";
+import { getJson, pollFast, usePolling } from "@/lib/api";
 import { txUrl } from "@/lib/chain";
 import { formatDate, short } from "@/lib/format";
 import {
@@ -184,6 +184,7 @@ function useAction() {
       await f(setStep);
       setDone(ok);
       toast(ok);
+      pollFast();
     } catch (e) {
       setErr(plainError(e));
     } finally {
