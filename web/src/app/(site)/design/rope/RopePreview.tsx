@@ -43,6 +43,16 @@ export function RopePreview() {
         {nowS > 0 && <ShortRopeNote expiry={nowS + 5 * 3600 + 120} nowS={nowS} ended={false} />}
       </section>
       <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <h2 style={h2}>An open pot: one player, one open seat</h2>
+        <Rope
+          price={0.52}
+          notional={4_000_000n}
+          names={{ yes: "Sam", no: "open seat" }}
+          phase="waiting"
+          cats={{ yes: { fur: "ginger", mood: "even", name: "Sam" }, no: null }}
+        />
+      </section>
+      <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <h2 style={h2}>Cat cosmetics (unlocked by the honor record)</h2>
         <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "flex-end" }}>
           {(["bell", "scarf", "bow", "hat", "crown"] as const).map((w) => (

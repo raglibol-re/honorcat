@@ -230,6 +230,60 @@ function PostCatView({ c, side, w, at }: { c: PostCat; side: 0 | 1; w: number; a
 }
 
 /**
+ * An open seat on a post: no cat, only the dashed outline of where one will sit, and the words
+ * "open seat". The same place and size as a player's cat, so it reads as a cat that is still missing.
+ */
+function EmptySeatView({ side, w, at }: { side: 0 | 1; w: number; at?: number }) {
+  // The sitting cat's parts (shapes.tsx SittingCat). Drawn twice: a wide dashed stroke underneath,
+  // then pale fills on top, so only one dashed outline around the whole cat remains visible.
+  const parts = (props: React.SVGProps<SVGElement>) => (
+    <>
+      <path d="M94 122 C 128 122, 126 80, 104 74" {...(props as React.SVGProps<SVGPathElement>)} fill="none" />
+      <ellipse cx="64" cy="98" rx="34" ry="40" {...(props as React.SVGProps<SVGEllipseElement>)} />
+      <circle cx="44" cy="46" r="25" {...(props as React.SVGProps<SVGCircleElement>)} />
+      <polygon points="22,38 26,6 44,26" {...(props as React.SVGProps<SVGPolygonElement>)} />
+      <polygon points="46,24 62,6 66,38" {...(props as React.SVGProps<SVGPolygonElement>)} />
+      <ellipse cx="44" cy="135" rx="13" ry="6" {...(props as React.SVGProps<SVGEllipseElement>)} />
+      <ellipse cx="70" cy="135" rx="13" ry="6" {...(props as React.SVGProps<SVGEllipseElement>)} />
+    </>
+  );
+  return (
+    <div
+      role="img"
+      aria-label={`Open seat on the ${side === 0 ? "YES" : "NO"} post: nobody has taken this side yet`}
+      style={{
+        position: "absolute",
+        left: `${pctX(at ?? side)}%`,
+        top: `${((TOP - 20) / VH) * 100}%`,
+        width: w,
+        transform: `translate(${side === 0 ? "-30%" : "-70%"}, -92%)`,
+      }}
+    >
+      <svg viewBox="-6 -6 142 152" width="100%" aria-hidden="true" style={{ display: "block", transform: side === 1 ? "scaleX(-1)" : undefined, overflow: "visible" }}>
+        <g>{parts({ fill: "none", stroke: C.dash, strokeWidth: 8, strokeDasharray: "9 7", strokeLinejoin: "round", strokeLinecap: "round" })}</g>
+        <g>{parts({ fill: C.grid, stroke: C.grid, strokeWidth: 0 })}</g>
+        {/* the tail as a pale line over its own dashed edge */}
+        <path d="M94 122 C 128 122, 126 80, 104 74" fill="none" stroke={C.grid} strokeWidth="4" strokeLinecap="round" />
+      </svg>
+      {/* under the seat, aligned on the post so it stays on screen at either end */}
+      <span
+        style={{
+          position: "absolute",
+          top: "100%",
+          [side === 0 ? "left" : "right"]: "calc(30% + 12px)",
+          marginTop: 4,
+          fontSize: Math.max(12, Math.round(w / 6.5)),
+          color: C.muted,
+          whiteSpace: "nowrap",
+        }}
+      >
+        open seat
+      </span>
+    </div>
+  );
+}
+
+/**
  * The rope view: the pot hangs as a rope between two posts over the 0 to 100 scale of the YES
  * chance (the approved mockup's ruler). The cat stands at the 30-second price; left of it is YES's
  * share, right of it NO's, each in its player's fur colour, both in dollars over the posts. Each
@@ -259,6 +313,7 @@ export function Rope(p: RopeProps) {
   const yes = shares === null ? null : Number(shares.yes) / 1e6;
   const no = shares === null ? null : Number(shares.no) / 1e6;
   const pose = poseFor(p);
+  const open = p.phase === "waiting" || p.phase === "joining";
   // On a short rope the cat stays on the rope: past a post it waits at the post (the caption says the price).
   const catP = p.phase === "settled" && (p.receiver === 0 || p.receiver === 1) ? (p.receiver === 0 ? lo : hi) : Math.min(hi, Math.max(lo, price ?? (lo + hi) / 2));
   const catW = Math.max(56, Math.min(p.big ? 260 : 150, width * 0.1));
@@ -338,8 +393,9 @@ export function Rope(p: RopeProps) {
           )}
         </svg>
 
-        {p.cats?.yes && <PostCatView c={p.cats.yes} side={0} w={postW} at={lo} />}
-        {p.cats?.no && <PostCatView c={p.cats.no} side={1} w={postW} at={hi} />}
+        {/* a player's cat on its post; while the pot waits for a player, the empty side shows an open seat */}
+        {p.cats?.yes ? <PostCatView c={p.cats.yes} side={0} w={postW} at={lo} /> : p.cats && open && <EmptySeatView side={0} w={postW} at={lo} />}
+        {p.cats?.no ? <PostCatView c={p.cats.no} side={1} w={postW} at={hi} /> : p.cats && open && <EmptySeatView side={1} w={postW} at={hi} />}
 
         {/* the market cat, standing on the rope */}
         <div
