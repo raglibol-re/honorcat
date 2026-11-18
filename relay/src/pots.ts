@@ -472,8 +472,12 @@ export async function potsWork(db: Db, signer: Address) {
     [s],
   );
   const cosign: CosignTask[] = proposed.map((r) => ({ requestId: r.id, kind: r.kind as CosignTask["kind"], digest: r.digest as Hex, payload: payloadOf(r) }));
+  // Only the fields the samplers need (the whole projection is several KB per pot, read on every poll).
   const live = await db.query<{ pot_id: string; data: Record<string, unknown> | string; condition_id: string }>(
-    "SELECT pot_id::text AS pot_id, data, condition_id FROM pots WHERE state = 3",
+    `SELECT pot_id::text AS pot_id, condition_id,
+            jsonb_build_object('levels', data->'levels', 'window', data->'window', 'nonce', data->'nonce', 'expiry', data->'expiry',
+                               'lower', data->'lower', 'upper', data->'upper', 'armedAt', data->'armedAt') AS data
+       FROM pots WHERE state = 3`,
   );
   const levels: LevelWatch[] = [];
   for (const row of live) {

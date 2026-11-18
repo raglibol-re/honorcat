@@ -34,7 +34,10 @@ export const CRYPTO_SYMBOL = /^GEMI-(BTC|ETH|SOL|XRP|DOGE|HYPE|ZEC|LTC|AVAX|LINK
 /** A sampler co-signs a v2 spread only if its own reading is at most this much wider (1 cent). */
 export const SPREAD_TOLERANCE_PPM = 10_000;
 
-type Book = { samples: Sample[]; params: TriggerParams; nextAt: number };
+/** keepMs: how far back samples are needed (the longest window this market is watched or measured for). */
+type Book = { samples: Sample[]; params: TriggerParams; nextAt: number; keepMs: number };
+/** Margin kept beyond the longest window (a window may close a little after it was asked for). */
+const KEEP_MARGIN_MS = 60_000;
 
 export const DEPTH_TOLERANCE = 0.8;
 
@@ -91,14 +94,32 @@ export class PotSampler {
     this.workAt = now;
     this.work = await this.io.work(this.address);
     const want = new Map<string, TriggerParams>();
-    for (const m of this.work.measure) want.set(m.instrument, m.params);
-    for (const l of this.work.levels) want.set(l.instrument, l.params);
-    for (const k of this.work.knocks ?? []) want.set(k.instrument, k.params);
+    // Keep only what a window can need: the samples are stored (and re-read by short-lived hosts),
+    // so 15 minutes of one-second samples per market would be read again and again.
+    const keep = new Map<string, number>();
+    const need = (i: string, ms: number) => keep.set(i, Math.max(keep.get(i) ?? 0, ms + KEEP_MARGIN_MS));
+    for (const m of this.work.measure) {
+      want.set(m.instrument, m.params);
+      need(m.instrument, Math.max(0, now - m.windowStart * 1000));
+    }
+    for (const l of this.work.levels) {
+      want.set(l.instrument, l.params);
+      need(l.instrument, l.window * 1000);
+    }
+    for (const k of this.work.knocks ?? []) {
+      want.set(k.instrument, k.params);
+      need(k.instrument, k.window * 1000);
+    }
     for (const k of [...this.books.keys()]) if (!want.has(k)) this.books.delete(k);
     for (const [instrument, params] of want) {
-      if (this.books.has(instrument)) continue;
+      const keepMs = Math.min(15 * 60_000, keep.get(instrument) ?? 15 * 60_000);
+      const had = this.books.get(instrument);
+      if (had) {
+        had.keepMs = keepMs;
+        continue;
+      }
       const samples = this.store ? await this.store.load(instrument) : [];
-      this.books.set(instrument, { samples, params, nextAt: 0 });
+      this.books.set(instrument, { samples: samples.filter((x) => x.t >= now - keepMs), params, nextAt: 0, keepMs });
     }
     this.source.watch([...want.keys()]);
   }
@@ -111,7 +132,7 @@ export class PotSampler {
       const s = classify({ t: now, dataT: top?.recv ?? 0, bid: top?.bid ?? null, bidSize: top?.bidSize ?? null, ask: top?.ask ?? null, askSize: top?.askSize ?? null }, b.params);
       const last = b.samples.at(-1);
       if (!last || s.t > last.t) b.samples.push(s);
-      const keepFrom = now - 15 * 60_000;
+      const keepFrom = now - b.keepMs;
       if (b.samples[0] && b.samples[0].t < keepFrom) b.samples = b.samples.filter((x) => x.t >= keepFrom);
       if (this.store) await this.store.save(instrument, b.samples);
     }
