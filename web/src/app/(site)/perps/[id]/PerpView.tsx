@@ -115,6 +115,13 @@ export function PerpView({ id }: { id: string }) {
   const [missing, setMissing] = useState(false);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [askLeave, setAskLeave] = useState(false);
+  const [practiceFailed, setPracticeFailed] = useState(false);
+  useEffect(() => {
+    if (
+      new URLSearchParams(window.location.search).get("practice") === "failed"
+    )
+      void Promise.resolve().then(() => setPracticeFailed(true));
+  }, []);
   const [rope, setRope] = useState<HcPot | null>(null);
   const [perps, setPerps] = useState<Address | null>(null);
   const [step, setStep] = useState<string | null>(null);
@@ -358,6 +365,39 @@ export function PerpView({ id }: { id: string }) {
           Perp {id}
         </h1>
         <p style={{ margin: 0, fontSize: 19 }}>{label}</p>
+        {p.practice && (
+          <p
+            role="note"
+            style={{
+              margin: 0,
+              padding: "10px 14px",
+              border: `1.5px solid ${C.ink}`,
+              fontSize: 16,
+              lineHeight: 1.45,
+              maxWidth: 760,
+            }}
+          >
+            <strong>Practice perp.</strong> The other side is the practice cat,
+            HonorCat&apos;s own test account. It never leaves or stops on its
+            own: leave now, stop renewing, or let the lives run out. Test money
+            only.
+          </p>
+        )}
+        {practiceFailed && p.phase === "Open" && (
+          <p
+            role="alert"
+            style={{
+              margin: 0,
+              fontSize: 17,
+              color: C.signalInk,
+              maxWidth: 760,
+            }}
+          >
+            The practice cat could not take the other side just now. Your perp
+            waits for a real player: send the link, or cancel it below and get
+            your money back.
+          </p>
+        )}
         <p style={{ margin: 0, fontSize: 17, color: C.body }}>
           On “{question}”. Each rope, both put in {$(stake)}; a rope lasts at
           most {lifeWords(Number(d.t.ropeLife))}.

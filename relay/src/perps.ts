@@ -184,7 +184,8 @@ export async function perpDetail(db: Db, perpId: string) {
     "SELECT args, tx_hash, block_time::text AS block_time, event_name, pot_id::text AS pot_id FROM pot_events WHERE event_name LIKE 'Perp:%' AND args->>'perpId' = $1 ORDER BY block_number, log_index",
     [perpId],
   );
-  return { perpId: row.perp_id, phase: PERP_PHASES[row.phase], a: row.a, b: row.b, pot: row.pot_id, data: dataOf(row), market: await perpMarket(db, row), events: ropes.map((e) => ({ name: e.event_name.slice(5), args: e.args, tx: e.tx_hash, at: e.block_time ? Number(e.block_time) : null, pot: e.pot_id })) };
+  const practice = (await db.query("SELECT 1 FROM practice_pots WHERE pot_id = $1", [`-${row.perp_id}`])).length > 0;
+  return { perpId: row.perp_id, phase: PERP_PHASES[row.phase], a: row.a, b: row.b, pot: row.pot_id, data: dataOf(row), practice, market: await perpMarket(db, row), events: ropes.map((e) => ({ name: e.event_name.slice(5), args: e.args, tx: e.tx_hash, at: e.block_time ? Number(e.block_time) : null, pot: e.pot_id })) };
 }
 
 export async function listPerps(db: Db, opts: { owner?: string; phases?: number[]; limit?: number } = {}) {

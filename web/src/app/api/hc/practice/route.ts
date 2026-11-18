@@ -1,10 +1,10 @@
 import { connection } from "next/server";
 import { z } from "zod";
-import { errorResponse, getDb, nudgeRelay, practiceAddress, practiceJoin, practiceStatus } from "@/server/relay";
+import { errorResponse, getDb, nudgeRelay, practiceAddress, practiceJoin, practiceJoinPerp, practiceStatus } from "@/server/relay";
 
 export const maxDuration = 60;
 
-const body = z.object({ potId: z.string().regex(/^\d+$/) });
+const body = z.union([z.object({ potId: z.string().regex(/^\d+$/) }), z.object({ perpId: z.string().regex(/^\d+$/) })]);
 
 /** Who the practice cat is (HonorCat's testnet account) and whether it can play right now. */
 export async function GET() {
@@ -21,7 +21,7 @@ export async function POST(req: Request) {
   await connection();
   try {
     const b = body.parse(await req.json());
-    const r = await practiceJoin(await getDb(), b.potId);
+    const r = "perpId" in b ? await practiceJoinPerp(await getDb(), b.perpId) : await practiceJoin(await getDb(), b.potId);
     nudgeRelay("hc:practice", { samplerBudgetMs: 45_000 });
     return Response.json(r);
   } catch (err) {

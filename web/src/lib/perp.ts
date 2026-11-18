@@ -105,6 +105,8 @@ export type PerpDetail = {
   pot: string | null;
   data: PerpData;
   market: PerpMarket | null;
+  /** The practice cat plays the other side (test money). */
+  practice?: boolean;
   events: PerpEvent[];
 };
 export type PerpSummary = Omit<PerpDetail, "events">;

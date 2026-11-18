@@ -19,6 +19,7 @@ import { AccountLine, FundsHelp, SignIn, useActor } from "@/components/pot/Who";
 import { Lives } from "@/components/perp/Lives";
 import { marketLine, sidesOf } from "@/lib/marketName";
 import { plainError } from "@/lib/messages";
+import { getJson } from "@/lib/api";
 import { prepareRope, YES, NO } from "@/lib/hc";
 import {
   DEFAULT_LIVES,
@@ -74,6 +75,8 @@ export function NewPerp({ perps }: { perps: Address }) {
   const [stakeIn, setStakeIn] = useState("1");
   const [lives, setLives] = useState(String(DEFAULT_LIVES));
   const [life, setLife] = useState<number>(3600);
+  // Practise alone: the practice cat takes the other side at once (test money, small stakes).
+  const [practice, setPractice] = useState(false);
   const [step, setStep] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const live = useLivePrice(market?.symbol ?? null);
@@ -121,9 +124,11 @@ export function NewPerp({ perps }: { perps: Address }) {
             ? "At least one life."
             : budget > MAX_BUDGET
               ? `On the test version a perp's budget is at most ${$(MAX_BUDGET)}: fewer lives or a smaller stake.`
-              : ropeLife === null
-                ? "This market closes too soon for a perp (the first rope must end two hours before trading closes)."
-                : null;
+              : practice && stake > 1_000_000n
+                ? "The practice cat plays perps up to $1 per life: put in less per life."
+                : ropeLife === null
+                  ? "This market closes too soon for a perp (the first rope must end two hours before trading closes)."
+                  : null;
 
   async function submit() {
     if (!who.actor || !market || !rope || ropeLife === null) return;
@@ -143,6 +148,23 @@ export function NewPerp({ perps }: { perps: Address }) {
         { side, d: rope.d, size, ropeLifeS: ropeLife, graceDays: 3, budget },
         setStep,
       );
+      if (practice && r.perpId) {
+        setStep("The practice cat is taking the other side");
+        try {
+          await getJson(`/api/hc/practice`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ perpId: r.perpId }),
+          });
+        } catch {
+          // The perp exists; it waits for a real player and can be cancelled on its page.
+          router.push(`/perps/${r.perpId}?practice=failed`);
+          return;
+        }
+        setStep("Done");
+        router.push(`/perps/${r.perpId}`);
+        return;
+      }
       setStep("Done");
       router.push(r.perpId ? `/perps/${r.perpId}?new=1` : "/pots");
     } catch (e) {
@@ -427,6 +449,32 @@ export function NewPerp({ perps }: { perps: Address }) {
           }}
         >
           <h2 style={h2}>3. Give your word</h2>
+          <label
+            style={{
+              display: "flex",
+              gap: 10,
+              alignItems: "flex-start",
+              fontSize: 16,
+              lineHeight: 1.45,
+              cursor: "pointer",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={practice}
+              onChange={(e) => (
+                setPractice(e.target.checked),
+                e.target.checked && Number(stakeIn) > 1 && setStakeIn("0.10")
+              )}
+              style={{ width: 22, height: 22, marginTop: 2 }}
+            />
+            <span>
+              <strong>Practise alone:</strong> the practice cat (HonorCat&apos;s
+              own test account) takes the other side at once, with up to three
+              lives, so you can watch the ropes roll. Up to $1 per life, test
+              money only.
+            </span>
+          </label>
           {!who.actor ? (
             <SignIn
               who={who}

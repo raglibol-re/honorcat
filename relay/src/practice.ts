@@ -8,6 +8,8 @@ import { potsAbi } from "./potsAbi";
 import { potsAddress, syncPot } from "./pots";
 import { ropesAbi } from "./ropesAbi";
 import { contractOf, isRopeDbId } from "./ropes";
+import { perpsAbi } from "./perpsAbi";
+import { perpsAddress, syncPerp } from "./perps";
 import { sendRelayCalls } from "./txs";
 
 /**
@@ -134,4 +136,51 @@ export async function practiceJoin(db: Db, potId: string) {
   }
   await syncPot(db, BigInt(potId)).catch(() => {});
   return { tx: res.tx, potId, chainId: getConfig().chainId };
+}
+
+/** Practice perps: small stakes and few lives, so the practice cat's test money lasts. */
+export const PRACTICE_PERP_MAX_STAKE = 1_000_000n;
+export const PRACTICE_PERP_MAX_LIVES = 3n;
+
+/** Whether a perp is a practice perp (stored with the perp's negative id). */
+export async function isPracticePerp(db: Db, perpId: string) {
+  return (await db.query("SELECT 1 FROM practice_pots WHERE pot_id = $1", [`-${perpId}`])).length > 0;
+}
+
+/**
+ * The practice cat takes the other side of an open perp: as many lives as the creator brought (at
+ * most 3), plus the maker treat, like any player. It never leaves or stops renewing on its own.
+ */
+export async function practiceJoinPerp(db: Db, perpId: string) {
+  const perps = perpsAddress();
+  if (!perps) throw Object.assign(new Error("perps are not deployed"), { status: 503 });
+  const c = publicClient();
+  const q = (await c.readContract({ address: perps, abi: perpsAbi, functionName: "perp", args: [BigInt(perpId)] })) as unknown as { phase: number; freeA: bigint; t: { closeTime: bigint } };
+  if (Number(q.phase) !== 1) throw Object.assign(new Error("this perp is not waiting for a second player"), { status: 409 });
+  const stake = (await c.readContract({ address: perps, abi: perpsAbi, functionName: "stake", args: [BigInt(perpId)] })) as bigint;
+  if (stake > PRACTICE_PERP_MAX_STAKE) throw Object.assign(new Error("the practice cat plays perps up to $1 per life"), { status: 400 });
+  if (Number(q.t.closeTime) - Math.floor(Date.now() / 1000) < 3 * 3600) throw Object.assign(new Error("this market closes too soon to practise on"), { status: 409 });
+  const today = await db.query<{ n: string }>("SELECT count(*)::text AS n FROM practice_pots WHERE created_at > now() - interval '1 day'");
+  if (Number(today[0]?.n ?? 0) >= PRACTICE_PER_DAY) throw Object.assign(new Error("the practice cat has played enough for today; invite a friend instead"), { status: 429 });
+  const creatorLives = q.freeA / stake;
+  const lives = creatorLives < 1n ? 1n : creatorLives > PRACTICE_PERP_MAX_LIVES ? PRACTICE_PERP_MAX_LIVES : creatorLives;
+  const budget = lives * stake + (stake * 25n) / 10_000n;
+  const me = practiceAddress();
+  const bal = await c.readContract({ address: ARC_USDC, abi: erc20Abi, functionName: "balanceOf", args: [me] });
+  if (bal < budget + PRACTICE_FLOOR) throw Object.assign(new Error("the practice cat is out of test money right now; invite a friend instead"), { status: 503 });
+  const inserted = await db.query("INSERT INTO practice_pots (pot_id) VALUES ($1) ON CONFLICT DO NOTHING RETURNING pot_id", [`-${perpId}`]);
+  if (!inserted.length) throw Object.assign(new Error("the practice cat already joined this perp"), { status: 409 });
+  const calls = [];
+  const allowance = await c.readContract({ address: ARC_USDC, abi: erc20Abi, functionName: "allowance", args: [me, perps] });
+  if (allowance < budget) calls.push({ target: ARC_USDC, callData: encodeFunctionData({ abi: erc20Abi, functionName: "approve", args: [perps, maxUint256] }), label: "approve" });
+  const join = encodeFunctionData({ abi: perpsAbi, functionName: "join", args: [BigInt(perpId), budget] });
+  const ref = `perp-${perpId}`;
+  calls.push({ ...memoCall(perps, join, ref, { v: 1, t: "pot", ref, why: "the practice cat takes the other side (test money)" }), label: "practice join" });
+  const res = await sendRelayCalls(db, "pot_exec", calls, { atomic: true });
+  if (!res.ok) {
+    await db.query("DELETE FROM practice_pots WHERE pot_id = $1", [`-${perpId}`]);
+    throw Object.assign(new Error(`the practice cat could not join: ${res.error.slice(0, 200)}`), { status: 502 });
+  }
+  await syncPerp(db, BigInt(perpId)).catch(() => {});
+  return { tx: res.tx, perpId, lives: lives.toString() };
 }
