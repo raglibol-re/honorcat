@@ -424,6 +424,27 @@ export type CosignTask = { requestId: string; kind: "window" | "depth" | "outcom
 export type LevelWatch = { potId: string; side: 0 | 1; net: number; bowl: number; setAt: number; window: number; instrument: string; params: TriggerParams; nonce: string };
 
 /** What a sampler should do now: windows to measure, proposals to co-sign, levels to watch. */
+type LiveRow = { pot_id: string; data: Record<string, unknown> | string; condition_id: string };
+const liveCache = new WeakMap<Db, { at: number; rows: Promise<LiveRow[]> }>();
+/**
+ * Live pots with only the fields the samplers need (the whole projection is several KB per pot).
+ * Every sampler asks every few seconds and the answer is the same for all of them, so it is shared
+ * for 5 seconds per instance: a new pot is watched at most 5 seconds later.
+ */
+function liveForSamplers(db: Db): Promise<LiveRow[]> {
+  const hit = liveCache.get(db);
+  if (hit && Date.now() - hit.at < 5_000) return hit.rows;
+  const rows = db.query<LiveRow>(
+    `SELECT pot_id::text AS pot_id, condition_id,
+            jsonb_build_object('levels', data->'levels', 'window', data->'window', 'nonce', data->'nonce', 'expiry', data->'expiry',
+                               'lower', data->'lower', 'upper', data->'upper', 'armedAt', data->'armedAt') AS data
+       FROM pots WHERE state = 3`,
+  );
+  liveCache.set(db, { at: Date.now(), rows });
+  rows.catch(() => liveCache.delete(db));
+  return rows;
+}
+
 export async function potsWork(db: Db, signer: Address) {
   const s = signer.toLowerCase();
   const now = Math.floor(Date.now() / 1000);
@@ -472,13 +493,7 @@ export async function potsWork(db: Db, signer: Address) {
     [s],
   );
   const cosign: CosignTask[] = proposed.map((r) => ({ requestId: r.id, kind: r.kind as CosignTask["kind"], digest: r.digest as Hex, payload: payloadOf(r) }));
-  // Only the fields the samplers need (the whole projection is several KB per pot, read on every poll).
-  const live = await db.query<{ pot_id: string; data: Record<string, unknown> | string; condition_id: string }>(
-    `SELECT pot_id::text AS pot_id, condition_id,
-            jsonb_build_object('levels', data->'levels', 'window', data->'window', 'nonce', data->'nonce', 'expiry', data->'expiry',
-                               'lower', data->'lower', 'upper', data->'upper', 'armedAt', data->'armedAt') AS data
-       FROM pots WHERE state = 3`,
-  );
+  const live = await liveForSamplers(db);
   const levels: LevelWatch[] = [];
   for (const row of live) {
     const d = (typeof row.data === "string" ? JSON.parse(row.data) : row.data) as Record<string, unknown>;
