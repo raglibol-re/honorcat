@@ -85,6 +85,12 @@ export async function runTick(opts: { reason: string; force?: boolean; skipIndex
         const own = cfg.samplerKey ? privateKeyToAccount(cfg.samplerKey as `0x${string}`) : null;
         const house = await potsHousekeeping(db, own);
         if (indexed?.touched || house.calls) report.pots = { indexed, house };
+        // Perps: index the chain contract, then start first ropes, credit and roll (perps.ts).
+        const { indexPerps, perpsHousekeeping } = await import("./perps");
+        const head = (await publicClient().getBlockNumber()) - 5n;
+        await indexPerps(db, head, { deadlineMs: 8_000 });
+        const perpsHouse = await perpsHousekeeping(db, own);
+        if (perpsHouse.calls) (report as Record<string, unknown>).perps = perpsHouse;
       } catch (err) {
         report.errors.push(`pots: ${(err as Error).message.split(String.fromCharCode(10))[0]}`);
       }

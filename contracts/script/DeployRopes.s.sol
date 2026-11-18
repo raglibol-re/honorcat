@@ -8,6 +8,7 @@ import {HonorCatRopesExtension} from "../src/ropes/HonorCatRopesExtension.sol";
 import {HonorCatRopesExtra} from "../src/ropes/HonorCatRopesExtra.sol";
 import {HonorCatPots} from "../src/HonorCatPots.sol";
 import {MedianResolver} from "../src/resolvers/MedianResolver.sol";
+import {HonorCatPerps} from "../src/HonorCatPerps.sol";
 
 /// @notice Deploys HonorCat v2 on Arc testnet: the extension, HonorCatRopes (Arc USDC, ERC-20 view,
 ///         6 decimals) and a MedianResolver for it with the three samplers of
@@ -18,7 +19,7 @@ import {MedianResolver} from "../src/resolvers/MedianResolver.sol";
 contract DeployRopes is Script {
     address constant ARC_USDC = 0x3600000000000000000000000000000000000000;
 
-    function run() external returns (HonorCatRopes ropes, MedianResolver median) {
+    function run() external returns (HonorCatRopes ropes, MedianResolver median, HonorCatPerps perps) {
         require(block.chainid == 5042002 || block.chainid == 31337, "testnet only");
         uint256 pk = vm.envUint("DEPLOYER_PRIVATE_KEY");
         address owner = vm.addr(pk);
@@ -34,6 +35,7 @@ contract DeployRopes is Script {
         HonorCatRopesExtension ext = new HonorCatRopesExtension(IERC20(ARC_USDC), address(views));
         ropes = new HonorCatRopes(IERC20(ARC_USDC), owner, address(ext));
         median = new MedianResolver(HonorCatPots(address(ropes)), samplers, 2);
+        perps = new HonorCatPerps(ropes);
         vm.stopBroadcast();
 
         string memory obj = "ropes";
@@ -44,10 +46,14 @@ contract DeployRopes is Script {
         vm.serializeAddress(obj, "extension", address(ext));
         vm.serializeAddress(obj, "views", address(views));
         vm.serializeAddress(obj, "median", address(median));
+        vm.serializeAddress(obj, "perps", address(perps));
+        vm.serializeUint(obj, "idBase", 2_000_000_000); // database ids of this deployment's pots (v2.0 used 1,000,000,000)
+        vm.serializeString(obj, "version", "2.1");
         string memory json = vm.serializeAddress(obj, "ropes", address(ropes));
         vm.writeJson(json, string.concat(root, ".ropes.json"));
         console2.log("HonorCatRopes", address(ropes));
         console2.log("HonorCatRopesExtension", address(ext));
         console2.log("MedianResolver (ropes)", address(median));
+        console2.log("HonorCatPerps", address(perps));
     }
 }

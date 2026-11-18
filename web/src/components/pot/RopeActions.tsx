@@ -88,7 +88,7 @@ export function RopeActions({ pot, who, price, nameOf }: { pot: HcPot; who: Retu
         <p style={{ margin: 0, fontSize: 16, color: C.body }}>Start your own pot on the same question and side. If you end with a profit, 5% of it goes to the player you copy; no profit, no treat.</p>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           {[0, 1].map((s) => (
-            <Link key={s} href={`/pots/new?copy=${BigInt(d.chainPotId) * 2n + BigInt(s)}&side=${s}${sym ? `&symbol=${encodeURIComponent(sym)}` : ""}`} style={{ ...btnQuiet, textDecoration: "none", display: "inline-flex", alignItems: "center" }}>
+            <Link key={s} href={`/pots/new?copy=${BigInt(d.chainPotId) * 2n + BigInt(s)}&pot=${pot.potId}&side=${s}${sym ? `&symbol=${encodeURIComponent(sym)}` : ""}`} style={{ ...btnQuiet, textDecoration: "none", display: "inline-flex", alignItems: "center" }}>
               Copy {nameOf(s === 0 ? pot.owners.yes : pot.owners.no)} ({s === 0 ? "YES" : "NO"})
             </Link>
           ))}

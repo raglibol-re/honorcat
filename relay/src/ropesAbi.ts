@@ -522,6 +522,19 @@ export const ropesAbi = [
   },
   {
     "type": "function",
+    "name": "POST_MARGIN",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "REFERRAL_POTS",
     "inputs": [],
     "outputs": [
@@ -542,6 +555,19 @@ export const ropesAbi = [
         "name": "",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "ROLL_WINDOW",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
       }
     ],
     "stateMutability": "view"
@@ -907,6 +933,45 @@ export const ropesAbi = [
         "name": "",
         "type": "bytes32",
         "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "divisions",
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "price",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "reason",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "at",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "paidYes",
+        "type": "uint128",
+        "internalType": "uint128"
+      },
+      {
+        "name": "paidNo",
+        "type": "uint128",
+        "internalType": "uint128"
       }
     ],
     "stateMutability": "view"
@@ -1471,7 +1536,7 @@ export const ropesAbi = [
   },
   {
     "type": "function",
-    "name": "resolveExpiry",
+    "name": "resolveJoin",
     "inputs": [
       {
         "name": "a",
@@ -1536,68 +1601,22 @@ export const ropesAbi = [
   },
   {
     "type": "function",
-    "name": "resolveJoin",
+    "name": "rolledFrom",
     "inputs": [
       {
-        "name": "a",
-        "type": "tuple",
-        "internalType": "struct RopesBase.WindowAttestation",
-        "components": [
-          {
-            "name": "potId",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "kind",
-            "type": "uint8",
-            "internalType": "uint8"
-          },
-          {
-            "name": "nonce",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "windowStart",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "windowEnd",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "sampleCount",
-            "type": "uint32",
-            "internalType": "uint32"
-          },
-          {
-            "name": "priceYes",
-            "type": "uint32",
-            "internalType": "uint32"
-          },
-          {
-            "name": "valid",
-            "type": "bool",
-            "internalType": "bool"
-          },
-          {
-            "name": "evidenceHash",
-            "type": "bytes32",
-            "internalType": "bytes32"
-          }
-        ]
-      },
-      {
-        "name": "sigs",
-        "type": "bytes",
-        "internalType": "bytes"
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -2832,6 +2851,37 @@ export const ropesAbi = [
   },
   {
     "type": "event",
+    "name": "Rolled",
+    "inputs": [
+      {
+        "name": "fromPot",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "potId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "by",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "entryPrice",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "TakenOver",
     "inputs": [
       {
@@ -3281,6 +3331,385 @@ export const ropesAbi = [
   },
   {
     "type": "function",
+    "name": "handshake",
+    "inputs": [
+      {
+        "name": "potId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "priceYes",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "size",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "deadline",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "sigYes",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "sigNo",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "requestExit",
+    "inputs": [
+      {
+        "name": "potId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "side",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "size",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "requestExitFor",
+    "inputs": [
+      {
+        "name": "potId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "side",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "size",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "deadline",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "sig",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "resolveExpiry",
+    "inputs": [
+      {
+        "name": "a",
+        "type": "tuple",
+        "internalType": "struct RopesBase.WindowAttestation",
+        "components": [
+          {
+            "name": "potId",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "kind",
+            "type": "uint8",
+            "internalType": "uint8"
+          },
+          {
+            "name": "nonce",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "windowStart",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "windowEnd",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "sampleCount",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "priceYes",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "valid",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "evidenceHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          }
+        ]
+      },
+      {
+        "name": "sigs",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setGlobalMaxPot",
+    "inputs": [
+      {
+        "name": "max",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setLevels",
+    "inputs": [
+      {
+        "name": "potId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "side",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "net",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "bowl",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setPaused",
+    "inputs": [
+      {
+        "name": "p",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setReferrer",
+    "inputs": [
+      {
+        "name": "ref",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "skipExpiryWindow",
+    "inputs": [
+      {
+        "name": "potId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "takeover",
+    "inputs": [
+      {
+        "name": "potId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "auth",
+        "type": "tuple",
+        "internalType": "struct RopesBase.Authorization",
+        "components": [
+          {
+            "name": "from",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "validAfter",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "validBefore",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "salt",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "v",
+            "type": "uint8",
+            "internalType": "uint8"
+          },
+          {
+            "name": "r",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "s",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "triggerLevel",
+    "inputs": [
+      {
+        "name": "a",
+        "type": "tuple",
+        "internalType": "struct RopesBase.WindowAttestation",
+        "components": [
+          {
+            "name": "potId",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "kind",
+            "type": "uint8",
+            "internalType": "uint8"
+          },
+          {
+            "name": "nonce",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "windowStart",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "windowEnd",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "sampleCount",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "priceYes",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "valid",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "evidenceHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          }
+        ]
+      },
+      {
+        "name": "sigs",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "views",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "withdraw",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "depositNonce",
     "inputs": [
       {
@@ -3468,44 +3897,6 @@ export const ropesAbi = [
   },
   {
     "type": "function",
-    "name": "handshake",
-    "inputs": [
-      {
-        "name": "potId",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "priceYes",
-        "type": "uint32",
-        "internalType": "uint32"
-      },
-      {
-        "name": "size",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "deadline",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "sigYes",
-        "type": "bytes",
-        "internalType": "bytes"
-      },
-      {
-        "name": "sigNo",
-        "type": "bytes",
-        "internalType": "bytes"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "handshakeDigest",
     "inputs": [
       {
@@ -3575,6 +3966,149 @@ export const ropesAbi = [
       }
     ],
     "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "openFunded",
+    "inputs": [
+      {
+        "name": "c",
+        "type": "tuple",
+        "internalType": "struct RopesBase.CreateParams",
+        "components": [
+          {
+            "name": "conditionId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "resolver",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "side",
+            "type": "uint8",
+            "internalType": "uint8"
+          },
+          {
+            "name": "size",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "bandCenter",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "tolerance",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "distYes",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "distNo",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "expiry",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "closeTime",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "grace",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "window",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "minSamples",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "copyOf",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      },
+      {
+        "name": "fromPot",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "d",
+        "type": "tuple",
+        "internalType": "struct RopesBase.DepthAttestation",
+        "components": [
+          {
+            "name": "conditionId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "account",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "contracts5c",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "spread",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "crypto",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "closeTime",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "validUntil",
+            "type": "uint64",
+            "internalType": "uint64"
+          }
+        ]
+      },
+      {
+        "name": "depthSigs",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "potId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -3648,129 +4182,6 @@ export const ropesAbi = [
   },
   {
     "type": "function",
-    "name": "requestExit",
-    "inputs": [
-      {
-        "name": "potId",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "side",
-        "type": "uint8",
-        "internalType": "uint8"
-      },
-      {
-        "name": "size",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "requestExitFor",
-    "inputs": [
-      {
-        "name": "potId",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "side",
-        "type": "uint8",
-        "internalType": "uint8"
-      },
-      {
-        "name": "size",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "deadline",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "sig",
-        "type": "bytes",
-        "internalType": "bytes"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "setGlobalMaxPot",
-    "inputs": [
-      {
-        "name": "max",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "setLevels",
-    "inputs": [
-      {
-        "name": "potId",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "side",
-        "type": "uint8",
-        "internalType": "uint8"
-      },
-      {
-        "name": "net",
-        "type": "uint32",
-        "internalType": "uint32"
-      },
-      {
-        "name": "bowl",
-        "type": "uint32",
-        "internalType": "uint32"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "setPaused",
-    "inputs": [
-      {
-        "name": "p",
-        "type": "bool",
-        "internalType": "bool"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "setReferrer",
-    "inputs": [
-      {
-        "name": "ref",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "settle",
     "inputs": [
       {
@@ -3840,74 +4251,6 @@ export const ropesAbi = [
   },
   {
     "type": "function",
-    "name": "skipExpiryWindow",
-    "inputs": [
-      {
-        "name": "potId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "takeover",
-    "inputs": [
-      {
-        "name": "potId",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "auth",
-        "type": "tuple",
-        "internalType": "struct RopesBase.Authorization",
-        "components": [
-          {
-            "name": "from",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
-            "name": "validAfter",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "validBefore",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "salt",
-            "type": "bytes32",
-            "internalType": "bytes32"
-          },
-          {
-            "name": "v",
-            "type": "uint8",
-            "internalType": "uint8"
-          },
-          {
-            "name": "r",
-            "type": "bytes32",
-            "internalType": "bytes32"
-          },
-          {
-            "name": "s",
-            "type": "bytes32",
-            "internalType": "bytes32"
-          }
-        ]
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "tokenOf",
     "inputs": [
       {
@@ -3929,78 +4272,6 @@ export const ropesAbi = [
       }
     ],
     "stateMutability": "pure"
-  },
-  {
-    "type": "function",
-    "name": "triggerLevel",
-    "inputs": [
-      {
-        "name": "a",
-        "type": "tuple",
-        "internalType": "struct RopesBase.WindowAttestation",
-        "components": [
-          {
-            "name": "potId",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "kind",
-            "type": "uint8",
-            "internalType": "uint8"
-          },
-          {
-            "name": "nonce",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "windowStart",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "windowEnd",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "sampleCount",
-            "type": "uint32",
-            "internalType": "uint32"
-          },
-          {
-            "name": "priceYes",
-            "type": "uint32",
-            "internalType": "uint32"
-          },
-          {
-            "name": "valid",
-            "type": "bool",
-            "internalType": "bool"
-          },
-          {
-            "name": "evidenceHash",
-            "type": "bytes32",
-            "internalType": "bytes32"
-          }
-        ]
-      },
-      {
-        "name": "sigs",
-        "type": "bytes",
-        "internalType": "bytes"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "withdraw",
-    "inputs": [],
-    "outputs": [],
-    "stateMutability": "nonpayable"
   },
   {
     "type": "function",

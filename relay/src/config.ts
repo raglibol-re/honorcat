@@ -41,6 +41,8 @@ const schema = z.object({
   ROPES_MEDIAN_ADDRESS: z.string().optional(),
   /** "true": new pots are created on HonorCat v2. Off until the owner switches (pots on v1 keep working). */
   ROPES_FOR_NEW_POTS: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
+  /** "true": perps are offered. Off until an end-to-end run on Arc testnet has shown them working. */
+  PERPS_FOR_NEW_POTS: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
   SAMPLERS: z.string().optional(), // comma-separated sampler addresses
   SAMPLER_KEY: z.string().optional(), // the Vercel app's own sampler key
   /** Smallest amount (USDC, decimal) the relay will sponsor gas for. */
@@ -93,8 +95,10 @@ export type Config = {
   fairValue: Address | null;
   /** MedianResolver: the price-agreement rule on-chain; new pots use it. */
   median: Address | null;
-  /** HonorCatRopes (v2) and its own MedianResolver; null if not deployed/configured. */
-  ropes: { address: Address; deployBlock: bigint; median: Address | null; forNewPots: boolean } | null;
+  /** HonorCatRopes (v2, the current deployment) with its MedianResolver and perp contract; null if not deployed. */
+  ropes: { address: Address; deployBlock: bigint; median: Address | null; forNewPots: boolean; idBase: bigint; perps: Address | null; perpsForNewPots: boolean } | null;
+  /** Every v2 deployment the relay serves (current first, then earlier ones that still hold pots). */
+  ropesAll: { address: Address; deployBlock: bigint; median: Address | null; idBase: bigint }[];
   samplerKey: string | undefined;
 };
 
@@ -149,6 +153,7 @@ export function getConfig(): Config {
       return f && isAddress(f.fairValue) ? getAddress(f.fairValue) : null;
     })(),
     ropes: ropesConfig(env),
+    ropesAll: ropesAllConfig(env),
     samplerKey: env.SAMPLER_KEY,
   };
   return cached;
@@ -201,7 +206,7 @@ function potsConfig(env: z.infer<typeof schema>): Config["pots"] {
 }
 
 function ropesConfig(env: z.infer<typeof schema>): Config["ropes"] {
-  const f = readJson<{ ropes: string; deployBlock: number; median: string }>(`deployments/${env.ARC_CHAIN_ID}.ropes.json`);
+  const f = readJson<{ ropes: string; deployBlock: number; median: string; idBase?: number; perps?: string }>(`deployments/${env.ARC_CHAIN_ID}.ropes.json`);
   const a = env.ROPES_ADDRESS ?? f?.ropes;
   if (!a || !isAddress(a)) return null;
   const m = env.ROPES_MEDIAN_ADDRESS ?? f?.median;
@@ -210,7 +215,21 @@ function ropesConfig(env: z.infer<typeof schema>): Config["ropes"] {
     deployBlock: env.ROPES_DEPLOY_BLOCK ?? (f ? BigInt(f.deployBlock) : 0n),
     median: m && isAddress(m) ? getAddress(m) : null,
     forNewPots: env.ROPES_FOR_NEW_POTS,
+    idBase: BigInt(f?.idBase ?? 1_000_000_000),
+    perps: f?.perps && isAddress(f.perps) ? getAddress(f.perps) : null,
+    perpsForNewPots: env.PERPS_FOR_NEW_POTS,
   };
+}
+
+/** The current v2 deployment and the earlier ones (deployments/<chain>.ropes-v20.json) that still hold pots. */
+function ropesAllConfig(env: z.infer<typeof schema>): Config["ropesAll"] {
+  const out: Config["ropesAll"] = [];
+  const cur = ropesConfig(env);
+  if (cur) out.push({ address: cur.address, deployBlock: cur.deployBlock, median: cur.median, idBase: cur.idBase });
+  const old = readJson<{ ropes: string; deployBlock: number; median: string; idBase?: number }>(`deployments/${env.ARC_CHAIN_ID}.ropes-v20.json`);
+  if (old && isAddress(old.ropes) && !out.some((d) => d.address === getAddress(old.ropes)))
+    out.push({ address: getAddress(old.ropes), deployBlock: BigInt(old.deployBlock), median: old.median && isAddress(old.median) ? getAddress(old.median) : null, idBase: BigInt(old.idBase ?? 1_000_000_000) });
+  return out;
 }
 
 function readJson<T>(relative: string | undefined): T | undefined {

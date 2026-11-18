@@ -19,7 +19,9 @@
 import { getAddress, type Address } from "viem";
 import { getConfig } from "./config";
 
+/** The lowest v2 id range; each v2 deployment has its own range of one billion ids (v2.0: 1e9, v2.1: 2e9). */
 export const ROPE_BASE = 1_000_000_000n;
+const SPAN = 1_000_000_000n;
 export const KIND_KNOCK = 7;
 export const KIND_EXPIRY = 8;
 export const EXPIRY_TRIES = 4;
@@ -27,9 +29,21 @@ export const ATTEST_TIMEOUT_S = 600;
 export const P = 1_000_000;
 
 export const isRopeDbId = (dbId: string | bigint) => BigInt(dbId) >= ROPE_BASE;
-export const ropeDbId = (chainPotId: bigint | string) => (ROPE_BASE + BigInt(chainPotId)).toString();
+/** The database id of a v2 pot: its deployment's id base (default: the current deployment) + its on-chain id. */
+export const ropeDbId = (chainPotId: bigint | string, base?: bigint) => ((base ?? currentBase()) + BigInt(chainPotId)).toString();
 /** The contract's own pot id for a database pot id (v1 ids are the same in both). */
-export const chainPotId = (dbId: string | bigint) => (isRopeDbId(dbId) ? BigInt(dbId) - ROPE_BASE : BigInt(dbId));
+export const chainPotId = (dbId: string | bigint) => (isRopeDbId(dbId) ? BigInt(dbId) % SPAN : BigInt(dbId));
+/** The id base of a database pot id's deployment. */
+export const baseOf = (dbId: string | bigint) => BigInt(dbId) - (BigInt(dbId) % SPAN);
+function currentBase() {
+  return getConfig().ropes?.idBase ?? ROPE_BASE;
+}
+
+/** The v2 deployment a database pot id belongs to. */
+export function deploymentOf(dbId: string | bigint) {
+  const base = baseOf(dbId);
+  return getConfig().ropesAll.find((d) => d.idBase === base) ?? null;
+}
 
 export function ropesConfig() {
   const r = getConfig().ropes;
@@ -40,7 +54,8 @@ export function ropesConfig() {
 /** The contract, its EIP-712 domain name and its MedianResolver for a database pot id. */
 export function contractOf(dbId: string | bigint): { address: Address; v2: boolean; name: "HonorCatPots" | "HonorCatRopes"; median: Address | null; chainPotId: bigint } {
   if (isRopeDbId(dbId)) {
-    const r = ropesConfig();
+    const r = deploymentOf(dbId);
+    if (!r) throw new Error(`no HonorCat v2 deployment for pot ${dbId}`);
     return { address: r.address, v2: true, name: "HonorCatRopes", median: r.median, chainPotId: chainPotId(dbId) };
   }
   const p = getConfig().pots;
@@ -50,8 +65,7 @@ export function contractOf(dbId: string | bigint): { address: Address; v2: boole
 
 /** The domain name for a pot contract address (v2 when it is the configured HonorCatRopes). */
 export function domainNameFor(address: Address): "HonorCatPots" | "HonorCatRopes" {
-  const r = getConfig().ropes;
-  return r && getAddress(r.address) === getAddress(address) ? "HonorCatRopes" : "HonorCatPots";
+  return getConfig().ropesAll.some((d) => getAddress(d.address) === getAddress(address)) ? "HonorCatRopes" : "HonorCatPots";
 }
 
 /** Start of expiry window `attempt` (0 = the expiry window itself), as the contract computes it. */

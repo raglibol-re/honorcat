@@ -34,10 +34,12 @@ describe("v2 digests match the contracts", () => {
 
 describe("v2 helpers", () => {
   it("keeps v2 pot ids in their own range", () => {
-    expect(ropeDbId(5n)).toBe((ROPE_BASE + 5n).toString());
-    expect(isRopeDbId(ropeDbId(5n))).toBe(true);
+    expect(ropeDbId(5n, ROPE_BASE)).toBe((ROPE_BASE + 5n).toString());
+    expect(isRopeDbId(ropeDbId(5n, ROPE_BASE))).toBe(true);
     expect(isRopeDbId("5")).toBe(false);
-    expect(chainPotId(ropeDbId(42n))).toBe(42n);
+    expect(chainPotId(ropeDbId(42n, ROPE_BASE))).toBe(42n);
+    // v2.1 pots have their own range (2e9): the chain id is the id within the range
+    expect(chainPotId("2000000042")).toBe(42n);
     expect(chainPotId("42")).toBe(42n);
   });
   it("expiry windows are fixed by the expiry, as in the contract", () => {

@@ -570,6 +570,17 @@ CREATE TABLE IF NOT EXISTS market_catalog (
   book      JSONB
 );
 CREATE INDEX IF NOT EXISTS market_catalog_cat_idx ON market_catalog (category, close_ms);
+-- Perps (HonorCatPerps): projection of each chain, read from the chain after each event (perps.ts).
+CREATE TABLE IF NOT EXISTS perps (
+  perp_id     BIGINT PRIMARY KEY,
+  phase       SMALLINT NOT NULL,
+  a           TEXT,
+  b           TEXT,
+  pot_id      TEXT,
+  data        JSONB NOT NULL,
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS perps_phase_idx ON perps (phase);
 `;
 
 type GlobalWithDb = typeof globalThis & { __honorcatDb?: Promise<Db> };

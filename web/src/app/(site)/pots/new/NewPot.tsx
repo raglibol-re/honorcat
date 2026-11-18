@@ -71,7 +71,8 @@ export function NewPot() {
     const t = q.get("copy");
     if (!t || !/^\d+$/.test(t)) return;
     const token = BigInt(t);
-    const potId = (ROPE_BASE + token / 2n).toString();
+    // the leader's pot (database id) comes with the link; older links had only the token (v2.0 range)
+    const potId = q.get("pot") && /^\d+$/.test(q.get("pot")!) ? q.get("pot")! : (ROPE_BASE + token / 2n).toString();
     void (async () => {
       const lead = await getJson<HcPot>(`/api/hc/pots/${potId}`).catch(() => null);
       if (!lead?.market) return;

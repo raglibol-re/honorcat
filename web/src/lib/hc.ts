@@ -349,9 +349,11 @@ export { potsAbi };
 
 /* ------------------------------------------------------------------ HonorCat v2: short ropes */
 
-/** v2 pots live at ROPE_BASE + their on-chain id in the read model and in page links. */
+/** v2 pots live at their deployment's id base (v2.0: 1e9, v2.1: 2e9) + their on-chain id in the read model and links. */
 export const ROPE_BASE = 1_000_000_000n;
 export const isRopePot = (potId: string | bigint) => BigInt(potId) >= ROPE_BASE;
+/** The on-chain id of a v2 pot: its id within its deployment's range. */
+export const ropeChainId = (potId: string | bigint) => BigInt(potId) % ROPE_BASE;
 
 export type RopesStatus = {
   available: boolean;
@@ -364,6 +366,8 @@ export const ropesStatus = () => getJson<RopesStatus>("/api/hc/ropes");
 
 export type PreparedRope = Omit<Prepared, "cap" | "depth"> & {
   v2: true;
+  /** The database id base of this deployment's pots. */
+  idBase: string;
   depth: Prepared["depth"] & { spread: number; crypto: boolean };
   maxSize: string;
   maxPot: string;
@@ -376,10 +380,10 @@ export async function prepareRope(symbol: string, account: Address) {
 }
 
 /** The pot id (read-model range) from a v2 transaction's PotCreated event. */
-async function ropeIdFrom(tx: Hex) {
+async function ropeIdFrom(tx: Hex, base: bigint) {
   const receipt = await publicClient.waitForTransactionReceipt({ hash: tx, timeout: 60_000 }).catch(() => null);
   const created = receipt ? parseEventLogs({ abi: ropesAbi, logs: receipt.logs, eventName: "PotCreated" })[0] : undefined;
-  return created ? (ROPE_BASE + (created.args as { potId: bigint }).potId).toString() : null;
+  return created ? (base + (created.args as { potId: bigint }).potId).toString() : null;
 }
 
 /**
@@ -416,14 +420,14 @@ export async function createRope(
   const data = encodeFunctionData({ abi: ropesAbi, functionName: "create", args: [c, depth, sigs, noAuth(actor.account)] });
   if (actor.kind === "passkey") return passkeyCall(actor.session, actor.account, data, o.escrow, onStep, prep.pots);
   const r = await walletSend(actor.adapter, actor.account, prep.pots, data, null, o.escrow, onStep);
-  const potId = await ropeIdFrom(r.tx);
+  const potId = await ropeIdFrom(r.tx, BigInt(prep.idBase));
   if (potId) await getJson(`/api/hc/pots/${potId}`, { method: "POST" }).catch(() => null);
   return { tx: r.tx, potId };
 }
 
 /** An extra life: moves the side's own post one rope length further out, paid by the side. */
 export async function addLife(actor: Actor, ropes: Address, potId: string, side: number, cost: bigint, onStep?: Step) {
-  const id = BigInt(potId) - ROPE_BASE;
+  const id = ropeChainId(potId);
   await ensureFunds(actor.account, cost, onStep);
   const data = encodeFunctionData({ abi: ropesAbi, functionName: "addLife", args: [id, side, noAuth(actor.account)] });
   if (actor.kind === "passkey") return passkeyCall(actor.session, actor.account, data, cost, onStep, ropes);
@@ -448,7 +452,7 @@ export function ropeJoinEscrow(p: HcPot) {
 
 /** Joins a v2 pot as the other side; `copyOf` (a token id) marks the new side as a copy of that player. */
 export async function joinRope(actor: Actor, ropes: Address, p: HcPot, copyOf: bigint, onStep?: Step) {
-  const id = BigInt(p.potId) - ROPE_BASE;
+  const id = ropeChainId(p.potId);
   const { total } = ropeJoinEscrow(p);
   await ensureFunds(actor.account, total, onStep);
   await maybeSetReferrer(actor, ropes, onStep).catch(() => {});
@@ -459,7 +463,7 @@ export async function joinRope(actor: Actor, ropes: Address, p: HcPot, copyOf: b
 
 /** Leaves a v2 pot (all or part of `size` hundredths), priced over the next window like every exit. */
 export async function exitRope(actor: Actor, ropes: Address, p: HcPot, side: number, size: bigint, onStep?: Step) {
-  const id = BigInt(p.potId) - ROPE_BASE;
+  const id = ropeChainId(p.potId);
   const data = encodeFunctionData({ abi: ropesAbi, functionName: "requestExit", args: [id, side, size] });
   if (actor.kind === "passkey") return passkeyCall(actor.session, actor.account, data, 0n, onStep, ropes);
   return walletSend(actor.adapter, actor.account, ropes, data, p.potId, 0n, onStep);
@@ -467,7 +471,7 @@ export async function exitRope(actor: Actor, ropes: Address, p: HcPot, side: num
 
 /** Takes back an offer nobody has joined (v2). */
 export async function cancelRope(actor: Actor, ropes: Address, p: HcPot, onStep?: Step) {
-  const id = BigInt(p.potId) - ROPE_BASE;
+  const id = ropeChainId(p.potId);
   const data = encodeFunctionData({ abi: ropesAbi, functionName: "cancel", args: [id] });
   if (actor.kind === "passkey") return passkeyCall(actor.session, actor.account, data, 0n, onStep, ropes);
   return walletSend(actor.adapter, actor.account, ropes, data, p.potId, 0n, onStep);

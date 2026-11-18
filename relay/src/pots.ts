@@ -39,7 +39,7 @@ import { decodeMemoBody, decodeMemoLog, memoCall } from "./memo";
 import { ARC_MEMO } from "./arc";
 import { potsAbi } from "./potsAbi";
 import { ropesAbi } from "./ropesAbi";
-import { ATTEST_TIMEOUT_S, EXPIRY_TRIES, KIND_EXPIRY, KIND_KNOCK, chainPotId, contractOf, domainNameFor, expiryWindowStart, isRopeDbId, knockWindowOk, ropeDbId } from "./ropes";
+import { ATTEST_TIMEOUT_S, EXPIRY_TRIES, KIND_EXPIRY, KIND_KNOCK, chainPotId, contractOf, deploymentOf, domainNameFor, expiryWindowStart, isRopeDbId, knockWindowOk, ropeDbId } from "./ropes";
 import { notifyPot, stateMessage } from "./push";
 import { sendRelayCalls } from "./txs";
 import { evidenceHash, evidenceRootOf, recordFromJson, verifyRecord } from "./trigger/evidence";
@@ -353,7 +353,7 @@ async function syncRope(db: Db, dbId: bigint, createdTx?: string) {
   const prevData = prev ? ((typeof prev.data === "string" ? JSON.parse(prev.data) : prev.data) as Record<string, unknown>) : null;
   let initialSize = (prevData?.initialSize as string | undefined) ?? (String(p.size) !== "0" ? String(p.size) : undefined);
   if (!initialSize) {
-    const created = await c.getContractEvents({ address, abi: ropesAbi, eventName: "PotCreated", args: { potId: id }, fromBlock: getConfig().ropes!.deployBlock }).catch(() => []);
+    const created = await c.getContractEvents({ address, abi: ropesAbi, eventName: "PotCreated", args: { potId: id }, fromBlock: deploymentOf(dbId)!.deployBlock }).catch(() => []);
     initialSize = created[0] ? String((created[0].args as { size: bigint }).size) : "0";
   }
   const total = ((BigInt(String(p.upper)) / 100n - BigInt(String(p.lower)) / 100n) * BigInt(String(p.size))).toString();
@@ -797,7 +797,7 @@ export async function potsHousekeeping(db: Db, own: LocalAccount | null) {
   for (const row of rows) {
     const d = (typeof row.data === "string" ? JSON.parse(row.data) : row.data) as Record<string, string>;
     const pot = BigInt(row.pot_id);
-    if (isRopeDbId(pot) && !getConfig().ropes) continue;
+    if (isRopeDbId(pot) && !deploymentOf(pot)) continue;
     const close = Number(d.closeTime);
     const deadline = Number(d.deadline);
     const expiry = Number(d.expiry ?? 0);
@@ -948,45 +948,47 @@ export async function indexPots(db: Db, opts: { deadlineMs?: number } = {}) {
     );
     from = to + 1n;
   }
-  if (cfg.ropes && Date.now() - started < (opts.deadlineMs ?? 15_000)) await indexRopes(db, head, touched, started, opts.deadlineMs ?? 15_000);
+  for (const dep of cfg.ropesAll) if (Date.now() - started < (opts.deadlineMs ?? 15_000)) await indexRopes(db, dep, head, touched, started, opts.deadlineMs ?? 15_000);
   for (const id of touched) await syncPot(db, BigInt(id));
   return { touched: touched.size, to: (from - 1n).toString() };
 }
 
-/** The same for HonorCatRopes (v2), with its own cursor; pot ids go into the v2 range. */
-async function indexRopes(db: Db, head: bigint, touched: Set<string>, started: number, deadlineMs: number) {
-  const r = getConfig().ropes!;
+/** The same for each HonorCatRopes (v2) deployment, with its own cursor; pot ids go into its id range. */
+async function indexRopes(db: Db, r: { address: Address; deployBlock: bigint; idBase: bigint }, head: bigint, touched: Set<string>, started: number, deadlineMs: number) {
   const c = publicClient();
-  const cursor = await db.query<{ value: string }>("SELECT value FROM relay_state WHERE key = 'ropes_cursor'");
+  // v2.0 (id base 1e9) kept the original cursor key; later deployments have their own
+  const key = r.idBase === 1_000_000_000n ? "ropes_cursor" : `ropes_cursor:${r.idBase}`;
+  const cursor = await db.query<{ value: string }>("SELECT value FROM relay_state WHERE key = $1", [key]);
   let from = cursor[0] ? BigInt(cursor[0].value) + 1n : r.deployBlock;
   while (from <= head && Date.now() - started < deadlineMs) {
     const to = from + 4_999n > head ? head : from + 4_999n;
     const logs = await c.getLogs({ address: r.address, fromBlock: from, toBlock: to });
     const times = new Map<bigint, number>();
     for (const l of parseEventLogs({ abi: ropesAbi, logs })) {
-      const id = ropeIdOfLog(l.args);
+      const id = ropeIdOfLog(l.args, r.idBase);
       if (id) touched.add(id);
       if (!times.has(l.blockNumber)) times.set(l.blockNumber, Number((await c.getBlock({ blockNumber: l.blockNumber })).timestamp));
-      await recordPotEvent(db, ropeLog(l), id ? BigInt(id) : null, times.get(l.blockNumber)!, "rpc");
+      await recordPotEvent(db, ropeLog(l, r.idBase), id ? BigInt(id) : null, times.get(l.blockNumber)!, "rpc");
     }
-    await db.query("INSERT INTO relay_state (key, value) VALUES ('ropes_cursor', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", [to.toString()]);
+    await db.query("INSERT INTO relay_state (key, value) VALUES ($2, $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", [to.toString(), key]);
     from = to + 1n;
   }
 }
 
 /** The database pot id a v2 event belongs to (from potId or tokenId). */
-function ropeIdOfLog(args: unknown): string | null {
-  const a = args as { potId?: bigint; tokenId?: bigint };
-  if (typeof a.potId === "bigint") return ropeDbId(a.potId);
-  if (typeof a.tokenId === "bigint") return ropeDbId(a.tokenId / 2n);
+function ropeIdOfLog(args: unknown, base: bigint): string | null {
+  const a = args as { potId?: bigint; tokenId?: bigint; fromPot?: bigint };
+  if (typeof a.potId === "bigint") return ropeDbId(a.potId, base);
+  if (typeof a.tokenId === "bigint") return ropeDbId(a.tokenId / 2n, base);
   return null;
 }
 
 /** A v2 event with its pot and token ids moved into the v2 range, so pages and records read one id space. */
-function ropeLog<T extends { args: unknown }>(l: T): T {
+function ropeLog<T extends { args: unknown }>(l: T, base: bigint): T {
   const a = { ...(l.args as Record<string, unknown>) };
-  if (typeof a.potId === "bigint") a.potId = BigInt(ropeDbId(a.potId as bigint));
-  if (typeof a.tokenId === "bigint") a.tokenId = (a.tokenId as bigint) + 2n * BigInt(ropeDbId(0n));
+  if (typeof a.potId === "bigint") a.potId = BigInt(ropeDbId(a.potId as bigint, base));
+  if (typeof a.fromPot === "bigint") a.fromPot = BigInt(ropeDbId(a.fromPot as bigint, base));
+  if (typeof a.tokenId === "bigint") a.tokenId = (a.tokenId as bigint) + 2n * base;
   return { ...l, args: a };
 }
 
@@ -1163,15 +1165,16 @@ export async function ingestPotLogs(
 ) {
   const cfg = getConfig();
   if (!cfg.pots || !logs.length) return { received: 0, pots: [] as string[] };
-  if (cfg.ropes) {
-    // v2 logs (HonorCatRopes), when the stream's filter includes its address.
-    const v2 = logs.filter((l) => l.address.toLowerCase() === cfg.ropes!.address.toLowerCase());
+  for (const dep of cfg.ropesAll) {
+    // v2 logs (HonorCatRopes deployments), when the stream's filter includes their addresses.
+    const v2 = logs.filter((l) => l.address.toLowerCase() === dep.address.toLowerCase());
+    if (!v2.length) continue;
     const dec = parseEventLogs({ abi: ropesAbi, logs: v2.map((l) => ({ ...l, blockHash: null, transactionIndex: null, removed: false })) as never });
     const touched2 = new Set<string>();
     for (const l of dec) {
-      const id = ropeIdOfLog(l.args);
+      const id = ropeIdOfLog(l.args, dep.idBase);
       if (id) touched2.add(id);
-      await recordPotEvent(db, ropeLog(l) as never, id ? BigInt(id) : null, await blockTime(l.blockNumber!).catch(() => null), "streams");
+      await recordPotEvent(db, ropeLog(l, dep.idBase) as never, id ? BigInt(id) : null, await blockTime(l.blockNumber!).catch(() => null), "streams");
     }
     for (const id of touched2) await syncPot(db, BigInt(id)).catch((e) => console.error("[ropes] sync", id, e));
   }
@@ -1611,6 +1614,9 @@ export function ropesStatus() {
     available: Boolean(r && r.median),
     forNewPots: Boolean(r && r.median && r.forNewPots),
     address: r?.address ?? null,
+    idBase: (r?.idBase ?? 1_000_000_000n).toString(),
+    perps: r?.perps ?? null,
+    perpsForNewPots: Boolean(r?.perps && r.perpsForNewPots),
     rules: { expiryLeadS: 7200, maxLifeS: 7 * 86_400, minLifeS: 600, minDistancePpm: 50_000, maxLeverageCrypto: 10, maxLeverageOther: 5, maxLives: 8 },
     fees: { operatorBps: 0, exitFeeBps: 100, makerTreatBps: 25, referralShareBps: 2_000, referralPots: 20, copycatBps: 500 },
   };
@@ -1637,6 +1643,7 @@ export async function prepareRope(db: Db, input: { symbol: string; account: Addr
   const mid = b.bid != null && b.ask != null ? (b.bid + b.ask) / 2 : null;
   return {
     v2: true as const,
+    idBase: r.idBase.toString(),
     conditionId,
     resolver: r.median,
     pots: r.address,

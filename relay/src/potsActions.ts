@@ -46,12 +46,14 @@ function decodePots(data: Hex, v2 = false) {
   }
 }
 
-/** HonorCatRopes (v2), when configured. */
+/** The v2 deployment at an address (HonorCatRopes, current or earlier), if any. */
+const ropesAt = (target?: Address | null) => (target ? (getConfig().ropesAll.find((d) => d.address === getAddress(target)) ?? null) : null);
+/** The current HonorCatRopes address (approvals and receipts). */
 const ropesAddress = () => getConfig().ropes?.address ?? null;
-/** The pot contract a call goes to: v2 when the target is HonorCatRopes, else v1. */
+/** The pot contract a call goes to: v2 when the target is a HonorCatRopes deployment, else v1. */
 function potTarget(target?: Address | null): { address: Address; v2: boolean } {
-  const r = ropesAddress();
-  if (target && r && getAddress(target) === r) return { address: r, v2: true };
+  const r = ropesAt(target);
+  if (r) return { address: r.address, v2: true };
   return { address: potsAddress(), v2: false };
 }
 
@@ -109,15 +111,15 @@ export async function submitPasskeyPotCall(db: Db, input: { account: Address; st
     if (target === ARC_USDC) {
       const c = decodeFunctionData({ abi: erc20Abi, data: s.data });
       const spender = getAddress(c.args[0] as Address);
-      if (c.functionName !== "approve" || (spender !== pots && spender !== ropes)) throw new GaslessError("only an approval for the pot contract", 400);
-    } else if (target === pots || target === ropes) {
-      const v2 = target === ropes;
-      const c = decodePots(s.data, v2);
+      if (c.functionName !== "approve" || (spender !== pots && !ropesAt(spender) && spender !== getConfig().ropes?.perps)) throw new GaslessError("only an approval for the pot contract", 400);
+    } else if (target === pots || ropesAt(target)) {
+      const dep = ropesAt(target);
+      const c = decodePots(s.data, Boolean(dep));
       if (!OWNER_CALLS.has(c.functionName)) throw new GaslessError(`${c.functionName} is not relayed`, 400);
       what = c.functionName;
       const first = (c.args as readonly unknown[] | undefined)?.[0];
-      // v2 pots live in their own id range in the read model; setReferrer's argument is an address.
-      if (typeof first === "bigint") potId = v2 ? ropeDbId(first) : first.toString();
+      // v2 pots live in their deployment's id range in the read model; setReferrer's argument is an address.
+      if (typeof first === "bigint") potId = dep ? ropeDbId(first, dep.idBase) : first.toString();
     } else throw new GaslessError("target is not the pot contract", 400);
     if (BigInt(s.nonce) !== nonce) throw new GaslessError("stale account nonce; prepare again", 409);
     const challenge = executeDigest(chainId, input.account, nonce, target, 0n, s.data, BigInt(s.deadline));
@@ -186,11 +188,10 @@ export async function afterPotTx(db: Db, tx: Hex, potId: string | null) {
     const id = (l.args as { potId?: bigint }).potId;
     if (typeof id === "bigint") ids.add(id.toString());
   }
-  const ropes = ropesAddress();
-  if (ropes) {
-    for (const l of parseEventLogs({ abi: ropesAbi, logs: (receipt?.logs ?? []).filter((x) => getAddress(x.address) === ropes) })) {
+  for (const dep of getConfig().ropesAll) {
+    for (const l of parseEventLogs({ abi: ropesAbi, logs: (receipt?.logs ?? []).filter((x) => getAddress(x.address) === dep.address) })) {
       const id = (l.args as { potId?: bigint }).potId;
-      if (typeof id === "bigint") ids.add(ropeDbId(id));
+      if (typeof id === "bigint") ids.add(ropeDbId(id, dep.idBase));
     }
   }
   for (const id of ids) await syncPot(db, BigInt(id), tx).catch((e) => console.error("[pots] sync", id, e));
