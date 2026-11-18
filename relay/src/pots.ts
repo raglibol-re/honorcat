@@ -705,6 +705,8 @@ export async function submitReady(db: Db, requestId: string) {
     return res.tx;
   }
   // TooEarly (0x085de625) is a timing miss, not a bad attestation: leave it ready for the next pass.
+  // So is an RPC error that never reached the chain (rate or size limit, timeout): housekeeping
+  // sends it again for 15 minutes (see TRANSIENT).
   const retry = res.error.includes("085de625") || res.error.includes("TooEarly");
   await db.query("UPDATE att_requests SET status = $3, error = $2, updated_at = now() WHERE id = $1", [requestId, res.error.slice(0, 500), retry ? "ready" : "failed"]);
   return null;
@@ -783,13 +785,20 @@ type PotRow = { pot_id: string; state: number; data: Record<string, unknown> | s
  * and send the permissionless clean-ups (abandon a window that timed out, expire after the
  * deadline, cancel an unjoined offer after the close).
  */
+/** RPC errors that never reached the chain: sent again (POSIX regex, case-insensitive). */
+const TRANSIENT = "exceeds defined limit|rate limit|too many requests|429|timed? ?out|fetch failed|ECONNRESET|socket hang up|HTTP request failed";
+
 export async function potsHousekeeping(db: Db, own: LocalAccount | null) {
   if (!getConfig().pots) return { checked: 0 };
   const now = Math.floor(Date.now() / 1000);
   // Windows with two averages whose wait for the third is over.
   for (const r of await db.query<{ id: string }>("SELECT id FROM att_requests WHERE kind = 'window' AND status = 'measuring'")) await maybePropose(db, r.id);
   // Ready but not yet submitted (e.g. a failed send).
-  await db.query("UPDATE att_requests SET status = 'ready' WHERE status = 'failed' AND kind <> 'depth' AND error LIKE '%085de625%' AND created_at > now() - interval '15 minutes'");
+  await db.query(
+    `UPDATE att_requests SET status = 'ready' WHERE status = 'failed' AND kind <> 'depth' AND (error LIKE '%085de625%' OR error ~* $1)
+       AND created_at > now() - interval '15 minutes' AND updated_at < now() - interval '20 seconds'`,
+    [TRANSIENT],
+  );
   for (const r of await db.query<{ id: string }>("SELECT id FROM att_requests WHERE status = 'ready' AND kind <> 'depth' AND updated_at < now() - interval '10 seconds'")) await submitReady(db, r.id);
 
   // Memos of earlier payouts, read back from the chain (a few per pass).
