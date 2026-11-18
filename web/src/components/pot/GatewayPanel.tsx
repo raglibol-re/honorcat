@@ -8,8 +8,9 @@ import { C, F } from "@/components/cat/tokens";
 import { txUrl } from "@/lib/chain";
 import { GATEWAY_CHAINS, gatewayBalances, gatewayDeposit, gatewayMove, type GatewayBalance } from "@/lib/gateway";
 import { useWallet } from "@/lib/wallet/context";
-import { btn, btnQuiet, type ActorState } from "./Who";
+import { type ActorState } from "./Who";
 
+import { Button } from "@/components/ui/Button";
 const input: React.CSSProperties = { minHeight: 44, padding: "0 10px", border: `1.5px solid ${C.ink}`, background: C.page, fontFamily: F.sans, fontSize: 17, color: C.ink, boxSizing: "border-box" };
 const usd = (v: number) => `$${v.toFixed(2)}`;
 
@@ -112,10 +113,9 @@ export function GatewayPanel({ who, bare = false }: { who: ActorState; bare?: bo
                 <span style={{ minWidth: 160 }}>{b.name}</span>
                 <span>{usd(Number(b.balance))}</span>
                 {recipient && (
-                  <button
-                    type="button"
+                  <Button variant="quiet"
                     disabled={!!step}
-                    style={{ ...btnQuiet, minHeight: 38, fontSize: 15 }}
+                    style={{ minHeight: 38, fontSize: 15 }}
                     onClick={() =>
                       run(async () => {
                         // Keep a little for Circle's fee, which comes out of the balance on this chain.
@@ -129,7 +129,7 @@ export function GatewayPanel({ who, bare = false }: { who: ActorState; bare?: bo
                     }
                   >
                     Move here
-                  </button>
+                  </Button>
                 )}
               </div>
             ))}
@@ -155,9 +155,7 @@ export function GatewayPanel({ who, bare = false }: { who: ActorState; bare?: bo
                 ))}
               </select>
               <input style={{ ...input, width: 110 }} inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))} aria-label="USDC" />
-              <button
-                type="button"
-                style={btn}
+              <Button
                 disabled={!!step || !(Number(amount) > 0)}
                 onClick={() =>
                   run(async () => {
@@ -173,7 +171,7 @@ export function GatewayPanel({ who, bare = false }: { who: ActorState; bare?: bo
                 }
               >
                 Deposit {amount || "0"} USDC
-              </button>
+              </Button>
             </div>
             <span style={{ fontSize: 14, color: C.muted }}>
               Ready to move after {chosen.wait}. Need test USDC?{" "}

@@ -7,7 +7,7 @@ import { C, F } from "@/components/cat/tokens";
 import { GeminiCredit } from "@/components/cat/Markets";
 import { Lives } from "@/components/perp/Lives";
 import { useLivePrice } from "@/components/pot/usePrice";
-import { btn, btnQuiet, SignIn, useActor } from "@/components/pot/Who";
+import { SignIn, useActor } from "@/components/pot/Who";
 import { useTechMode } from "@/components/TechMode";
 import { getJson } from "@/lib/api";
 import { ropesStatus, type HcPot } from "@/lib/hc";
@@ -18,6 +18,7 @@ import {
   getPerp,
   joinPerp,
   leaveNow,
+  DEFAULT_LIVES,
   lifeWords,
   perpLabel,
   playerOf,
@@ -31,6 +32,14 @@ import {
 } from "@/lib/perp";
 import { useNow } from "@/lib/useNow";
 
+import { ActionProgress, Button } from "@/components/ui/Button";
+import { Notice } from "@/components/ui/Field";
+import { toast } from "@/components/ui/Toast";
+import { CatState } from "@/components/cat/CatState";
+import { Rope } from "@/components/pot/Rope";
+import { Invite } from "@/components/pot/Invite";
+import { sidesOf } from "@/lib/marketName";
+import { furOf } from "@/lib/names";
 /** Dollars; amounts under a cent (tiny test stakes) keep two significant digits instead of showing $0.00. */
 const usd = (n: number) =>
   n === 0 || n >= 0.01 ? n.toFixed(2) : String(Number(n.toPrecision(2)));
@@ -105,11 +114,13 @@ export function PerpView({ id }: { id: string }) {
   const now = useNow();
   const [p, setP] = useState<PerpDetail | null>(null);
   const [missing, setMissing] = useState(false);
+  const [loadErr, setLoadErr] = useState<string | null>(null);
+  const [askLeave, setAskLeave] = useState(false);
   const [rope, setRope] = useState<HcPot | null>(null);
   const [perps, setPerps] = useState<Address | null>(null);
   const [step, setStep] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [joinLives, setJoinLives] = useState("9");
+  const [joinLives, setJoinLives] = useState(String(DEFAULT_LIVES));
   const [more, setMore] = useState("1");
   const [ended, setEnded] = useState<{ text: string; key: number } | null>(
     null,
@@ -125,8 +136,16 @@ export function PerpView({ id }: { id: string }) {
     let alive = true;
     const load = () =>
       getPerp(id)
-        .then((d) => alive && setP(d))
-        .catch(() => alive && setMissing(true));
+        .then((d) => {
+          if (!alive) return;
+          setP(d);
+          setLoadErr(null);
+        })
+        .catch((e) => {
+          if (!alive) return;
+          if (/404|no such perp/i.test(String(e))) setMissing(true);
+          else setLoadErr(plainError(e));
+        });
     void load();
     const t = setInterval(load, 5000);
     return () => {
@@ -176,13 +195,14 @@ export function PerpView({ id }: { id: string }) {
 
   if (missing && !p)
     return (
-      <p style={{ fontSize: 18 }}>
-        No perp {id} yet. It may take a few seconds to appear after it is
-        opened.
-      </p>
+      <CatState
+        kind="empty"
+        text={`No perp ${id} yet. A new perp takes a few seconds to appear; check the link otherwise.`}
+      />
     );
+  if (!p && loadErr) return <CatState kind="error" text={loadErr} />;
   if (!p)
-    return <p style={{ fontSize: 18, color: C.muted }}>Loading perp {id}…</p>;
+    return <CatState kind="loading" text={`Reading perp ${id} from Arc…`} />;
 
   const d = p.data;
   const stake = BigInt(d.stake);
@@ -207,6 +227,9 @@ export function PerpView({ id }: { id: string }) {
     levA !== null && levB !== null
       ? perpLabel(d.t.d, levA, levB)
       : `Perp, rope ${points(d.t.d)} points`;
+  const st = p.market ? sidesOf(p.market) : null;
+  const sideWord = (s: number) =>
+    st ? `“${s === 0 ? st.yesShort : st.noShort}”` : s === 0 ? "YES" : "NO";
   const question = p.market
     ? `${p.market.eventTitle}${p.market.label && p.market.label !== "Yes" ? `: ${p.market.label}` : ""}`
     : "the market";
@@ -218,11 +241,12 @@ export function PerpView({ id }: { id: string }) {
   const left = expiry ? expiry - Math.floor(now / 1000) : null;
   const price = live.smoothed;
 
-  const run = async (f: () => Promise<unknown>) => {
+  const run = async (f: () => Promise<unknown>, ok?: string) => {
     setErr(null);
     try {
       await f();
       setStep(null);
+      if (ok) toast(ok);
       setP(await getPerp(id));
     } catch (e) {
       setErr(plainError(e));
@@ -363,78 +387,37 @@ export function PerpView({ id }: { id: string }) {
       {p.phase === "Running" && lower !== null && upper !== null && (
         <section
           aria-label="The rope"
-          style={{ display: "flex", flexDirection: "column", gap: 8 }}
+          style={{ display: "flex", flexDirection: "column", gap: 10 }}
         >
-          <div style={{ position: "relative", height: 56, margin: "0 8px" }}>
-            <div
-              style={{
-                position: "absolute",
-                left: 0,
-                right: 0,
-                top: 26,
-                height: 4,
-                background: C.ink,
-              }}
-            />
-            {[
-              { at: 0, text: `${points(lower)}`, who: "YES post" },
-              { at: 100, text: `${points(upper)}`, who: "NO post" },
-            ].map((x) => (
-              <div
-                key={x.who}
-                style={{
-                  position: "absolute",
-                  left: `${x.at}%`,
-                  top: 8,
-                  transform: "translateX(-50%)",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                }}
-              >
-                <div style={{ width: 4, height: 40, background: C.ink }} />
-              </div>
-            ))}
-            {price !== null && (
-              <div
-                aria-hidden="true"
-                style={{
-                  position: "absolute",
-                  left: `${Math.min(100, Math.max(0, ((price * 1e6 - lower) / (upper - lower)) * 100))}%`,
-                  top: 14,
-                  width: 28,
-                  height: 28,
-                  transform: "translateX(-50%)",
-                  background: C.signal,
-                  transition: "left 1s linear",
-                }}
-              />
-            )}
-          </div>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              gap: 12,
-              fontSize: 15,
+          <Rope
+            price={price}
+            notional={stake * 2n}
+            names={{
+              yes: nm(sideA === 0 ? p.a : p.b),
+              no: nm(sideA === 0 ? p.b : p.a),
             }}
-          >
-            <span>
-              <strong>{points(lower)}</strong>: NO wins this rope
-            </span>
-            <span style={{ textAlign: "right" }}>
-              <strong>{points(upper)}</strong>: YES wins this rope
-            </span>
-          </div>
-          <p style={{ margin: 0, fontSize: 17, textAlign: "center" }}>
-            {price !== null ? (
-              <>
-                Now <strong>{(price * 100).toFixed(1)}</strong>
-              </>
-            ) : (
-              "Waiting for the price"
-            )}
-            {left !== null ? ` · ${clock(left)}` : ""}
+            phase="live"
+            posts={{ lower: lower / 1e6, upper: upper / 1e6 }}
+            sides={st ?? undefined}
+            trail={live.trail}
+            speed={live.speed}
+            cats={{
+              yes: {
+                fur: furOf(sideA === 0 ? p.a : p.b),
+                mood: "even",
+                name: nm(sideA === 0 ? p.a : p.b),
+              },
+              no: {
+                fur: furOf(sideA === 0 ? p.b : p.a),
+                mood: "even",
+                name: nm(sideA === 0 ? p.b : p.a),
+              },
+            }}
+          />
+          <p style={{ margin: 0, fontSize: 17 }}>
+            <strong>Rope {d.ropes}</strong>
+            {left !== null ? ` · ${clock(left)}` : ""} · past {points(lower)}{" "}
+            the NO side wins this rope, past {points(upper)} the YES side.
           </p>
           {rope && (
             <span style={{ fontSize: 14, color: C.muted }}>
@@ -455,9 +438,9 @@ export function PerpView({ id }: { id: string }) {
         <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <h2 style={h2}>Take the other side</h2>
           <p style={{ margin: 0, fontSize: 18, lineHeight: 1.5 }}>
-            You play {sideA === 0 ? "NO" : "YES"}
+            You play {sideWord(1 - sideA)}
             {levB !== null ? ` at ${times(levB)}` : ""} ({nm(p.a)} plays{" "}
-            {sideA === 0 ? "YES" : "NO"}
+            {sideWord(sideA)}
             {levA !== null ? ` at ${times(levA)}` : ""}). Each rope, both put in{" "}
             {$(stake)}; past your post you lose it, past theirs you win theirs.
           </p>
@@ -508,19 +491,37 @@ export function PerpView({ id }: { id: string }) {
                   {$(n * stake)}, plus a {$(treatOf(stake))} maker treat to{" "}
                   {nm(p.a)} on the first rope.
                 </p>
-                <button
-                  type="button"
-                  style={{ ...btn, alignSelf: "flex-start" }}
+                <Button
+                  busy={!!step}
+                  style={{ alignSelf: "flex-start" }}
                   disabled={!!step || n < 1n || !perps}
                   onClick={() =>
-                    run(() => joinPerp(who.actor!, perps!, id, budget, setStep))
+                    run(
+                      () => joinPerp(who.actor!, perps!, id, budget, setStep),
+                      "You joined. The first rope starts within a minute.",
+                    )
                   }
                 >
-                  {step ?? `Give your word and join (${$(budget)})`}
-                </button>
+                  {`Give your word and join (${$(budget)})`}
+                </Button>
+                <ActionProgress step={step} />
               </>
             );
           })()}
+        </section>
+      )}
+
+      {p.phase === "Open" && me === "a" && (
+        <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <h2 style={h2}>Invite someone</h2>
+          <p style={{ margin: 0, fontSize: 17, color: C.body }}>
+            Send this page to the player who takes {sideWord(1 - sideA)}. They
+            choose their own lives.
+          </p>
+          <Invite
+            path={`/perps/${id}`}
+            text={`Take the other side of my HonorCat perp${st ? `: ${st.yes}?` : ""}`}
+          />
         </section>
       )}
 
@@ -529,33 +530,68 @@ export function PerpView({ id }: { id: string }) {
           <h2 style={h2}>Your perp</h2>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
             {p.phase === "Running" && !d.leaving && (
-              <button
-                type="button"
-                style={btn}
-                disabled={!!step}
-                onClick={() =>
-                  run(() => leaveNow(who.actor!, perps, id, setStep))
-                }
-              >
-                {step ?? "Leave now"}
-              </button>
+              <>
+                {askLeave ? (
+                  <Notice tone="warning">
+                    <strong>Leave now and end the perp?</strong>
+                    <span>
+                      This rope is priced over the next 30 seconds; you give 1%
+                      of what you take out to the other side. No new rope starts
+                      after it.
+                    </span>
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: 12,
+                        flexWrap: "wrap",
+                        marginTop: 8,
+                      }}
+                    >
+                      <Button
+                        busy={!!step}
+                        onClick={() =>
+                          run(
+                            () => leaveNow(who.actor!, perps, id, setStep),
+                            "You are leaving. The rope is being priced; the perp ends in about a minute.",
+                          ).then(() => setAskLeave(false))
+                        }
+                      >
+                        Yes, leave now
+                      </Button>
+                      <Button
+                        variant="quiet"
+                        disabled={!!step}
+                        onClick={() => setAskLeave(false)}
+                      >
+                        Keep playing
+                      </Button>
+                      <ActionProgress step={step} />
+                    </div>
+                  </Notice>
+                ) : (
+                  <Button disabled={!!step} onClick={() => setAskLeave(true)}>
+                    Leave now
+                  </Button>
+                )}
+              </>
             )}
             {p.phase !== "Ended" && mine.renew && p.phase !== "Open" && (
-              <button
-                type="button"
-                style={btnQuiet}
+              <Button
+                variant="quiet"
                 disabled={!!step}
                 onClick={() =>
-                  run(() => stopRenewing(who.actor!, perps, id, setStep))
+                  run(
+                    () => stopRenewing(who.actor!, perps, id, setStep),
+                    "Renewing is off. This rope runs to its end, then the perp ends.",
+                  )
                 }
               >
                 Stop renewing
-              </button>
+              </Button>
             )}
             {spare > 0n && (
-              <button
-                type="button"
-                style={btnQuiet}
+              <Button
+                variant="quiet"
                 disabled={!!step}
                 onClick={() =>
                   run(() =>
@@ -566,12 +602,11 @@ export function PerpView({ id }: { id: string }) {
                 {p.phase === "Ended" || (p.phase === "Open" && me === "a")
                   ? `Take out ${$(spare)}`
                   : `Take out spare money (${$(spare)})`}
-              </button>
+              </Button>
             )}
             {p.phase === "Open" && me === "a" && (
-              <button
-                type="button"
-                style={btnQuiet}
+              <Button
+                variant="quiet"
                 disabled={!!step}
                 onClick={() =>
                   run(() =>
@@ -580,7 +615,7 @@ export function PerpView({ id }: { id: string }) {
                 }
               >
                 Take back my offer ({$(mine.free)})
-              </button>
+              </Button>
             )}
           </div>
           {p.phase !== "Ended" && (
@@ -612,9 +647,8 @@ export function PerpView({ id }: { id: string }) {
                   }}
                 />
               </label>
-              <button
-                type="button"
-                style={btnQuiet}
+              <Button
+                variant="quiet"
                 disabled={!!step || !(Number(more) > 0)}
                 onClick={() =>
                   run(() =>
@@ -630,12 +664,17 @@ export function PerpView({ id }: { id: string }) {
               >
                 Add {Number(more) || 0} for{" "}
                 {$(BigInt(Number(more) || 0) * stake)}
-              </button>
+              </Button>
             </div>
           )}
           {p.phase !== "Ended" && (
             <p
-              style={{ margin: 0, fontSize: 15, color: C.muted, lineHeight: 1.5 }}
+              style={{
+                margin: 0,
+                fontSize: 15,
+                color: C.muted,
+                lineHeight: 1.5,
+              }}
             >
               Leave now: this rope is priced over the next 30 seconds and you
               give 1% of what you take out to the other side; then the perp

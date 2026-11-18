@@ -4,7 +4,7 @@ import { plainError } from "@/lib/messages";
 import { useState } from "react";
 import { WalletChoice } from "@/components/cat/WalletChoice";
 import { C, F } from "@/components/cat/tokens";
-import { btnQuiet } from "@/components/pot/Who";
+
 import { getJson } from "@/lib/api";
 import { createSiweMessage, generateSiweNonce } from "viem/siwe";
 import type { Address } from "viem";
@@ -28,6 +28,7 @@ import { short } from "@/lib/format";
 import { joinChallenge, savedPasskey, signChallenge } from "@/lib/passkey";
 import { useWallet } from "@/lib/wallet/context";
 
+import { Button } from "@/components/ui/Button";
 type Sample = { t: string | number; bid?: string; ask?: string; bidSize?: string; askSize?: string; status: string | number };
 type Rec = { request_id: string; signer: string; evidence_hash: string; record: { windowStart?: string; windowEnd?: string; samples?: Sample[]; averageMicro?: string; params?: { priceDecimals?: string; sizeDecimals?: string } } };
 
@@ -110,9 +111,7 @@ export function RawReadings({ potId }: { potId: string }) {
         Every bid, ask and size each sampler read is Gemini market data, so it is shown to the sides of this pot only. Sign once to see it; the hashes above let anyone else check it.
       </p>
       <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
-        <button
-          type="button"
-          style={btnQuiet}
+        <Button variant="quiet"
           disabled={busy}
           onClick={() =>
             run(async () => {
@@ -125,7 +124,7 @@ export function RawReadings({ potId }: { potId: string }) {
           }
         >
           Show with my passkey
-        </button>
+        </Button>
         <WalletChoice
           label="or with a wallet"
           busy={busy}

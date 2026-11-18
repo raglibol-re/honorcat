@@ -1096,6 +1096,11 @@ export async function potDetail(db: Db, potId: string) {
     createdTx: row.created_tx,
     updatedAt: row.updated_at,
     market: marketFull,
+    // A perp's rope: which perp it belongs to and which rope it is (its two seats are the perps contract's).
+    perp: (() => {
+      const e = events.find((x) => x.event_name === "Perp:RopeStarted");
+      return e ? { perpId: String(e.args.perpId), rope: Number(e.args.rope) } : null;
+    })(),
     events: events.map((e) => ({ name: e.event_name, args: e.args, tx: e.tx_hash, at: e.block_time ? Number(e.block_time) : null })),
     // The network fee of each of this pot's transactions, in USDC base units (from the receipts).
     fees: await txFees(db, [...new Set(events.map((e) => e.tx_hash))]),

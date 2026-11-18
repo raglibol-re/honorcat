@@ -57,11 +57,8 @@ export function Field({ label, hint, children }: { label: string; hint?: string;
   );
 }
 
-export const inputCls =
-  "w-full min-h-12 border-[1.5px] border-foreground bg-surface px-3 py-2 text-[17px] outline-none focus:outline-2 focus:outline-[#E8421A]";
+export const inputCls = "hc-input";
 
-export const buttonCls =
-  "inline-flex min-h-[52px] items-center justify-center bg-foreground px-6 py-2 text-lg font-semibold text-background hover:text-background disabled:opacity-50";
+export const buttonCls = "hc-btn";
 
-export const secondaryButtonCls =
-  "inline-flex min-h-[52px] items-center justify-center border-[1.5px] border-foreground px-6 py-2 text-lg font-semibold disabled:opacity-50";
+export const secondaryButtonCls = "hc-btn hc-btn--quiet";

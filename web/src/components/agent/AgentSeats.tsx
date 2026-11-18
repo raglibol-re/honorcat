@@ -4,12 +4,13 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { C, F } from "@/components/cat/tokens";
 import { HelperCat } from "@/components/helper/Helper";
-import { btn, btnQuiet, useActor } from "@/components/pot/Who";
+import { useActor } from "@/components/pot/Who";
 import { createSeat, revokeSeat, seatsOf, type SeatView } from "@/lib/agent";
 import { formatDate } from "@/lib/format";
 import { plainError } from "@/lib/messages";
 import { connectMessage, connectorLink } from "@/lib/grokBot";
 
+import { Button } from "@/components/ui/Button";
 const mono: React.CSSProperties = { fontFamily: F.mono, fontSize: 13, overflowWrap: "anywhere", background: C.panel, border: `1px solid ${C.faint}`, padding: "6px 8px" };
 
 /**
@@ -79,12 +80,12 @@ export function AgentSeats() {
             <div role="status" style={{ display: "flex", flexDirection: "column", gap: 8, border: `2px solid ${C.ink}`, padding: "12px 14px" }}>
               <strong style={{ fontSize: 17 }}>Seat “{fresh.label}” is ready. Copy the message and paste it into your Grok Bot: it is shown only this once.</strong>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button type="button" style={btn} onClick={() => copy(connectMessage(fresh.token), "msg")}>
+                <Button onClick={() => copy(connectMessage(fresh.token), "msg")}>
                   {copied === "msg" ? "Copied" : "Copy the message for Grok Bot"}
-                </button>
-                <button type="button" style={{ ...btnQuiet, minHeight: 44, fontSize: 15 }} onClick={() => copy(connectorLink(fresh.token), "link")}>
+                </Button>
+                <Button variant="quiet" style={{ minHeight: 44, fontSize: 15 }} onClick={() => copy(connectorLink(fresh.token), "link")}>
                   {copied === "link" ? "Copied" : "Copy only the connector link"}
-                </button>
+                </Button>
               </div>
               <code style={mono}>{connectorLink(fresh.token)}</code>
               <button type="button" style={{ alignSelf: "flex-start", background: "none", border: 0, padding: 0, textDecoration: "underline", cursor: "pointer", fontSize: 14 }} onClick={() => setFresh(null)}>
@@ -106,9 +107,9 @@ export function AgentSeats() {
               <span style={{ fontSize: 14, fontWeight: 600 }}>Name of the seat</span>
               <input value={label} onChange={(e) => setLabel(e.target.value)} maxLength={40} style={{ minHeight: 44, padding: "0 10px", border: `1.5px solid ${C.ink}`, background: C.page, fontSize: 16 }} />
             </label>
-            <button type="submit" style={btn} disabled={!!busy}>
+            <Button type="submit" disabled={!!busy}>
               {busy === "create" ? "Confirm…" : "Give my Grok Bot a seat"}
-            </button>
+            </Button>
           </form>
           <p style={{ margin: 0, fontSize: 14, color: C.muted }}>A seat lasts 24 hours. You can revoke it any time.</p>
           {seats && seats.length > 0 && (
@@ -120,9 +121,9 @@ export function AgentSeats() {
                     {s.active ? `active until ${formatDate(Date.parse(s.expiresAt))}` : s.revokedAt ? "revoked" : "expired"} · {s.pots} pots · {s.actions} actions
                   </span>
                   {s.active && (
-                    <button type="button" style={{ ...btnQuiet, minHeight: 36, fontSize: 14 }} disabled={!!busy} onClick={() => run(`revoke-${s.id}`, async () => void (await revokeSeat(who.actor!, s.id)))}>
+                    <Button variant="quiet" style={{ minHeight: 36, fontSize: 14 }} disabled={!!busy} onClick={() => run(`revoke-${s.id}`, async () => void (await revokeSeat(who.actor!, s.id)))}>
                       {busy === `revoke-${s.id}` ? "Confirm…" : "Revoke"}
-                    </button>
+                    </Button>
                   )}
                 </li>
               ))}

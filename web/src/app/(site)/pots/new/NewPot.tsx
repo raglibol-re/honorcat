@@ -14,13 +14,7 @@ import { C, F } from "@/components/cat/tokens";
 import { useLivePrice } from "@/components/pot/usePrice";
 import { Reliability } from "@/components/pot/Reliability";
 import { marketLine, sidesOf, yesMeans } from "@/lib/marketName";
-import {
-  AccountLine,
-  FundsHelp,
-  btn,
-  SignIn,
-  useActor,
-} from "@/components/pot/Who";
+import { AccountLine, FundsHelp, SignIn, useActor } from "@/components/pot/Who";
 import { useTechMode } from "@/components/TechMode";
 import { PlayerCat } from "@/components/cat/PlayerCat";
 import { GeminiLink } from "@/components/cat/GeminiLink";
@@ -46,6 +40,7 @@ import { NewPerp } from "@/components/perp/NewPerp";
 import { ropeFor } from "@/lib/rope";
 import { inviteMyAgent, seatsOf, type SeatView } from "@/lib/agent";
 
+import { ActionProgress, Button } from "@/components/ui/Button";
 const label: React.CSSProperties = {
   fontSize: 15,
   fontWeight: 600,
@@ -376,20 +371,14 @@ export function NewPot() {
                   setKind(o.k),
                   o.k === "perp" && setPractice(false)
                 )}
+                className="hc-choice"
                 style={{
                   flex: "1 1 260px",
-                  textAlign: "left",
                   padding: "14px 16px",
                   minHeight: 96,
-                  cursor: off ? "default" : "pointer",
-                  background: on ? C.ink : "transparent",
-                  color: on ? C.page : C.ink,
-                  border: `2px solid ${C.ink}`,
-                  opacity: off ? 0.55 : 1,
-                  display: "flex",
-                  flexDirection: "column",
                   gap: 6,
-                  fontFamily: F.sans,
+                  borderWidth: 2,
+                  fontWeight: 400,
                 }}
               >
                 <strong
@@ -630,21 +619,13 @@ export function NewPot() {
                     role="radio"
                     aria-checked={side === s}
                     onClick={() => setSide(s)}
+                    className={
+                      s === YES ? "hc-choice" : "hc-choice hc-choice--signal"
+                    }
                     style={{
-                      ...btn,
                       flex: "1 1 240px",
                       minHeight: 64,
-                      padding: "8px 16px",
-                      textAlign: "left",
-                      lineHeight: 1.25,
-                      background:
-                        side === s
-                          ? s === YES
-                            ? C.ink
-                            : C.signal
-                          : "transparent",
-                      color: side === s ? C.page : C.ink,
-                      border: `1.5px solid ${s === YES ? C.ink : C.signal}`,
+                      ...(s === YES ? {} : { borderColor: C.signal }),
                     }}
                   >
                     {s === YES ? st.yes : st.no}
@@ -936,23 +917,22 @@ export function NewPot() {
                       </label>
                     </div>
                   )}
-                  <button
-                    type="button"
+                  <Button
+                    busy={!!step}
                     style={{
-                      ...btn,
                       alignSelf: "flex-start",
                       opacity: bad || step ? 0.6 : 1,
                     }}
                     disabled={!!bad || !!step}
                     onClick={submit}
                   >
-                    {step ??
-                      (practice
-                        ? opponent === "bot" && seat
-                          ? "Give your word and invite my Grok Bot"
-                          : "Give your word and play the practice cat"
-                        : "Give your word")}
-                  </button>
+                    {practice
+                      ? opponent === "bot" && seat
+                        ? "Give your word and invite my Grok Bot"
+                        : "Give your word and play the practice cat"
+                      : "Give your word"}
+                  </Button>
+                  <ActionProgress step={step} />
                   <FeeNote
                     fees={fees}
                     payer={who.actor.kind === "wallet" ? "wallet" : "honorcat"}

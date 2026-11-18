@@ -3,20 +3,21 @@
 import { useState } from "react";
 import { C, F } from "@/components/cat/tokens";
 import { HelperBubble } from "@/components/helper/Helper";
-import { SignIn, btn, btnQuiet, useActor } from "@/components/pot/Who";
+import { SignIn, useActor } from "@/components/pot/Who";
 import { createSeat } from "@/lib/agent";
 import { connectMessage, connectorLink } from "@/lib/grokBot";
 import { plainError } from "@/lib/messages";
 
+import { Button } from "@/components/ui/Button";
 const mono: React.CSSProperties = { fontFamily: F.mono, fontSize: 13, overflowWrap: "anywhere", background: C.panel, border: `1px solid ${C.faint}`, padding: "6px 8px" };
 
 /** Copies `value`; the button says so for a moment. */
 function CopyButton({ value, label, primary = false }: { value: string; label: string; primary?: boolean }) {
   const [done, setDone] = useState(false);
   return (
-    <button
-      type="button"
-      style={primary ? btn : { ...btnQuiet, minHeight: 40, fontSize: 15 }}
+    <Button
+      variant={primary ? "primary" : "quiet"}
+      size={primary ? "md" : "sm"}
       onClick={async () => {
         try {
           await navigator.clipboard.writeText(value);
@@ -28,7 +29,7 @@ function CopyButton({ value, label, primary = false }: { value: string; label: s
       }}
     >
       {done ? "Copied" : label}
-    </button>
+    </Button>
   );
 }
 
@@ -47,9 +48,7 @@ export function ConnectGrokBot() {
   if (!token)
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "flex-start" }}>
-        <button
-          type="button"
-          style={btn}
+        <Button
           disabled={busy}
           onClick={async () => {
             setBusy(true);
@@ -64,7 +63,7 @@ export function ConnectGrokBot() {
           }}
         >
           {busy ? "Confirm with your passkey or wallet…" : "Connect my Grok Bot"}
-        </button>
+        </Button>
         <span style={{ fontSize: 14, color: C.muted }}>One confirmation. The seat lasts 24 hours and plays test pots up to $2; you can revoke it on your account page at any time.</span>
         {err && (
           <p role="alert" style={{ margin: 0, color: C.signalInk }}>

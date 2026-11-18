@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Cat } from "@/components/cat/Cat";
 import { C, F } from "@/components/cat/tokens";
-import { AccountLine, btn, SignIn, useActor } from "@/components/pot/Who";
+import { AccountLine, SignIn, useActor } from "@/components/pot/Who";
 import { getJson } from "@/lib/api";
 import { saveSeat } from "./[id]/Together";
 
+import { Button } from "@/components/ui/Button";
 /** Starts a shared draft and takes the host's seat. */
 export function StartTogether() {
   const router = useRouter();
@@ -28,9 +29,8 @@ export function StartTogether() {
       ) : (
         <>
           <AccountLine who={who} />
-          <button
-            type="button"
-            style={{ ...btn, alignSelf: "flex-start" }}
+          <Button
+            style={{ alignSelf: "flex-start" }}
             disabled={busy}
             onClick={async () => {
               setBusy(true);
@@ -50,7 +50,7 @@ export function StartTogether() {
             }}
           >
             Get the link for my friend
-          </button>
+          </Button>
         </>
       )}
       {err && <p role="alert" style={{ margin: 0, color: C.signalInk }}>{err}</p>}

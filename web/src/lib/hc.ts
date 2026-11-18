@@ -95,6 +95,8 @@ export type HcPot = {
   practice?: boolean;
   /** The network fee of each of this pot's transactions, in USDC base units. */
   fees?: Record<string, string>;
+  /** A perp's rope: the perp and which rope it is. */
+  perp?: { perpId: string; rope: number } | null;
 };
 export type HcPotSummary = Omit<HcPot, "requests" | "createdTx" | "market"> & {
   market: { eventTitle: string; label: string; instrument: string; eventTicker: string; league?: string | null; teams?: string | null; startMs?: number | null; yesMeans?: string | null; closeMs?: number | null } | null;

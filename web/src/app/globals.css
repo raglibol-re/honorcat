@@ -169,3 +169,93 @@ body {
 .hc-gemini-card:hover { transform: translate(-2px, -2px); box-shadow: 6px 6px 0 var(--hc-ink, #111) !important; }
 .hc-gemini-card:focus-visible { outline: 3px solid #E5482D; outline-offset: 3px; }
 @media (prefers-reduced-motion: reduce) { .hc-gemini-card, .hc-gemini-card:hover { transition: none; transform: none; } }
+
+/* ================================================================ controls (components/ui/*)
+   One button and one field style for the whole app. Square, no shadow (design rule); states by
+   colour and a 1px press. The label never changes while busy: a small walking-paw loader appears
+   and the button keeps its width; the step text goes to the progress line under it. */
+.hc-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  min-height: 52px; padding: 0 24px; box-sizing: border-box;
+  font-family: var(--font-barlow), "Helvetica Neue", Arial, sans-serif; font-size: 18px; font-weight: 600; line-height: 1.2;
+  text-align: center; text-decoration: none; cursor: pointer; user-select: none;
+  background: var(--hc-ink); color: var(--hc-page); border: 1.5px solid var(--hc-ink);
+  transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease, transform 60ms ease;
+}
+.hc-root a.hc-btn, .hc a.hc-btn { color: var(--hc-page); }
+.hc-btn:hover:not(:disabled):not([aria-busy="true"]) { background: #3A3733; border-color: #3A3733; color: var(--hc-page); }
+.hc-btn:active:not(:disabled):not([aria-busy="true"]) { transform: translateY(1px); }
+.hc-btn--quiet, .hc-root a.hc-btn--quiet, .hc a.hc-btn--quiet { background: transparent; color: var(--hc-ink); }
+.hc-btn--quiet:hover:not(:disabled):not([aria-busy="true"]) { background: var(--hc-card); border-color: var(--hc-ink); color: var(--hc-ink); }
+.hc-btn--danger, .hc-root a.hc-btn--danger { background: var(--hc-signal); border-color: var(--hc-signal); color: #FFFFFF; }
+.hc-btn--danger:hover:not(:disabled):not([aria-busy="true"]) { background: #B8320F; border-color: #B8320F; color: #FFFFFF; }
+.hc-btn--chosen { background: var(--hc-ink); color: var(--hc-page); }
+.hc-btn--sm { min-height: 40px; padding: 0 14px; font-size: 16px; gap: 8px; }
+.hc-btn--block { width: 100%; }
+.hc-btn:disabled:not([aria-busy="true"]) { cursor: not-allowed; background: #D9D6CE; border-color: #D9D6CE; color: #6E6A62; }
+.hc-btn--quiet:disabled:not([aria-busy="true"]) { background: transparent; border-color: #B5B1A8; color: #6E6A62; }
+.hc-btn[aria-busy="true"] { cursor: progress; }
+.hc-btn__label { display: inline-block; }
+/* the loader: three paw dots stepping in turn */
+.hc-paws { display: inline-flex; gap: 3px; align-items: flex-end; height: 12px; }
+.hc-paws i { display: block; width: 5px; height: 5px; background: currentColor; animation: hc-paw 900ms ease-in-out infinite; }
+.hc-paws i:nth-child(2) { animation-delay: 150ms; }
+.hc-paws i:nth-child(3) { animation-delay: 300ms; }
+@keyframes hc-paw { 0%, 100% { transform: translateY(0); opacity: 0.35; } 40% { transform: translateY(-5px); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .hc-paws i { animation: none; opacity: 0.8; } .hc-btn { transition: none; } }
+
+/* the line under a busy button: step n of m, what to do now, seconds waited */
+.hc-progress { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; font-size: 15px; line-height: 1.4; color: var(--hc-body); }
+.hc-progress b { font-family: var(--font-plex-mono), ui-monospace, monospace; font-size: 12px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--hc-muted); }
+.hc-progress .hc-progress__t { font-family: var(--font-plex-mono), ui-monospace, monospace; font-size: 13px; color: var(--hc-muted); font-variant-numeric: tabular-nums; }
+
+/* fields */
+.hc-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.hc-field__label { font-size: 15px; font-weight: 600; color: var(--hc-ink); }
+.hc-field__hint { font-size: 14px; color: var(--hc-muted); }
+.hc-field__error { font-size: 14px; color: var(--hc-accent); font-weight: 500; }
+.hc-input { min-height: 48px; width: 100%; box-sizing: border-box; padding: 0 12px; border: 1.5px solid var(--hc-ink); background: var(--hc-page); color: var(--hc-ink);
+  font-family: var(--font-barlow), "Helvetica Neue", Arial, sans-serif; font-size: 18px; transition: background-color 120ms ease; }
+.hc-input:hover { background: var(--hc-card); }
+.hc-input:focus { background: #FBFAF6; outline: 2px solid var(--hc-focus); outline-offset: 2px; }
+.hc-input[aria-invalid="true"] { border-color: var(--hc-accent); }
+
+/* notices: a left rule in the tone colour, never a filled box */
+.hc-notice { display: flex; flex-direction: column; gap: 4px; border-left: 3px solid var(--hc-ink); padding: 2px 0 2px 14px; font-size: 16px; line-height: 1.5; color: var(--hc-body); max-width: 680px; }
+.hc-notice strong { color: var(--hc-ink); }
+.hc-notice--warning { border-left-color: var(--hc-signal); }
+.hc-notice--error { border-left-color: var(--hc-accent); color: var(--hc-accent); }
+.hc-notice--success { border-left-color: #1F6B3A; }
+
+/* a short toast after an action (components/ui/Toast.tsx) */
+.hc-toast { position: fixed; left: 50%; bottom: max(20px, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 50; background: var(--hc-ink); color: var(--hc-page);
+  padding: 12px 18px; font-size: 16px; font-weight: 500; max-width: min(560px, calc(100vw - 32px)); animation: hc-toast-in 200ms ease-out both; }
+@keyframes hc-toast-in { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@media (prefers-reduced-motion: reduce) { .hc-toast { animation: none; } }
+
+/* choice buttons (side, leverage, kind, filters): role="radio", the chosen one filled with ink */
+.hc-choice { display: inline-flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; min-height: 56px; padding: 8px 14px; box-sizing: border-box;
+  text-align: left; line-height: 1.25; font-family: var(--font-barlow), "Helvetica Neue", Arial, sans-serif; font-size: 18px; font-weight: 600;
+  background: transparent; color: var(--hc-ink); border: 1.5px solid var(--hc-ink); cursor: pointer; transition: background-color 120ms ease, color 120ms ease; }
+.hc-choice:hover:not(:disabled):not([aria-checked="true"]) { background: var(--hc-card); }
+.hc-choice[aria-checked="true"] { background: var(--hc-ink); color: var(--hc-page); }
+.hc-choice:disabled { cursor: not-allowed; border-color: #B5B1A8; color: #6E6A62; }
+.hc-choice small { font-size: 15px; font-weight: 500; }
+.hc-choice--sm { min-height: 44px; padding: 0 16px; font-size: 17px; align-items: center; }
+.hc-choice--signal[aria-checked="true"] { background: var(--hc-signal); border-color: var(--hc-signal); color: #FFFFFF; }
+@media (prefers-reduced-motion: reduce) { .hc-choice { transition: none; } }
+
+/* header (components/cat/Chrome.tsx): links on wide screens, a menu on phones */
+.hc-strip { background: var(--hc-ink); color: #DEDBD3; font-size: 13px; letter-spacing: 0.02em; padding-top: 6px; padding-bottom: 6px; }
+.hc-nav { display: flex; flex-wrap: wrap; gap: 4px 30px; font-size: 17px; font-weight: 500; }
+.hc-nav a { text-decoration: none; padding: 12px 0; border-bottom: 2px solid transparent; }
+.hc-nav a[aria-current="page"] { border-bottom-color: var(--hc-signal); }
+.hc-menu-btn { display: none; }
+.hc-menu { display: none; }
+@media (max-width: 899px) {
+  .hc-nav { display: none; }
+  .hc-menu-btn { display: inline-flex; }
+  .hc-menu[data-open="true"] { display: flex; flex-direction: column; width: 100%; border-top: 1.5px solid var(--hc-ink); }
+  .hc-menu a { padding: 14px 2px; font-size: 19px; font-weight: 500; text-decoration: none; border-bottom: 1px solid var(--hc-rule); }
+  .hc-menu a[aria-current="page"] { color: var(--hc-accent); }
+}

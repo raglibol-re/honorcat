@@ -4,12 +4,13 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Cat, type Cosmetic } from "@/components/cat/Cat";
 import { C, F } from "@/components/cat/tokens";
-import { btnQuiet } from "@/components/pot/Who";
+
 import { getJson } from "@/lib/api";
 import { txUrl } from "@/lib/chain";
 import { formatDate } from "@/lib/format";
 import { FURS, furOf } from "@/lib/names";
 
+import { Button } from "@/components/ui/Button";
 type TreatItem = { kind: "MakerTreat" | "ExitFee" | "ReferralTreat" | "CopycatTreat"; potId: string | null; amount: string; from: string; tx: string; at: number | null; profit: string | null };
 type Treats = { total: string; totals: Record<TreatItem["kind"], string>; copycats: number; referred: number; items: TreatItem[] };
 type Cosmetics = { wear: Cosmetic | null; unlocked: { wear: Cosmetic; label: string }[]; next: { wear: Cosmetic; label: string; need: string; left: string } | null };
@@ -119,9 +120,8 @@ export function TreatsPanel({ account, mine }: { account: string; mine: boolean 
             A player who opens it before their first pot gives you 20% of the fees they pay in their first 20 pots. It comes out of the fee, not out of their pocket, and never from HonorCat.
           </span>
           <code style={{ fontFamily: "var(--font-plex-mono), monospace", fontSize: 14, overflowWrap: "anywhere", background: C.faint, padding: "6px 8px" }}>{link}</code>
-          <button
-            type="button"
-            style={{ ...btnQuiet, alignSelf: "flex-start" }}
+          <Button variant="quiet"
+            style={{ alignSelf: "flex-start" }}
             onClick={async () => {
               if (navigator.share) await navigator.share({ title: "HonorCat", text: "Play a pot with me on HonorCat", url: link }).catch(() => {});
               else await navigator.clipboard?.writeText(link);
@@ -129,7 +129,7 @@ export function TreatsPanel({ account, mine }: { account: string; mine: boolean 
             }}
           >
             {copied ? "Shared" : "Share my link"}
-          </button>
+          </Button>
         </div>
       )}
     </section>

@@ -9,8 +9,9 @@ import { getJson, usePolling } from "@/lib/api";
 import type { HcPot } from "@/lib/hc";
 import { plainError } from "@/lib/messages";
 import { joinChallenge, signChallenge } from "@/lib/passkey";
-import { btn, btnQuiet, type ActorState } from "./Who";
+import { type ActorState } from "./Who";
 
+import { Button } from "@/components/ui/Button";
 type Note = { account: string; kind: "well_played" | "rematch"; draft_id: string | null; created_at: string };
 
 /** Signs a note on a pot the way names are signed: a wallet signature or one passkey confirmation. */
@@ -85,9 +86,7 @@ export function AfterPot({ pot, who, nameOf }: { pot: HcPot; who: ActorState; na
       )}
       {isPlayer && (
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          <button
-            type="button"
-            style={btnQuiet}
+          <Button variant="quiet"
             disabled={!!busy || !!mine("well_played")}
             onClick={() =>
               run("well", async () => {
@@ -96,11 +95,9 @@ export function AfterPot({ pot, who, nameOf }: { pot: HcPot; who: ActorState; na
             }
           >
             {mine("well_played") ? "You said “Well played”" : busy === "well" ? "Confirm…" : "Send “Well played”"}
-          </button>
+          </Button>
           {!practiceCat && (
-            <button
-              type="button"
-              style={btn}
+            <Button
               disabled={!!busy}
               onClick={() =>
                 run("rematch", async () => {
@@ -120,7 +117,7 @@ export function AfterPot({ pot, who, nameOf }: { pot: HcPot; who: ActorState; na
               }
             >
               {mine("rematch") ? "Offer another rematch" : busy === "rematch" ? "Confirm…" : "Offer a rematch on a new market"}
-            </button>
+            </Button>
           )}
         </div>
       )}

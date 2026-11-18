@@ -4,7 +4,7 @@ import { CatState } from "@/components/cat/CatState";
 import Link from "next/link";
 import { Cat } from "@/components/cat/Cat";
 import { C, F } from "@/components/cat/tokens";
-import { AccountLine, btn, SignIn, useActor } from "@/components/pot/Who";
+import { AccountLine, SignIn, useActor } from "@/components/pot/Who";
 import { usePolling } from "@/lib/api";
 import { formatDate, short } from "@/lib/format";
 import { sideOf, type HcPotSummary } from "@/lib/hc";
@@ -19,6 +19,7 @@ import type { PerpSummary } from "@/lib/perp";
 import { useEffect, useState } from "react";
 import { ropesStatus } from "@/lib/hc";
 
+import { ButtonLink } from "@/components/ui/Button";
 /** The pot's size in dollars: v2 pots carry their pot value, v1 pots their notional (at the start, once ended). */
 function sizeOf(p: HcPotSummary) {
   const d = p.data as unknown as Record<string, string | undefined> & {
@@ -191,31 +192,10 @@ export function PotsList() {
           Pots
         </h1>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          <Link
-            href="/pots/together"
-            style={{
-              ...btn,
-              background: "transparent",
-              color: C.ink,
-              border: `1.5px solid ${C.ink}`,
-              display: "inline-flex",
-              alignItems: "center",
-              textDecoration: "none",
-            }}
-          >
+          <ButtonLink href="/pots/together" variant="quiet">
             With a friend
-          </Link>
-          <Link
-            href="/pots/new"
-            style={{
-              ...btn,
-              display: "inline-flex",
-              alignItems: "center",
-              textDecoration: "none",
-            }}
-          >
-            Start a pot
-          </Link>
+          </ButtonLink>
+          <ButtonLink href="/pots/new">Start a pot</ButtonLink>
         </div>
       </header>
 

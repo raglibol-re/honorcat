@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import { useNow } from "@/lib/useNow";
 import { C, F } from "@/components/cat/tokens";
-import { btn } from "@/components/pot/Who";
+
 import { countdown, expiryChoices, leverageSteps, ropeFor, ropeWords, type RopeChoice } from "@/lib/rope";
 
+import { Button } from "@/components/ui/Button";
 const $ = (base: bigint) => `$${(Number(base) / 1e6).toFixed(2)}`;
 
 export type RopeSetting = { choice: RopeChoice; expiry: number | null };
@@ -46,16 +47,15 @@ export function RopeControl(o: {
       <legend style={{ fontSize: 15, fontWeight: 600, color: C.ink, marginBottom: 6 }}>How long is your rope?</legend>
       <div role="radiogroup" aria-label="Leverage" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         {steps.map((l) => (
-          <button
+          <Button
             key={l}
-            type="button"
             role="radio"
             aria-checked={leverage === l}
             onClick={() => setLev(l)}
-            style={{ ...btn, minHeight: 48, minWidth: 72, padding: "0 14px", background: leverage === l ? C.ink : "transparent", color: leverage === l ? C.page : C.ink, border: `1.5px solid ${C.ink}` }}
+            style={{ minHeight: 48, minWidth: 72, padding: "0 14px", background: leverage === l ? C.ink : "transparent", color: leverage === l ? C.page : C.ink, border: `1.5px solid ${C.ink}` }}
           >
             {l === 1 ? "Normal" : `${l}×`}
-          </button>
+          </Button>
         ))}
       </div>
       {nowS > 0 && !expiries.length && <p style={{ margin: 0, fontSize: 15, color: C.muted }}>This market closes too soon for a short rope: short ropes must end 2 hours before trading closes.</p>}

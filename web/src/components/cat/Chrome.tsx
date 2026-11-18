@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Suspense, useState } from "react";
 import { LiveLine } from "@/components/LiveLine";
 import { TechToggle, useTechMode } from "@/components/TechMode";
 import { CatHead, Ears } from "./shapes";
@@ -24,28 +26,64 @@ export const technical = [
 // The older refund-guarantee product stays reachable in technical mode only.
 const techOnly = [["/guarantees", "Guarantees"]] as const;
 
-/** The header from the landing reference: logo, three links, the test-money note. */
+/**
+ * The header: a slim test-money line, the logo, and the links (the current page marked). On phones
+ * the links fold into a menu that closes after a choice.
+ */
 export function HcHeader() {
   const { tech } = useTechMode();
   const items = tech ? [...primary, ...technical, ...techOnly] : primary;
   return (
-    <header
-      className="hc-wrap"
-      style={{ paddingTop: 22, paddingBottom: 22, display: "flex", flexWrap: "wrap", gap: "12px 40px", alignItems: "center", justifyContent: "space-between", width: "100%" }}
-    >
-      <Link href="/" aria-label="HonorCat home" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
-        <CatHead width={30} height={28} eyes={C.signal} />
-        <span style={{ fontFamily: F.cond, fontSize: 28, fontWeight: 600, letterSpacing: "0.01em" }}>HonorCat</span>
-      </Link>
-      <nav style={{ display: "flex", flexWrap: "wrap", gap: "4px 36px", fontSize: 17, fontWeight: 500 }}>
-        {items.map(([href, label]) => (
-          <Link key={href} href={href} style={{ textDecoration: "none", padding: "12px 0" }}>
-            {label}
-          </Link>
-        ))}
+    <>
+      <div className="hc-strip">
+        <div className="hc-wrap">Test version on Arc testnet · test money only · not financial advice</div>
+      </div>
+      <header className="hc-wrap" style={{ paddingTop: 16, paddingBottom: 16, display: "flex", flexWrap: "wrap", gap: "12px 40px", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+        <Link href="/" aria-label="HonorCat home" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
+          <CatHead width={30} height={28} eyes={C.signal} />
+          <span style={{ fontFamily: F.cond, fontSize: 28, fontWeight: 600, letterSpacing: "0.01em" }}>HonorCat</span>
+        </Link>
+        {/* The current page is only known at runtime: the links render plain first, then marked. */}
+        <Suspense fallback={<Nav items={items} path={null} />}>
+          <NavHere items={items} />
+        </Suspense>
+      </header>
+    </>
+  );
+}
+
+type Item = readonly [string, string];
+
+function NavHere({ items }: { items: readonly Item[] }) {
+  return <Nav items={items} path={usePathname() ?? "/"} />;
+}
+
+/** The links (wide screens) and the phone menu, which closes after a choice. */
+function Nav({ items, path }: { items: readonly Item[]; path: string | null }) {
+  const [open, setOpen] = useState(false);
+  const [seen, setSeen] = useState(path);
+  if (seen !== path) {
+    setSeen(path);
+    setOpen(false);
+  }
+  const current = (href: string) => path !== null && (href === "/pots" ? path === "/pots" : path === href || path.startsWith(`${href}/`));
+  const link = ([href, label]: Item) => (
+    <Link key={href} href={href} aria-current={current(href) ? "page" : undefined} onClick={() => setOpen(false)}>
+      {label}
+    </Link>
+  );
+  return (
+    <>
+      <nav className="hc-nav" aria-label="Main">
+        {items.map(link)}
       </nav>
-      <span style={{ fontSize: 15, color: C.muted }}>Test version on Arc testnet. Test money only. Not financial advice.</span>
-    </header>
+      <button type="button" className="hc-btn hc-btn--quiet hc-btn--sm hc-menu-btn" aria-expanded={open} aria-controls="hc-menu" onClick={() => setOpen((o) => !o)}>
+        {open ? "Close" : "Menu"}
+      </button>
+      <nav id="hc-menu" className="hc-menu" data-open={open} aria-label="Main menu">
+        {items.map(link)}
+      </nav>
+    </>
   );
 }
 

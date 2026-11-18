@@ -1,7 +1,5 @@
 "use client";
 
-import { SITE_URL } from "@/lib/site";
-import { InviteQR } from "@/components/pot/InviteQR";
 import { CatState } from "@/components/cat/CatState";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -22,7 +20,7 @@ import type { AgentInfo } from "@/lib/agent";
 import { HelperBubble } from "@/components/helper/Helper";
 import { adviceFree, exitOptions, levelOptions, readWish } from "@/lib/helper";
 import { SamplerNotice } from "@/components/pot/SamplerHealth";
-import { asV1Pot, sceneOf, STATE_TEXT, storyOf } from "@/components/pot/scene";
+import { asV1Pot, sceneOf, storyOf } from "@/components/pot/scene";
 import { ShortRopeNote } from "@/components/pot/RopeControl";
 import { RopeLives } from "@/components/pot/RopeLives";
 import { RopeActions } from "@/components/pot/RopeActions";
@@ -32,7 +30,10 @@ import { useTechMode } from "@/components/TechMode";
 import { marketLine, sidesOf, yesMeans, type Sides } from "@/lib/marketName";
 import { displayName, FURS, furOf, useNames } from "@/lib/names";
 import { useLivePrice } from "@/components/pot/usePrice";
-import { AccountLine, FundsHelp, btn, btnQuiet, SignIn, useActor, type ActorState } from "@/components/pot/Who";
+import { AccountLine, FundsHelp, SignIn, useActor, type ActorState } from "@/components/pot/Who";
+import { ActionProgress, Button } from "@/components/ui/Button";
+import { Invite, NotifyButton } from "@/components/pot/Invite";
+import { toast } from "@/components/ui/Toast";
 import { getJson, usePolling } from "@/lib/api";
 import { txUrl } from "@/lib/chain";
 import { formatDate, short } from "@/lib/format";
@@ -40,7 +41,6 @@ import { cancelPot, feeOf, joinPot, requestExit, setLevels, sideOf, signHandshak
 import { useNow } from "@/lib/useNow";
 import { plainError } from "@/lib/messages";
 import { shareOf } from "@/lib/shares";
-import { notifyMe, pushSupported } from "@/lib/push";
 import { money, useHome } from "@/lib/currency";
 import { RateNote } from "@/components/cat/Currency";
 
@@ -93,6 +93,7 @@ function useAction() {
       setStep("Preparing");
       await f(setStep);
       setDone(ok);
+      toast(ok);
     } catch (e) {
       setErr(plainError(e));
     } finally {
@@ -106,7 +107,7 @@ function Feedback({ a, account }: { a: ReturnType<typeof useAction>; account?: s
   return (
     <>
       {a.err?.startsWith("HonorCat's test money") && account && <FundsHelp account={account} />}
-      {a.step && <p style={{ margin: 0, color: C.body }} aria-live="polite">{a.step}…</p>}
+      <ActionProgress step={a.step} />
       {a.done && <CatState kind="success" text={a.done} size={90} />}
       {a.err && <p role="alert" style={{ margin: 0, color: C.signalInk }}>{a.err}</p>}
     </>
@@ -145,28 +146,17 @@ function Actions({ pot, who, price, nowS, nameOf }: { pot: HcPot; who: ActorStat
         <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <h2 style={h2}>Invite someone</h2>
           <p style={{ margin: 0, color: C.body, fontSize: 17 }}>Send this page to the person who takes the other side. They join with a passkey or a wallet; nobody pays network fees.</p>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <button
-              type="button"
-              style={btn}
-              onClick={async () => {
-                const url = location.href.split("?")[0]!;
-                const text = `Take the other side of my HonorCat pot${pot.market ? `: ${sidesOf(pot.market).yes}?` : ""}`;
-                if (navigator.share) await navigator.share({ title: "HonorCat pot", text, url }).catch(() => {});
-                else await navigator.clipboard?.writeText(url);
-              }}
-            >
-              Share the invite
-            </button>
-            <button type="button" style={btnQuiet} onClick={() => navigator.clipboard?.writeText(location.href.split("?")[0]!)}>
-              Copy the link
-            </button>
-            <NotifyButton potId={pot.potId} account={me} />
-            <button type="button" style={btnQuiet} disabled={!!a.step} onClick={() => who.actor && a.run((s) => cancelPot(who.actor!, POTS, pot, s), "Cancelled: your deposit is back.")}>
-              Take the offer back
-            </button>
-          </div>
-          <InviteQR url={`${SITE_URL}/pots/${pot.potId}`} label="Or let them scan this" />
+          <Invite
+            path={`/pots/${pot.potId}`}
+            text={`Take the other side of my HonorCat pot${pot.market ? `: ${sidesOf(pot.market).yes}?` : ""}`}
+            potId={pot.potId}
+            account={me}
+            extra={
+              <Button variant="quiet" busy={!!a.step} onClick={() => who.actor && a.run((s) => cancelPot(who.actor!, POTS, pot, s), "Cancelled: your deposit is back.")}>
+                Take the offer back
+              </Button>
+            }
+          />
           <Feedback a={a} account={who.actor?.account ?? null} />
         </section>
       );
@@ -197,9 +187,9 @@ function Actions({ pot, who, price, nowS, nameOf }: { pot: HcPot; who: ActorStat
         ) : (
           <>
             <AccountLine who={who} />
-            <button type="button" style={{ ...btn, alignSelf: "flex-start" }} disabled={!!a.step || tooLate} onClick={() => a.run((s) => joinPot(who.actor!, POTS, pot, s), "Joined. The entry price is being measured.")}>
+            <Button style={{ alignSelf: "flex-start" }} busy={!!a.step} disabled={!!a.step || tooLate} onClick={() => a.run((s) => joinPot(who.actor!, POTS, pot, s), "Joined. The entry price is being measured.")}>
               {tooLate ? "Too close to the market's close" : `Give your word (${$(dep)})`}
-            </button>
+            </Button>
             <FeeNote fees={fees} payer={who.actor.kind === "wallet" ? "wallet" : "honorcat"} />
           </>
         )}
@@ -222,9 +212,9 @@ function Actions({ pot, who, price, nowS, nameOf }: { pot: HcPot; who: ActorStat
           {!who.actor ? (
             <SignIn who={who} purpose="Your account will hold the side you take over." />
           ) : (
-            <button type="button" style={{ ...btn, alignSelf: "flex-start" }} disabled={!!a.step} onClick={() => a.run((s) => takeover(who.actor!, POTS, pot, s), "Offer in. It completes at the exit price.")}>
+            <Button style={{ alignSelf: "flex-start" }} busy={!!a.step} disabled={!!a.step} onClick={() => a.run((s) => takeover(who.actor!, POTS, pot, s), "Offer in. It completes at the exit price.")}>
               Take over with {$(n)}
-            </button>
+            </Button>
           )}
           <Feedback a={a} account={who.actor?.account ?? null} />
         </section>
@@ -279,17 +269,17 @@ function Actions({ pot, who, price, nowS, nameOf }: { pot: HcPot; who: ActorStat
         {!ask ? (
           <>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
-              <button type="button" style={btn} disabled={!!a.step || !!blocked} onClick={() => setAsk({ amount: n, what: "your whole share" })}>
+              <Button disabled={!!a.step || !!blocked} onClick={() => setAsk({ amount: n, what: "your whole share" })}>
                 Leave with my whole share
-              </button>
+              </Button>
               {other ? (
-                <button type="button" style={btn} disabled={!!a.step} onClick={acceptHandshake}>
+                <Button disabled={!!a.step} onClick={acceptHandshake}>
                   Shake hands at {pct(other.price_yes)}
-                </button>
+                </Button>
               ) : (
-                <button type="button" style={btnQuiet} disabled={!!a.step || price === null} onClick={offerHandshake}>
+                <Button variant="quiet" disabled={!!a.step || price === null} onClick={offerHandshake}>
                   {mineOffer ? `Offer the handshake again at ${price === null ? "…" : (price * 100).toFixed(1)}%` : `Offer a handshake at ${price === null ? "…" : (price * 100).toFixed(1)}%`}
-                </button>
+                </Button>
               )}
             </div>
             <p style={{ margin: 0, color: C.body, fontSize: 16, lineHeight: 1.5 }}>
@@ -310,29 +300,31 @@ function Actions({ pot, who, price, nowS, nameOf }: { pot: HcPot; who: ActorStat
                 </span>
               </div>
             )}
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "flex-end" }}>
+            <details>
+              <summary style={{ cursor: "pointer", fontSize: 16, minHeight: 32 }}>More ways to leave: part of the pot, one life</summary>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "flex-end", paddingTop: 12 }}>
               {ninth > 0n && n > ninth && (
-                <button type="button" style={btnQuiet} disabled={!!a.step || !!blocked} onClick={() => setAsk({ amount: ninth, what: `one life (${$(ninth)} of the pot)` })}>
+                <Button variant="quiet" disabled={!!a.step || !!blocked} onClick={() => setAsk({ amount: ninth, what: `one life (${$(ninth)} of the pot)` })}>
                   Spend one life ({$(ninth)} of the pot)
-                </button>
+                </Button>
               )}
               <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                 <span style={{ fontSize: 14, color: C.muted }}>Or leave with part of the pot (USDC)</span>
                 <input style={input} inputMode="decimal" value={part} onChange={(e) => setPart(e.target.value.replace(/[^0-9.]/g, ""))} />
               </label>
-              <button
-                type="button"
-                style={btnQuiet}
+              <Button
+                variant="quiet"
                 disabled={!!a.step || !!blocked || !(Number(part) > 0) || BigInt(Math.round(Number(part) * 1e6)) > n}
                 onClick={() => setAsk({ amount: BigInt(Math.round(Number(part) * 1e6)), what: `$${Number(part).toFixed(2)} of the pot (a partial exit)` })}
               >
                 Leave with this part
-              </button>
+              </Button>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <Cat pose="lives" size={180} lives={lives} />
-              <span style={{ fontSize: 15, color: C.muted }}>{lives} of 9 lives left: each life divides a ninth of the starting pot.</span>
+              <span style={{ fontSize: 15, color: C.muted }}>{lives} of 9 ninths left: each one takes a ninth of the starting pot off the rope.</span>
             </div>
+            </details>
           </>
         ) : (
           (() => {
@@ -361,10 +353,8 @@ function Actions({ pot, who, price, nowS, nameOf }: { pot: HcPot; who: ActorStat
                   over your side instead; you are then paid the same from them.
                 </p>
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                  <button
-                    type="button"
-                    style={btn}
-                    disabled={!!a.step}
+                  <Button
+                    busy={!!a.step}
                     onClick={() => {
                       const x = ask;
                       setAsk(null);
@@ -372,10 +362,10 @@ function Actions({ pot, who, price, nowS, nameOf }: { pot: HcPot; who: ActorStat
                     }}
                   >
                     Yes, leave
-                  </button>
-                  <button type="button" style={btnQuiet} onClick={() => setAsk(null)}>
+                  </Button>
+                  <Button variant="quiet" onClick={() => setAsk(null)}>
                     Not now
-                  </button>
+                  </Button>
                 </div>
               </div>
               <HelperBubble lines={lines} />
@@ -386,8 +376,8 @@ function Actions({ pot, who, price, nowS, nameOf }: { pot: HcPot; who: ActorStat
         {blocked && <p style={{ margin: 0, color: C.muted }}>{blocked}</p>}
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <h2 style={h2}>Net and bowl</h2>
+      <details style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <summary style={{ cursor: "pointer", fontFamily: F.cond, fontSize: 28, fontWeight: 600, minHeight: 40 }}>Net and bowl: leave automatically at a price</summary>
         <p style={{ margin: 0, color: C.body, fontSize: 17, lineHeight: 1.5 }}>
           A net catches you if your side&apos;s price falls to it; a bowl takes your share off the rope when it rises to it. When the 30-second average holds there, the samplers file your exit; it is then priced
           like any other. Now: {lv?.net ? `net ${(lv.net / 10_000).toFixed(1)}%` : "no net"}, {lv?.bowl ? `bowl ${(lv.bowl / 10_000).toFixed(1)}%` : "no bowl"}.
@@ -414,9 +404,9 @@ function Actions({ pot, who, price, nowS, nameOf }: { pot: HcPot; who: ActorStat
               style={{ ...input, width: "100%" }}
             />
           </label>
-          <button type="submit" style={btnQuiet} disabled={!wish.trim() || own === null}>
+          <Button type="submit" variant="quiet" disabled={!wish.trim() || own === null}>
             Fill it in
-          </button>
+          </Button>
         </form>
         {levelsHelp && own !== null && (
           <HelperBubble
@@ -436,16 +426,15 @@ function Actions({ pot, who, price, nowS, nameOf }: { pot: HcPot; who: ActorStat
             <span style={{ fontSize: 14, color: C.muted }}>Bowl at (%)</span>
             <input style={input} inputMode="decimal" value={bowl} onFocus={() => setLevelsHelp(true)} onChange={(e) => setBowl(e.target.value.replace(/[^0-9.]/g, ""))} placeholder="e.g. 90" />
           </label>
-          <button
-            type="button"
-            style={btnQuiet}
-            disabled={!!a.step}
+          <Button
+            variant="quiet"
+            busy={!!a.step}
             onClick={() => a.run((s) => setLevels(who.actor!, POTS, pot, mySide, Math.round((Number(net) || 0) * 10_000), Math.round((Number(bowl) || 0) * 10_000), s), "Saved. The samplers watch it now.")}
           >
             Save
-          </button>
+          </Button>
         </div>
-      </div>
+      </details>
 
       <Feedback a={a} account={who.actor?.account ?? null} />
     </section>
@@ -453,29 +442,6 @@ function Actions({ pot, who, price, nowS, nameOf }: { pot: HcPot; who: ActorStat
 }
 
 /** Web push for this pot. `when`: what the player is waiting for (an opponent, or any change once the pot runs). */
-function NotifyButton({ potId, account, when = "join" }: { potId: string; account: string | null; when?: "join" | "change" }) {
-  const [state, setState] = useState<"idle" | "busy" | "on" | string>("idle");
-  if (!pushSupported()) return null;
-  return (
-    <button
-      type="button"
-      style={btnQuiet}
-      disabled={state === "busy" || state === "on"}
-      onClick={async () => {
-        setState("busy");
-        try {
-          await notifyMe(potId, account);
-          setState("on");
-        } catch (e) {
-          setState(plainError(e));
-        }
-      }}
-    >
-      {state === "on" ? "You will be notified" : state === "idle" || state === "busy" ? (when === "join" ? "Notify me when someone joins" : "Notify me when this pot changes") : state}
-    </button>
-  );
-}
-
 /* ------------------------------------------------------------------ after an exit */
 
 /**
@@ -490,9 +456,9 @@ function ShareSend({ pot, who, mine }: { pot: HcPot; who: ActorState; mine: numb
   if (paid <= 0n) return null;
   if (!open)
     return (
-      <button type="button" onClick={() => setOpen(true)} style={{ ...btnQuiet, alignSelf: "flex-start" }}>
+      <Button variant="quiet" onClick={() => setOpen(true)} style={{ alignSelf: "flex-start" }}>
         Send my ${(Number(paid) / 1e6).toFixed(2)} to…
-      </button>
+      </Button>
     );
   return <SendTo actor={who.actor} balance={who.balance} amount={paid < (who.balance ?? paid) ? paid : (who.balance ?? paid)} potId={pot.potId} title="Send my share to a player" />;
 }
@@ -613,6 +579,18 @@ function Windows({ pot, tech }: { pot: HcPot; tech: boolean }) {
 
 /* ------------------------------------------------------------------ page */
 
+/** Once a pot has ended: what this player got from it, first thing on the page. */
+function ResultBanner({ pot, mine }: { pot: HcPot; mine: number }) {
+  const got = receiptsOf(pot.events ?? [], mine, () => "", () => "").reduce((n, r) => n + (r.mine ?? 0n), 0n);
+  const refunded = pot.state === "Expired";
+  return (
+    <div role="status" style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: "4px 16px", background: C.ink, color: C.page, padding: "14px 18px", maxWidth: 760 }}>
+      <span style={{ fontFamily: F.cond, fontSize: 34, fontWeight: 600, lineHeight: 1 }}>{refunded ? "Refunded" : `You got ${$(got)}`}</span>
+      <span style={{ fontSize: 16, color: C.faint }}>{refunded ? "Nobody could price this pot; both sides got their money back." : "from this pot. The details are below."}</span>
+    </div>
+  );
+}
+
 export function PotView({ id }: { id: string }) {
   useHome();
   const { data: pot, error } = usePolling<HcPot>(`/api/hc/pots/${id}`, 3000);
@@ -620,7 +598,6 @@ export function PotView({ id }: { id: string }) {
   const live = useLivePrice(pot?.market?.instrument ?? null, Number(pot?.data.window ?? 30));
   const nowS = Math.floor(useNow() / 1000);
   const q = useSearchParams();
-  const fresh = q.get("new") === "1";
   const practiceFailed = q.get("practice") === "failed";
   const botInvited = q.get("bot") === "1";
   const { tech } = useTechMode();
@@ -635,7 +612,9 @@ export function PotView({ id }: { id: string }) {
 
   const m = pot.market;
   const me = who.actor?.account ?? null;
-  const nameOf = (a: string | null) => displayName(a, names, me, tech, a ? "a player" : "open seat");
+  // A perp's rope: both seats are the perps contract's, held for the perp's two players.
+  const perpSeat = pot.perp ? pot.owners.yes?.toLowerCase() : null;
+  const nameOf = (a: string | null) => (perpSeat && a?.toLowerCase() === perpSeat ? `Perp ${pot.perp!.perpId}` : displayName(a, names, me, tech, a ? "a player" : "open seat"));
   const scene = sceneOf(pot, live.smoothed, nowS, { me, names, tech });
   const v2 = Boolean((pot.data as unknown as { v2?: boolean }).v2);
   const story = storyOf(v2 ? asV1Pot(pot) : pot, nameOf);
@@ -656,6 +635,12 @@ export function PotView({ id }: { id: string }) {
           )}
         </span>
         <h1 style={{ margin: 0, fontFamily: F.cond, fontSize: "clamp(34px, 7vw, 56px)", fontWeight: 600, lineHeight: 0.95 }}>{st ? `${st.yes}?` : "Pot"}</h1>
+        {pot.perp && (
+          <p role="note" style={{ margin: 0, fontSize: 18 }}>
+            This is <strong>rope {pot.perp.rope}</strong> of <Link href={`/perps/${pot.perp.perpId}`}>perp {pot.perp.perpId}</Link>. Both seats are held by the perp for its two players; see the perp for
+            the players, their lives and every rope.
+          </p>
+        )}
         {st && (
           <p style={{ margin: 0, fontSize: 18, color: C.ink, lineHeight: 1.45 }}>
             One side holds <strong>{st.yes}</strong>; the other holds <strong style={{ color: C.signalInk }}>{st.no}</strong>.
@@ -673,7 +658,6 @@ export function PotView({ id }: { id: string }) {
             or hold until Gemini&apos;s result. Test money only.
           </p>
         )}
-        <p style={{ margin: 0, fontSize: 19, color: C.body }}>{STATE_TEXT[pot.state]}</p>
         {practiceFailed && pot.state === "Open" && (
           <p role="alert" style={{ margin: 0, fontSize: 17, color: C.signalInk, maxWidth: 760 }}>
             The practice cat could not take the other side just now. Your pot is open and waits for a real opponent: send the link, or take it back below and get your deposit back.
@@ -685,7 +669,6 @@ export function PotView({ id }: { id: string }) {
             <a href="/grok-bot">How to set up your Grok Bot</a>
           </p>
         )}
-        {fresh && pot.state === "Open" && <p style={{ margin: 0, fontSize: 17, color: C.ink }}>Your pot is open. Send the link to whoever takes the other side.</p>}
         <PotStatusLine
           state={pot.state}
           mySide={mine}
@@ -694,13 +677,30 @@ export function PotView({ id }: { id: string }) {
           leaverName={nameOf(Number(pot.data.exitSide) === 0 ? pot.owners.yes : pot.owners.no)}
           rope={v2 && expiry > 0}
         />
+        {ended && mine !== null && <ResultBanner pot={pot} mine={mine} />}
       </header>
 
       <Rope {...scene} trail={live.trail} speed={live.speed} />
       {v2 && expiry > 0 && <ShortRopeNote expiry={expiry} nowS={nowS} ended={ended} />}
-      {v2 && <p style={{ margin: 0, fontSize: 15, color: C.muted }}>Nothing goes to HonorCat: every fee in this pot goes to a player.</p>}
-      {m?.eventTicker && st && <GeminiCard ticker={m.eventTicker} slug={m.slug} question={`${st.yes}?`} yes={st.yesShort} no={st.noShort} price={live.smoothed} />}
-      <RateNote />
+
+      {!v2 && mine !== null && pot.state === "Live" && <ThreeNumbers pot={pot} side={mine} price={live.smoothed} st={st} />}
+
+      {/* v1 actions call HonorCatPots; v2 pots their own panel. Right under the rope, before any detail. */}
+      {v2 ? (
+        <>
+          <RopeActions pot={pot} who={who} price={live.smoothed} nameOf={nameOf} />
+          <RopeLives pot={pot} who={who} nowS={nowS} />
+        </>
+      ) : (
+        <>
+          <Actions pot={pot} who={who} price={live.smoothed} nowS={nowS} nameOf={nameOf} />
+          <AgentPanel pot={pot} who={who} agent={(pot as HcPot & { agent?: AgentInfo | null }).agent} mySide={mine} pots={POTS} />
+        </>
+      )}
+
+      {pot.state !== "Divided" && pot.state !== "Settled" && pot.state !== "Expired" && <SamplerNotice />}
+
+      {(pot.state === "Divided" || pot.state === "Live" || pot.state === "ExitRequested") && <ExitSummary pot={v2 ? asV1Pot(pot) : pot} nameOf={nameOf} st={st} />}
 
       <Receipts
         events={pot.events ?? []}
@@ -713,25 +713,6 @@ export function PotView({ id }: { id: string }) {
         posts={v2 ? [Number((pot.data as unknown as { lower: string }).lower) / 1e6, Number((pot.data as unknown as { upper: string }).upper) / 1e6] : [0, 1]}
       />
       {!v2 && <ShareSend pot={pot} who={who} mine={mine} />}
-
-      {(pot.state === "Divided" || pot.state === "Live" || pot.state === "ExitRequested") && <ExitSummary pot={v2 ? asV1Pot(pot) : pot} nameOf={nameOf} st={st} />}
-
-      {!v2 && mine !== null && pot.state === "Live" && <ThreeNumbers pot={pot} side={mine} price={live.smoothed} st={st} />}
-
-      {pot.state !== "Divided" && pot.state !== "Settled" && pot.state !== "Expired" && <SamplerNotice />}
-
-      {/* v1 actions call HonorCatPots; v2 pots get their own panel (extra lives now, the rest in the next step). */}
-      {v2 ? (
-        <>
-          <RopeActions pot={pot} who={who} price={live.smoothed} nameOf={nameOf} />
-          <RopeLives pot={pot} who={who} nowS={nowS} />
-        </>
-      ) : (
-        <>
-          <AgentPanel pot={pot} who={who} agent={(pot as HcPot & { agent?: AgentInfo | null }).agent} mySide={mine} pots={POTS} />
-          <Actions pot={pot} who={who} price={live.smoothed} nowS={nowS} nameOf={nameOf} />
-        </>
-      )}
 
       <PriceChart pot={pot} />
 
@@ -756,6 +737,10 @@ export function PotView({ id }: { id: string }) {
       )}
 
       {(pot.state === "Divided" || pot.state === "Settled" || pot.state === "Expired") && <AfterPot pot={pot} who={who} nameOf={nameOf} />}
+
+      {v2 && <p style={{ margin: 0, fontSize: 15, color: C.muted }}>Nothing goes to HonorCat: every fee in this pot goes to a player.</p>}
+      {m?.eventTicker && st && <GeminiCard ticker={m.eventTicker} slug={m.slug} question={`${st.yes}?`} yes={st.yesShort} no={st.noShort} price={live.smoothed} />}
+      <RateNote />
 
       <Windows pot={pot} tech={tech} />
 

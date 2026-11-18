@@ -16,6 +16,7 @@ import { createPasskey, forgetPasskey, passkeysSupported, savedPasskey, signInWi
 import { useWallet } from "@/lib/wallet/context";
 import { inEuros, money } from "@/lib/currency";
 
+import { Button, ButtonLink } from "@/components/ui/Button";
 export const btn: React.CSSProperties = {
   minHeight: 52,
   padding: "0 24px",
@@ -126,12 +127,12 @@ export function SignIn({ who, purpose }: { who: ActorState; purpose: string }) {
       <p style={{ margin: 0, fontSize: 17, lineHeight: 1.45, color: C.body }}>{purpose}</p>
       {supported && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-          <button type="button" style={btn} disabled={busy} onClick={() => run(createPasskey)}>
+          <Button disabled={busy} onClick={() => run(createPasskey)}>
             Create a passkey
-          </button>
-          <button type="button" style={btnQuiet} disabled={busy} onClick={() => run(signInWithPasskey)}>
+          </Button>
+          <Button variant="quiet" disabled={busy} onClick={() => run(signInWithPasskey)}>
             I have one
-          </button>
+          </Button>
         </div>
       )}
       {who.wallet.circle.isAvailable() && (
@@ -141,10 +142,9 @@ export function SignIn({ who, purpose }: { who: ActorState; purpose: string }) {
           </span>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
             {(["register", "login"] as const).map((m) => (
-              <button
+              <Button
+                variant={m === "register" ? "primary" : "quiet"}
                 key={m}
-                type="button"
-                style={m === "register" ? btn : btnQuiet}
                 disabled={busy || who.wallet.connecting}
                 onClick={async () => {
                   setBusy(true);
@@ -162,7 +162,7 @@ export function SignIn({ who, purpose }: { who: ActorState; purpose: string }) {
                 }}
               >
                 {m === "register" ? "Create a Circle smart account" : "I have a Circle smart account"}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
@@ -341,9 +341,9 @@ export function CatPicker({
         />
       </label>
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-        <button type="submit" disabled={busy || !!bad} style={{ ...btn, minHeight: 44, fontSize: 17 }}>
+        <Button type="submit" disabled={busy || !!bad} style={{ minHeight: 44, fontSize: 17 }}>
           {busy ? "Confirm in your passkey or wallet…" : "This is my cat"}
-        </button>
+        </Button>
         {onCancel && (
           <button type="button" onClick={onCancel} style={{ background: "none", border: 0, textDecoration: "underline", cursor: "pointer", fontSize: 15 }}>
             Keep the current one
@@ -375,9 +375,8 @@ export function FundsHelp({ account, reason }: { account: string; reason?: strin
         <strong>Arc Testnet</strong>, paste your address and request USDC.
       </span>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-        <button
-          type="button"
-          style={{ ...btnQuiet, minHeight: 40, fontSize: 16 }}
+        <Button variant="quiet"
+          style={{ minHeight: 40, fontSize: 16 }}
           onClick={async () => {
             try {
               await navigator.clipboard.writeText(account);
@@ -389,10 +388,10 @@ export function FundsHelp({ account, reason }: { account: string; reason?: strin
           }}
         >
           {copied ? "Address copied" : "Copy my address"}
-        </button>
-        <a href="https://faucet.circle.com" target="_blank" rel="noreferrer" style={{ ...btn, minHeight: 40, fontSize: 16, display: "inline-flex", alignItems: "center", textDecoration: "none" }}>
+        </Button>
+        <ButtonLink href="https://faucet.circle.com" size="sm">
           Open Circle&apos;s faucet
-        </a>
+        </ButtonLink>
       </div>
       <span style={{ fontFamily: F.mono, fontSize: 13, color: C.muted, overflowWrap: "anywhere" }}>{account}</span>
       <span style={{ fontSize: 14, color: C.muted }}>

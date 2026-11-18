@@ -4,13 +4,14 @@ import { useEffect, useState } from "react";
 import type { Address } from "viem";
 import { C, F } from "@/components/cat/tokens";
 import { HelperCat } from "@/components/helper/Helper";
-import { btn, btnQuiet, type ActorState } from "@/components/pot/Who";
+import { type ActorState } from "@/components/pot/Who";
 import { attachSitter, CAN_BE_ALONE, cleanPowers, decideProposal, detachSitter, POWER_KEYS, POWER_LABEL, seatsOf, signExitInAdvance, type AgentInfo, type Power, type Powers, type SeatView } from "@/lib/agent";
 import { getJson } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import { requestExit, setLevels, signHandshake, type HcPot } from "@/lib/hc";
 import { plainError } from "@/lib/messages";
 
+import { Button } from "@/components/ui/Button";
 /** Postgres timestamps ("2026-11-16 22:30:24.74+00") as milliseconds, in every browser. */
 const ts = (v: string) => Date.parse(v.replace(" ", "T").replace(/([+-]\d\d)$/, "$1:00"));
 
@@ -115,12 +116,12 @@ export function AgentPanel({ pot, who, agent, mySide, pots }: { pot: HcPot; who:
                 <strong>{describe(p.action, p.args)}</strong>: “{p.reason}”
               </span>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                <button type="button" style={{ ...btn, minHeight: 42, fontSize: 16 }} disabled={!!busy} onClick={() => approve(p)}>
+                <Button style={{ minHeight: 42, fontSize: 16 }} disabled={!!busy} onClick={() => approve(p)}>
                   {busy === `p${p.id}` ? "Confirm…" : "Confirm"}
-                </button>
-                <button type="button" style={{ ...btnQuiet, minHeight: 42, fontSize: 16 }} disabled={!!busy} onClick={() => run(`d${p.id}`, () => decideProposal(p.id, "declined"), "Declined.")}>
+                </Button>
+                <Button variant="quiet" style={{ minHeight: 42, fontSize: 16 }} disabled={!!busy} onClick={() => run(`d${p.id}`, () => decideProposal(p.id, "declined"), "Declined.")}>
                   Decline
-                </button>
+                </Button>
               </div>
             </div>
           ))}
@@ -145,9 +146,9 @@ export function AgentPanel({ pot, who, agent, mySide, pots }: { pot: HcPot; who:
       )}
 
       {isOwner && pot.state === "Live" && (agent?.sitter ? (
-        <button type="button" style={{ ...btnQuiet, alignSelf: "flex-start", minHeight: 40, fontSize: 15 }} disabled={!!busy} onClick={() => run("detach", () => detachSitter(me!.account, pot.potId), "The cat sitter no longer minds this pot.")}>
+        <Button variant="quiet" style={{ alignSelf: "flex-start", minHeight: 40, fontSize: 15 }} disabled={!!busy} onClick={() => run("detach", () => detachSitter(me!.account, pot.potId), "The cat sitter no longer minds this pot.")}>
           Send the cat sitter away
-        </button>
+        </Button>
       ) : (
         <AttachSitter pot={pot} who={who} mySide={mySide!} pots={pots} busy={busy} run={run} />
       ))}
@@ -203,9 +204,9 @@ function AttachSitter({ pot, who, mySide, pots, busy, run }: { pot: HcPot; who: 
 
   if (!open)
     return (
-      <button type="button" style={{ ...btnQuiet, alignSelf: "flex-start" }} onClick={() => setOpen(true)}>
+      <Button variant="quiet" style={{ alignSelf: "flex-start" }} onClick={() => setOpen(true)}>
         Let my cat sitter mind this pot
-      </button>
+      </Button>
     );
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10, border: `1.5px solid ${C.ink}`, padding: "12px 14px" }}>
@@ -262,12 +263,12 @@ function AttachSitter({ pot, who, mySide, pots, busy, run }: { pot: HcPot; who: 
         you. The cat sitter never withdraws and never touches your other pots.
       </p>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-        <button type="button" style={btn} disabled={!!busy} onClick={attach}>
+        <Button disabled={!!busy} onClick={attach}>
           {busy === "attach" ? "Confirm…" : "Let it mind this pot"}
-        </button>
-        <button type="button" style={btnQuiet} onClick={() => setOpen(false)}>
+        </Button>
+        <Button variant="quiet" onClick={() => setOpen(false)}>
           Not now
-        </button>
+        </Button>
       </div>
     </div>
   );

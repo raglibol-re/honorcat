@@ -45,6 +45,7 @@ export function GeminiCard({ ticker, slug, question, yes, no, price }: { ticker:
             {yes ?? "YES"} {yesC}¢ · {no ?? "NO"} {100 - yesC}¢ right now
           </span>
         )}
+        <span style={{ fontSize: 13, color: C.muted }}>Gemini Predictions opens in the US only; elsewhere Gemini shows its home page.</span>
       </span>
       <span aria-hidden="true" style={{ fontFamily: F.cond, fontSize: 18, fontWeight: 600, whiteSpace: "nowrap", borderBottom: `2px solid ${C.ink}` }}>
         Open on Gemini →

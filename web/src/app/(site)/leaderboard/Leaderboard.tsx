@@ -5,7 +5,7 @@ import { useState } from "react";
 import { CatState } from "@/components/cat/CatState";
 import { CatName } from "@/components/cat/PlayerCat";
 import { C, F } from "@/components/cat/tokens";
-import { btn, useActor } from "@/components/pot/Who";
+import { useActor } from "@/components/pot/Who";
 import { usePolling } from "@/lib/api";
 import { nickname, useNames } from "@/lib/names";
 
@@ -21,7 +21,6 @@ export function Leaderboard() {
   const q = `/api/hc/leaderboard?days=${days}${friends && me ? `&friendsOf=${me}` : ""}`;
   const { data, error } = usePolling<{ rows: Row[] }>(q, 30_000);
   const names = useNames((data?.rows ?? []).map((r) => r.account));
-  const toggle = (on: boolean) => ({ ...btn, minHeight: 44, padding: "0 16px", background: on ? C.ink : "transparent", color: on ? C.page : C.ink, border: `1.5px solid ${C.ink}` });
   const th = { textAlign: "right" as const, padding: "8px 10px", fontSize: 14, color: C.muted, fontWeight: 600, borderBottom: `1.5px solid ${C.ink}` };
   const td = { textAlign: "right" as const, padding: "10px", fontVariantNumeric: "tabular-nums" as const, borderBottom: `1px solid ${C.faint}` };
   return (
@@ -34,18 +33,18 @@ export function Leaderboard() {
       </header>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
         <div role="radiogroup" aria-label="Period" style={{ display: "flex", gap: 8 }}>
-          <button type="button" role="radio" aria-checked={days === 7} style={toggle(days === 7)} onClick={() => setDays(7)}>
+          <button type="button" role="radio" aria-checked={days === 7} className="hc-choice hc-choice--sm" onClick={() => setDays(7)}>
             This week
           </button>
-          <button type="button" role="radio" aria-checked={days === 0} style={toggle(days === 0)} onClick={() => setDays(0)}>
+          <button type="button" role="radio" aria-checked={days === 0} className="hc-choice hc-choice--sm" onClick={() => setDays(0)}>
             All time
           </button>
         </div>
         <div role="radiogroup" aria-label="Who" style={{ display: "flex", gap: 8 }}>
-          <button type="button" role="radio" aria-checked={!friends} style={toggle(!friends)} onClick={() => setFriends(false)}>
+          <button type="button" role="radio" aria-checked={!friends} className="hc-choice hc-choice--sm" onClick={() => setFriends(false)}>
             Everyone
           </button>
-          <button type="button" role="radio" aria-checked={friends} style={toggle(friends)} disabled={!me} onClick={() => setFriends(true)} title={me ? undefined : "Sign in to see the players you have met"}>
+          <button type="button" role="radio" aria-checked={friends} className="hc-choice hc-choice--sm" disabled={!me} onClick={() => setFriends(true)} title={me ? undefined : "Sign in to see the players you have met"}>
             My friends
           </button>
         </div>
