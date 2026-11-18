@@ -6,6 +6,8 @@ import type { Db } from "./db";
 import { memoCall } from "./memo";
 import { potsAbi } from "./potsAbi";
 import { potsAddress, syncPot } from "./pots";
+import { ropesAbi } from "./ropesAbi";
+import { contractOf, isRopeDbId } from "./ropes";
 import { sendRelayCalls } from "./txs";
 
 /**
@@ -41,7 +43,61 @@ export async function practiceStatus(db: Db): Promise<{ available: boolean; reas
   return { available: true, reason: null };
 }
 
+/** What the joining side of a v2 pot pays in at most: its worst case in the band, plus the maker treat. */
+export function ropeJoinCost(p: { creatorSide: number; size: bigint; bandCenter: number; tolerance: number; distYes: number; distNo: number }) {
+  const side = 1 - Number(p.creatorSide);
+  const dist = side === 0 ? Number(p.distYes) : Number(p.distNo);
+  const c = Number(p.bandCenter);
+  const t = Number(p.tolerance);
+  const per = dist > 0 ? Math.floor(dist / 100) : side === 0 ? Math.floor(Math.min(1_000_000, c + t) / 100) : 10_000 - Math.floor(Math.max(0, c - t) / 100);
+  const deposit = BigInt(per) * p.size;
+  return deposit + (deposit * 25n) / 10_000n;
+}
+
+/** The practice cat joins a HonorCat v2 pot (a normal pot, no posts) the same way any player does. */
+async function practiceJoinV2(db: Db, potId: string) {
+  const ct = contractOf(potId);
+  const c = publicClient();
+  const p = (await c.readContract({ address: ct.address, abi: ropesAbi, functionName: "pot", args: [ct.chainPotId] })) as unknown as {
+    state: number;
+    size: bigint;
+    creatorSide: number;
+    bandCenter: number;
+    tolerance: number;
+    distYes: number;
+    distNo: number;
+    expiry: bigint;
+    closeTime: bigint;
+  };
+  if (Number(p.state) !== 1) throw Object.assign(new Error("this pot is not waiting for a second side"), { status: 409 });
+  if (Number(p.expiry) !== 0 || Number(p.distYes) !== 0 || Number(p.distNo) !== 0) throw Object.assign(new Error("the practice cat plays normal pots only"), { status: 400 });
+  if (p.size * 10_000n > PRACTICE_MAX_NOTIONAL) throw Object.assign(new Error("the practice cat plays pots up to $2"), { status: 400 });
+  if (Number(p.closeTime) - Math.floor(Date.now() / 1000) < 15 * 60) throw Object.assign(new Error("this market closes too soon to practise on"), { status: 409 });
+  const today = await db.query<{ n: string }>("SELECT count(*)::text AS n FROM practice_pots WHERE created_at > now() - interval '1 day'");
+  if (Number(today[0]?.n ?? 0) >= PRACTICE_PER_DAY) throw Object.assign(new Error("the practice cat has played enough for today; invite a friend instead"), { status: 429 });
+  const me = practiceAddress();
+  const cost = ropeJoinCost(p);
+  const bal = await c.readContract({ address: ARC_USDC, abi: erc20Abi, functionName: "balanceOf", args: [me] });
+  if (bal < cost + PRACTICE_FLOOR) throw Object.assign(new Error("the practice cat is out of test money right now; invite a friend instead"), { status: 503 });
+  const inserted = await db.query("INSERT INTO practice_pots (pot_id) VALUES ($1) ON CONFLICT DO NOTHING RETURNING pot_id", [potId]);
+  if (!inserted.length) throw Object.assign(new Error("the practice cat already joined this pot"), { status: 409 });
+  const calls = [];
+  const allowance = await c.readContract({ address: ARC_USDC, abi: erc20Abi, functionName: "allowance", args: [me, ct.address] });
+  if (allowance < cost) calls.push({ target: ARC_USDC, callData: encodeFunctionData({ abi: erc20Abi, functionName: "approve", args: [ct.address, maxUint256] }), label: "approve" });
+  const join = encodeFunctionData({ abi: ropesAbi, functionName: "requestJoin", args: [ct.chainPotId, 0n, { from: me, validAfter: 0n, validBefore: 0n, salt: ZERO, v: 0, r: ZERO, s: ZERO }] });
+  const ref = `pot-${potId}`;
+  calls.push({ ...memoCall(ct.address, join, ref, { v: 1, t: "pot", ref, pot: potId, why: "the practice cat takes the other side (test money)" }), label: "practice join" });
+  const res = await sendRelayCalls(db, "pot_exec", calls, { atomic: true });
+  if (!res.ok) {
+    await db.query("DELETE FROM practice_pots WHERE pot_id = $1", [potId]);
+    throw Object.assign(new Error(`the practice cat could not join: ${res.error.slice(0, 200)}`), { status: 502 });
+  }
+  await syncPot(db, BigInt(potId)).catch(() => {});
+  return { tx: res.tx, potId, chainId: getConfig().chainId };
+}
+
 export async function practiceJoin(db: Db, potId: string) {
+  if (isRopeDbId(potId)) return practiceJoinV2(db, potId);
   const pots = potsAddress();
   const c = publicClient();
   const p = (await c.readContract({ address: pots, abi: potsAbi, functionName: "pot", args: [BigInt(potId)] })) as unknown as {

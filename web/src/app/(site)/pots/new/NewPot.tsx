@@ -170,7 +170,9 @@ export function NewPot() {
       });
     })();
   }, []);
-  const v2 = Boolean(ropes?.forNewPots) && !practice;
+  // New pots are v2 once switched on, practice pots too (the practice cat joins them like a player);
+  // only a Grok Bot opponent still needs a v1 pot.
+  const v2 = Boolean(ropes?.forNewPots) && !(practice && opponent === "bot");
   const perpsOn = Boolean(ropes?.perps && (ropes.perpsForNewPots || preview));
   const [step, setStep] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -274,6 +276,19 @@ export function NewPot() {
           },
           setStep,
         );
+        if (practice && r.potId) {
+          setStep("The practice cat is taking the other side");
+          try {
+            await getJson(`/api/hc/practice`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ potId: r.potId }) });
+          } catch {
+            // The pot exists; it now waits for a real opponent and can be cancelled on its page.
+            router.push(`/pots/${r.potId}?practice=failed`);
+            return;
+          }
+          setStep("Done");
+          router.push(`/pots/${r.potId}`);
+          return;
+        }
         setStep("Done");
         router.push(r.potId ? `/pots/${r.potId}?new=1` : `/pots`);
         return;
