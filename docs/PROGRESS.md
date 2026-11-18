@@ -2,16 +2,16 @@
 
 ## Blocks current milestone
 
-- (OPEN 2026-11-18 15:20 UTC) **Production database refuses every query**: Neon project `honorcat`
-  (free plan) used 6.25 GB of network transfer since 16 Nov; the free plan allows 5 GB a month, and
-  the quota resets 1 Dec. Every page or API route that reads the database answers "Your account or
-  project has exceeded the quota" (static pages and /api/hc/ropes still work). Pots cannot be read,
-  joined or resolved in the app; the samplers get no work. Likely main cause: the catalogue snapshot
-  (`web/src/server/catalog.ts`, every open market's JSON, several MB) read by every new Vercel
-  instance every 5 minutes, plus the 150-row book queue every 2 minutes. Stopped meanwhile: both
-  local samplers. Not stopped: the GitHub sampler workflow (every 15 min; disabling it was blocked
-  by the auto-mode check). Needs the owner's decision: paid Neon plan, a new free database, or wait
-  for 1 Dec; the egress fix is needed in every case. The perps e2e waits for this.
+- (resolved 2026-11-18 16:45 UTC) **Production database out of transfer**: Neon project `honorcat`
+  (free plan) used 6.25 GB of network transfer in two days (5 GB a month allowed; the earlier
+  `verdict` database ran out the same way). Cause, measured: the market catalogue is 24,221
+  contracts (~16 MB of JSON), and every new Vercel instance read all of it for the landing page and
+  /api/catalog. Fix (91a0a95): pages filter in SQL and read only the rows they show; the usable set
+  (fresh books only) is cached per instance; a per-query read meter logs `[db] bytes` every ten
+  minutes. Owner's choice: a new free Neon project `honorcat-2` (snowy-hat-61221863), rebuilt from
+  public sources with scripts/rebuild-db.ts (all pots and events, catalogue, markets, practice
+  pots). Lost with the old database until 1 Dec (it cannot be read): names, passkey registrations,
+  drafts, sampler averages, early samples. The GitHub sampler workflow was left running.
 - (resolved 2026-11-18) One-call funded entry: the owner chose **v2.1 with a roll entry**:
   `openFunded(fromPot)` opens the next rope with both sides funded by the caller, at the previous
   rope's recorded division price (knock-out or expiry, within 15 minutes, once per rope), plus a
