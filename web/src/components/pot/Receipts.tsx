@@ -39,6 +39,8 @@ export function Receipts({
   name,
   says,
   fur,
+  livePrice = null,
+  posts = [0, 1],
 }: {
   events: ReceiptEvent[];
   fees: Record<string, string>;
@@ -47,6 +49,9 @@ export function Receipts({
   says: (side: number) => string;
   /** Each side's fur colour (hex), for the exit receipts' bar. */
   fur?: (side: number) => string;
+  /** The live YES price (0..1) and the posts, for "if you had stayed". */
+  livePrice?: number | null;
+  posts?: [number, number];
 }) {
   // Exits get the full receipt card; handshakes and settlements stay as sentences.
   const divisions = divisionReceipts(events);
@@ -56,7 +61,7 @@ export function Receipts({
     <section aria-label="Receipts" style={{ display: "flex", flexDirection: "column", gap: 8, maxWidth: 760 }}>
       <h2 style={{ margin: 0, fontFamily: F.cond, fontSize: 32, fontWeight: 600 }}>Receipts</h2>
       {divisions.map((r) => (
-        <DivisionCard key={r.tx} r={r} mySide={mySide} name={name} fur={fur ?? ((s) => (s === 0 ? C.ink : C.signal))} fee={fees[r.tx.toLowerCase()]} />
+        <DivisionCard key={r.tx} r={r} mySide={mySide} name={name} fur={fur ?? ((s) => (s === 0 ? C.ink : C.signal))} fee={fees[r.tx.toLowerCase()]} livePrice={livePrice} posts={posts} />
       ))}
       {list.length > 0 && (
       <ul style={{ margin: 0, padding: 0, listStyle: "none", borderTop: `1.5px solid ${C.ink}` }}>

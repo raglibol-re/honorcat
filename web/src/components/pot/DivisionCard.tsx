@@ -34,6 +34,8 @@ export function DivisionCard({
   name,
   fur,
   fee,
+  livePrice = null,
+  posts = [0, 1],
 }: {
   r: DivisionReceipt;
   mySide: number | null;
@@ -42,6 +44,10 @@ export function DivisionCard({
   fur: (side: number) => string;
   /** The network fee of the payout transaction, in USDC base units, if known. */
   fee: string | undefined;
+  /** The live YES price (0..1), for what the leaver's slice would be worth had it stayed. */
+  livePrice?: number | null;
+  /** The posts (0..1); a normal pot is [0, 1]. */
+  posts?: [number, number];
 }) {
   const leaver = r.exitSide;
   const other = (1 - leaver) as 0 | 1;
@@ -89,6 +95,20 @@ export function DivisionCard({
       </div>
 
       <div>{lines}</div>
+
+      {mySide === leaver && livePrice !== null && (() => {
+        // What the slice would be worth now, at the live price (clamped to the posts), had it stayed.
+        const [lo, hi] = posts;
+        const yesFrac = (Math.min(hi, Math.max(lo, livePrice)) - lo) / Math.max(1e-9, hi - lo);
+        const stayed = BigInt(Math.round(Number(r.slice) * (leaver === 0 ? yesFrac : 1 - yesFrac)));
+        const diff = stayed - r.received[leaver];
+        return (
+          <p aria-live="polite" style={{ margin: 0, fontSize: 16, lineHeight: 1.5, background: C.faint, padding: "8px 12px" }}>
+            <strong>If you had stayed:</strong> this slice would be worth about {amount(stayed)} now, at {pc(Math.round(livePrice * 1e6))} (live).{" "}
+            {diff > 0n ? `Staying would have given you ${amount(diff)} more so far.` : diff < 0n ? `Leaving saved you ${amount(-diff)} so far.` : "The same as you received."}
+          </p>
+        );
+      })()}
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: "12px 36px" }}>
         <figure style={{ margin: 0, display: "flex", flexDirection: "column", gap: 2 }}>

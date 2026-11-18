@@ -27,6 +27,7 @@ import { ShortRopeNote } from "@/components/pot/RopeControl";
 import { RopeLives } from "@/components/pot/RopeLives";
 import { RopeActions } from "@/components/pot/RopeActions";
 import { GeminiCard } from "@/components/cat/GeminiCard";
+import { PotStatusLine } from "@/components/pot/Status";
 import { useTechMode } from "@/components/TechMode";
 import { marketLine, sidesOf, yesMeans, type Sides } from "@/lib/marketName";
 import { displayName, FURS, furOf, useNames } from "@/lib/names";
@@ -685,6 +686,14 @@ export function PotView({ id }: { id: string }) {
           </p>
         )}
         {fresh && pot.state === "Open" && <p style={{ margin: 0, fontSize: 17, color: C.ink }}>Your pot is open. Send the link to whoever takes the other side.</p>}
+        <PotStatusLine
+          state={pot.state}
+          mySide={mine}
+          exitSide={pot.state === "ExitRequested" ? Number(pot.data.exitSide) : null}
+          exitFull={v2 ? (pot.data as unknown as { exitSize?: string; size?: string }).exitSize === (pot.data as unknown as { size?: string }).size : pot.data.exitNotional === pot.data.notional}
+          leaverName={nameOf(Number(pot.data.exitSide) === 0 ? pot.owners.yes : pot.owners.no)}
+          rope={v2 && expiry > 0}
+        />
       </header>
 
       <Rope {...scene} trail={live.trail} speed={live.speed} />
@@ -700,6 +709,8 @@ export function PotView({ id }: { id: string }) {
         name={(side) => nameOf(side === 0 ? pot.owners.yes : pot.owners.no)}
         says={(side) => (st ? (side === 0 ? st.yes : st.no) : side === 0 ? "YES" : "NO")}
         fur={(side) => FURS[furOf(side === 0 ? pot.owners.yes : pot.owners.no)].hex}
+        livePrice={live.smoothed}
+        posts={v2 ? [Number((pot.data as unknown as { lower: string }).lower) / 1e6, Number((pot.data as unknown as { upper: string }).upper) / 1e6] : [0, 1]}
       />
       {!v2 && <ShareSend pot={pot} who={who} mine={mine} />}
 
