@@ -617,6 +617,34 @@ export async function scopeToVault(db: Db, vault: string): Promise<boolean> {
   return current !== undefined;
 }
 
+/**
+ * Bytes read from Postgres per query shape (rough: the JSON size of the rows), logged every ten
+ * minutes per instance as `[db] bytes`. Every byte read leaves the database, and Neon's free plan
+ * allows 5 GB a month; this shows where it goes.
+ */
+const metered = new Map<string, { calls: number; bytes: number }>();
+let meterSince = Date.now();
+function meter(sql: string, rows: unknown[]) {
+  if (!rows.length) return;
+  let bytes = 0;
+  try {
+    bytes = JSON.stringify(rows).length;
+  } catch {
+    return;
+  }
+  const key = sql.replace(/\s+/g, " ").trim().slice(0, 120);
+  const m = metered.get(key) ?? { calls: 0, bytes: 0 };
+  m.calls++;
+  m.bytes += bytes;
+  metered.set(key, m);
+  if (Date.now() - meterSince < 10 * 60_000) return;
+  const total = [...metered.values()].reduce((s, x) => s + x.bytes, 0);
+  const top = [...metered.entries()].sort((a, b) => b[1].bytes - a[1].bytes).slice(0, 5).map(([q, x]) => ({ q, calls: x.calls, kb: Math.round(x.bytes / 1024) }));
+  console.log("[db] bytes", JSON.stringify({ minutes: Math.round((Date.now() - meterSince) / 60_000), kb: Math.round(total / 1024), top }));
+  metered.clear();
+  meterSince = Date.now();
+}
+
 async function openPg(url: string): Promise<Db> {
   const { default: pg } = await import("pg");
   // Keep BIGINT as string (avoids precision loss); callers convert explicitly.
@@ -624,6 +652,7 @@ async function openPg(url: string): Promise<Db> {
   return {
     async query(sql, params) {
       const res = await pool.query(sql, params as unknown[]);
+      meter(sql, res.rows);
       return res.rows;
     },
     async exec(sql) {

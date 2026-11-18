@@ -1,5 +1,5 @@
 import "server-only";
-import { catalog, depthSnapshot, GEMINI_REST, readBook, type CatalogRow, type Db, type Quality } from "@honorcat/relay";
+import { catalog, depthSnapshot, GEMINI_REST, readBook, type CatalogRow, type CategorySummary, type Db, type Quality } from "@honorcat/relay";
 
 /**
  * Web side of the market catalogue (relay/src/catalog.ts): runs bounded refresh steps under a
@@ -55,38 +55,86 @@ const midOf = (r: CatalogRow): number | null => {
   return b !== null && b !== undefined && a !== null && a !== undefined ? (b + a) / 2 : null;
 };
 
-// The whole catalogue is thousands of rows (several MB): read and classify it at most every five
-// minutes per instance, never per request. Prices on a pot page come from Gemini directly.
-let snapshot: { at: number; all: { row: CatalogRow; q: Quality }[] } | null = null;
+type Rated = { row: CatalogRow; q: Quality };
 
-async function classified(db: Db) {
-  const now = Date.now();
-  if (snapshot && now - snapshot.at < 300_000) return snapshot;
-  snapshot = { at: now, all: (await catalog.allRows(db, now)).map((row) => ({ row, q: catalog.classify(row, now) })) };
-  return snapshot;
+/** Whether a rated row matches the page's filters (the same filters as the SQL, applied in memory). */
+function matches(x: Rated, query: CatalogQuery, now: number) {
+  const words = (query.q ?? "").toLowerCase().split(/\s+/).filter(Boolean);
+  if (query.category && x.row.category !== query.category) return false;
+  if (query.withinH && x.row.closeMs - now > query.withinH * 3600_000) return false;
+  if (query.even) {
+    // Even markets: contracts near 50%, where neither side is the favourite.
+    const m = midOf(x.row);
+    if (m === null || m < 0.4 || m > 0.6) return false;
+  }
+  return words.every((w) => `${x.row.eventTitle} ${x.row.label} ${x.row.category} ${x.row.subcategory ?? ""}`.toLowerCase().includes(w));
+}
+
+// The whole catalogue is ~24,000 contracts (~16 MB): it is never read in one piece (every byte read
+// counts against the database's monthly transfer). Usable contracts (a fresh book within the looser
+// rule: a few hundred at most) are read and rated at most every five minutes per instance; any other
+// listing reads only the rows it shows, filtered in SQL.
+let usable: { at: number; all: Rated[] } | null = null;
+async function usableAll(db: Db, now: number) {
+  if (usable && now - usable.at < 300_000) return usable.all;
+  const rows = await catalog.queryRows(db, now, { usable: true }, 3000);
+  const all = rows.map((row) => ({ row, q: catalog.classify(row, now) })).filter((x) => x.q.status === "works" || x.q.status === "borderline");
+  usable = { at: now, all };
+  return all;
+}
+
+const median = (xs: number[]) => {
+  if (!xs.length) return null;
+  const s = [...xs].sort((a, b) => a - b);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m]! : (s[m - 1]! + s[m]!) / 2;
+};
+
+let summaryCache: { at: number; summary: CategorySummary[] } | null = null;
+async function summaryOf(db: Db, now: number): Promise<CategorySummary[]> {
+  if (summaryCache && now - summaryCache.at < 300_000) return summaryCache.summary;
+  const [counts, ok] = await Promise.all([catalog.categoryCounts(db, now), usableAll(db, now)]);
+  const summary = counts
+    .map((c) => {
+      const xs = ok.filter((x) => x.row.category === c.category);
+      return {
+        category: c.category,
+        events: c.events,
+        contracts: c.contracts,
+        works: xs.filter((x) => x.q.status === "works").length,
+        borderline: xs.filter((x) => x.q.status === "borderline").length,
+        medianSpread: c.medianSpread,
+        medianDepthUsd: median(xs.map((x) => x.q.minDepthUsd).filter((v): v is number => v !== null)),
+      };
+    })
+    .sort((a, b) => b.works + b.borderline - (a.works + a.borderline) || b.contracts - a.contracts);
+  summaryCache = { at: now, summary };
+  return summary;
 }
 
 export async function catalogList(db: Db, query: CatalogQuery = {}) {
-  const { at: now, all } = await classified(db);
-  const summary = catalog.summarize(all);
-  const words = (query.q ?? "").toLowerCase().split(/\s+/).filter(Boolean);
-  const filtered = all
-    .filter((x) => !query.category || x.row.category === query.category)
-    .filter((x) => !query.withinH || x.row.closeMs - now <= query.withinH * 3600_000)
-    .filter((x) => !query.usable || x.q.status === "works" || x.q.status === "borderline")
-    // Even markets: contracts near 50%, where neither side is the favourite.
-    .filter((x) => {
-      if (!query.even) return true;
-      const m = midOf(x.row);
-      return m !== null && m >= 0.4 && m <= 0.6;
-    })
-    .filter((x) => words.every((w) => `${x.row.eventTitle} ${x.row.label} ${x.row.category} ${x.row.subcategory ?? ""}`.toLowerCase().includes(w)))
-    .sort(catalog.compareRows);
-  const offset = query.offset ?? 0;
+  const now = Date.now();
+  const offset = Math.max(0, query.offset ?? 0);
   const limit = Math.min(200, query.limit ?? 60);
+  let total: number;
+  let page: Rated[];
+  if (query.usable) {
+    const all = (await usableAll(db, now)).filter((x) => matches(x, query, now)).sort(catalog.compareRows);
+    total = all.length;
+    page = all.slice(offset, offset + limit);
+  } else {
+    const filter = { category: query.category, withinH: query.withinH, q: query.q, even: query.even };
+    const [rows, n] = await Promise.all([catalog.queryRows(db, now, filter, Math.min(offset + limit + 200, 1000)), catalog.countRows(db, now, filter)]);
+    page = rows
+      .map((row) => ({ row, q: catalog.classify(row, now) }))
+      .sort(catalog.compareRows)
+      .slice(offset, offset + limit);
+    total = n;
+  }
+  const summary = await summaryOf(db, now);
   return {
-    total: filtered.length,
-    items: filtered.slice(offset, offset + limit).map((x): CatalogItem => ({ ...x.row, quality: x.q })),
+    total,
+    items: page.map((x): CatalogItem => ({ ...x.row, quality: x.q })),
     summary,
     categories: summary.map((s) => s.category),
     lastSweep: await catalog.lastSweep(db),

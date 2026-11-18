@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { allRows, bookStats, classify, compareRows, profileFor, refreshStep, rowsFromEvent, summarize, type CatalogRow, type ListedEvent } from "../src/catalog";
+import { allRows, bookStats, categoryCounts, classify, compareRows, countRows, profileFor, queryRows, refreshStep, rowsFromEvent, summarize, type CatalogRow, type ListedEvent } from "../src/catalog";
 import { memoryDb } from "../src/db";
 
 const NOW = 1_800_000_000_000;
@@ -177,5 +177,21 @@ describe("refresh step", () => {
     const items = rows.map((r) => ({ row: r, q: classify(r, NOW) }));
     const s = summarize(items);
     expect(s.find((x) => x.category === "Weather")).toMatchObject({ events: 3, contracts: 3, works: 1 });
+
+    // Partial reads, filtered in SQL (pages never read the whole table).
+    const sym = (rs: CatalogRow[]) => rs.map((r) => r.symbol).sort();
+    expect(sym(await queryRows(db, NOW, { usable: true }, 100))).toEqual(["GEMI-Economics1-Y", "GEMI-Weather1-Y"]);
+    expect(sym(await queryRows(db, NOW, { category: "Weather" }, 100))).toEqual(["GEMI-Weather1-Y", "GEMI-Weather2-Y", "GEMI-Weather3-Y"]);
+    expect(sym(await queryRows(db, NOW, { q: "weather 3" }, 100))).toEqual(["GEMI-Weather3-Y"]);
+    expect(sym(await queryRows(db, NOW, { q: "50%_" }, 100))).toEqual([]);
+    expect(sym(await queryRows(db, NOW, { even: true }, 100))).toEqual(["GEMI-Economics1-Y", "GEMI-Weather1-Y"]);
+    expect(sym(await queryRows(db, NOW, { withinH: 1 }, 100))).toEqual([]);
+    // fresh books first, then the tighter spread
+    expect((await queryRows(db, NOW, {}, 2)).every((r) => r.book !== null)).toBe(true);
+    expect(await countRows(db, NOW, { category: "Weather" })).toBe(3);
+    // a book older than 15 minutes no longer counts as usable
+    expect(await queryRows(db, NOW + 16 * 60_000, { usable: true }, 100)).toEqual([]);
+    const counts = await categoryCounts(db, NOW);
+    expect(counts.find((c) => c.category === "Weather")).toMatchObject({ contracts: 3, events: 3 });
   });
 });

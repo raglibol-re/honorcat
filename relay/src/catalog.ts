@@ -287,9 +287,92 @@ export async function bookQueue(db: Db, now: number, limit: number, staleMs = 10
   return rows.map(toRow);
 }
 
+/** Every open contract (~16 MB): one-off scripts only, never a request path (see queryRows). */
 export async function allRows(db: Db, now: number): Promise<CatalogRow[]> {
   const rows = await db.query<DbRow>("SELECT listed, book FROM market_catalog WHERE close_ms > $1", [now]);
   return rows.map(toRow);
+}
+
+/**
+ * Filters for reading part of the catalogue. The whole table is ~24,000 contracts (~16 MB of JSON),
+ * and every byte read leaves the database (Neon's free plan allows 5 GB a month), so pages and the
+ * landing never read all of it: they filter here, in SQL, and read only the rows they show.
+ */
+export type CatalogFilter = {
+  category?: string | null;
+  /** Closes within this many hours. */
+  withinH?: number | null;
+  /** Words that must all appear in title, label, category or subcategory. */
+  q?: string | null;
+  /** Only contracts that can pass a pot's rule now: fresh book, spread and size within the looser rule. */
+  usable?: boolean;
+  /** Only contracts between 40% and 60%. */
+  even?: boolean;
+};
+
+const BOOK_FRESH_MS = 15 * 60_000;
+// The looser of the two rules (classify() then applies the exact one).
+const LOOSE_SPREAD = Math.max(...Object.values(PROVISIONAL_DEFAULTS).map((r) => Number(r.maxSpreadUsd)));
+const LOOSE_SIZE = Math.min(...Object.values(PROVISIONAL_DEFAULTS).map((r) => Number(r.minSizeContracts)));
+
+function whereOf(f: CatalogFilter, now: number): { sql: string; args: unknown[] } {
+  const args: unknown[] = [now];
+  const c = ["close_ms > $1"];
+  const arg = (v: unknown) => {
+    args.push(v);
+    return `$${args.length}`;
+  };
+  if (f.category) c.push(`category = ${arg(f.category)}`);
+  if (f.withinH) c.push(`close_ms <= ${arg(Math.round(now + f.withinH * 3600_000))}`);
+  for (const w of (f.q ?? "").toLowerCase().split(/\s+/).filter(Boolean).slice(0, 8))
+    c.push(
+      `lower(concat_ws(' ', listed->>'eventTitle', listed->>'label', category, listed->>'subcategory')) LIKE ${arg(`%${w.replace(/[\\%_]/g, (m) => "\\" + m)}%`)}`,
+    );
+  if (f.even)
+    c.push(`(COALESCE(book->>'bid', listed->>'bid')::numeric + COALESCE(book->>'ask', listed->>'ask')::numeric) / 2 BETWEEN 0.4 AND 0.6`);
+  if (f.usable) {
+    c.push(`close_ms > ${arg(now + MIN_LEAD_MS)}`, `book_at > ${arg(now - BOOK_FRESH_MS)}`);
+    c.push(`(book->>'ask')::numeric - (book->>'bid')::numeric <= ${arg(LOOSE_SPREAD + 1e-9)}`);
+    c.push(`(book->>'bidSize')::numeric >= ${arg(LOOSE_SIZE)} AND (book->>'askSize')::numeric >= ${arg(LOOSE_SIZE)}`);
+  }
+  return { sql: c.join(" AND "), args };
+}
+
+/**
+ * The contracts matching `f`, best candidates first (fresh book, tight spread, soon to close), at
+ * most `limit` rows. Callers classify and sort the rows themselves (classify() is the exact rule).
+ */
+export async function queryRows(db: Db, now: number, f: CatalogFilter, limit: number): Promise<CatalogRow[]> {
+  const w = whereOf(f, now);
+  w.args.push(now - BOOK_FRESH_MS, limit);
+  const n = w.args.length;
+  const rows = await db.query<DbRow>(
+    `SELECT listed, book FROM market_catalog WHERE ${w.sql}
+      ORDER BY (book_at IS NOT NULL AND book_at > $${n - 1}) DESC,
+               COALESCE((book->>'ask')::numeric - (book->>'bid')::numeric, (listed->>'ask')::numeric - (listed->>'bid')::numeric) NULLS LAST,
+               close_ms
+      LIMIT $${n}`,
+    w.args,
+  );
+  return rows.map(toRow);
+}
+
+/** How many contracts match `f` (one number over the wire). */
+export async function countRows(db: Db, now: number, f: CatalogFilter): Promise<number> {
+  const w = whereOf(f, now);
+  const r = await db.query<{ n: string }>(`SELECT count(*)::text AS n FROM market_catalog WHERE ${w.sql}`, w.args);
+  return Number(r[0]?.n ?? 0);
+}
+
+/** Per category: contracts, events and the median listed spread, computed in the database. */
+export async function categoryCounts(db: Db, now: number): Promise<{ category: string; contracts: number; events: number; medianSpread: number | null }[]> {
+  const rows = await db.query<{ category: string; contracts: string; events: string; median_spread: string | null }>(
+    `SELECT category, count(*)::text AS contracts, count(DISTINCT listed->>'eventTicker')::text AS events,
+            percentile_cont(0.5) WITHIN GROUP (ORDER BY (listed->>'ask')::numeric - (listed->>'bid')::numeric)::text AS median_spread
+       FROM market_catalog WHERE close_ms > $1 GROUP BY category`,
+    [now],
+  );
+  return rows.map((r) => ({ category: r.category, contracts: Number(r.contracts), events: Number(r.events), medianSpread: r.median_spread === null ? null : Math.round(Number(r.median_spread) * 10_000) / 10_000 }));
 }
 
 export async function rowBySymbol(db: Db, symbol: string): Promise<CatalogRow | null> {
