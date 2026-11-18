@@ -12,7 +12,7 @@ Live: **https://honorcat.vercel.app**
 ## Contents
 
 - [What it does](#what-it-does) · [Architecture](#architecture) · [Contracts](#contracts-on-arc-testnet-chain-5042002)
-- [Economic design and its risks](#economic-design-and-its-risks) · [How HonorCat uses Arc](#how-honorcat-uses-arc)
+- [Economic design and its risks](#economic-design-and-its-risks) · [v2: short ropes and treats](#v2-short-ropes-and-treats) · [How HonorCat uses Arc](#how-honorcat-uses-arc)
 - [The QuickNode Stream](#the-quicknode-stream) · [Grok Bot](#grok-bot) · [Every asset and Circle product](#every-asset-and-circle-product)
 - [Setup, run, test, deploy](#setup) · [Environment variables](#environment-variables) · [Build log](#build-log) · [Handoff](docs/HANDOFF.md)
 
@@ -104,6 +104,9 @@ flowchart LR
 | Contract | Address | Purpose |
 |---|---|---|
 | **HonorCatPots** | `0xc890C990048f45cb268d076E4A3dB25270Ea1e59` | The two-sided pot: create and fund, forward-priced join and exit, partial exit, handshake, nets and bowls, takeover, settle, expire; sides as ERC-721 (`HCSIDE`) |
+| **HonorCatRopes** (v2) | `0x6A30Bc4F1867A4441Ac2e7e1e77Cb40E79F9Cf44` | Pots with short ropes (leverage), knock-out, expiry, extra lives and treats; holds every v2 dollar; sides as ERC-721 (`HCROPE`). New pots move here when `ROPES_FOR_NEW_POTS=true` |
+| HonorCatRopesExtension (v2) | `0x97E685CD710BdED0B15825D41275e1FEcc4D85Be` | Code HonorCatRopes runs by delegatecall (24 KB limit); holds nothing |
+| MedianResolver (v2) | `0x3f73b5925060653d80665CD61512C1B448585842` | The same agreement rule, for HonorCatRopes |
 | **MedianResolver** | `0x62FB60fbB5fC1903A4af3dc61186C2ed7f153c62` | The samplers' signer set with the agreement rule on-chain (median of three, mean of two within half a point); pots 8 and later |
 | **HonorCatFairValue** | `0x8a890a0A79371333dEaAF1aFC76D68ffDc7671a5` | Stateless reader: a side's value from a signed quote window |
 | MultisigResolver | `0x81d1194069E1aD3a22C17356065d8dF6A4D436c9` | 2-of-3 ERC-1271 signer set (pots 1 to 7, depth and outcome attestations) |
@@ -158,6 +161,88 @@ things (exits fail safe, the deadline refunds both deposits).
 Gemini's prices can be thin or manipulated within a window, which the depth cap only bounds; the
 settlement trusts Gemini's own result via the samplers; the relay and samplers must be live for
 prices (funds stay safe without them, but exits wait); and real-money use would need legal review.
+
+## v2: short ropes and treats
+
+Design note and decisions: [docs/rope-design.md](docs/rope-design.md), [docs/PROGRESS.md](docs/PROGRESS.md).
+Contract: `contracts/src/HonorCatRopes.sol` (+ `ropes/`). Existing v1 pots stay on HonorCatPots.
+
+**The rope has two posts.** A pot has a lower post L and an upper post U around the entry price q. YES
+puts in (q − L) per contract, NO puts in (U − q); the pot holds (U − L). At any price p, YES's share is
+clamp(p, L, U) − L and NO's is the rest. A normal pot is L = 0, U = 100. A post close to q is leverage:
+at 50 with L = 40, YES's stake doubles on a 10-point move (5×), and is gone if the price holds at 40.
+
+**Why it needs no lender.** Nobody borrows. Both sides put in their whole worst case before the pot
+starts, so the pot always holds exactly what it can pay: the contract only ever divides that pot, at
+a price clamped to the posts. No side can lose more than its deposit and nothing is ever owed; there
+is no margin call, no liquidation auction and no debt to collect. The clamp is what replaces the
+lender: past a post the game is simply over. Shares are exact integers (price ticks of 0.01 points ×
+hundredths of a contract = USDC base units), so the two shares always add up to the pot.
+
+**How a short rope ends.** By *knock-out*: the samplers' smoothed price holds at or beyond a post for
+a window; anyone may submit that attestation; the pot is then priced over the next window, like every
+exit, divided at the clamped price, and ends (no fee). Or at its *expiry*, at most 7 days away and at
+least 2 hours before trading closes, priced over a window fixed by the expiry itself, so nobody can
+choose it (three fixed retries if the market has no valid price). A short rope never runs into
+Gemini's result. *Extra lives* move a side's own post one rope length further out (up to 8); the
+other side's share stays the same or grows at every price.
+
+**Two known weaknesses, and what limits each.**
+1. *Overshoot on jumps.* The linear deposits are exactly fair only if overshoot past U and past L
+   are equally likely: the fair YES deposit is (q − L) − E[overshoot above U] + E[overshoot below L].
+   A jump past a post pays the clamped amount, so near 0 or 100 (where jumps can only go one way far)
+   the side whose post faces the open end is favoured. Limits: ropes end at least 2 hours before
+   close (most jumps come at resolution), a 5-point minimum distance (at least twice the spread),
+   leverage at most 10× on crypto and 5× elsewhere, and division at a 30-second forward average
+   rather than a tick. Measured below.
+2. *Cheaper manipulation near a post.* Moving the price 5 points costs less than moving it 50. The cap
+   ties the pot to the book: size ≤ 0.25 × the contracts resting within 5¢ on the thinner side
+   (attested by the samplers at creation). With Gemini's taker fee (0.07 · C · P(1−P), 2026-03-18
+   schedule; the maker promotion does not lower an attacker's cost), pushing the price Δ and holding
+   it through the trigger and the forward window costs at least C₅·(Δ/2 + 0.14·P̄(1−P̄)) against a
+   gain of N·Δ; requiring cost ≥ 2 × gain gives N ≤ C₅·(1/4 + 0.07·P̄(1−P̄)/Δ), so 0.25 × C₅ holds at
+   every price. Its weak spot is the assumption that depth is spread evenly over the 5¢; the
+   **refinement** (documented, not built) is for the samplers to attest the actual cost of walking the
+   full book to each post and the contract to enforce 2·N·Δ_post ≤ cost_post for both posts.
+
+**Treats: every reward is a share of a fee someone actually paid.** Nothing is minted, there is no
+sponsor and no prize pool, and `OPERATOR_FEE_BPS = 0` is a constant: no fee goes to HonorCat, and no
+rate can be changed after deployment.
+
+| Treat | Who pays | Who gets it |
+|---|---|---|
+| Maker treat 0.25% | the joiner, on its deposit | the player who opened the pot |
+| Exit fee 1% of the pot value exited | the side that leaves | the side that stays (no fee on knock-out, expiry or handshake) |
+| Referral 20% of every fee, first 20 pots | (taken from the fee above) | the player who invited the payer (set once, before the first pot) |
+| Copycat 5% of profit | a player who marked its side as a copy, only if it ends in profit | the player copied |
+
+*Why it cannot be farmed:* a treat is always part of a fee the payer would pay anyway, so no sequence
+of actions creates money. Opening and joining your own pot moves your own money. Copying yourself pays
+yourself out of your own profit. The contract rejects referring yourself. The honest exception: with
+free accounts a player can refer a second account of their own and get 20% of their own fees back for
+20 pots. That is a fee discount paid by the counterparty (who then receives 80% of the fee), never a
+profit. The copycat treat is held back (5% of each payout) until the copy ends, so a profit followed
+by a loss pays no treat.
+
+**Backtest and simulation** (`relay/scripts/rope-backtest.ts`, results in `docs/backtest/rope-backtest.json`;
+bias = fair YES deposit minus the linear one, in points; positive = YES favoured):
+
+| Source | Setting | Upper post first (linear rule says 50%) | Mean overshoot past the post | Bias |
+|---|---|---|---|---|
+| Simulation, small moves only | entry 50 or 80, 5–10-point posts, 72 h to 0.5 h before resolution | 41–53% | 0.1–0.8 points | within ±0.5 |
+| Simulation, small moves + jumps | entry 50 | 48–52% | 0.9–2.0 points, both sides | within ±0.4 (symmetric) |
+| Simulation, small moves + jumps | entry 80, 72–24 h before resolution | 40–55% | below L 0.9–2.0, above U 0.3–0.7 | +0.2 to +0.8 |
+| Simulation, small moves + jumps | entry 80, 6–0.5 h before resolution | 57–62% | below L up to 2.8, above U 0.8 | +0.7 to +2.4 |
+| Model-based BTC daily contracts (Gemini 15-minute candles, 4–18 Nov 2026) | 5 / 10 / 20-point posts, ending 2 h before close | 41% / 34% / 24% | below L 2.4–3.9 | −0.6 / −2.9 / −8.9 |
+
+What it shows: on its own the clamp is fair when the entry is near 50; the bias comes from jumps when
+the entry is near 0 or 100, and it grows as the rope gets closer to resolution, which is why ropes end
+at least 2 hours before close (at that limit, 10-point posts at 80 still carry about 1.6 points). The
+BTC rows come from one fortnight in which BTC fell, measured with 312 overlapping daily windows: a
+trend in the sample, not a structural bias, and model-based rather than market-observed. The recorded
+Gemini midpoints (`relay/scripts/record-mids.ts`, recording since 18 Nov, live NBA/NHL games kept
+separate) are added to the JSON as they accumulate; the production sampler history before 16 Nov was
+lost when the database was rebuilt, so there was no older record to use.
 
 ## How HonorCat uses Arc
 
@@ -242,7 +327,10 @@ Without `DATABASE_URL` the relay uses an embedded PGlite database in `.data/`.
 ## Test
 
 ```bash
-cd contracts && forge test                     # pots, resolvers, fair value, passkey accounts
+cd contracts && forge test                     # pots (v1 and v2 ropes), resolvers, fair value, passkey accounts
+halmos --contract RopesMathSymbolic             # symbolic checks (time out without a counterexample)
+cd relay && npx tsx scripts/rope-backtest.ts   # backtest and simulation (aggregates only)
+cd relay && npx tsx --env-file=../.env scripts/ropes-e2e.ts --scenario short   # v2 on Arc testnet
 pnpm --filter @honorcat/relay test             # relay, catalogue, samplers, agents, names, messages, statements
 cd web && npx tsc --noEmit && npx eslint src && npx next build
 cd relay && npx tsx scripts/agent-seat-e2e.ts  # agent seats against production (moves no money)
@@ -269,6 +357,8 @@ cd relay && npx tsx scripts/agent-seat-e2e.ts  # agent seats against production 
 | `VAPID_*` | Vercel | Push notifications |
 | `XAI_API_KEY` | Vercel (optional) | GrokCat in the app, if xAI credits exist; without it the helper cat uses templates |
 | `RELAY_PRIVATE_KEY`, `DEPLOYER_PRIVATE_KEY` | local / Vercel | Retired products; deployments |
+| `ROPES_FOR_NEW_POTS` | Vercel | `true`: the create page offers short ropes and new pots go to HonorCatRopes (v2). Default off |
+| `NEXT_PUBLIC_GEMINI_LINK_QUERY` | Vercel (optional) | A query added to links to Gemini's market pages (e.g. a referral code); none by default |
 
 ## Data and honesty
 
