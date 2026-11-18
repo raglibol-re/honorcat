@@ -1,5 +1,6 @@
 "use client";
 
+import { TreatsPanel } from "@/components/pot/Treats";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { isAddress, type Address, type Hex } from "viem";
@@ -35,7 +36,12 @@ export function MoneyView() {
   const who = useActor();
   useHome();
   if (!who.actor) return <SignIn who={who} purpose="Sign in to see your money. A passkey is all you need." />;
-  return <Signed who={who} />;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 48 }}>
+      <Signed who={who} />
+      <TreatsPanel account={who.actor.account} mine />
+    </div>
+  );
 }
 
 function Signed({ who }: { who: ActorState }) {

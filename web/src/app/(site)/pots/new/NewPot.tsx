@@ -12,10 +12,11 @@ import { AccountLine, FundsHelp, btn, SignIn, useActor } from "@/components/pot/
 import { useTechMode } from "@/components/TechMode";
 import { PlayerCat } from "@/components/cat/PlayerCat";
 import { GeminiLink } from "@/components/cat/GeminiLink";
+import { GeminiCard } from "@/components/cat/GeminiCard";
 import { FeeNote, useFees } from "@/components/pot/Receipts";
 import { getJson } from "@/lib/api";
 import { plainError } from "@/lib/messages";
-import { createPot, createRope, MAX_TOLERANCE, NO, prepare, prepareRope, ropesStatus, worstCase, YES, type RopesStatus } from "@/lib/hc";
+import { createPot, createRope, MAX_TOLERANCE, NO, prepare, prepareRope, ROPE_BASE, ropesStatus, worstCase, YES, type HcPot, type RopesStatus } from "@/lib/hc";
 import { RopeControl, type RopeSetting } from "@/components/pot/RopeControl";
 import { ropeFor } from "@/lib/rope";
 import { inviteMyAgent, seatsOf, type SeatView } from "@/lib/agent";
@@ -63,6 +64,45 @@ export function NewPot() {
       .catch(() => {});
   }, []);
   const [rope, setRope] = useState<RopeSetting | null>(null);
+  // A copy link (/pots/new?copy=<token>&side=<0|1>): the same market and side as another player's pot.
+  const [copy, setCopy] = useState<{ token: bigint; leader: string; potId: string } | null>(null);
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    const t = q.get("copy");
+    if (!t || !/^\d+$/.test(t)) return;
+    const token = BigInt(t);
+    const potId = (ROPE_BASE + token / 2n).toString();
+    void (async () => {
+      const lead = await getJson<HcPot>(`/api/hc/pots/${potId}`).catch(() => null);
+      if (!lead?.market) return;
+      const s = Number(token % 2n);
+      const leader = (s === 0 ? lead.owners.yes : lead.owners.no) ?? "";
+      const quote = await getJson<{ bid: number | null; ask: number | null }>(`/api/catalog/quote?symbol=${encodeURIComponent(lead.market.instrument)}`).catch(() => null);
+      const m = lead.market as unknown as Record<string, unknown>;
+      setSide(s);
+      setCopy({ token, leader, potId });
+      setMarket({
+        symbol: lead.market.instrument,
+        eventTicker: lead.market.eventTicker,
+        contractTicker: String(m.contractTicker ?? ""),
+        category: /^GEMI-(BTC|ETH|SOL|XRP|DOGE|HYPE|ZEC|LTC|AVAX|LINK|ADA|BNB|SUI)/i.test(lead.market.instrument) ? "Crypto" : "Other",
+        subcategory: null,
+        eventTitle: lead.market.eventTitle,
+        slug: (m.slug as string | null) ?? null,
+        label: lead.market.label,
+        closeMs: Number(m.closeMs ?? (lead.data as unknown as { closeTime: string }).closeTime) * (m.closeMs ? 1 : 1000),
+        bid: quote?.bid ?? null,
+        ask: quote?.ask ?? null,
+        eventVolume24h: null,
+        image: null,
+        teams: (m.teams as string | null) ?? null,
+        startMs: (m.startMs as number | null) ?? null,
+        yesMeans: (m.yesMeans as string | null) ?? null,
+        book: null,
+        quality: { status: "works" } as MarketItem["quality"],
+      });
+    })();
+  }, []);
   const onRope = useCallback((r: RopeSetting) => setRope(r), []);
   const v2 = Boolean(ropes?.forNewPots) && !practice;
   const [step, setStep] = useState<string | null>(null);
@@ -125,7 +165,7 @@ export function NewPot() {
         const r = await createRope(
           who.actor,
           prepV2,
-          { side, size: c.size, bandCenter: bandCenterV2, tolerance: tolV2, distYes: c.distYes, distNo: c.distNo, expiry: lev > 1 ? (rope?.expiry ?? 0) : 0, graceDays: Number(grace), escrow: perContract * c.size },
+          { side, size: c.size, bandCenter: bandCenterV2, tolerance: tolV2, distYes: c.distYes, distNo: c.distNo, expiry: lev > 1 ? (rope?.expiry ?? 0) : 0, graceDays: Number(grace), escrow: perContract * c.size, copyOf: copy && Number(copy.token % 2n) === side ? copy.token : 0n },
           setStep,
         );
         setStep("Done");
@@ -217,6 +257,7 @@ export function NewPot() {
         ) : (
           <MarketList picked={null} onPick={setMarket} />
         )}
+        {market && st && <GeminiCard slug={market.slug} question={`${st.yes}?`} yes={st.yesShort} no={st.noShort} price={p} />}
         {market ? <Reliability symbol={market.symbol} /> : <GeminiCredit />}
       </section>
 
@@ -273,6 +314,12 @@ export function NewPot() {
               sideName={side === YES ? st.yes : st.no}
               onChange={onRope}
             />
+          )}
+          {v2 && copy && (
+            <p role="note" style={{ margin: 0, fontSize: 16, lineHeight: 1.5, border: `2px solid ${C.ink}`, padding: "10px 14px" }}>
+              <strong>Copycat pot:</strong> you copy the {Number(copy.token % 2n) === YES ? "YES" : "NO"} side of <Link href={`/pots/${copy.potId}`}>pot {copy.potId}</Link>. If you end with a profit, 5% of that profit goes to that player; if you do not, nothing does.
+              {Number(copy.token % 2n) !== side && " (You picked the other side, so this pot is not a copy.)"}
+            </p>
           )}
           {v2 && <p style={{ margin: 0, fontSize: 15, color: C.muted }}>Nothing goes to HonorCat: every fee goes to a player.</p>}
           <details>

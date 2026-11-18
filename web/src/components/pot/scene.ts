@@ -1,5 +1,5 @@
 import type { HcPot } from "@/lib/hc";
-import { displayName, furOf } from "@/lib/names";
+import { displayName, furOf, wearOf } from "@/lib/names";
 import { sidesOf } from "@/lib/statement";
 import type { Mood } from "@/components/cat/Cat";
 import type { PostCat, RopeProps } from "./Rope";
@@ -65,7 +65,7 @@ function sceneOfV1(pot: HcPot, price: number | null, nowS: number, o: NameOpts =
     const move = side === 0 ? price - entry : entry - price;
     return move > 0.03 ? "up" : move < -0.03 ? "down" : "even";
   };
-  const cat = (a: string | null, side: 0 | 1, nm: string): PostCat | null => (a && !/^0x0{40}$/i.test(a) ? { fur: furOf(a), mood: moodOf(side), name: nm } : null);
+  const cat = (a: string | null, side: 0 | 1, nm: string): PostCat | null => (a && !/^0x0{40}$/i.test(a) ? { fur: furOf(a), mood: moodOf(side), name: nm, wear: wearOf(a) } : null);
   // After a full division the pot's size is 0: show the pot it was.
   const initialStr = (d as { initialNotional?: string }).initialNotional;
   const initial = initialStr && initialStr !== "0" ? BigInt(initialStr) : null;

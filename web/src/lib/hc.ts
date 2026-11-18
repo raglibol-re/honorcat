@@ -412,6 +412,7 @@ export async function createRope(
   const d = prep.depth;
   const depth = { conditionId: d.conditionId, account: d.account, contracts5c: BigInt(d.contracts5c), spread: d.spread, crypto: d.crypto, closeTime: BigInt(d.closeTime), validUntil: BigInt(d.validUntil) };
   await ensureFunds(actor.account, o.escrow, onStep);
+  await maybeSetReferrer(actor, prep.pots, onStep).catch(() => {}); // a referral never blocks a pot
   const data = encodeFunctionData({ abi: ropesAbi, functionName: "create", args: [c, depth, sigs, noAuth(actor.account)] });
   if (actor.kind === "passkey") return passkeyCall(actor.session, actor.account, data, o.escrow, onStep, prep.pots);
   const r = await walletSend(actor.adapter, actor.account, prep.pots, data, null, o.escrow, onStep);
@@ -427,4 +428,68 @@ export async function addLife(actor: Actor, ropes: Address, potId: string, side:
   const data = encodeFunctionData({ abi: ropesAbi, functionName: "addLife", args: [id, side, noAuth(actor.account)] });
   if (actor.kind === "passkey") return passkeyCall(actor.session, actor.account, data, cost, onStep, ropes);
   return walletSend(actor.adapter, actor.account, ropes, data, potId, cost, onStep);
+}
+
+/** The most the joining side can owe in the band (its distance on a rope side), plus the maker treat. */
+export function ropeJoinEscrow(p: HcPot) {
+  const d = p.data as unknown as Record<string, string>;
+  const side = 1 - Number(d.creatorSide);
+  const size = BigInt(d.size);
+  const c = Number(d.bandCenter);
+  const t = Number(d.tolerance);
+  const dist = Number(side === YES ? d.distYes : d.distNo);
+  let per: number;
+  if (dist > 0) per = Math.floor(dist / 100);
+  else if (side === YES) per = Math.floor(Math.min(P, c + t) / 100);
+  else per = 10_000 - Math.floor(Math.max(0, c - t) / 100);
+  const dep = BigInt(per) * size;
+  return { deposit: dep, treat: (dep * 25n) / 10_000n, total: dep + (dep * 25n) / 10_000n };
+}
+
+/** Joins a v2 pot as the other side; `copyOf` (a token id) marks the new side as a copy of that player. */
+export async function joinRope(actor: Actor, ropes: Address, p: HcPot, copyOf: bigint, onStep?: Step) {
+  const id = BigInt(p.potId) - ROPE_BASE;
+  const { total } = ropeJoinEscrow(p);
+  await ensureFunds(actor.account, total, onStep);
+  await maybeSetReferrer(actor, ropes, onStep).catch(() => {});
+  const data = encodeFunctionData({ abi: ropesAbi, functionName: "requestJoin", args: [id, copyOf, noAuth(actor.account)] });
+  if (actor.kind === "passkey") return passkeyCall(actor.session, actor.account, data, total, onStep, ropes);
+  return walletSend(actor.adapter, actor.account, ropes, data, p.potId, total, onStep);
+}
+
+/** Leaves a v2 pot (all or part of `size` hundredths), priced over the next window like every exit. */
+export async function exitRope(actor: Actor, ropes: Address, p: HcPot, side: number, size: bigint, onStep?: Step) {
+  const id = BigInt(p.potId) - ROPE_BASE;
+  const data = encodeFunctionData({ abi: ropesAbi, functionName: "requestExit", args: [id, side, size] });
+  if (actor.kind === "passkey") return passkeyCall(actor.session, actor.account, data, 0n, onStep, ropes);
+  return walletSend(actor.adapter, actor.account, ropes, data, p.potId, 0n, onStep);
+}
+
+/** Takes back an offer nobody has joined (v2). */
+export async function cancelRope(actor: Actor, ropes: Address, p: HcPot, onStep?: Step) {
+  const id = BigInt(p.potId) - ROPE_BASE;
+  const data = encodeFunctionData({ abi: ropesAbi, functionName: "cancel", args: [id] });
+  if (actor.kind === "passkey") return passkeyCall(actor.session, actor.account, data, 0n, onStep, ropes);
+  return walletSend(actor.adapter, actor.account, ropes, data, p.potId, 0n, onStep);
+}
+
+/**
+ * Records a referrer once, before the account's first v2 pot (the contract refuses otherwise). Silent
+ * when there is nothing to do: no referral link used, already set, or the account has played.
+ */
+export async function maybeSetReferrer(actor: Actor, ropes: Address, onStep?: Step) {
+  let ref: string | null = null;
+  try {
+    ref = localStorage.getItem("hc.ref");
+  } catch {}
+  if (!ref || !/^0x[0-9a-fA-F]{40}$/.test(ref) || ref.toLowerCase() === actor.account.toLowerCase()) return;
+  const [current, count] = await Promise.all([
+    publicClient.readContract({ address: ropes, abi: ropesAbi, functionName: "referrerOf", args: [actor.account] }) as Promise<Address>,
+    publicClient.readContract({ address: ropes, abi: ropesAbi, functionName: "potCount", args: [actor.account] }) as Promise<bigint>,
+  ]).catch(() => [null, null] as const);
+  if (current === null || count === null || count > 0n || !/^0x0+$/.test(current)) return;
+  onStep?.("Recording who invited you (once)");
+  const data = encodeFunctionData({ abi: ropesAbi, functionName: "setReferrer", args: [ref as Address] });
+  if (actor.kind === "passkey") await passkeyCall(actor.session, actor.account, data, 0n, onStep, ropes);
+  else await walletSend(actor.adapter, actor.account, ropes, data, null, 0n, onStep);
 }

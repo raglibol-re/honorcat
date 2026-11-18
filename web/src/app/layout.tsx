@@ -3,6 +3,7 @@ import { Barlow, Barlow_Condensed, IBM_Plex_Mono } from "next/font/google";
 import { WalletProvider } from "@/lib/wallet/context";
 
 import { TechModeProvider } from "@/components/TechMode";
+import { RefCapture } from "@/components/RefCapture";
 import "./globals.css";
 
 const plexMono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-plex-mono" });
@@ -25,6 +26,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="flex min-h-full flex-col">
         <TechModeProvider>
           <WalletProvider>
+            <RefCapture />
             {children}
           </WalletProvider>
         </TechModeProvider>

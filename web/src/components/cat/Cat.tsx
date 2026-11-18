@@ -59,7 +59,60 @@ export type Mood = "up" | "even" | "down";
 const MOOD_TEXT: Record<Mood, string> = { up: "tail high: its side is up since the start", even: "calm: its side is about even", down: "ears low: its side is down since the start" };
 
 /** The cat's fur (body colour) and, for light furs, an ink outline. Lines and the eyes stay as they are. */
-const FurCtx = createContext<{ body: string; line: string; w: number; collar?: boolean }>({ body: C.ink, line: "none", w: 0 });
+const FurCtx = createContext<{ body: string; line: string; w: number; collar?: boolean; wear?: Cosmetic | null }>({ body: C.ink, line: "none", w: 0 });
+
+/** Cat cosmetics, unlocked by honor record milestones (relay/src/cosmetics.ts). Never the helper cat's signal collar. */
+export type Cosmetic = "bell" | "scarf" | "bow" | "hat" | "crown";
+const GOLD = "#C9A227";
+const GREEN = "#2F6B4F";
+const BLUE = "#2D4E8C";
+
+/** The cosmetic drawn on a head centred on (cx, cy) with radius r. */
+function Wear({ cx, cy, r, wear }: { cx: number; cy: number; r: number; wear: Cosmetic }) {
+  const neck = cy + r * 0.98;
+  switch (wear) {
+    case "bell":
+      return (
+        <g>
+          <path d={`M${cx - r * 0.6} ${neck - 2} q${r * 0.6} ${r * 0.25} ${r * 1.2} 0`} fill="none" stroke={BLUE} strokeWidth={r * 0.14} strokeLinecap="round" />
+          <circle cx={cx} cy={neck + r * 0.14} r={r * 0.22} fill={GOLD} stroke={C.ink} strokeWidth="0.9" />
+        </g>
+      );
+    case "scarf":
+      return (
+        <g fill={GREEN}>
+          <path d={`M${cx - r * 0.75} ${neck - 3} q${r * 0.75} ${r * 0.35} ${r * 1.5} 0 v${r * 0.22} q-${r * 0.75} ${r * 0.35} -${r * 1.5} 0 z`} />
+          <rect x={cx + r * 0.3} y={neck} width={r * 0.24} height={r * 0.6} rx="1" />
+        </g>
+      );
+    case "bow":
+      return (
+        <g fill={BLUE} stroke={C.ink} strokeWidth="0.8">
+          <path d={`M${cx} ${neck} l-${r * 0.52} -${r * 0.28} v${r * 0.56} z`} />
+          <path d={`M${cx} ${neck} l${r * 0.52} -${r * 0.28} v${r * 0.56} z`} />
+          <circle cx={cx} cy={neck} r={r * 0.12} />
+        </g>
+      );
+    case "hat":
+      return (
+        <g>
+          <rect x={cx - r * 0.55} y={cy - r * 1.32} width={r * 1.1} height={r * 0.42} rx="2" fill={C.page} stroke={C.ink} strokeWidth="1.2" />
+          <rect x={cx - r * 0.75} y={cy - r * 0.95} width={r * 1.5} height={r * 0.16} rx="1.5" fill={C.ink} />
+          <circle cx={cx} cy={cy - r * 1.1} r={r * 0.09} fill={GOLD} />
+        </g>
+      );
+    case "crown":
+      return (
+        <polygon
+          points={`${cx - r * 0.55},${cy - r * 0.9} ${cx - r * 0.55},${cy - r * 1.35} ${cx - r * 0.27},${cy - r * 1.12} ${cx},${cy - r * 1.45} ${cx + r * 0.27},${cy - r * 1.12} ${cx + r * 0.55},${cy - r * 1.35} ${cx + r * 0.55},${cy - r * 0.9}`}
+          fill={GOLD}
+          stroke={C.ink}
+          strokeWidth="1"
+          strokeLinejoin="round"
+        />
+      );
+  }
+}
 
 const VIEW: Record<CatPose, [number, number]> = {
   rope: [140, 110],
@@ -132,6 +185,7 @@ function Head({ cx, cy, r = 20, eyesOpen = true, look = 0, earsLow = false }: { 
       <circle cx={cx} cy={cy} r={r} fill={k.body} stroke={k.line} strokeWidth={k.w} />
       <Eyes cx={cx} cy={cy + 1} open={eyesOpen} look={look} />
       <path d={`M${cx - 2} ${cy + 9} h4 l-2 2.4 z`} fill={C.signal} />
+      {k.wear && <Wear cx={cx} cy={cy} r={r} wear={k.wear} />}
     </g>
   );
 }
@@ -476,6 +530,7 @@ export function Cat({
   fur,
   mood = "even",
   collar = false,
+  wear = null,
 }: {
   pose: CatPose;
   size?: number;
@@ -486,6 +541,8 @@ export function Cat({
   mood?: Mood;
   /** The helper cat's signal-coloured collar, so it never looks like a player's cat. */
   collar?: boolean;
+  /** A player's cosmetic (unlocked by honor record milestones). */
+  wear?: Cosmetic | null;
 }) {
   const uid = useId().replace(/[^a-zA-Z0-9_-]/g, "");
   const [w, h] = VIEW[pose];
@@ -493,7 +550,7 @@ export function Cat({
   const furWord = fur ? fur.label.toLowerCase() : "black";
   const base = POSE_TEXT[pose].replace("A black cat", `A ${furWord} cat`).replace("Two black cats", `Two ${furWord} cats`);
   const text = label ?? (pose === "lives" ? `${n} of 9 lives left.` : pose === "sit" ? `${base.replace(/\.$/, "")}, ${MOOD_TEXT[mood]}.` : base);
-  const k = { ...(fur ? { body: fur.hex, line: fur.light ? C.ink : "none", w: fur.light ? 1.6 : 0 } : { body: C.ink, line: "none", w: 0 }), collar };
+  const k = { ...(fur ? { body: fur.hex, line: fur.light ? C.ink : "none", w: fur.light ? 1.6 : 0 } : { body: C.ink, line: "none", w: 0 }), collar, wear: collar ? null : wear };
   return (
     <svg
       viewBox={`0 0 ${w} ${h}`}

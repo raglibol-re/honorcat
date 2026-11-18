@@ -182,6 +182,9 @@ export function Home({ data }: { data: HomeData }) {
           Also on the rope: a <strong>net</strong> that catches your side if its price falls to a level, a <strong>bowl</strong> that takes your share off the rope when it rises to one, <strong>nine lives</strong> to leave a ninth at a
           time, a <strong>handshake</strong> to split now at the current price with no fee, and a <strong>takeover</strong>, where someone else steps into the leaving side&apos;s place.
         </p>
+        <p style={{ margin: "16px 0 0", fontSize: 17, lineHeight: 1.55, color: C.ink, maxWidth: 760 }}>
+          <strong>Nothing goes to a house.</strong> HonorCat takes no cut: every fee goes to a player, the side that stays, the player who opened the pot, or the friend who invited you.
+        </p>
         <GeminiCredit style={{ marginTop: 16 }} />
       </section>
 

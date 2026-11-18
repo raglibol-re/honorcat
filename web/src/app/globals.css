@@ -163,3 +163,9 @@ body {
 
 /* Visible to screen readers only (plain labels for animated amounts). */
 .hc-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+/* The card that opens the market on Gemini (components/cat/GeminiCard.tsx). */
+.hc-gemini-card { transition: transform 120ms ease, box-shadow 120ms ease; }
+.hc-gemini-card:hover { transform: translate(-2px, -2px); box-shadow: 6px 6px 0 var(--hc-ink, #111) !important; }
+.hc-gemini-card:focus-visible { outline: 3px solid #E5482D; outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { .hc-gemini-card, .hc-gemini-card:hover { transition: none; transform: none; } }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { Cosmetic } from "@/components/cat/Cat";
 import { getJson } from "./api";
 import { short } from "./format";
 import { joinChallenge, signChallenge } from "./passkey";
@@ -8,6 +9,10 @@ import type { Actor } from "./hc";
 
 const cache = new Map<string, string>();
 const furCache = new Map<string, Fur>();
+/** Cosmetics unlocked by honor record milestones, as the names API reports them (worn everywhere). */
+const wearCache = new Map<string, Cosmetic>();
+const WEARS = new Set<string>(["bell", "scarf", "bow", "hat", "crown"]);
+export const wearOf = (account: string | null | undefined): Cosmetic | null => (account ? (wearCache.get(account.toLowerCase()) ?? null) : null);
 const loaded = new Set<string>();
 /** Whether this account's name and cat have been read from the server at least once. */
 export const namesLoaded = (account: string | null | undefined) => !!account && loaded.has(account.toLowerCase());
@@ -47,10 +52,11 @@ export function useNames(accounts: (string | null | undefined)[]) {
     if (!key) return;
     let alive = true;
     const load = () =>
-      getJson<{ names: Record<string, string>; furs?: Record<string, string> }>(`/api/hc/names?accounts=${key}`)
+      getJson<{ names: Record<string, string>; furs?: Record<string, string>; wear?: Record<string, string> }>(`/api/hc/names?accounts=${key}`)
         .then((r) => {
           Object.entries(r.names).forEach(([k, v]) => cache.set(k, v));
           Object.entries(r.furs ?? {}).forEach(([k, v]) => v in FURS && furCache.set(k, v as Fur));
+          Object.entries(r.wear ?? {}).forEach(([k, v]) => WEARS.has(v) && wearCache.set(k, v as Cosmetic));
           key.split(",").forEach((k) => loaded.add(k));
           if (alive) setNames(r.names);
         })

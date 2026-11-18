@@ -3,6 +3,9 @@
 import { useState } from "react";
 import { C, F } from "@/components/cat/tokens";
 import { Rope } from "@/components/pot/Rope";
+import { Cat } from "@/components/cat/Cat";
+import { GeminiCard } from "@/components/cat/GeminiCard";
+import { FURS } from "@/lib/names";
 import { RopeControl, ShortRopeNote, type RopeSetting } from "@/components/pot/RopeControl";
 import { useNow } from "@/lib/useNow";
 
@@ -30,6 +33,21 @@ export function RopePreview() {
         <h2 style={h2}>YES 5× at 50: post first at 40, one extra life bought (now at 30)</h2>
         <Rope price={0.47} notional={7_000_000n} names={{ yes: "you", no: "Mia" }} phase="live" posts={{ lower: 0.3, upper: 1, livesYes: 1, livesNo: 0 }} />
         {nowS > 0 && <ShortRopeNote expiry={nowS + 5 * 3600 + 120} nowS={nowS} ended={false} />}
+      </section>
+      <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <h2 style={h2}>Cat cosmetics (unlocked by the honor record)</h2>
+        <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "flex-end" }}>
+          {(["bell", "scarf", "bow", "hat", "crown"] as const).map((w) => (
+            <figure key={w} style={{ margin: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+              <Cat pose="sit" size={110} fur={FURS.ginger} wear={w} label={w} />
+              <figcaption style={{ fontSize: 14 }}>{w}</figcaption>
+            </figure>
+          ))}
+        </div>
+      </section>
+      <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <h2 style={h2}>The market on Gemini</h2>
+        <GeminiCard slug="btc-price-today-at-5pm-est" question="BTC above $64,000 at 5 pm?" yes="Above" no="Below" price={0.495} />
       </section>
       <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <h2 style={h2}>NO 10× at 50: post at 55, the price beyond it (clamped)</h2>

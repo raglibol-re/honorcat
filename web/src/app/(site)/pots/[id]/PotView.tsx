@@ -25,6 +25,8 @@ import { SamplerNotice } from "@/components/pot/SamplerHealth";
 import { asV1Pot, sceneOf, STATE_TEXT, storyOf } from "@/components/pot/scene";
 import { ShortRopeNote } from "@/components/pot/RopeControl";
 import { RopeLives } from "@/components/pot/RopeLives";
+import { RopeActions } from "@/components/pot/RopeActions";
+import { GeminiCard } from "@/components/cat/GeminiCard";
 import { useTechMode } from "@/components/TechMode";
 import { marketLine, sidesOf, yesMeans, type Sides } from "@/lib/marketName";
 import { displayName, useNames } from "@/lib/names";
@@ -269,7 +271,7 @@ function Actions({ pot, who, price, nowS, nameOf }: { pot: HcPot; who: ActorStat
     <section style={{ display: "flex", flexDirection: "column", gap: 28, maxWidth: 760 }}>
       <AccountLine who={who} />
       <div>
-        <NotifyButton potId={pot.potId} account={me} />
+        <NotifyButton potId={pot.potId} account={me} when="change" />
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <h2 style={h2}>Leave, or shake hands</h2>
@@ -449,7 +451,8 @@ function Actions({ pot, who, price, nowS, nameOf }: { pot: HcPot; who: ActorStat
   );
 }
 
-function NotifyButton({ potId, account }: { potId: string; account: string | null }) {
+/** Web push for this pot. `when`: what the player is waiting for (an opponent, or any change once the pot runs). */
+function NotifyButton({ potId, account, when = "join" }: { potId: string; account: string | null; when?: "join" | "change" }) {
   const [state, setState] = useState<"idle" | "busy" | "on" | string>("idle");
   if (!pushSupported()) return null;
   return (
@@ -467,7 +470,7 @@ function NotifyButton({ potId, account }: { potId: string; account: string | nul
         }
       }}
     >
-      {state === "on" ? "You will be notified" : state === "idle" || state === "busy" ? "Notify me when someone joins" : state}
+      {state === "on" ? "You will be notified" : state === "idle" || state === "busy" ? (when === "join" ? "Notify me when someone joins" : "Notify me when this pot changes") : state}
     </button>
   );
 }
@@ -687,6 +690,7 @@ export function PotView({ id }: { id: string }) {
       <Rope {...scene} trail={live.trail} speed={live.speed} />
       {v2 && expiry > 0 && <ShortRopeNote expiry={expiry} nowS={nowS} ended={ended} />}
       {v2 && <p style={{ margin: 0, fontSize: 15, color: C.muted }}>Nothing goes to HonorCat: every fee in this pot goes to a player.</p>}
+      {m?.slug && st && <GeminiCard slug={m.slug} question={`${st.yes}?`} yes={st.yesShort} no={st.noShort} price={live.smoothed} />}
       <RateNote />
 
       <Receipts
@@ -706,7 +710,10 @@ export function PotView({ id }: { id: string }) {
 
       {/* v1 actions call HonorCatPots; v2 pots get their own panel (extra lives now, the rest in the next step). */}
       {v2 ? (
-        <RopeLives pot={pot} who={who} nowS={nowS} />
+        <>
+          <RopeActions pot={pot} who={who} price={live.smoothed} nameOf={nameOf} />
+          <RopeLives pot={pot} who={who} nowS={nowS} />
+        </>
       ) : (
         <>
           <AgentPanel pot={pot} who={who} agent={(pot as HcPot & { agent?: AgentInfo | null }).agent} mySide={mine} pots={POTS} />

@@ -3,6 +3,8 @@
 import { CatState } from "@/components/cat/CatState";
 import Link from "next/link";
 import { PlayerCat } from "@/components/cat/PlayerCat";
+import { TreatsPanel } from "@/components/pot/Treats";
+import { useActor } from "@/components/pot/Who";
 import { useTechMode } from "@/components/TechMode";
 import { nickname, useNames } from "@/lib/names";
 import { honorLabels } from "@/lib/honor";
@@ -54,6 +56,7 @@ function lineOf(t: HonorRecord["timeline"][number], m: Parameters<typeof sidesOf
 
 /** An honor record: what an account did in its pots, from the contract's events. Facts only, no score. */
 export function Record({ account }: { account: string }) {
+  const me = useActor().actor?.account.toLowerCase() ?? null;
   const { data: r, error } = usePolling<HonorRecord>(`/api/hc/record/${account}`, 15_000);
   const names = useNames([account]);
   const { tech } = useTechMode();
@@ -131,6 +134,9 @@ export function Record({ account }: { account: string }) {
           </ul>
         )}
       </section>
+      <div id="treats">
+        <TreatsPanel account={account} mine={me === account.toLowerCase()} />
+      </div>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { FURS, furOf, type Fur } from "@/lib/names";
+import { FURS, furOf, wearOf, type Fur } from "@/lib/names";
 import { Cat, type CatPose, type Mood } from "./Cat";
 
 /** A fur key as the Cat component takes it. */
@@ -8,7 +8,7 @@ export const furProps = (f: Fur) => FURS[f];
 
 /** A player's own cat (their picked fur, or a stable one from their address). */
 export function PlayerCat({ account, fur, pose = "sit", size = 80, mood, label }: { account?: string | null; fur?: Fur; pose?: CatPose; size?: number; mood?: Mood; label?: string }) {
-  return <Cat pose={pose} size={size} mood={mood} label={label} fur={FURS[fur ?? furOf(account)]} />;
+  return <Cat pose={pose} size={size} mood={mood} label={label} fur={FURS[fur ?? furOf(account)]} wear={wearOf(account)} />;
 }
 
 /** A player's name with their cat's face in front: how a player appears in lists and records. */

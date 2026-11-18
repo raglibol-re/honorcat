@@ -58,7 +58,7 @@ export async function namesOf(db: Db, accounts: string[]): Promise<Record<string
 }
 
 /** Names and fur colours for some accounts; the practice cat is always the grey "Practice cat". */
-export async function catsOf(db: Db, accounts: string[]): Promise<{ names: Record<string, string>; furs: Record<string, string> }> {
+export async function catsOf(db: Db, accounts: string[]): Promise<{ names: Record<string, string>; furs: Record<string, string>; wear: Record<string, string> }> {
   const list = [...new Set(accounts.map((a) => a.toLowerCase()).filter((a) => /^0x[0-9a-f]{40}$/.test(a)))].slice(0, 50);
   const names: Record<string, string> = {};
   const furs: Record<string, string> = {};
@@ -76,5 +76,16 @@ export async function catsOf(db: Db, accounts: string[]): Promise<{ names: Recor
   } catch {
     /* no relay key configured */
   }
-  return { names, furs };
+  // Cosmetics unlocked by honor record milestones (relay/src/cosmetics.ts), worn everywhere.
+  const wear: Record<string, string> = {};
+  try {
+    const { progressOf, cosmeticsOf } = await import("./cosmetics");
+    for (const [a, p] of Object.entries(await progressOf(db, list))) {
+      const w = cosmeticsOf(p).wear;
+      if (w) wear[a] = w;
+    }
+  } catch (e) {
+    console.error("[cosmetics]", e);
+  }
+  return { names, furs, wear };
 }

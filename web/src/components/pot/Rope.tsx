@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Cat, type CatPose, type Mood } from "@/components/cat/Cat";
+import { Cat, type CatPose, type Cosmetic, type Mood } from "@/components/cat/Cat";
 import { FURS, type Fur } from "@/lib/names";
 import { splitPot } from "@/lib/shares";
 import { RollingNumber } from "@/components/cat/RollingNumber";
@@ -40,7 +40,7 @@ export type RopeProps = {
    */
   posts?: { lower: number; upper: number; livesYes?: number; livesNo?: number } | null;
 };
-export type PostCat = { fur: Fur; mood: Mood; name: string };
+export type PostCat = { fur: Fur; mood: Mood; name: string; wear?: Cosmetic | null };
 
 /* The drawing, in the approved mockup's units: 1440 wide, the 0..100 scale from x 40 to x 1400. */
 const VW = 1440;
@@ -224,7 +224,7 @@ function PostCatView({ c, side, w, at }: { c: PostCat; side: 0 | 1; w: number; a
         transform: `translate(${side === 0 ? "-30%" : "-70%"}, -92%) scaleX(${side === 0 ? 1 : -1})`,
       }}
     >
-      <Cat pose="sit" size={w} fur={FURS[c.fur]} mood={c.mood} label={`${c.name}'s cat, on the ${side === 0 ? "YES" : "NO"} post`} />
+      <Cat pose="sit" size={w} fur={FURS[c.fur]} wear={c.wear ?? null} mood={c.mood} label={`${c.name}'s cat, on the ${side === 0 ? "YES" : "NO"} post`} />
     </div>
   );
 }
