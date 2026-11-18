@@ -200,7 +200,7 @@ async function run(symbol: string, A: Acct, B: Acct) {
   if (values.scenario === "knock") {
     const prepClose = (await api<Prep>(`/api/hc/prepare-rope`, { method: "POST", body: JSON.stringify({ symbol, account: A.address }) })).closeTime;
     const expiry = Math.min(Math.floor(Date.now() / 1000) + 7 * 86_400, prepClose - 7200 - 60);
-    const id = await createRope(A, symbol, { side: 0, size: 50n, dist: 50_000, expiry });
+    const id = await createRope(A, symbol, { side: 0, size: 50n, dist: 60_000, expiry });
     await join(B, id);
     log(`pot ${id} is live: it ends by knock-out when the price holds 5 points away, or at ${new Date(expiry * 1000).toISOString()}`);
     return;
@@ -208,7 +208,7 @@ async function run(symbol: string, A: Acct, B: Acct) {
 
   const expiry = Math.floor(Date.now() / 1000) + Number(values.expiryMin) * 60;
   // pot 1: A YES vs B NO
-  const p1 = await createRope(A, symbol, { side: 0, size: 50n, dist: 50_000, expiry });
+  const p1 = await createRope(A, symbol, { side: 0, size: 50n, dist: 60_000, expiry });
   const live = await join(B, p1);
   if (live.state !== "Live") throw new Error(`pot ${p1} did not go live (entry price outside the band?)`);
   // extra life for A (YES) right away
@@ -220,9 +220,9 @@ async function run(symbol: string, A: Acct, B: Acct) {
   // way the price moves one copy ends in profit and pays its leader 5% of it.
   const tokYes = (BigInt(p1) - ROPE_BASE) * 2n;
   const later = () => Math.max(expiry + 60, Math.floor(Date.now() / 1000) + 11 * 60); // at least 10 minutes of life when created
-  const p2 = await createRope(B, symbol, { side: 0, size: 50n, dist: 50_000, expiry: later(), copyOf: tokYes });
+  const p2 = await createRope(B, symbol, { side: 0, size: 50n, dist: 60_000, expiry: later(), copyOf: tokYes });
   await join(A, p2);
-  const p3 = await createRope(A, symbol, { side: 1, size: 50n, dist: 50_000, expiry: later(), copyOf: tokYes + 1n });
+  const p3 = await createRope(A, symbol, { side: 1, size: 50n, dist: 60_000, expiry: later(), copyOf: tokYes + 1n });
   await join(B, p3);
   log("waiting for the expiries (the samplers measure the windows fixed by each expiry)…");
   for (const id of [p1, p2, p3]) {

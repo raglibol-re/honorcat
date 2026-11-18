@@ -39,6 +39,22 @@ AI opponent or a cat sitter through an MCP connector.
 - Checks: relay tests 135 passed; web typecheck and lint clean; axe 0 issues signed in and out on
   the changed pages; phone runs: practice pot to payout in 93 s, then a send.
 
+## HonorCat v2: short ropes and treats (2026-11-18)
+
+- Deployed on Arc testnet: HonorCatRopes `0x6A30…Cf44` (+ extension `0x97E6…85Be`, MedianResolver
+  `0x3f73…5842`), `deployments/5042002.ropes.json`. Design, decisions and results: docs/rope-design.md,
+  docs/PROGRESS.md, README "v2: short ropes and treats".
+- **New pots still go to v1** until `ROPES_FOR_NEW_POTS=true` is set on Vercel (the owner's call).
+  Until then v2 pots exist only through scripts (`relay/scripts/ropes-e2e.ts`); their pages work.
+- v2 pots are `1,000,000,000 + on-chain id` in the database and in page links.
+- The samplers must run the current code to measure v2 windows (knock-out watch, expiry windows).
+- The price recorder for the backtest runs on this machine (`relay/scripts/record-mids.ts`, data in
+  `data/recorder/`, git-ignored); rerun `relay/scripts/rope-backtest.ts` to add the recorded rows.
+- A Neon branch `backtest-2026-11-18` is a read-only snapshot for analysis (the old sample history is
+  gone; the production database was rebuilt on 2026-11-16). Delete it when no longer needed.
+- QuickNode Streams still filter only the v1 address; v2 events come through the RPC poller (about a
+  minute later). Add the v2 address to the stream's filter (`relay/scripts/quicknode-stream.ts --filter`).
+
 ## Blocked: Circle Modular Wallets
 
 Circle smart accounts for players are built (`web/src/lib/wallet/circle.ts`) and hidden behind
@@ -72,6 +88,12 @@ phone, then build those parts in that order.
 - Ship each milestone: commit, push, deploy and check production after every major change.
 
 ## Gotchas learned the hard way
+
+- The repository folder was renamed from `verdict` to `honorcat`; every `node_modules` link pointed at
+  the old folder, so nothing in relay or web could start (the local samplers had been down for a day).
+  The links were repointed on 2026-11-18. After any rename, check `relay/node_modules/viem` resolves.
+- e2e scripts that fund throwaway wallets must save their keys first (`ropes-e2e.ts` writes
+  `data/e2e-keys.jsonl`) and pick the market before funding: $0.90 was lost once to a run that did not.
 
 - Bash heredocs that contain `$` patterns or apostrophes can be blocked by the shell checker: write a
   small Python patch file and run it.
