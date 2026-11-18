@@ -43,6 +43,18 @@ export function RopePreview() {
         {nowS > 0 && <ShortRopeNote expiry={nowS + 5 * 3600 + 120} nowS={nowS} ended={false} />}
       </section>
       <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <h2 style={h2}>A perp&apos;s rope, zoomed to its posts (34 to 67)</h2>
+        <Rope
+          price={0.505}
+          notional={200_000n}
+          names={{ yes: "Olive", no: "you (Saffron)" }}
+          phase="live"
+          posts={{ lower: 0.34, upper: 0.67 }}
+          zoom={[0.2575, 0.7525]}
+          cats={{ yes: { fur: "ginger", mood: "even", name: "Olive" }, no: { fur: "brown", mood: "even", name: "Saffron" } }}
+        />
+      </section>
+      <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <h2 style={h2}>An open pot: one player, one open seat</h2>
         <Rope
           price={0.52}

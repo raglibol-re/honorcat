@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Address } from "viem";
 import { C, F } from "@/components/cat/tokens";
-import { GeminiCredit } from "@/components/cat/Markets";
 import { Lives } from "@/components/perp/Lives";
 import { useLivePrice } from "@/components/pot/usePrice";
 import { SignIn, useActor } from "@/components/pot/Who";
@@ -398,6 +397,10 @@ export function PerpView({ id }: { id: string }) {
             }}
             phase="live"
             posts={{ lower: lower / 1e6, upper: upper / 1e6 }}
+            zoom={[
+              Math.max(0, lower / 1e6 - (upper - lower) / 4e6),
+              Math.min(1, upper / 1e6 + (upper - lower) / 4e6),
+            ]}
             sides={st ?? undefined}
             trail={live.trail}
             speed={live.speed}
@@ -422,8 +425,7 @@ export function PerpView({ id }: { id: string }) {
           {rope && (
             <span style={{ fontSize: 14, color: C.muted }}>
               This rope is{" "}
-              <Link href={`/pots/${rope.potId}`}>pot {rope.potId}</Link>.{" "}
-              <GeminiCredit />
+              <Link href={`/pots/${rope.potId}`}>pot {rope.potId}</Link>.
             </span>
           )}
         </section>
