@@ -70,7 +70,7 @@ phone, then build those parts in that order.
 - Optional: an Onramp sandbox key would let the card step run in Circle's test mode, but the sandbox
   cannot settle on Arc testnet, so the demo stays honest without it.
 - Recommended earlier: rotate the Circle API key (it was handled in a chat session).
-- Optional: GitHub secret `SAMPLER_KEY_GITHUB` (runs the GitHub Actions sampler), `E2E_FUNDER_KEY`
+- Optional: `E2E_FUNDER_KEY` (switches on the daily e2e workflow). The GitHub Actions sampler was removed (2026-11-18); its key runs on this machine.
   (daily e2e workflow).
 - Grok Bot: a real test from the owner's Grok Bot account through `/grok-bot` has not been reported
   back yet (automated MCP end-to-end runs passed: pots 24 and 25).

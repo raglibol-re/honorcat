@@ -140,7 +140,7 @@ Components and libraries:
 |---|---|---|
 | sdk/ (`@verdict/sdk`-style client for the v1 integration API) | REMOVE now, rebuild in D5 | The API it wraps goes away; D5 can ship a small client for pots and positions. |
 | .github/workflows/ci.yml | KEEP (rework) | Contract, relay, SDK and web checks plus Slither, pointed at the new layout. |
-| .github/workflows/sampler.yml | KEEP | The GitHub-hosted sampler (still needs `SAMPLER_KEY_GITHUB`). |
+| .github/workflows/sampler.yml | REMOVED (2026-11-18) | Its secret was never set; the `SAMPLER_KEY_GITHUB` signer runs on the local machine. |
 | scripts/check-secrets.mjs | KEEP | |
 
 ## 5. Database tables (Neon production; no data deleted without your approval)

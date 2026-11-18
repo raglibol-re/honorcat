@@ -11,7 +11,7 @@
   minutes. Owner's choice: a new free Neon project `honorcat-2` (snowy-hat-61221863), rebuilt from
   public sources with scripts/rebuild-db.ts (all pots and events, catalogue, markets, practice
   pots). Lost with the old database until 1 Dec (it cannot be read): names, passkey registrations,
-  drafts, sampler averages, early samples. The GitHub sampler workflow was left running.
+  drafts, sampler averages, early samples. The GitHub sampler workflow was removed later the same day.
 - (resolved 2026-11-18) One-call funded entry: the owner chose **v2.1 with a roll entry**:
   `openFunded(fromPot)` opens the next rope with both sides funded by the caller, at the previous
   rope's recorded division price (knock-out or expiry, within 15 minutes, once per rope), plus a
@@ -353,9 +353,8 @@ treats in the interface (d), leaderboard and cosmetics (e), then end-to-end runs
   Please hand a phone to someone who has not seen HonorCat, open
   https://verdict-phi-livid.vercel.app/e/G25xt3gjrG (listed, open to join until ~04:15 UTC) or a new
   pot, and note whether they joined without help.
-- GitHub Actions sampler needs the repository secret `SAMPLER_KEY_GITHUB` (setting it from here
-  was refused by the permission check). Until then two samplers (Vercel, local machine) carry the
-  2-of-3; if this machine's sampler stops, pots cannot trigger and refund only at the deadline.
+- (2026-11-18) The GitHub Actions sampler workflow was removed: its secret was never set, so it only
+  polled the app every 15 minutes. The `SAMPLER_KEY_GITHUB` signer runs on this machine instead.
 - The post-settlement outcome record (memo on a read-only vault call) is implemented but has not run
   yet: the first early payouts' markets settle on 2026-11-15/16.
 - Samplers (needed for M2): three independent always-on workers on at least two providers, budget
