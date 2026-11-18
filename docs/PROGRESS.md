@@ -24,7 +24,7 @@
 
 | # | Item | Status |
 |---|---|---|
-| 1 | Two offers only: normal pot and perp; no stand-alone short rope | not started (v2 create page still offers a stand-alone short rope behind the switch, off in production) |
+| 1 | Two offers only: normal pot and perp; no stand-alone short rope | done (create page: Normal and Perp cards; the normal flow has no leverage; the Perp card says "coming soon" until the switch, `?perps=preview` shows it) |
 | 2 | v2 pot contract: posts, clamp, knock-out priced after the trigger, expiry, cap, minimum distance, maximum leverage, maker treat, exit fee on the part exited, referral, copycat, no operator fee, tests | done (72 tests, deployed to testnet, switch off) |
 | 2 | Normal v2 pot behaves exactly like v1, test on the same inputs | done (RopesV1Equivalence fuzz; found and fixed a stricter cap) |
 | 2 | One-call entry point opening a pot with both sides funded at an attested price | done as the owner chose: v2.1 roll entry `openFunded(fromPot)` at the previous rope's division price; deployed 0x5489…B62E |
@@ -37,11 +37,12 @@
 | 4.3 | Backtest per market type, live games separately, with lives | partly: simulation and model-based BTC done, recorder running since 14:00 UTC, recorded rows and lives pending |
 | 4.3 | Measured bias in plain words on the create page | not started |
 | 4.3 | README: perps as a chain of short ropes | not started (README has v2 short ropes) |
-| 5 | Create page with two cards; perp form with summary sentence | not started |
-| 5 | Join with leverage and lives; perp page; rope-end animation | not started |
+| 5 | Create page with two cards; perp form with summary sentence | done (market, side, leverage steps the contracts accept, stake per life, lives default 9, rope life, summary, cat-head lives) |
+| 5 | Join with leverage and lives; perp page; rope-end animation | done (/perps/[id]: rope between posts with price and time left, both players' lives, results, ropes so far, leave now, stop renewing, add lives, take out spare money, join with own lives, a short banner when a rope ends); passkey calls to HonorCatPerps relayed |
+| 5 | Open pot shows an open seat on the empty side | done (pale cat outline and "open seat" instead of a cat; user request 2026-11-18) |
 | 5 | Normal pot page with "take one ninth off the rope" | partly (receipts say it; buttons and help text not yet) |
 | 5 | Open sides, leaderboard, copycat show normal or perp | not started |
-| 5 | Perp warning (a life can be lost in minutes) | not started |
+| 5 | Perp warning (a life can be lost in minutes) | done (form and perp page) |
 | 6 | Partial-exit receipts (headline, bar, lines, three decimals, technical line) | done (needs the lives wording from item 3) |
 | 6 | One smoothed price with a timestamp for every viewer | not started (each browser smooths its own quotes) |
 | 6 | Paw trail since the pot started, entry and exits marked, legend | not started (trail shows the last few positions) |
