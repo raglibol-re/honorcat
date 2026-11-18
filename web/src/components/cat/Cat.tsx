@@ -35,7 +35,7 @@ export const POSE_TEXT: Record<CatPose, string> = {
   rope: "A black cat balancing on a rope, arms and tail out.",
   wobble: "A black cat wobbling on the rope: the price is moving fast.",
   crouch: "A black cat crouching, ready to jump: an exit was requested.",
-  air: "A black cat in the air, legs out: the exit window is running.",
+  air: "A black cat in the air, legs out: an exit is being priced.",
   land: "A black cat landing on its feet: the exit is done.",
   net: "A black cat resting in a net: the side's floor caught it.",
   bowl: "A black cat eating at its bowl: the side's target was reached.",

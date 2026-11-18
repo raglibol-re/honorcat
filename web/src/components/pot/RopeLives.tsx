@@ -9,7 +9,8 @@ import { plainError } from "@/lib/messages";
 import { MAX_LIVES, P } from "@/lib/rope";
 
 import { ActionProgress, Button } from "@/components/ui/Button";
-const $ = (base: bigint) => `$${(Number(base) / 1e6).toFixed(2)}`;
+import { money } from "@/lib/currency";
+const $ = (base: bigint | number | string) => money(base);
 const pts = (ppm: number) => (ppm / 10_000).toFixed(0);
 
 /**

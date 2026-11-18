@@ -30,6 +30,7 @@ import {
   type PerpEvent,
 } from "@/lib/perp";
 import { useNow } from "@/lib/useNow";
+import { money } from "@/lib/currency";
 
 import { ActionProgress, Button } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Field";
@@ -39,12 +40,9 @@ import { Rope } from "@/components/pot/Rope";
 import { Invite, NotifyButton } from "@/components/pot/Invite";
 import { sidesOf } from "@/lib/marketName";
 import { furOf } from "@/lib/names";
-/** Dollars; amounts under a cent (tiny test stakes) keep two significant digits instead of showing $0.00. */
-const usd = (n: number) =>
-  n === 0 || n >= 0.01 ? n.toFixed(2) : String(Number(n.toPrecision(2)));
-const $ = (base: bigint | number | string) => `$${usd(Number(base) / 1e6)}`;
+const $ = (base: bigint | number | string) => money(base);
 const signed = (base: bigint) =>
-  `${base > 0n ? "+" : base < 0n ? "−" : ""}$${usd(Number(base < 0n ? -base : base) / 1e6)}`;
+  `${base > 0n ? "+" : base < 0n ? "−" : ""}${money(base < 0n ? -base : base)}`;
 const h2 = {
   margin: 0,
   fontFamily: F.cond,

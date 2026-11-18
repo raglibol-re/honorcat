@@ -41,6 +41,7 @@ import { inviteMyAgent, seatsOf, type SeatView } from "@/lib/agent";
 
 import { ActionProgress, Button } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Field";
+import { money } from "@/lib/currency";
 const label: React.CSSProperties = {
   fontSize: 15,
   fontWeight: 600,
@@ -59,7 +60,7 @@ const input: React.CSSProperties = {
 };
 const MAX_N = 25;
 const PRACTICE_N = 2;
-const $ = (base: bigint | number) => `$${(Number(base) / 1e6).toFixed(2)}`;
+const $ = (base: bigint | number | string) => money(base);
 
 export function NewPot() {
   const router = useRouter();
@@ -761,7 +762,7 @@ export function NewPot() {
                     />
                     <span style={{ fontSize: 14, color: C.muted }}>
                       Someone can join only while the market&apos;s 30-second
-                      average is within the band around this price.
+                      average stays close to this price (see the next setting).
                     </span>
                   </label>
                   <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
@@ -830,8 +831,8 @@ export function NewPot() {
                     account (the price may move {tolPts || 0} points before they
                     join). The starting shares are set by the 30-second average
                     right after they join; anything above your share comes back
-                    at once. If the price leaves the band first, nobody pays
-                    anything. Whoever leaves early gives the other side 1% of
+                    at once. If the price moves further than that before they
+                    join, nobody pays anything. Whoever leaves early gives the other side 1% of
                     the pot.
                   </p>
                 </details>

@@ -61,7 +61,7 @@ const details: [string, React.ReactNode][] = [
   ],
   [
     "If nobody settles",
-    <>If Gemini&apos;s result is not attested within the grace period after the close (3 days by default), anyone can close the pot and both deposits go back.</>,
+    <>If Gemini&apos;s result is not confirmed within 3 days after the close (the default), anyone can close the pot and both deposits go back.</>,
   ],
   [
     "Can I check it?",

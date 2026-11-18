@@ -9,8 +9,9 @@ import { useActor } from "@/components/pot/Who";
 import { usePolling } from "@/lib/api";
 import { nickname, useNames } from "@/lib/names";
 
+import { money } from "@/lib/currency";
 type Row = { account: string; pots: number; heldToEnd: number; paid: string; treats: string; copycats: number };
-const $ = (base: string) => `$${(Number(base) / 1e6).toFixed(2)}`;
+const $ = (base: bigint | number | string) => money(base);
 
 /** The weekly table (or all time), for everyone or only the players you have met in a pot. */
 export function Leaderboard() {

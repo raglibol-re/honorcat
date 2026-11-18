@@ -5,6 +5,7 @@ import { CatName } from "@/components/cat/PlayerCat";
 import { C, F } from "@/components/cat/tokens";
 import { Lives } from "@/components/perp/Lives";
 import { nickname, useNames } from "@/lib/names";
+import { money } from "@/lib/currency";
 import {
   lifeWords,
   perpLabel,
@@ -15,10 +16,7 @@ import {
   type PerpSummary,
 } from "@/lib/perp";
 
-const $ = (base: bigint) => {
-  const n = Number(base) / 1e6;
-  return `$${n === 0 || n >= 0.01 ? n.toFixed(2) : String(Number(n.toPrecision(2)))}`;
-};
+const $ = (base: bigint) => money(base);
 
 /** The "Perp" tag next to a row (normal pots carry "Normal"). */
 export function KindTag({ kind }: { kind: "Normal" | "Perp" }) {

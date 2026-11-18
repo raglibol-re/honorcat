@@ -11,11 +11,12 @@ import { formatDate } from "@/lib/format";
 import { FURS, furOf } from "@/lib/names";
 
 import { Button } from "@/components/ui/Button";
+import { money } from "@/lib/currency";
 type TreatItem = { kind: "MakerTreat" | "ExitFee" | "ReferralTreat" | "CopycatTreat"; potId: string | null; amount: string; from: string; tx: string; at: number | null; profit: string | null };
 type Treats = { total: string; totals: Record<TreatItem["kind"], string>; copycats: number; referred: number; items: TreatItem[] };
 type Cosmetics = { wear: Cosmetic | null; unlocked: { wear: Cosmetic; label: string }[]; next: { wear: Cosmetic; label: string; need: string; left: string } | null };
 
-const $ = (base: string | bigint) => `$${(Number(base) / 1e6).toFixed(2)}`;
+const $ = (base: bigint | number | string) => money(base);
 const KIND: Record<TreatItem["kind"], { title: string; what: string }> = {
   MakerTreat: { title: "Making", what: "maker treat: someone joined a pot you opened (0.25% of their deposit)" },
   ExitFee: { title: "Staying", what: "exit fee: the other side left early (1% of the pot value they took out)" },

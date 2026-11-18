@@ -7,7 +7,8 @@ import { C, F } from "@/components/cat/tokens";
 import { countdown, expiryChoices, leverageSteps, ropeFor, ropeWords, type RopeChoice } from "@/lib/rope";
 
 import { Button } from "@/components/ui/Button";
-const $ = (base: bigint) => `$${(Number(base) / 1e6).toFixed(2)}`;
+import { money } from "@/lib/currency";
+const $ = (base: bigint | number | string) => money(base);
 
 export type RopeSetting = { choice: RopeChoice; expiry: number | null };
 

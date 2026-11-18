@@ -36,6 +36,7 @@ import {
 
 import { ActionProgress, Button } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Field";
+import { money } from "@/lib/currency";
 const label: React.CSSProperties = {
   fontSize: 15,
   fontWeight: 600,
@@ -58,7 +59,7 @@ const h2 = {
   fontSize: 32,
   fontWeight: 600,
 } as const;
-const $ = (base: bigint | number) => `$${(Number(base) / 1e6).toFixed(2)}`;
+const $ = (base: bigint | number | string) => money(base);
 const MAX_BUDGET = 25_000_000n; // test version: at most $25 per player
 
 /**

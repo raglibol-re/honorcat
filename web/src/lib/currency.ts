@@ -78,8 +78,12 @@ export const inEuros = () => state.home === "EURC" && !!state.rate;
 /** An amount in USDC base units, in the home currency: "$7.40", or "€6.73" at the stated rate. */
 export function money(base: string | number | bigint): string {
   const usd = Number(base) / 1e6;
-  if (state.home === "EURC" && state.rate) return `€${(usd * state.rate.eurcPerUsdc).toFixed(2)}`;
-  return `$${usd.toFixed(2)}`;
+  const eur = state.home === "EURC" && state.rate;
+  const v = eur ? usd * state.rate!.eurcPerUsdc : usd;
+  // Under a cent (tiny test stakes): two significant digits instead of "0.00".
+  const a = Math.abs(v);
+  const text = a > 0 && a < 0.01 ? String(Number(v.toPrecision(2))) : v.toFixed(2);
+  return `${eur ? "€" : "$"}${text}`;
 }
 
 /** Like money(), with three decimals for amounts under one (dollar or euro): "$0.047", "$7.40". */
