@@ -31,10 +31,10 @@ import {
 } from "@/lib/perp";
 import { useNow } from "@/lib/useNow";
 
-const $ = (base: bigint | number | string) =>
-  `$${(Number(base) / 1e6).toFixed(2)}`;
-const signed = (base: bigint) =>
-  `${base > 0n ? "+" : base < 0n ? "−" : ""}$${(Number(base < 0n ? -base : base) / 1e6).toFixed(2)}`;
+/** Dollars; amounts under a cent (tiny test stakes) keep two significant digits instead of showing $0.00. */
+const usd = (n: number) => (n === 0 || n >= 0.01 ? n.toFixed(2) : String(Number(n.toPrecision(2))));
+const $ = (base: bigint | number | string) => `$${usd(Number(base) / 1e6)}`;
+const signed = (base: bigint) => `${base > 0n ? "+" : base < 0n ? "−" : ""}$${usd(Number(base < 0n ? -base : base) / 1e6)}`;
 const h2 = {
   margin: 0,
   fontFamily: F.cond,
