@@ -1601,3 +1601,56 @@ async function medianSignature(db: Db, requestId: string, a: WindowAtt): Promise
   );
   return concat(["0x01", body]);
 }
+
+/* ------------------------------------------------------------------ preparing a v2 pot (short ropes) */
+
+/** Whether new pots can use HonorCat v2 (deployed and switched on by the owner), and its fixed rules. */
+export function ropesStatus() {
+  const r = getConfig().ropes;
+  return {
+    available: Boolean(r && r.median),
+    forNewPots: Boolean(r && r.median && r.forNewPots),
+    address: r?.address ?? null,
+    rules: { expiryLeadS: 7200, maxLifeS: 7 * 86_400, minLifeS: 600, minDistancePpm: 50_000, maxLeverageCrypto: 10, maxLeverageOther: 5, maxLives: 8 },
+    fees: { operatorBps: 0, exitFeeBps: 100, makerTreatBps: 25, referralShareBps: 2_000, referralPots: 20, copycatBps: 500 },
+  };
+}
+
+/**
+ * Everything a creator needs before signing a v2 `create`: the rule and conditionId, the close, and
+ * the signer set's depth attestation with the spread (the shortest rope) and the category (the most
+ * leverage). The cap is on the size: at most a quarter of the contracts resting within 5¢ on the
+ * thinner side, and the pot never above the testnet maximum.
+ */
+export async function prepareRope(db: Db, input: { symbol: string; account: Address }, own: LocalAccount | null) {
+  const r = getConfig().ropes;
+  if (!r || !r.median) throw Object.assign(new Error("HonorCat v2 is not deployed yet"), { status: 409 });
+  const row = await rowBySymbol(db, input.symbol);
+  if (!row) throw Object.assign(new Error("unknown market"), { status: 404 });
+  const closeTime = Math.floor(row.closeMs / 1000);
+  if (row.closeMs - Date.now() < 15 * 60_000) throw Object.assign(new Error("this market closes too soon for a pot"), { status: 409 });
+  const params = potParams(paramsFor("demo"), POT_WINDOW_S, POT_MIN_SAMPLES);
+  const conditionId = await registerMarket(db, { instrument: row.symbol, eventTicker: row.eventTicker, contractTicker: row.contractTicker, eventTitle: row.eventTitle, label: row.label, params });
+  const crypto = row.category === "Crypto";
+  const { id, depth } = await requestDepthV2(db, { conditionId, account: input.account, instrument: row.symbol, closeTime, crypto }, own);
+  const b = row.book?.bid != null && row.book?.ask != null ? row.book : row;
+  const mid = b.bid != null && b.ask != null ? (b.bid + b.ask) / 2 : null;
+  return {
+    v2: true as const,
+    conditionId,
+    resolver: r.median,
+    pots: r.address,
+    chainId: getConfig().chainId,
+    closeTime,
+    window: POT_WINDOW_S,
+    minSamples: POT_MIN_SAMPLES,
+    depthId: id,
+    depth,
+    maxSize: (BigInt(depth.contracts5c) / 4n).toString(),
+    maxPot: MAX_NOTIONAL.toString(),
+    spread: depth.spread ?? 0,
+    crypto,
+    midPpm: mid === null ? null : Math.round(mid * 1e6),
+    market: { symbol: row.symbol, eventTicker: row.eventTicker, contractTicker: row.contractTicker, eventTitle: row.eventTitle, label: row.label, category: row.category, closeMs: row.closeMs },
+  };
+}

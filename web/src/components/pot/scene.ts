@@ -8,7 +8,41 @@ import { money } from "@/lib/currency";
 export type NameOpts = { me?: string | null; names?: Record<string, string>; tech?: boolean };
 
 /** What the rope shows for a pot right now (shared by the pot page, the landing and the TV view). */
+/** A HonorCat v2 pot's data in the fields the v1 views read (pot value as `notional`, deposits from the entry). */
+export function asV1Pot(pot: HcPot): HcPot {
+  const d = pot.data as unknown as Record<string, string | boolean | unknown>;
+  if (!d.v2) return pot;
+  const ticks = (Number(d.upper) - Number(d.lower)) / 100;
+  const val = (size: unknown) => (BigInt(String(size ?? "0")) * BigInt(Math.round(ticks))).toString();
+  const depYes = (BigInt(Math.round((Number(d.entry) - Number(d.lower)) / 100)) * BigInt(String(d.size ?? "0"))).toString();
+  const notional = String(d.potValue ?? val(d.size));
+  return {
+    ...pot,
+    data: {
+      ...pot.data,
+      notional,
+      initialNotional: val(d.initialSize),
+      exitNotional: val(d.exitSize),
+      depYes,
+      depNo: (BigInt(notional) - BigInt(depYes)).toString(),
+      feeBps: "100",
+    } as HcPot["data"],
+  };
+}
+
+/** The rope's posts (YES chances 0..1) and extra lives of a v2 pot; null for a normal pot. */
+export function postsOf(pot: HcPot): RopeProps["posts"] {
+  const d = pot.data as unknown as Record<string, string>;
+  if (!(d as unknown as { v2?: boolean }).v2 || Number(d.expiry ?? 0) === 0) return null;
+  return { lower: Number(d.lower) / 1e6, upper: Number(d.upper) / 1e6, livesYes: Number(d.livesYes ?? 0), livesNo: Number(d.livesNo ?? 0) };
+}
+
 export function sceneOf(pot: HcPot, price: number | null, nowS: number, o: NameOpts = {}): Omit<RopeProps, "trail" | "speed" | "big"> {
+  if ((pot.data as unknown as { v2?: boolean }).v2) return { ...sceneOfV1(asV1Pot(pot), price, nowS, o), posts: postsOf(pot) };
+  return sceneOfV1(pot, price, nowS, o);
+}
+
+function sceneOfV1(pot: HcPot, price: number | null, nowS: number, o: NameOpts = {}): Omit<RopeProps, "trail" | "speed" | "big"> {
   const d = pot.data;
   const name = (a: string | null) => displayName(a, o.names ?? {}, o.me, !!o.tech, a ? "a player" : "open seat");
   const names = { yes: name(pot.owners.yes), no: name(pot.owners.no) };

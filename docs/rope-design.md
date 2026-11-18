@@ -1,5 +1,10 @@
 # HonorCat v2: short ropes and treats — design note (R0, 2026-11-18)
 
+> **Decided 2026-11-18** (docs/PROGRESS.md lists every answer). Changes from the proposals below:
+> the cap is the simple rule (size ≤ 0.25 × thinner-side contracts within 5¢; the attested cost to
+> each post is the documented refinement), and the exit fee is 1% of the **pot value exited**
+> ((U − L) × N × fraction), not of the notional. Everything else as proposed.
+
 Step 1 of the v2 spec. It describes one new contract (working name `HonorCatRopes`) for normal pots,
 short ropes (leverage) and fee-based treats, and lists the open decisions from spec sections 3, 6
 and 7, each with a proposal. **Nothing is built until you answer section 9.** The existing

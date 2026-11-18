@@ -2,6 +2,7 @@
 
 import { encodeAbiParameters, encodeFunctionData, parseEventLogs, type Address, type Hex } from "viem";
 import { potsAbi } from "@honorcat/relay/potsAbi";
+import { ropesAbi } from "@honorcat/relay/ropesAbi";
 import { getJson } from "./api";
 import { publicClient, USDC_ADDRESS } from "./chain";
 import { signChallenge, type PasskeySession } from "./passkey";
@@ -149,11 +150,11 @@ const ZERO32 = `0x${"0".repeat(64)}` as Hex;
 const noAuth = (from: Address) => ({ from, validAfter: 0n, validBefore: 0n, salt: ZERO32, v: 0, r: ZERO32, s: ZERO32 });
 
 /** Runs a pot call from a passkey account: one passkey prompt per step (an approval may come first). */
-async function passkeyCall(session: PasskeySession, account: Address, data: Hex, spend: bigint, onStep?: (s: string) => void) {
+async function passkeyCall(session: PasskeySession, account: Address, data: Hex, spend: bigint, onStep?: (s: string) => void, target?: Address) {
   const prep = await getJson<{ steps: { target: Address; data: Hex; deadline: string; nonce: string; challenge: Hex; label: string }[] }>("/api/hc/passkey/prepare", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ account, data, spend: spend.toString() }),
+    body: JSON.stringify({ account, data, spend: spend.toString(), ...(target ? { target } : {}) }),
   });
   const signed = [];
   for (const [i, s] of prep.steps.entries()) {
@@ -344,3 +345,86 @@ export async function signHandshake(actor: Actor, pots: Address, p: HcPot, price
 }
 
 export { potsAbi };
+
+
+/* ------------------------------------------------------------------ HonorCat v2: short ropes */
+
+/** v2 pots live at ROPE_BASE + their on-chain id in the read model and in page links. */
+export const ROPE_BASE = 1_000_000_000n;
+export const isRopePot = (potId: string | bigint) => BigInt(potId) >= ROPE_BASE;
+
+export type RopesStatus = {
+  available: boolean;
+  forNewPots: boolean;
+  address: Address | null;
+  rules: { expiryLeadS: number; maxLifeS: number; minLifeS: number; minDistancePpm: number; maxLeverageCrypto: number; maxLeverageOther: number; maxLives: number };
+  fees: { operatorBps: number; exitFeeBps: number; makerTreatBps: number; referralShareBps: number; referralPots: number; copycatBps: number };
+};
+export const ropesStatus = () => getJson<RopesStatus>("/api/hc/ropes");
+
+export type PreparedRope = Omit<Prepared, "cap" | "depth"> & {
+  v2: true;
+  depth: Prepared["depth"] & { spread: number; crypto: boolean };
+  maxSize: string;
+  maxPot: string;
+  spread: number;
+  crypto: boolean;
+};
+
+export async function prepareRope(symbol: string, account: Address) {
+  return getJson<PreparedRope>("/api/hc/prepare-rope", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ symbol, account }) });
+}
+
+/** The pot id (read-model range) from a v2 transaction's PotCreated event. */
+async function ropeIdFrom(tx: Hex) {
+  const receipt = await publicClient.waitForTransactionReceipt({ hash: tx, timeout: 60_000 }).catch(() => null);
+  const created = receipt ? parseEventLogs({ abi: ropesAbi, logs: receipt.logs, eventName: "PotCreated" })[0] : undefined;
+  return created ? (ROPE_BASE + (created.args as { potId: bigint }).potId).toString() : null;
+}
+
+/**
+ * Offers a v2 pot: a short rope when `distYes` or `distNo` is set (with an expiry), a normal pot
+ * otherwise. The creator's escrow is exactly its distance per contract on a rope side.
+ */
+export async function createRope(
+  actor: Actor,
+  prep: PreparedRope,
+  o: { side: number; size: bigint; bandCenter: number; tolerance: number; distYes: number; distNo: number; expiry: number; graceDays: number; copyOf?: bigint; escrow: bigint },
+  onStep?: Step,
+) {
+  const sigs = await waitDepth(prep.depthId, onStep);
+  const c = {
+    conditionId: prep.conditionId,
+    resolver: prep.resolver,
+    side: o.side,
+    size: o.size,
+    bandCenter: o.bandCenter,
+    tolerance: o.tolerance,
+    distYes: o.distYes,
+    distNo: o.distNo,
+    expiry: BigInt(o.expiry),
+    closeTime: BigInt(prep.closeTime),
+    grace: BigInt(Math.round(o.graceDays * 86_400)),
+    window: prep.window,
+    minSamples: prep.minSamples,
+    copyOf: o.copyOf ?? 0n,
+  };
+  const d = prep.depth;
+  const depth = { conditionId: d.conditionId, account: d.account, contracts5c: BigInt(d.contracts5c), spread: d.spread, crypto: d.crypto, closeTime: BigInt(d.closeTime), validUntil: BigInt(d.validUntil) };
+  await ensureFunds(actor.account, o.escrow, onStep);
+  const data = encodeFunctionData({ abi: ropesAbi, functionName: "create", args: [c, depth, sigs, noAuth(actor.account)] });
+  if (actor.kind === "passkey") return passkeyCall(actor.session, actor.account, data, o.escrow, onStep, prep.pots);
+  const r = await walletSend(actor.adapter, actor.account, prep.pots, data, null, o.escrow, onStep);
+  const potId = await ropeIdFrom(r.tx);
+  if (potId) await getJson(`/api/hc/pots/${potId}`, { method: "POST" }).catch(() => null);
+  return { tx: r.tx, potId };
+}
+
+/** An extra life: moves the side's own post one rope length further out, paid by the side. */
+export async function addLife(actor: Actor, ropes: Address, potId: string, side: number, cost: bigint, onStep?: Step) {
+  const id = BigInt(potId) - ROPE_BASE;
+  await ensureFunds(actor.account, cost, onStep);
+  const data = encodeFunctionData({ abi: ropesAbi, functionName: "addLife", args: [id, side, noAuth(actor.account)] });
+  if (actor.kind === "passkey") return passkeyCall(actor.session, actor.account, data, cost, onStep, ropes);
+  return walletSend(actor.adapter, actor.account, ropes, data, potId, cost, onStep);
+}

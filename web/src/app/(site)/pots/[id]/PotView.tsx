@@ -22,7 +22,9 @@ import type { AgentInfo } from "@/lib/agent";
 import { HelperBubble } from "@/components/helper/Helper";
 import { adviceFree, exitOptions, levelOptions, readWish } from "@/lib/helper";
 import { SamplerNotice } from "@/components/pot/SamplerHealth";
-import { sceneOf, STATE_TEXT, storyOf } from "@/components/pot/scene";
+import { asV1Pot, sceneOf, STATE_TEXT, storyOf } from "@/components/pot/scene";
+import { ShortRopeNote } from "@/components/pot/RopeControl";
+import { RopeLives } from "@/components/pot/RopeLives";
 import { useTechMode } from "@/components/TechMode";
 import { marketLine, sidesOf, yesMeans, type Sides } from "@/lib/marketName";
 import { displayName, useNames } from "@/lib/names";
@@ -631,9 +633,12 @@ export function PotView({ id }: { id: string }) {
   const me = who.actor?.account ?? null;
   const nameOf = (a: string | null) => displayName(a, names, me, tech, a ? "a player" : "open seat");
   const scene = sceneOf(pot, live.smoothed, nowS, { me, names, tech });
-  const story = storyOf(pot, nameOf);
+  const v2 = Boolean((pot.data as unknown as { v2?: boolean }).v2);
+  const story = storyOf(v2 ? asV1Pot(pot) : pot, nameOf);
   const st = m ? sidesOf(m) : null;
   const mine = sideOf(pot, me);
+  const expiry = Number((pot.data as unknown as { expiry?: string }).expiry ?? 0);
+  const ended = pot.state === "Divided" || pot.state === "Settled" || pot.state === "Expired";
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 40 }}>
       <header style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -680,6 +685,8 @@ export function PotView({ id }: { id: string }) {
       </header>
 
       <Rope {...scene} trail={live.trail} speed={live.speed} />
+      {v2 && expiry > 0 && <ShortRopeNote expiry={expiry} nowS={nowS} ended={ended} />}
+      {v2 && <p style={{ margin: 0, fontSize: 15, color: C.muted }}>Nothing goes to HonorCat: every fee in this pot goes to a player.</p>}
       <RateNote />
 
       <Receipts
@@ -689,17 +696,23 @@ export function PotView({ id }: { id: string }) {
         name={(side) => nameOf(side === 0 ? pot.owners.yes : pot.owners.no)}
         says={(side) => (st ? (side === 0 ? st.yes : st.no) : side === 0 ? "YES" : "NO")}
       />
-      <ShareSend pot={pot} who={who} mine={mine} />
+      {!v2 && <ShareSend pot={pot} who={who} mine={mine} />}
 
-      {(pot.state === "Divided" || pot.state === "Live" || pot.state === "ExitRequested") && <ExitSummary pot={pot} nameOf={nameOf} st={st} />}
+      {(pot.state === "Divided" || pot.state === "Live" || pot.state === "ExitRequested") && <ExitSummary pot={v2 ? asV1Pot(pot) : pot} nameOf={nameOf} st={st} />}
 
-      {mine !== null && pot.state === "Live" && <ThreeNumbers pot={pot} side={mine} price={live.smoothed} st={st} />}
+      {!v2 && mine !== null && pot.state === "Live" && <ThreeNumbers pot={pot} side={mine} price={live.smoothed} st={st} />}
 
       {pot.state !== "Divided" && pot.state !== "Settled" && pot.state !== "Expired" && <SamplerNotice />}
 
-      <AgentPanel pot={pot} who={who} agent={(pot as HcPot & { agent?: AgentInfo | null }).agent} mySide={mine} pots={POTS} />
-
-      <Actions pot={pot} who={who} price={live.smoothed} nowS={nowS} nameOf={nameOf} />
+      {/* v1 actions call HonorCatPots; v2 pots get their own panel (extra lives now, the rest in the next step). */}
+      {v2 ? (
+        <RopeLives pot={pot} who={who} nowS={nowS} />
+      ) : (
+        <>
+          <AgentPanel pot={pot} who={who} agent={(pot as HcPot & { agent?: AgentInfo | null }).agent} mySide={mine} pots={POTS} />
+          <Actions pot={pot} who={who} price={live.smoothed} nowS={nowS} nameOf={nameOf} />
+        </>
+      )}
 
       <PriceChart pot={pot} />
 

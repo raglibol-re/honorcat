@@ -21,9 +21,11 @@ import { memoCall } from "./memo";
 import { executeDigest, passkeyByAccount as getPasskeyByAccount, passkeyAccountAbi, passkeyFactoryAbi, verifyAssertion, type WebAuthnAssertion } from "./passkeys";
 import { potsAbi } from "./potsAbi";
 import { potsAddress, syncPot } from "./pots";
+import { ropesAbi } from "./ropesAbi";
+import { ropeDbId } from "./ropes";
 import { sendRelayCalls } from "./txs";
 
-const OWNER_CALLS = new Set(["create", "requestJoin", "cancel", "requestExit", "setLevels", "takeover", "transferFrom", "safeTransferFrom", "withdraw", "abandonJoin", "abandonExit", "expire"]);
+const OWNER_CALLS = new Set(["create", "requestJoin", "cancel", "requestExit", "setLevels", "takeover", "transferFrom", "safeTransferFrom", "withdraw", "abandonJoin", "abandonExit", "expire", "addLife", "setReferrer", "skipExpiryWindow"]);
 const FORWARD_CALLS = new Set(["create", "requestJoin", "takeover", "requestExitFor", "handshake", "abandonJoin", "abandonExit", "expire", "cancel"]);
 
 const DAILY_LIMIT = 40;
@@ -36,12 +38,21 @@ async function nonceOf(account: Address): Promise<bigint> {
   return publicClient().readContract({ address: account, abi: passkeyAccountAbi, functionName: "nonce" });
 }
 
-function decodePots(data: Hex) {
+function decodePots(data: Hex, v2 = false) {
   try {
-    return decodeFunctionData({ abi: potsAbi, data });
+    return v2 ? (decodeFunctionData({ abi: ropesAbi, data }) as unknown as ReturnType<typeof decodeFunctionData<typeof potsAbi>>) : decodeFunctionData({ abi: potsAbi, data });
   } catch {
     throw new GaslessError("not a call to the pot contract", 400);
   }
+}
+
+/** HonorCatRopes (v2), when configured. */
+const ropesAddress = () => getConfig().ropes?.address ?? null;
+/** The pot contract a call goes to: v2 when the target is HonorCatRopes, else v1. */
+function potTarget(target?: Address | null): { address: Address; v2: boolean } {
+  const r = ropesAddress();
+  if (target && r && getAddress(target) === r) return { address: r, v2: true };
+  return { address: potsAddress(), v2: false };
 }
 
 async function rateLimit(db: Db, who: Address) {
@@ -56,12 +67,13 @@ async function rateLimit(db: Db, who: Address) {
  * Steps to sign for a passkey account. `spend` is the USDC the call deposits (0 for none); the
  * relay adds an approval step if the allowance is short.
  */
-export async function preparePasskeyPotCall(db: Db, account: Address, data: Hex, spend: bigint) {
+export async function preparePasskeyPotCall(db: Db, account: Address, data: Hex, spend: bigint, target?: Address | null) {
   const pk = await getPasskeyByAccount(db, account);
   if (!pk) throw new GaslessError("unknown passkey account", 404);
-  const call = decodePots(data);
+  const t = potTarget(target);
+  const call = decodePots(data, t.v2);
   if (!OWNER_CALLS.has(call.functionName)) throw new GaslessError(`${call.functionName} is not relayed`, 400);
-  const pots = potsAddress();
+  const pots = t.address;
   const chainId = getConfig().chainId;
   const deadline = BigInt(Math.floor(Date.now() / 1000) + 600);
   let nonce = await nonceOf(account);
@@ -86,6 +98,7 @@ export async function submitPasskeyPotCall(db: Db, input: { account: Address; st
   if (!input.steps.length || input.steps.length > 3) throw new GaslessError("one to three steps", 400);
   await rateLimit(db, input.account);
   const pots = potsAddress();
+  const ropes = ropesAddress();
   const chainId = getConfig().chainId;
   let nonce = await nonceOf(input.account);
   const calls = [];
@@ -95,13 +108,16 @@ export async function submitPasskeyPotCall(db: Db, input: { account: Address; st
     const target = getAddress(s.target);
     if (target === ARC_USDC) {
       const c = decodeFunctionData({ abi: erc20Abi, data: s.data });
-      if (c.functionName !== "approve" || getAddress(c.args[0] as Address) !== pots) throw new GaslessError("only an approval for the pot contract", 400);
-    } else if (target === pots) {
-      const c = decodePots(s.data);
+      const spender = getAddress(c.args[0] as Address);
+      if (c.functionName !== "approve" || (spender !== pots && spender !== ropes)) throw new GaslessError("only an approval for the pot contract", 400);
+    } else if (target === pots || target === ropes) {
+      const v2 = target === ropes;
+      const c = decodePots(s.data, v2);
       if (!OWNER_CALLS.has(c.functionName)) throw new GaslessError(`${c.functionName} is not relayed`, 400);
       what = c.functionName;
       const first = (c.args as readonly unknown[] | undefined)?.[0];
-      if (typeof first === "bigint") potId = first.toString();
+      // v2 pots live in their own id range in the read model; setReferrer's argument is an address.
+      if (typeof first === "bigint") potId = v2 ? ropeDbId(first) : first.toString();
     } else throw new GaslessError("target is not the pot contract", 400);
     if (BigInt(s.nonce) !== nonce) throw new GaslessError("stale account nonce; prepare again", 409);
     const challenge = executeDigest(chainId, input.account, nonce, target, 0n, s.data, BigInt(s.deadline));
@@ -169,6 +185,13 @@ export async function afterPotTx(db: Db, tx: Hex, potId: string | null) {
   for (const l of logs) {
     const id = (l.args as { potId?: bigint }).potId;
     if (typeof id === "bigint") ids.add(id.toString());
+  }
+  const ropes = ropesAddress();
+  if (ropes) {
+    for (const l of parseEventLogs({ abi: ropesAbi, logs: (receipt?.logs ?? []).filter((x) => getAddress(x.address) === ropes) })) {
+      const id = (l.args as { potId?: bigint }).potId;
+      if (typeof id === "bigint") ids.add(ropeDbId(id));
+    }
   }
   for (const id of ids) await syncPot(db, BigInt(id), tx).catch((e) => console.error("[pots] sync", id, e));
   return [...ids];

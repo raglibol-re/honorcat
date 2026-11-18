@@ -34,6 +34,11 @@ export type RopeProps = {
   sides?: { yes: string; no: string; yesShort: string; noShort: string };
   /** Each player's cat at its post (null: an open seat), with how it feels about its side. */
   cats?: { yes: PostCat | null; no: PostCat | null };
+  /**
+   * A short rope (HonorCat v2): the posts as YES chances 0..1 and the extra lives each side bought.
+   * The rope hangs between the posts; past a post a side has all or nothing (the clamp).
+   */
+  posts?: { lower: number; upper: number; livesYes?: number; livesNo?: number } | null;
 };
 export type PostCat = { fur: Fur; mood: Mood; name: string };
 
@@ -74,6 +79,23 @@ function Dollars({ v }: { v: number }) {
         {sym}<RollingNumber value={Math.floor(cents / 100)} />.{String(cents % 100).padStart(2, "0")}
       </span>
     </span>
+  );
+}
+
+/** A post of a short rope: where it stands (YES chance), labelled, with one paw mark per extra life. */
+function RopePost({ at, side, lives, who }: { at: number; side: 0 | 1; lives: number; who: string }) {
+  const x = xOf(at);
+  // Beside the post, on the outer side (away from the rope), at mid height: clear of the cat.
+  const left = side === 0 ? x > X0 + 160 : x > X0 + SPAN - 160;
+  return (
+    <g>
+      <text x={left ? x - 16 : x + 16} y={GROUND - 54} textAnchor={left ? "end" : "start"} fontFamily="var(--font-barlow), Arial, sans-serif" fontSize="19" fontWeight="600" fill={side === 0 ? C.ink : C.signalInk}>
+        {`${/^you( |$)/.test(who) ? "your" : `${who}'s`} post: ${(at * 100).toFixed(0)}`}
+      </text>
+      {Array.from({ length: lives }, (_, i) => (
+        <PawMark key={i} x={x + (side === 0 ? -1 : 1) * (26 + i * 24)} y={GROUND - 16} dir={side === 0 ? -1 : 1} opacity={0.85} />
+      ))}
+    </g>
   );
 }
 
@@ -190,12 +212,12 @@ function Countdown({ start, end, now }: { start: number; end: number; now: numbe
 }
 
 /** A player's cat sitting on top of its post, facing the rope. */
-function PostCatView({ c, side, w }: { c: PostCat; side: 0 | 1; w: number }) {
+function PostCatView({ c, side, w, at }: { c: PostCat; side: 0 | 1; w: number; at?: number }) {
   return (
     <div
       style={{
         position: "absolute",
-        left: `${pctX(side)}%`,
+        left: `${pctX(at ?? side)}%`,
         top: `${((TOP - 20) / VH) * 100}%`,
         width: w,
         // Keep the cats inside the stage (no sideways scrolling on phones) and facing the rope.
@@ -227,14 +249,20 @@ export function Rope(p: RopeProps) {
   }, []);
 
   const price = p.price;
+  // A short rope hangs between its posts; a normal pot between 0 and 100.
+  const lo = p.posts?.lower ?? 0;
+  const hi = p.posts?.upper ?? 1;
+  // On a rope a side's share follows the price between the posts and is all or nothing past them.
+  const along = (q: number) => (Math.min(hi, Math.max(lo, q)) - lo) / Math.max(1e-9, hi - lo);
   // One side rounded to the cent, the other the pot minus it: the two always add up to the pot.
-  const shares = price === null ? null : splitPot(p.notional, price);
+  const shares = price === null ? null : splitPot(p.notional, p.posts ? along(price) : price);
   const yes = shares === null ? null : Number(shares.yes) / 1e6;
   const no = shares === null ? null : Number(shares.no) / 1e6;
   const pose = poseFor(p);
-  const catP = p.phase === "settled" && (p.receiver === 0 || p.receiver === 1) ? (p.receiver === 0 ? 0 : 1) : (price ?? 0.5);
+  // On a short rope the cat stays on the rope: past a post it waits at the post (the caption says the price).
+  const catP = p.phase === "settled" && (p.receiver === 0 || p.receiver === 1) ? (p.receiver === 0 ? lo : hi) : Math.min(hi, Math.max(lo, price ?? (lo + hi) / 2));
   const catW = Math.max(56, Math.min(p.big ? 260 : 150, width * 0.1));
-  const split = price ?? 0.5;
+  const split = Math.min(hi, Math.max(lo, price ?? (lo + hi) / 2));
   const fs = p.big ? 96 : 52;
   const nameFs = p.big ? 30 : 18;
   const postW = Math.max(52, Math.min(p.big ? 200 : 120, width * 0.095));
@@ -255,7 +283,7 @@ export function Rope(p: RopeProps) {
   const alt =
     price === null
       ? "Waiting for the price."
-      : `A rope between two posts over a scale from 0 to 100 percent chance${p.sides ? ` that ${p.sides.yes}` : ""}. The cat stands at ${(price * 100).toFixed(1)} percent. ${p.names.yes}${p.sides ? ` (${p.sides.yes})` : ""}: $${yes!.toFixed(2)}. ${p.names.no}${p.sides ? ` (${p.sides.no})` : ""}: $${no!.toFixed(2)}.`;
+      : `A rope between two posts${p.posts ? ` at ${(lo * 100).toFixed(0)} and ${(hi * 100).toFixed(0)}` : ""} over a scale from 0 to 100 percent chance${p.sides ? ` that ${p.sides.yes}` : ""}. The cat stands at ${(price * 100).toFixed(1)} percent. ${p.names.yes}${p.sides ? ` (${p.sides.yes})` : ""}: $${yes!.toFixed(2)}. ${p.names.no}${p.sides ? ` (${p.sides.no})` : ""}: $${no!.toFixed(2)}.`;
 
   return (
     <figure role="group" aria-label={alt} style={{ margin: 0, display: "flex", flexDirection: "column", gap: p.big ? 20 : 10 }}>
@@ -282,13 +310,15 @@ export function Rope(p: RopeProps) {
           {levels.map((l, i) => (
             <Level key={i} {...l} who={l.side === 0 ? p.names.yes : p.names.no} />
           ))}
-          {/* the posts */}
-          <rect x={X0 - 8} y={TOP - 20} width="16" height={GROUND - TOP + 20} fill={C.ink} />
-          <rect x={X0 + SPAN - 8} y={TOP - 20} width="16" height={GROUND - TOP + 20} fill={C.signal} />
+          {/* the posts (on a short rope: where the rope is tied, labelled, with paw marks for extra lives) */}
+          <rect x={xOf(lo) - 8} y={yOf(lo) - 20} width="16" height={GROUND - yOf(lo) + 20} fill={C.ink} />
+          <rect x={xOf(hi) - 8} y={yOf(hi) - 20} width="16" height={GROUND - yOf(hi) + 20} fill={C.signal} />
+          {p.posts && lo > 0 && <RopePost at={lo} side={0} lives={p.posts.livesYes ?? 0} who={p.names.yes} />}
+          {p.posts && hi < 1 && <RopePost at={hi} side={1} lives={p.posts.livesNo ?? 0} who={p.names.no} />}
           {/* the rope: an ink cord, filled with YES's fur up to the cat and NO's fur after it */}
-          <path d={ropePath(0, 1)} fill="none" stroke={C.ink} strokeWidth={p.big ? 11 : 10} strokeLinecap="round" />
-          <path d={ropePath(0, split)} fill="none" stroke={yesFur} strokeWidth={p.big ? 7 : 6} strokeLinecap="round" />
-          <path d={ropePath(split, 1)} fill="none" stroke={noFur} strokeWidth={p.big ? 7 : 6} strokeLinecap="round" />
+          <path d={ropePath(lo, hi)} fill="none" stroke={C.ink} strokeWidth={p.big ? 11 : 10} strokeLinecap="round" />
+          <path d={ropePath(lo, split)} fill="none" stroke={yesFur} strokeWidth={p.big ? 7 : 6} strokeLinecap="round" />
+          <path d={ropePath(split, hi)} fill="none" stroke={noFur} strokeWidth={p.big ? 7 : 6} strokeLinecap="round" />
           {/* where the price has been */}
           {trail.map((m, i, a) => (
             <PawMark key={i} x={xOf(m)} y={yOf(m) - (i % 2 ? 20 : 32)} dir={i > 0 && m < a[i - 1]! ? -1 : 1} opacity={0.2 + (0.6 * (i + 1)) / a.length} />
@@ -308,8 +338,8 @@ export function Rope(p: RopeProps) {
           )}
         </svg>
 
-        {p.cats?.yes && <PostCatView c={p.cats.yes} side={0} w={postW} />}
-        {p.cats?.no && <PostCatView c={p.cats.no} side={1} w={postW} />}
+        {p.cats?.yes && <PostCatView c={p.cats.yes} side={0} w={postW} at={lo} />}
+        {p.cats?.no && <PostCatView c={p.cats.no} side={1} w={postW} at={hi} />}
 
         {/* the market cat, standing on the rope */}
         <div

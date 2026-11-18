@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { closesIn, GeminiCredit, MarketList, midYes, type MarketItem } from "@/components/cat/Markets";
 import { C, F } from "@/components/cat/tokens";
 import { useLivePrice } from "@/components/pot/usePrice";
@@ -15,7 +15,9 @@ import { GeminiLink } from "@/components/cat/GeminiLink";
 import { FeeNote, useFees } from "@/components/pot/Receipts";
 import { getJson } from "@/lib/api";
 import { plainError } from "@/lib/messages";
-import { createPot, MAX_TOLERANCE, NO, prepare, worstCase, YES } from "@/lib/hc";
+import { createPot, createRope, MAX_TOLERANCE, NO, prepare, prepareRope, ropesStatus, worstCase, YES, type RopesStatus } from "@/lib/hc";
+import { RopeControl, type RopeSetting } from "@/components/pot/RopeControl";
+import { ropeFor } from "@/lib/rope";
 import { inviteMyAgent, seatsOf, type SeatView } from "@/lib/agent";
 
 const label: React.CSSProperties = { fontSize: 15, fontWeight: 600, color: C.ink };
@@ -53,6 +55,16 @@ export function NewPot() {
       alive = false;
     };
   }, [account]);
+  // HonorCat v2 (short ropes): only once deployed and switched on for new pots.
+  const [ropes, setRopes] = useState<RopesStatus | null>(null);
+  useEffect(() => {
+    ropesStatus()
+      .then(setRopes)
+      .catch(() => {});
+  }, []);
+  const [rope, setRope] = useState<RopeSetting | null>(null);
+  const onRope = useCallback((r: RopeSetting) => setRope(r), []);
+  const v2 = Boolean(ropes?.forNewPots) && !practice;
   const [step, setStep] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const live = useLivePrice(market?.symbol ?? null);
@@ -84,7 +96,11 @@ export function NewPot() {
               : `Pots go up to $${MAX_N} on the test version: put in at most ${$(Math.floor(MAX_N * 1e6 * sideChance!))}.`
             : Number(grace) < 1
               ? "Gemini needs at least one day to settle."
-              : null;
+              : v2 && rope && rope.choice.pot > BigInt(MAX_N * 1e6)
+                ? `With this rope the pot would be ${$(rope.choice.pot)}; pots go up to $${MAX_N} on the test version. Put in less or choose a shorter rope.`
+                : v2 && rope && rope.choice.leverage > 1 && !rope.expiry
+                  ? "Pick when the rope ends."
+                  : null;
 
   async function submit() {
     if (!who.actor || !market || center === null) return;
@@ -94,6 +110,27 @@ export function NewPot() {
         setStep("Checking the practice cat");
         const ps = await getJson<{ available: boolean; reason: string | null }>(`/api/hc/practice`);
         if (!ps.available) throw new Error(ps.reason ?? "The practice cat cannot play right now.");
+      }
+      if (v2) {
+        setStep("Reading the market's depth");
+        const prepV2 = await prepareRope(market.symbol, who.actor.account);
+        const bandCenterV2 = own !== null ? center : (prepV2.midPpm ?? center);
+        const lev = rope?.choice.leverage ?? 1;
+        const c = ropeFor(side === YES ? 0 : 1, bandCenterV2, BigInt(mineIn), lev);
+        if (c.size <= 0n) throw new Error("Put in a little more: this is less than one hundredth of a contract.");
+        if (c.size > BigInt(prepV2.maxSize))
+          throw new Error(`This market is too thin for this rope right now. Put in less, or pick a busier market.`);
+        const tolV2 = Math.min(tol, MAX_TOLERANCE);
+        const perContract = lev > 1 ? BigInt(c.distance / 100) : BigInt(Math.floor((side === YES ? Math.min(1_000_000, bandCenterV2 + tolV2) : 1_000_000 - Math.max(0, bandCenterV2 - tolV2)) / 100));
+        const r = await createRope(
+          who.actor,
+          prepV2,
+          { side, size: c.size, bandCenter: bandCenterV2, tolerance: tolV2, distYes: c.distYes, distNo: c.distNo, expiry: lev > 1 ? (rope?.expiry ?? 0) : 0, graceDays: Number(grace), escrow: perContract * c.size },
+          setStep,
+        );
+        setStep("Done");
+        router.push(r.potId ? `/pots/${r.potId}?new=1` : `/pots`);
+        return;
       }
       setStep("Reading the market's depth");
       const prep = await prepare(market.symbol, who.actor.account);
@@ -223,6 +260,21 @@ export function NewPot() {
               <p style={{ margin: 0, fontSize: 16, lineHeight: 1.5, color: C.body }}>The favourite costs more: each side puts in its chance times the pot, so nobody starts ahead.</p>
             </div>
           )}
+          {v2 && center !== null && mineIn > 0 && (
+            <RopeControl
+              side={side === YES ? 0 : 1}
+              center={center}
+              tolerance={tol}
+              stake={BigInt(mineIn)}
+              spread={market.bid != null && market.ask != null ? Math.round((market.ask - market.bid) * 1e6) : 50_000}
+              crypto={market.category === "Crypto"}
+              closeMs={market.closeMs}
+              startMs={market.startMs ?? null}
+              sideName={side === YES ? st.yes : st.no}
+              onChange={onRope}
+            />
+          )}
+          {v2 && <p style={{ margin: 0, fontSize: 15, color: C.muted }}>Nothing goes to HonorCat: every fee goes to a player.</p>}
           <details>
             <summary style={{ cursor: "pointer", fontSize: 16, minHeight: 32 }}>More options</summary>
             <div style={{ display: "flex", flexDirection: "column", gap: 16, paddingTop: 12 }}>

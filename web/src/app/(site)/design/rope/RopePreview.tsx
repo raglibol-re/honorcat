@@ -1,0 +1,40 @@
+"use client";
+
+import { useState } from "react";
+import { C, F } from "@/components/cat/tokens";
+import { Rope } from "@/components/pot/Rope";
+import { RopeControl, ShortRopeNote, type RopeSetting } from "@/components/pot/RopeControl";
+import { useNow } from "@/lib/useNow";
+
+const CLOSE_MS = Date.UTC(2026, 11, 31);
+
+/** Short ropes (HonorCat v2) with sample numbers, for approval before v2 is deployed. */
+export function RopePreview() {
+  const [setting, setSetting] = useState<RopeSetting | null>(null);
+  const nowS = Math.floor(useNow() / 1000);
+  const h2 = { margin: 0, fontFamily: F.cond, fontSize: 32, fontWeight: 600 } as const;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 40 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <h1 style={{ margin: 0, fontFamily: F.cond, fontSize: 64, fontWeight: 600, lineHeight: 0.95 }}>Short ropes</h1>
+        <p style={{ margin: 0, fontSize: 19, lineHeight: 1.45, color: C.body, maxWidth: 680 }}>For approval before HonorCat v2 is deployed. Sample numbers, no real pot.</p>
+      </div>
+      <section style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 680 }}>
+        <h2 style={h2}>On the create page</h2>
+        <RopeControl side={0} center={500_000} tolerance={0} stake={1_000_000n} spread={20_000} crypto closeMs={CLOSE_MS} startMs={null} sideName="BTC above $100,000 at 5 pm" onChange={setSetting} />
+        <p style={{ margin: 0, fontSize: 14, color: C.muted }}>
+          Chosen: {setting ? `${setting.choice.leverage}×, size ${setting.choice.size} hundredths, pot $${(Number(setting.choice.pot) / 1e6).toFixed(2)}` : "…"}
+        </p>
+      </section>
+      <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <h2 style={h2}>YES 5× at 50: post first at 40, one extra life bought (now at 30)</h2>
+        <Rope price={0.47} notional={7_000_000n} names={{ yes: "you", no: "Mia" }} phase="live" posts={{ lower: 0.3, upper: 1, livesYes: 1, livesNo: 0 }} />
+        {nowS > 0 && <ShortRopeNote expiry={nowS + 5 * 3600 + 120} nowS={nowS} ended={false} />}
+      </section>
+      <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <h2 style={h2}>NO 10× at 50: post at 55, the price beyond it (clamped)</h2>
+        <Rope price={0.58} notional={5_500_000n} names={{ yes: "Sam", no: "you" }} phase="live" posts={{ lower: 0, upper: 0.55, livesYes: 0, livesNo: 0 }} />
+      </section>
+    </div>
+  );
+}

@@ -7,7 +7,8 @@
     ".": "./src/index.ts",
     "./abi": "./src/abi.ts",
     "./trigger": "./src/trigger/index.ts",
-    "./potsAbi": "./src/potsAbi.ts"
+    "./potsAbi": "./src/potsAbi.ts",
+    "./ropesAbi": "./src/ropesAbi.ts"
   },
   "scripts": {
     "e2e": "tsx --env-file-if-exists=../.env scripts/e2e.ts",

@@ -1,5 +1,62 @@
 # Progress
 
+## HonorCat v2: short ropes and treats (2026-11-18)
+
+Design note: docs/rope-design.md. State: contract with tests, knock-out and expiry relay, create page
+and rope view done; **nothing deployed**, v1 untouched. Next (after the owner's go): backtest (c),
+treats in the interface (d), leaderboard and cosmetics (e), then end-to-end runs and deployment.
+
+**Decisions by the owner (2026-11-18)**
+- D1 expiry: at least 2 h before trading closes, at most 7 days, at least 10 minutes. Backtest to
+  report live-game pots separately; live-game short ropes labelled "jumpy" in the interface (done).
+- D4 cap: the simple rule, size ≤ 0.25 × thinner-side contracts within 5¢ (existing depth
+  attestation). The attested cost to each post goes in the README as the refinement.
+- D5: minimum distance max(5 points, 2 × spread); maximum leverage 10× crypto, 5× elsewhere.
+- D6/D7: exit fee 1% of the pot value exited, i.e. 1% × (U − L) × N × fraction (equals today's fee on
+  a normal pot; tested never above 1%); maker treat 0.25% of the joiner's deposit; referral 20% of
+  fees for 20 pots; copycat 5% of profit; no fee on knock-out or expiry.
+- D10: production data only through a read-only role or a branch; only aggregates in the repository.
+- Scope: everything in spec sections 1 to 7 in the contract now (it cannot be upgraded).
+
+**Decisions taken by default (my recommendations, not answered explicitly)**
+- D2: no valid expiry price → three more windows fixed by the expiry (each W + 60 s later), each
+  skippable by anyone after the 10-minute timeout; then clamped settlement; then deposits back at the
+  deadline.
+- D3: one extra life moves the side's own post by its original distance, at most 8 lives, never past
+  0 or 100; it also bumps the pot's nonce, so a knock-out attested against the old posts is void.
+- D8: self-referral through a second account is accepted and will be stated in the README (it is a
+  20% fee discount paid by the counterparty, never a profit); the contract rejects referring oneself.
+- D9: backtest on recorded samples (aggregates only), a recorder started now, and model-based crypto
+  paths, each labelled.
+- D11: posts are set at the join, around the entry price, from distances fixed at creation; a side
+  with a post deposits exactly its distance.
+- Not in the note, chosen while building: prices snap to 0.01 points and size counts hundredths of a
+  contract, so every share is exact (no division); fees round down (so "never above 1%" holds
+  exactly); the copycat treat is held back (5% of each payout) until the copier's tenure ends, then
+  5% of the real profit goes to the leader and the rest back; a transfer ends a copy tenure and the
+  referral share; the testnet maximum ($25) applies to the pot value, also after extra lives.
+
+**Built**
+- Contract `HonorCatRopes` + `HonorCatRopesExtension` (delegatecall, one address holds all funds;
+  23.8 KB and 19.8 KB), `DeployRopes.s.sol` (also deploys a MedianResolver for it). Tests: 72 new
+  (43 unit, 14 treats, 6 fuzz × 1,000 runs, 4 invariants × 64 runs × 400 calls, 3 MedianResolver,
+  digest vectors); all 158 Foundry tests green. Halmos: 3 checks, no counterexample, not proven
+  (timeouts on the 256-bit products, as for v1).
+- Relay: v2 pots at 1,000,000,000 + id in the read model; contract-aware windows, sampler records,
+  signed averages, proposals and submission; sampler knock-out watch (`/api/hc/sampler/knock`);
+  expiry windows opened and skipped by housekeeping; v2 depth (spread, category); passkey calls to
+  v2; honor record reads v2 events. Inactive until deployments/<chain>.ropes.json exists and
+  `ROPES_FOR_NEW_POTS=true`. Digests checked byte for byte against the contracts.
+- Web: leverage control with plain words, expiry choice and the "short rope ends sooner" warning
+  (create page, only when v2 is on); rope view with posts, paw marks for extra lives and the clamp;
+  expiry countdown and an extra-life panel on v2 pot pages; preview at /design/rope (axe clean,
+  no overflow at phone and desktop width).
+- Not yet for v2 pot pages: leave, handshake, nets/bowls, takeover buttons (the v1 ones are hidden
+  there because they call the v1 contract).
+- Local environment: node_modules links still pointed at the old folder name ("verdict"); 2,013
+  links were repointed to this folder (no reinstall, so the running samplers were not disturbed).
+  Samplers must be restarted with this code to measure v2 windows.
+
 ## Done
 - Phases A, B, G (Merkle payouts, e2e `drops` passing on production), HonorCat guarantees, market picker.
 - Early payouts (docs/early-payout-spec.md): Gemini data checked, plan written, all seven open points
