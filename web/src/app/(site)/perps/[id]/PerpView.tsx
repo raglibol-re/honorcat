@@ -616,7 +616,7 @@ export function PerpView({ id }: { id: string }) {
                   )
                 }
               >
-                Take back my offer ({$(mine.free)})
+                Cancel and get my {$(mine.free)} back
               </Button>
             )}
           </div>

@@ -99,6 +99,11 @@ function Rows({ pots, me }: { pots: HcPotSummary[]; me?: string | null }) {
                 {side === 0 ? sidesOf(p.market).yes : sidesOf(p.market).no}”
               </span>
             )}
+            {side !== null && p.state === "Open" && (
+              <span style={{ fontSize: 15, color: C.signalInk, fontWeight: 500 }}>
+                Nobody joined yet: open it to invite someone or cancel
+              </span>
+            )}
             <span style={{ fontSize: 14, color: C.muted }}>
               {isInPlay(p.state)
                 ? rope
