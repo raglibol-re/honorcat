@@ -83,7 +83,20 @@ export type PerpMarket = {
   contractTicker: string;
   eventTitle: string;
   label: string;
+  /** The YES price (ppm) the leverages are shown at: the running rope's entry, else the market's last price. */
+  center: number | null;
 };
+
+/** Both leverages (creator, joiner) at the perp's shown price, or null. */
+export function perpLeverages(p: {
+  data: Pick<PerpData, "t">;
+  market: PerpMarket | null;
+}) {
+  const c = p.market?.center ?? null;
+  if (c === null) return null;
+  const q = p.data.t.creatorSide === 0 ? c : 1_000_000 - c;
+  return { creator: q / p.data.t.d, joiner: (1_000_000 - q) / p.data.t.d };
+}
 export type PerpDetail = {
   perpId: string;
   phase: PerpPhase;

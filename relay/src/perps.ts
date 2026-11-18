@@ -201,8 +201,25 @@ export async function listPerps(db: Db, opts: { owner?: string; phases?: number[
   return Promise.all(rows.map(async (r) => ({ perpId: r.perp_id, phase: PERP_PHASES[r.phase], a: r.a, b: r.b, pot: r.pot_id, data: dataOf(r), market: await perpMarket(db, r) })));
 }
 
-/** The perp's market (by its conditionId), without the trigger parameters. */
+/**
+ * The perp's market (by its conditionId), without the trigger parameters, and the YES price its
+ * leverages are shown at (ppm): the running rope's entry, else the market's last price in the
+ * catalogue (an open offer starts its first rope at the price when both are in).
+ */
 async function perpMarket(db: Db, r: PerpRow) {
-  const m = await marketOf(db, String(dataOf(r).t.conditionId)).catch(() => null);
-  return m ? { instrument: m.instrument, eventTicker: m.eventTicker, contractTicker: m.contractTicker, eventTitle: m.eventTitle, label: m.label } : null;
+  const q = dataOf(r);
+  const m = await marketOf(db, String(q.t.conditionId)).catch(() => null);
+  if (!m) return null;
+  let center: number | null = null;
+  if (r.pot_id) {
+    const p = (await db.query<{ lower: string | null }>("SELECT data->>'lower' AS lower FROM pots WHERE pot_id = $1", [r.pot_id]))[0];
+    if (p?.lower) center = Number(p.lower) + Number(q.t.d);
+  }
+  if (center === null) {
+    const c = await rowBySymbol(db, m.instrument).catch(() => null);
+    const bid = c?.book?.bid ?? c?.bid ?? null;
+    const ask = c?.book?.ask ?? c?.ask ?? null;
+    if (bid !== null && ask !== null) center = Math.round(((bid + ask) / 2) * 1e6);
+  }
+  return { instrument: m.instrument, eventTicker: m.eventTicker, contractTicker: m.contractTicker, eventTitle: m.eventTitle, label: m.label, center };
 }
