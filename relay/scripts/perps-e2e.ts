@@ -9,7 +9,11 @@
  *   perp 3  3 lives each: player A leaves now once the first rope is live
  *   perp 4  3 lives each: player B stops renewing; the rope runs to its expiry and the chain ends
  *
- * Usage: cd relay && npx tsx --env-file=../.env scripts/perps-e2e.ts --symbol GEMI-… [--d 80000] [--size 10] [--life 10] [--minutes 60]
+ * At the end both wallets withdraw their free balances and send everything back to the deployer.
+ *
+ * Usage: cd relay && npx tsx --env-file=../.env scripts/perps-e2e.ts --symbol GEMI-… [--d 80000] [--size 10] [--life 10] [--minutes 60] [--plan chain,out,leave,stop]
+ *        Clean-up only (an earlier run's wallets, from data/e2e-keys.jsonl):
+ *        npx tsx --env-file=../.env scripts/perps-e2e.ts --sweep 1,2,3,4 --wallets 0xA…,0xB…
  */
 import { appendFileSync, mkdirSync, readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
@@ -28,6 +32,9 @@ const { values } = parseArgs({
     size: { type: "string", default: "10" },
     life: { type: "string", default: "10" },
     minutes: { type: "string", default: "60" },
+    plan: { type: "string", default: "chain,out,leave,stop" },
+    sweep: { type: "string" },
+    wallets: { type: "string" },
   },
 });
 const API = values.api!.replace(/\/$/, "");
@@ -68,9 +75,35 @@ async function send(who: Acct, functionName: string, args: unknown[]) {
 type Perp = { phase: number; pot: bigint; ropes: number; freeA: bigint; freeB: bigint; resultA: bigint; resultB: bigint };
 const read = async (id: bigint) => (await client.readContract({ address: PERPS, abi: perpsAbi, functionName: "perp", args: [id] })) as unknown as Perp;
 
+/** Withdraws every free balance of `who` in `ids` and sends the wallet's USDC (less gas) to `to`. */
+async function sweep(who: Acct[], ids: bigint[], to: Address) {
+  for (const w of who) {
+    for (const id of ids) {
+      const q = await read(id);
+      const a = q as unknown as { a: string; b: string };
+      const free = a.a.toLowerCase() === w.address.toLowerCase() ? q.freeA : a.b.toLowerCase() === w.address.toLowerCase() ? q.freeB : 0n;
+      if (free > 0n) await send(w, "withdraw", [id, free]).then(() => log(`perp ${id}: ${w.address.slice(0, 8)} withdrew ${free}`));
+    }
+    const bal = await client.readContract({ address: ARC_USDC, abi: erc20Abi, functionName: "balanceOf", args: [w.address] });
+    const keep = 30_000n; // gas for the transfer itself (Arc pays gas in USDC)
+    if (bal > keep) {
+      const ww = createWalletClient({ account: w, chain: arcTestnet, transport: http(rpc) });
+      const h = await ww.writeContract({ address: ARC_USDC, abi: erc20Abi, functionName: "transfer", args: [to, bal - keep] });
+      await client.waitForTransactionReceipt({ hash: h });
+      log(`${w.address.slice(0, 8)} sent ${bal - keep} back`);
+    }
+  }
+}
+
 async function main() {
   const deployer = privateKeyToAccount(process.env.DEPLOYER_PRIVATE_KEY as Hex);
   const dw = createWalletClient({ account: deployer, chain: arcTestnet, transport: http(rpc) });
+  if (values.sweep) {
+    const keys = readFileSync(new URL("../../data/e2e-keys.jsonl", import.meta.url), "utf8").trim().split(/\r?\n/).map((l) => JSON.parse(l) as { address: string; key: Hex });
+    const who = (values.wallets ?? "").split(",").map((a) => keys.find((k) => k.address.toLowerCase() === a.trim().toLowerCase())).filter(Boolean).map((k) => privateKeyToAccount(k!.key));
+    await sweep(who, values.sweep.split(",").map((x) => BigInt(x)), deployer.address);
+    return;
+  }
   if (!values.symbol) throw new Error("--symbol is required");
   // the market's rule and conditionId (as the app registers it)
   const prep = await api<{ conditionId: Hex; resolver: Address; closeTime: number; window: number; minSamples: number; midPpm: number | null }>(`/api/hc/prepare-rope`, {
@@ -104,12 +137,13 @@ async function main() {
     minSamples: prep.minSamples,
     tolerance: 30_000,
   };
-  const plan: { name: string; livesA: bigint; livesB: bigint }[] = [
-    { name: "chain", livesA: 9n, livesB: 9n },
-    { name: "out of lives", livesA: 1n, livesB: 1n },
-    { name: "leave now", livesA: 3n, livesB: 3n },
-    { name: "stop renewing", livesA: 3n, livesB: 3n },
-  ];
+  const all: Record<string, { name: string; livesA: bigint; livesB: bigint }> = {
+    chain: { name: "chain", livesA: 9n, livesB: 9n },
+    out: { name: "out of lives", livesA: 1n, livesB: 1n },
+    leave: { name: "leave now", livesA: 3n, livesB: 3n },
+    stop: { name: "stop renewing", livesA: 3n, livesB: 3n },
+  };
+  const plan = values.plan!.split(",").map((k) => all[k.trim()]!).filter(Boolean);
   const ids: bigint[] = [];
   for (const p of plan) {
     const r = await send(A, "open", [terms, p.livesA * stake]);
@@ -149,6 +183,10 @@ async function main() {
     await sleep(20_000);
   }
   log(`finished: ${done.size} of ${ids.length} perps ended within the run`);
+  // Perps still running: both stop renewing, so each ends at its rope's expiry; then clean up.
+  for (let i = 0; i < ids.length; i++) if (!done.has(i)) for (const w of wallets) await send(w, "stopRenewing", [ids[i]]).catch(() => {});
+  if (done.size === ids.length) await sweep(wallets, ids, deployer.address);
+  else log(`clean up later: --sweep ${ids.join(",")} --wallets ${wallets.map((w) => w.address).join(",")}`);
 }
 
 main().catch((e) => {
