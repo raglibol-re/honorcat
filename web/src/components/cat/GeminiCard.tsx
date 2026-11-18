@@ -7,11 +7,11 @@ import { C, F } from "./tokens";
 /**
  * A card that takes the player to the market's own page on Gemini: the Gemini mark, the question,
  * today's prices for each side and a clear "open on Gemini" call. Opens a new tab; renders nothing
- * without the event's slug. A referral or campaign query can be added with
+ * without the event's ticker. A referral or campaign query can be added with
  * NEXT_PUBLIC_GEMINI_LINK_QUERY (for example "ref=yourcode"); none is added by default.
  */
-export function GeminiCard({ slug, question, yes, no, price }: { slug: string | null | undefined; question: string; yes?: string; no?: string; price?: number | null }) {
-  const base = geminiEventUrl(slug);
+export function GeminiCard({ ticker, slug, question, yes, no, price }: { ticker: string | null | undefined; slug?: string | null; question: string; yes?: string; no?: string; price?: number | null }) {
+  const base = geminiEventUrl(ticker, slug);
   if (!base) return null;
   const extra = process.env.NEXT_PUBLIC_GEMINI_LINK_QUERY;
   const url = extra && /^[\w.~-]+=[\w.~%-]+(&[\w.~-]+=[\w.~%-]+)*$/.test(extra) ? `${base}?${extra}` : base;

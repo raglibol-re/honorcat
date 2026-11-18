@@ -550,6 +550,7 @@ export function NewPot() {
                     {st.yes}?
                   </span>
                   <GeminiLink
+                    ticker={market.eventTicker}
                     slug={market.slug}
                     label="See this market on Gemini"
                   />
@@ -587,6 +588,7 @@ export function NewPot() {
             )}
             {market && st && (
               <GeminiCard
+                ticker={market.eventTicker}
                 slug={market.slug}
                 question={`${st.yes}?`}
                 yes={st.yesShort}

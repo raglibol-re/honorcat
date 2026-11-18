@@ -70,7 +70,7 @@ export function RopePreview() {
       </section>
       <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <h2 style={h2}>The market on Gemini</h2>
-        <GeminiCard slug="btc-price-today-at-5pm-est" question="BTC above $64,000 at 5 pm?" yes="Above" no="Below" price={0.495} />
+        <GeminiCard ticker="BTC05M2611182200" slug="btc-price-today-at-5pm-est" question="BTC above $64,000 at 5 pm?" yes="Above" no="Below" price={0.495} />
       </section>
       <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <h2 style={h2}>NO 10× at 50: post at 55, the price beyond it (clamped)</h2>

@@ -648,10 +648,10 @@ export function PotView({ id }: { id: string }) {
       <header style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <span style={{ fontSize: 15, color: C.muted }}>
           Pot {pot.potId} · {m ? marketLine(m) : ""} · trading closes {formatDate(Number(pot.data.closeTime) * 1000)}
-          {m?.slug && (
+          {m?.eventTicker && (
             <>
               {" · "}
-              <GeminiLink slug={m.slug} label="the market on Gemini" size={15} />
+              <GeminiLink ticker={m.eventTicker} slug={m.slug} label="the market on Gemini" size={15} />
             </>
           )}
         </span>
@@ -699,7 +699,7 @@ export function PotView({ id }: { id: string }) {
       <Rope {...scene} trail={live.trail} speed={live.speed} />
       {v2 && expiry > 0 && <ShortRopeNote expiry={expiry} nowS={nowS} ended={ended} />}
       {v2 && <p style={{ margin: 0, fontSize: 15, color: C.muted }}>Nothing goes to HonorCat: every fee in this pot goes to a player.</p>}
-      {m?.slug && st && <GeminiCard slug={m.slug} question={`${st.yes}?`} yes={st.yesShort} no={st.noShort} price={live.smoothed} />}
+      {m?.eventTicker && st && <GeminiCard ticker={m.eventTicker} slug={m.slug} question={`${st.yes}?`} yes={st.yesShort} no={st.noShort} price={live.smoothed} />}
       <RateNote />
 
       <Receipts

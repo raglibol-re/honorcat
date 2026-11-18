@@ -104,7 +104,7 @@ export function NewPerp({ perps }: { perps: Address }) {
             <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
               <span style={{ fontSize: 14, color: C.muted }}>{marketLine(market)}</span>
               <span style={{ fontSize: 20, fontWeight: 600 }}>{st.yes}?</span>
-              <GeminiLink slug={market.slug} label="See this market on Gemini" />
+              <GeminiLink ticker={market.eventTicker} slug={market.slug} label="See this market on Gemini" />
             </span>
             <span style={{ color: C.muted }}>
               {p === null ? "" : `${(p * 100).toFixed(1)}% chance now · `}trading closes in {closesIn(market.closeMs)}
@@ -116,7 +116,7 @@ export function NewPerp({ perps }: { perps: Address }) {
         ) : (
           <MarketList picked={null} onPick={setMarket} />
         )}
-        {market && st && <GeminiCard slug={market.slug} question={`${st.yes}?`} yes={st.yesShort} no={st.noShort} price={p} />}
+        {market && st && <GeminiCard ticker={market.eventTicker} slug={market.slug} question={`${st.yes}?`} yes={st.yesShort} no={st.noShort} price={p} />}
         {market ? <Reliability symbol={market.symbol} /> : <GeminiCredit />}
       </section>
 

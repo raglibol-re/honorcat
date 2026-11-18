@@ -245,7 +245,7 @@ export function EventBlocks({ items, picked, onPick, detail }: { items: MarketIt
               </span>
               <div style={{ display: "flex", gap: 12, alignItems: "baseline", flexWrap: "wrap" }}>
                 <h3 style={{ margin: 0, fontFamily: F.cond, fontSize: 24, fontWeight: 600, lineHeight: 1.05 }}>{g.teams ?? g.title}</h3>
-                <GeminiLink slug={g.slug} size={13} />
+                <GeminiLink ticker={g.key} slug={g.slug} size={13} />
               </div>
             </div>
           </div>

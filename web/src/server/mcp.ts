@@ -84,7 +84,7 @@ function handlerFor(seat: Seat) {
               const s = sidesOf(m);
               const bid = m.book?.bid ?? m.bid;
               const ask = m.book?.ask ?? m.ask;
-              return { symbol: m.symbol, gemini: geminiEventUrl(m.slug), yes: s.yes, no: s.no, chance: bid != null && ask != null ? Math.round(((bid + ask) / 2) * 1000) / 10 : null, closes: new Date(m.closeMs).toISOString(), works: m.quality.status };
+              return { symbol: m.symbol, gemini: geminiEventUrl(m.eventTicker, m.slug), yes: s.yes, no: s.no, chance: bid != null && ask != null ? Math.round(((bid + ask) / 2) * 1000) / 10 : null, closes: new Date(m.closeMs).toISOString(), works: m.quality.status };
             }),
             source: "Data provided by Gemini.",
           });
