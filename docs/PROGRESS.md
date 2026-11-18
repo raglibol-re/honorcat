@@ -20,6 +20,29 @@
 
 **No deploys 2026-11-19 00:40 to about 05:40 UTC**: perps e2e runs on live games (data/perps-e2e-nhl.log, data/perps-e2e-nba.log).
 
+## Quality pass (2026-11-18 evening, plan: faster settlement, steadier connection, a designed UI)
+
+Done and live (web, plus read-only relay additions):
+- One button and field system (`web/src/components/ui/`): hover, pressed, busy with a paw loader,
+  disabled; labels never jump; step progress under the button ("Step 2 of 2 · Confirm with your
+  passkey: open the pot"); toasts after actions; choice buttons; one invite block (share, copy,
+  notify, QR) for normal pots, v2 pots and perps.
+- Header: slim test-money line, current page marked, phone menu.
+- Pot page: one status line, actions under the rope, result banner, rare exits folded; perp ropes
+  link to their perp. Perp page: the cat rope zoomed to its posts, confirm on leave, toasts.
+- Create pages: practise alone before sign-in, why the button is off shown above it, details folded.
+- Errors in plain words (closed/timed-out passkey, wrong address, perp refusals, no raw relay text).
+- Passkeys named so accounts can be told apart; welcome money announced and retried.
+- Checked on production through the pages: perp 6 (two passkeys: open, join, leave now with
+  confirmation, take out) and practice pot 30 (create, practice cat joins, leave, divided).
+- Found: a division's own event reached the read model about 3 minutes after the division (the
+  RPC poller trails 90 blocks and only runs when nudged). Phase A below fixes the cause.
+
+Next, after tonight's knock-out runs (no relay changes during them): phase A of the plan (Streams
+for v2 and perps, propose when two samplers agree, no chain-clock wait in requests, perp rolls in
+one step, faster sending, RPC fallback and batching, faster browser updates after an action), then
+measure and record timings; the always-on sampler once the owner has a free host account.
+
 ## Next: Grok Catbot minds perps (spec 2026-11-18)
 
 Named **Grok Catbot** by the owner (a cute pop-up in HonorCat's style; replaces the spec's "no

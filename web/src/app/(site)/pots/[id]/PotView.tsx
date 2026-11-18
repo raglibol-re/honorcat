@@ -581,8 +581,17 @@ function Windows({ pot, tech }: { pot: HcPot; tech: boolean }) {
 
 /** Once a pot has ended: what this player got from it, first thing on the page. */
 function ResultBanner({ pot, mine }: { pot: HcPot; mine: number }) {
-  const got = receiptsOf(pot.events ?? [], mine, () => "", () => "").reduce((n, r) => n + (r.mine ?? 0n), 0n);
+  const receipts = receiptsOf(pot.events ?? [], mine, () => "", () => "");
+  const got = receipts.reduce((n, r) => n + (r.mine ?? 0n), 0n);
   const refunded = pot.state === "Expired";
+  // The state can change before the payout's own event is read from Arc: never show $0 for "not yet".
+  if (!refunded && receipts.length === 0)
+    return (
+      <div role="status" style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: "4px 16px", background: C.ink, color: C.page, padding: "14px 18px", maxWidth: 760 }}>
+        <span style={{ fontFamily: F.cond, fontSize: 34, fontWeight: 600, lineHeight: 1 }}>Paid out</span>
+        <span style={{ fontSize: 16, color: C.faint }}>Your amount appears here in a moment, as soon as the payout is read from Arc.</span>
+      </div>
+    );
   return (
     <div role="status" style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: "4px 16px", background: C.ink, color: C.page, padding: "14px 18px", maxWidth: 760 }}>
       <span style={{ fontFamily: F.cond, fontSize: 34, fontWeight: 600, lineHeight: 1 }}>{refunded ? "Refunded" : `You got ${$(got)}`}</span>
