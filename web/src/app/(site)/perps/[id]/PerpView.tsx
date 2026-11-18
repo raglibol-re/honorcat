@@ -633,13 +633,16 @@ export function PerpView({ id }: { id: string }) {
               </button>
             </div>
           )}
-          <p
-            style={{ margin: 0, fontSize: 15, color: C.muted, lineHeight: 1.5 }}
-          >
-            Leave now: this rope is priced over the next 30 seconds and you give
-            1% of what you take out to the other side; then the perp ends. Stop
-            renewing: this rope runs to its end, and no new one starts.
-          </p>
+          {p.phase !== "Ended" && (
+            <p
+              style={{ margin: 0, fontSize: 15, color: C.muted, lineHeight: 1.5 }}
+            >
+              Leave now: this rope is priced over the next 30 seconds and you
+              give 1% of what you take out to the other side; then the perp
+              ends. Stop renewing: this rope runs to its end, and no new one
+              starts.
+            </p>
+          )}
         </section>
       )}
       {err && (
@@ -675,9 +678,11 @@ export function PerpView({ id }: { id: string }) {
               >
                 <strong style={{ minWidth: 70 }}>Rope {r.rope}</strong>
                 <span style={{ flex: "1 1 200px" }}>
-                  {r.reason === null
-                    ? "running"
-                    : (REASONS[r.reason] ?? "ended")}
+                  {r.reason !== null
+                    ? (REASONS[r.reason] ?? "ended")
+                    : p.phase === "Running" && r.rope === d.ropes
+                      ? "running"
+                      : "ended (details in a moment)"}
                   {r.rolled ? " · started at the last rope's price" : ""}
                 </span>
                 {r.paidA !== null && r.paidB !== null && (
