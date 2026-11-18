@@ -32,9 +32,11 @@ import {
 import { useNow } from "@/lib/useNow";
 
 /** Dollars; amounts under a cent (tiny test stakes) keep two significant digits instead of showing $0.00. */
-const usd = (n: number) => (n === 0 || n >= 0.01 ? n.toFixed(2) : String(Number(n.toPrecision(2))));
+const usd = (n: number) =>
+  n === 0 || n >= 0.01 ? n.toFixed(2) : String(Number(n.toPrecision(2)));
 const $ = (base: bigint | number | string) => `$${usd(Number(base) / 1e6)}`;
-const signed = (base: bigint) => `${base > 0n ? "+" : base < 0n ? "−" : ""}$${usd(Number(base < 0n ? -base : base) / 1e6)}`;
+const signed = (base: bigint) =>
+  `${base > 0n ? "+" : base < 0n ? "−" : ""}$${usd(Number(base < 0n ? -base : base) / 1e6)}`;
 const h2 = {
   margin: 0,
   fontFamily: F.cond,
@@ -190,12 +192,13 @@ export function PerpView({ id }: { id: string }) {
   const rd = rope?.data as unknown as Record<string, string> | undefined;
   const lower = rd ? Number(rd.lower) : null;
   const upper = rd ? Number(rd.upper) : null;
+  // The price the leverages are shown at: this rope's entry, else the relay's (rope entry or market
+  // price), else the live price.
   const center =
     lower !== null
       ? lower + d.t.d
-      : live.smoothed !== null
-        ? Math.round(live.smoothed * 1e6)
-        : null;
+      : (p.market?.center ??
+        (live.smoothed !== null ? Math.round(live.smoothed * 1e6) : null));
   const levA =
     center === null ? null : (sideA === 0 ? center : 1e6 - center) / d.t.d;
   const levB =
@@ -231,7 +234,10 @@ export function PerpView({ id }: { id: string }) {
     const acct = x === "a" ? p.a : p.b;
     const side = x === "a" ? sideA : 1 - sideA;
     const free = BigInt(x === "a" ? d.freeA : d.freeB);
-    const lives = Number(x === "a" ? d.livesA : d.livesB);
+    // Lives: whole stakes not in a rope, plus the one in the running rope.
+    const lives =
+      Number(x === "a" ? d.livesA : d.livesB) +
+      (p.phase === "Running" || p.phase === "Joining" ? 1 : 0);
     const result = BigInt(x === "a" ? d.resultA : d.resultB);
     const renew = x === "a" ? d.renewA : d.renewB;
     const lev = x === "a" ? levA : levB;
@@ -399,7 +405,6 @@ export function PerpView({ id }: { id: string }) {
                   width: 28,
                   height: 28,
                   transform: "translateX(-50%)",
-                  borderRadius: "50%",
                   background: C.signal,
                   transition: "left 1s linear",
                 }}
@@ -410,16 +415,27 @@ export function PerpView({ id }: { id: string }) {
             style={{
               display: "flex",
               justifyContent: "space-between",
+              gap: 12,
               fontSize: 15,
             }}
           >
-            <span>{points(lower)}: the NO side wins this rope</span>
             <span>
-              {price !== null ? `now ${(price * 100).toFixed(1)}` : ""}
-              {left !== null ? ` · ${clock(left)}` : ""}
+              <strong>{points(lower)}</strong>: NO wins this rope
             </span>
-            <span>{points(upper)}: the YES side wins this rope</span>
+            <span style={{ textAlign: "right" }}>
+              <strong>{points(upper)}</strong>: YES wins this rope
+            </span>
           </div>
+          <p style={{ margin: 0, fontSize: 17, textAlign: "center" }}>
+            {price !== null ? (
+              <>
+                Now <strong>{(price * 100).toFixed(1)}</strong>
+              </>
+            ) : (
+              "Waiting for the price"
+            )}
+            {left !== null ? ` · ${clock(left)}` : ""}
+          </p>
           {rope && (
             <span style={{ fontSize: 14, color: C.muted }}>
               This rope is{" "}

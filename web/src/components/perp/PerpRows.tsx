@@ -70,8 +70,10 @@ export function PerpRows({
         const mine = playerOf(p, me);
         const stake = BigInt(p.data.stake);
         const creatorYes = p.data.t.creatorSide === 0;
+        // whole stakes not in a rope, plus the one in the running rope
         const lives =
-          mine === "b" ? Number(p.data.livesB) : Number(p.data.livesA);
+          (mine === "b" ? Number(p.data.livesB) : Number(p.data.livesA)) +
+          (p.phase === "Running" || p.phase === "Joining" ? 1 : 0);
         return (
           <Link
             key={p.perpId}
