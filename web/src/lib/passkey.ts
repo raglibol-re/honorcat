@@ -53,7 +53,8 @@ export async function createPasskey(): Promise<PasskeySession> {
     publicKey: {
       challenge: random(32),
       rp: { name: "HonorCat", id: location.hostname },
-      user: { id: random(16), name: "HonorCat customer", displayName: "HonorCat customer" },
+      // A name the device's passkey list can tell apart from the player's other HonorCat accounts.
+      user: { id: random(16), name: `HonorCat · ${new Date().toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}`, displayName: `HonorCat account (${new Date().toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })})` },
       pubKeyCredParams: [{ type: "public-key", alg: -7 }], // ES256 = P-256
       authenticatorSelection: { residentKey: "required", userVerification: "required" },
       attestation: "none",

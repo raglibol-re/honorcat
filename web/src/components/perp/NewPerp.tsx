@@ -35,6 +35,7 @@ import {
 } from "@/lib/perp";
 
 import { ActionProgress, Button } from "@/components/ui/Button";
+import { Notice } from "@/components/ui/Field";
 const label: React.CSSProperties = {
   fontSize: 15,
   fontWeight: 600,
@@ -434,19 +435,16 @@ export function NewPerp({ perps }: { perps: Address }) {
           ) : (
             <>
               <AccountLine who={who} />
+              {bad && <Notice tone="note">{bad}</Notice>}
               <Button
                 busy={!!step}
-                style={{
-                  alignSelf: "flex-start",
-                  opacity: bad || step ? 0.6 : 1,
-                }}
+                style={{ alignSelf: "flex-start" }}
                 disabled={!!bad || !!step}
                 onClick={submit}
               >
                 {`Give your word: ${n} ${n === 1 ? "life" : "lives"} for ${$(budget)}`}
               </Button>
               <ActionProgress step={step} />
-              {bad && <p style={{ margin: 0, color: C.muted }}>{bad}</p>}
             </>
           )}
           {err && (

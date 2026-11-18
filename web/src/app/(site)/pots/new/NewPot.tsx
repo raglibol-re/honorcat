@@ -41,6 +41,7 @@ import { ropeFor } from "@/lib/rope";
 import { inviteMyAgent, seatsOf, type SeatView } from "@/lib/agent";
 
 import { ActionProgress, Button } from "@/components/ui/Button";
+import { Notice } from "@/components/ui/Field";
 const label: React.CSSProperties = {
   fontSize: 15,
   fontWeight: 600,
@@ -793,22 +794,29 @@ export function NewPot() {
                 </div>
               </details>
               {mine !== null && n > 0n && (
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: 15,
-                    lineHeight: 1.55,
-                    color: C.muted,
-                  }}
-                >
-                  Until someone joins, up to {$(mine)} is set aside from your
-                  account (the price may move {tolPts || 0} points before they
-                  join). The starting shares are set by the 30-second average
-                  right after they join; anything above your share comes back at
-                  once. If the price leaves the band first, nobody pays
-                  anything. Whoever leaves early gives the other side 1% of the
-                  pot.
-                </p>
+                <details>
+                  <summary
+                    style={{ cursor: "pointer", fontSize: 16, minHeight: 32 }}
+                  >
+                    How your money is held until someone joins
+                  </summary>
+                  <p
+                    style={{
+                      margin: "8px 0 0",
+                      fontSize: 15,
+                      lineHeight: 1.55,
+                      color: C.body,
+                    }}
+                  >
+                    Until someone joins, up to {$(mine)} is set aside from your
+                    account (the price may move {tolPts || 0} points before they
+                    join). The starting shares are set by the 30-second average
+                    right after they join; anything above your share comes back
+                    at once. If the price leaves the band first, nobody pays
+                    anything. Whoever leaves early gives the other side 1% of
+                    the pot.
+                  </p>
+                </details>
               )}
             </section>
           )}
@@ -832,6 +840,33 @@ export function NewPot() {
               >
                 3. Give your word
               </h2>
+              <label
+                style={{
+                  display: "flex",
+                  gap: 10,
+                  alignItems: "flex-start",
+                  fontSize: 16,
+                  lineHeight: 1.45,
+                  cursor: "pointer",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={practice}
+                  onChange={(e) => (
+                    setPractice(e.target.checked),
+                    e.target.checked && Number(amount) > 1 && setAmount("0.50")
+                  )}
+                  style={{ width: 22, height: 22, marginTop: 2 }}
+                />
+                <span>
+                  <strong>Practise alone:</strong> the practice cat
+                  (HonorCat&apos;s own test account) takes the other side right
+                  away, so you can watch the rope and leave within two minutes.
+                  Pots up to ${PRACTICE_N}, test money only, and they do not
+                  count towards your honor record.
+                </span>
+              </label>
               {!who.actor ? (
                 <SignIn
                   who={who}
@@ -840,35 +875,6 @@ export function NewPot() {
               ) : (
                 <>
                   <AccountLine who={who} />
-                  <label
-                    style={{
-                      display: "flex",
-                      gap: 10,
-                      alignItems: "flex-start",
-                      fontSize: 16,
-                      lineHeight: 1.45,
-                      cursor: "pointer",
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={practice}
-                      onChange={(e) => (
-                        setPractice(e.target.checked),
-                        e.target.checked &&
-                          Number(amount) > 1 &&
-                          setAmount("0.50")
-                      )}
-                      style={{ width: 22, height: 22, marginTop: 2 }}
-                    />
-                    <span>
-                      <strong>Practise alone:</strong> the practice cat
-                      (HonorCat&apos;s own test account) takes the other side
-                      right away, so you can watch the rope and leave within two
-                      minutes. Pots up to ${PRACTICE_N}, test money only, and
-                      they do not count towards your honor record.
-                    </span>
-                  </label>
                   {practice && seat && (
                     <div
                       role="radiogroup"
@@ -917,12 +923,10 @@ export function NewPot() {
                       </label>
                     </div>
                   )}
+                  {bad && <Notice tone="note">{bad}</Notice>}
                   <Button
                     busy={!!step}
-                    style={{
-                      alignSelf: "flex-start",
-                      opacity: bad || step ? 0.6 : 1,
-                    }}
+                    style={{ alignSelf: "flex-start" }}
                     disabled={!!bad || !!step}
                     onClick={submit}
                   >
@@ -937,7 +941,6 @@ export function NewPot() {
                     fees={fees}
                     payer={who.actor.kind === "wallet" ? "wallet" : "honorcat"}
                   />
-                  {bad && <p style={{ margin: 0, color: C.muted }}>{bad}</p>}
                 </>
               )}
               {err && (

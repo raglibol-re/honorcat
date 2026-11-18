@@ -17,6 +17,7 @@ import { useWallet } from "@/lib/wallet/context";
 import { inEuros, money } from "@/lib/currency";
 
 import { Button, ButtonLink } from "@/components/ui/Button";
+import { toast } from "@/components/ui/Toast";
 export const btn: React.CSSProperties = {
   minHeight: 52,
   padding: "0 24px",
@@ -59,13 +60,20 @@ export function useActor() {
     const key = `honorcat.welcomed.${account.toLowerCase()}`;
     try {
       if (localStorage.getItem(key)) return;
-      localStorage.setItem(key, "1");
     } catch {
       /* private mode: the server still sends it only once */
     }
+    toast("Welcome. HonorCat is sending you test money to play with.");
     void getJson<{ sent: boolean; reason?: string }>("/api/hc/drip", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ account }) })
       .then((r) => {
-        if (!r.sent && r.reason && r.reason !== "already welcomed") setFundsNote(r.reason);
+        // Remembered only once it worked (or was already done), so a failed send is tried again next time.
+        if (r.sent || r.reason === "already welcomed") {
+          try {
+            localStorage.setItem(key, "1");
+          } catch {}
+        }
+        if (r.sent) toast("Your test money has arrived.");
+        else if (r.reason && r.reason !== "already welcomed") setFundsNote(r.reason);
       })
       .catch((e) => setFundsNote((e as Error).message));
   }, [account]);
