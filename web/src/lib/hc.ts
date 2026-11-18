@@ -150,7 +150,7 @@ const ZERO32 = `0x${"0".repeat(64)}` as Hex;
 const noAuth = (from: Address) => ({ from, validAfter: 0n, validBefore: 0n, salt: ZERO32, v: 0, r: ZERO32, s: ZERO32 });
 
 /** Runs a pot call from a passkey account: one passkey prompt per step (an approval may come first). */
-async function passkeyCall(session: PasskeySession, account: Address, data: Hex, spend: bigint, onStep?: (s: string) => void, target?: Address) {
+export async function passkeyCall(session: PasskeySession, account: Address, data: Hex, spend: bigint, onStep?: (s: string) => void, target?: Address) {
   const prep = await getJson<{ steps: { target: Address; data: Hex; deadline: string; nonce: string; challenge: Hex; label: string }[] }>("/api/hc/passkey/prepare", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -176,7 +176,7 @@ const approveAbi = [
  * approval of exactly `spend` USDC for it. Waits for the receipt, re-reads the pot so the samplers
  * start measuring at once, and returns the pot id from the contract's own event.
  */
-async function walletSend(adapter: WalletAdapter, account: Address, pots: Address, data: Hex, potId: string | null, spend = 0n, onStep?: Step) {
+export async function walletSend(adapter: WalletAdapter, account: Address, pots: Address, data: Hex, potId: string | null, spend = 0n, onStep?: Step) {
   if (adapter.sendBatch) {
     // A smart account: the approval (when short) and the action in one user operation, gas sponsored.
     const calls: { to: Address; data: Hex }[] = [];
@@ -359,6 +359,10 @@ export type RopesStatus = {
   available: boolean;
   forNewPots: boolean;
   address: Address | null;
+  idBase: string;
+  /** HonorCatPerps, when deployed, and whether new perps are switched on. */
+  perps: Address | null;
+  perpsForNewPots: boolean;
   rules: { expiryLeadS: number; maxLifeS: number; minLifeS: number; minDistancePpm: number; maxLeverageCrypto: number; maxLeverageOther: number; maxLives: number };
   fees: { operatorBps: number; exitFeeBps: number; makerTreatBps: number; referralShareBps: number; referralPots: number; copycatBps: number };
 };

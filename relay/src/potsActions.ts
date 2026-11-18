@@ -20,12 +20,16 @@ import { GaslessError, logRequest } from "./gasless";
 import { memoCall } from "./memo";
 import { executeDigest, passkeyByAccount as getPasskeyByAccount, passkeyAccountAbi, passkeyFactoryAbi, verifyAssertion, type WebAuthnAssertion } from "./passkeys";
 import { potsAbi } from "./potsAbi";
+import { syncPerp } from "./perps";
 import { potsAddress, syncPot } from "./pots";
+import { perpsAbi } from "./perpsAbi";
 import { ropesAbi } from "./ropesAbi";
 import { ropeDbId } from "./ropes";
 import { sendRelayCalls } from "./txs";
 
 const OWNER_CALLS = new Set(["create", "requestJoin", "cancel", "requestExit", "setLevels", "takeover", "transferFrom", "safeTransferFrom", "withdraw", "abandonJoin", "abandonExit", "expire", "addLife", "setReferrer", "skipExpiryWindow"]);
+/** Calls a player makes on HonorCatPerps (each acts only on the caller's own budget or chain). */
+const PERP_CALLS = new Set(["open", "join", "stopRenewing", "leaveNow", "agreeHandshake", "addLives", "withdraw"]);
 const FORWARD_CALLS = new Set(["create", "requestJoin", "takeover", "requestExitFor", "handshake", "abandonJoin", "abandonExit", "expire", "cancel"]);
 
 const DAILY_LIMIT = 40;
@@ -50,8 +54,22 @@ function decodePots(data: Hex, v2 = false) {
 const ropesAt = (target?: Address | null) => (target ? (getConfig().ropesAll.find((d) => d.address === getAddress(target)) ?? null) : null);
 /** The current HonorCatRopes address (approvals and receipts). */
 const ropesAddress = () => getConfig().ropes?.address ?? null;
-/** The pot contract a call goes to: v2 when the target is a HonorCatRopes deployment, else v1. */
-function potTarget(target?: Address | null): { address: Address; v2: boolean } {
+/** HonorCatPerps, when the target is it. */
+const perpsAt = (target?: Address | null) => {
+  const p = getConfig().ropes?.perps;
+  return target && p && getAddress(target) === getAddress(p) ? getAddress(p) : null;
+};
+function decodePerps(data: Hex) {
+  try {
+    return decodeFunctionData({ abi: perpsAbi, data });
+  } catch {
+    throw new GaslessError("not a call to the perps contract", 400);
+  }
+}
+/** The pot contract a call goes to: perps, v2 when the target is a HonorCatRopes deployment, else v1. */
+function potTarget(target?: Address | null): { address: Address; v2: boolean; perps?: boolean } {
+  const pp = perpsAt(target);
+  if (pp) return { address: pp, v2: false, perps: true };
   const r = ropesAt(target);
   if (r) return { address: r.address, v2: true };
   return { address: potsAddress(), v2: false };
@@ -73,8 +91,8 @@ export async function preparePasskeyPotCall(db: Db, account: Address, data: Hex,
   const pk = await getPasskeyByAccount(db, account);
   if (!pk) throw new GaslessError("unknown passkey account", 404);
   const t = potTarget(target);
-  const call = decodePots(data, t.v2);
-  if (!OWNER_CALLS.has(call.functionName)) throw new GaslessError(`${call.functionName} is not relayed`, 400);
+  const call = t.perps ? decodePerps(data) : decodePots(data, t.v2);
+  if (!(t.perps ? PERP_CALLS : OWNER_CALLS).has(call.functionName)) throw new GaslessError(`${call.functionName} is not relayed`, 400);
   const pots = t.address;
   const chainId = getConfig().chainId;
   const deadline = BigInt(Math.floor(Date.now() / 1000) + 600);
@@ -105,6 +123,7 @@ export async function submitPasskeyPotCall(db: Db, input: { account: Address; st
   let nonce = await nonceOf(input.account);
   const calls = [];
   let potId: string | null = null;
+  let perpId: string | null = null;
   let what = "";
   for (const s of input.steps) {
     const target = getAddress(s.target);
@@ -112,6 +131,12 @@ export async function submitPasskeyPotCall(db: Db, input: { account: Address; st
       const c = decodeFunctionData({ abi: erc20Abi, data: s.data });
       const spender = getAddress(c.args[0] as Address);
       if (c.functionName !== "approve" || (spender !== pots && !ropesAt(spender) && spender !== getConfig().ropes?.perps)) throw new GaslessError("only an approval for the pot contract", 400);
+    } else if (perpsAt(target)) {
+      const c = decodePerps(s.data);
+      if (!PERP_CALLS.has(c.functionName)) throw new GaslessError(`${c.functionName} is not relayed`, 400);
+      what = c.functionName;
+      const first = (c.args as readonly unknown[] | undefined)?.[0];
+      if (typeof first === "bigint") perpId = first.toString();
     } else if (target === pots || ropesAt(target)) {
       const dep = ropesAt(target);
       const c = decodePots(s.data, Boolean(dep));
@@ -135,7 +160,7 @@ export async function submitPasskeyPotCall(db: Db, input: { account: Address; st
         { r: s.assertion.r, s: s.assertion.s, challengeIndex: BigInt(s.assertion.challengeIndex), typeIndex: BigInt(s.assertion.typeIndex), authenticatorData: s.assertion.authenticatorData, clientDataJSON: s.assertion.clientDataJSON },
       ],
     });
-    const ref = input.ref ?? (potId ? `pot-${potId}` : "pot");
+    const ref = input.ref ?? (potId ? `pot-${potId}` : perpId ? `perp-${perpId}` : "pot");
     calls.push({ ...memoCall(input.account, exec, ref, { v: 1, t: "pot", ref, why: `${target === ARC_USDC ? "approval" : what} by passkey; HonorCat paid the fee` }), label: target === ARC_USDC ? "approve" : what });
     nonce += 1n;
   }
@@ -149,6 +174,12 @@ export async function submitPasskeyPotCall(db: Db, input: { account: Address; st
   );
   await logRequest(db, input.account, null, `pot:${what}`, 0n, res.ok ? res.tx : undefined);
   if (!res.ok) throw new GaslessError(`${what} failed: ${res.error}`, 502);
+  if (what && PERP_CALLS.has(what) && input.steps.some((s) => perpsAt(s.target))) {
+    // An open has no perp id in its arguments: take it from the contract's own event in the receipt.
+    const id = perpId ?? (await perpIdFrom(res.tx));
+    if (id) await syncPerp(db, BigInt(id)).catch((e) => console.error("[perps] sync", id, e));
+    return { tx: res.tx, potId: null, perpId: id };
+  }
   // A create has no pot id in its arguments: take it from the contract's own event in the receipt.
   const ids = await afterPotTx(db, res.tx, potId);
   return { tx: res.tx, potId: potId ?? ids[0] ?? null };
@@ -178,6 +209,12 @@ export async function forwardPotCall(db: Db, data: Hex) {
 }
 
 /** After a pot transaction: read the affected pot (a new pot's id from its PotCreated log). */
+async function perpIdFrom(tx: Hex): Promise<string | null> {
+  const receipt = await publicClient().waitForTransactionReceipt({ hash: tx, timeout: 30_000 }).catch(() => null);
+  const ev = parseEventLogs({ abi: perpsAbi, logs: receipt?.logs ?? [], eventName: "PerpOpened" })[0];
+  return ev ? (ev.args as { perpId: bigint }).perpId.toString() : null;
+}
+
 export async function afterPotTx(db: Db, tx: Hex, potId: string | null) {
   const c = publicClient();
   const pots = potsAddress();

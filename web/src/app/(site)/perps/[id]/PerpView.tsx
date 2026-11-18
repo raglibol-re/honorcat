@@ -1,0 +1,700 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { Address } from "viem";
+import { C, F } from "@/components/cat/tokens";
+import { GeminiCredit } from "@/components/cat/Markets";
+import { Lives } from "@/components/perp/Lives";
+import { useLivePrice } from "@/components/pot/usePrice";
+import { btn, btnQuiet, SignIn, useActor } from "@/components/pot/Who";
+import { useTechMode } from "@/components/TechMode";
+import { getJson } from "@/lib/api";
+import { ropesStatus, type HcPot } from "@/lib/hc";
+import { plainError } from "@/lib/messages";
+import { displayName, useNames } from "@/lib/names";
+import {
+  addLives,
+  getPerp,
+  joinPerp,
+  leaveNow,
+  lifeWords,
+  perpLabel,
+  playerOf,
+  points,
+  stopRenewing,
+  times,
+  treatOf,
+  withdrawSpare,
+  type PerpDetail,
+  type PerpEvent,
+} from "@/lib/perp";
+import { useNow } from "@/lib/useNow";
+
+const $ = (base: bigint | number | string) =>
+  `$${(Number(base) / 1e6).toFixed(2)}`;
+const signed = (base: bigint) =>
+  `${base > 0n ? "+" : base < 0n ? "−" : ""}$${(Number(base < 0n ? -base : base) / 1e6).toFixed(2)}`;
+const h2 = {
+  margin: 0,
+  fontFamily: F.cond,
+  fontSize: 30,
+  fontWeight: 600,
+} as const;
+const REASONS = [
+  "someone left",
+  "knocked out at a post",
+  "time was up",
+  "both agreed a price",
+  "the market settled",
+  "deposits went back",
+] as const;
+
+function clock(s: number) {
+  if (s <= 0) return "ending now";
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  return h > 0
+    ? `${h} h ${m} min left`
+    : m > 0
+      ? `${m} min ${sec} s left`
+      : `${sec} s left`;
+}
+
+/** Ropes so far, newest first: each start with how it ended and what each player got. */
+function ropesOf(events: PerpEvent[]) {
+  const out: {
+    rope: number;
+    pot: string | null;
+    rolled: boolean;
+    reason: number | null;
+    paidA: bigint | null;
+    paidB: bigint | null;
+    at: number | null;
+  }[] = [];
+  for (const e of events) {
+    if (e.name === "RopeStarted")
+      out.push({
+        rope: Number(e.args.rope),
+        pot: e.pot,
+        rolled: e.args.rolled === "true" || (e.args.rolled as unknown) === true,
+        reason: null,
+        paidA: null,
+        paidB: null,
+        at: e.at,
+      });
+    if (e.name === "RopeCredited") {
+      const r = [...out].reverse().find((x) => x.reason === null);
+      if (r)
+        Object.assign(r, {
+          reason: Number(e.args.reason),
+          paidA: BigInt(e.args.paidA),
+          paidB: BigInt(e.args.paidB),
+        });
+    }
+  }
+  return out.reverse();
+}
+
+export function PerpView({ id }: { id: string }) {
+  const who = useActor();
+  const { tech } = useTechMode();
+  const now = useNow();
+  const [p, setP] = useState<PerpDetail | null>(null);
+  const [missing, setMissing] = useState(false);
+  const [rope, setRope] = useState<HcPot | null>(null);
+  const [perps, setPerps] = useState<Address | null>(null);
+  const [step, setStep] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [joinLives, setJoinLives] = useState("9");
+  const [more, setMore] = useState("1");
+  const [ended, setEnded] = useState<{ text: string; key: number } | null>(
+    null,
+  );
+  const seen = useRef<number | null>(null);
+
+  useEffect(() => {
+    ropesStatus()
+      .then((r) => setPerps(r.perps))
+      .catch(() => {});
+  }, []);
+  useEffect(() => {
+    let alive = true;
+    const load = () =>
+      getPerp(id)
+        .then((d) => alive && setP(d))
+        .catch(() => alive && setMissing(true));
+    void load();
+    const t = setInterval(load, 5000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, [id]);
+  const potDb = p?.data.potDb ?? null;
+  useEffect(() => {
+    if (!potDb) return;
+    let alive = true;
+    const load = () =>
+      getJson<HcPot>(`/api/hc/pots/${potDb}`)
+        .then((r) => alive && setRope(r))
+        .catch(() => {});
+    void load();
+    const t = setInterval(load, 5000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, [potDb]);
+
+  const live = useLivePrice(p?.market?.instrument ?? null);
+  const names = useNames([p?.a, p?.b]);
+  const me = playerOf(p ?? { a: "", b: null }, who.actor?.account);
+  const history = useMemo(() => (p ? ropesOf(p.events) : []), [p]);
+  const credited = history.filter((r) => r.reason !== null).length;
+
+  // A rope that ends while the page is open gets a short moment of its own.
+  useEffect(() => {
+    if (!p) return;
+    if (seen.current !== null && credited > seen.current) {
+      const r = history.find((x) => x.reason !== null)!;
+      const aLost = r.paidA !== null && r.paidA === 0n;
+      const bLost = r.paidB !== null && r.paidB === 0n;
+      const loser = aLost
+        ? displayName(p.a, names, who.actor?.account, tech)
+        : bLost
+          ? displayName(p.b, names, who.actor?.account, tech)
+          : null;
+      const text = `Rope ${r.rope} ended: ${REASONS[r.reason!] ?? "it ended"}.${loser ? ` ${loser.charAt(0).toUpperCase() + loser.slice(1)} lost a life.` : ""}`;
+      void Promise.resolve().then(() => setEnded({ text, key: Date.now() }));
+    }
+    seen.current = credited;
+  }, [credited, p, history, names, who.actor?.account, tech]);
+
+  if (missing && !p)
+    return (
+      <p style={{ fontSize: 18 }}>
+        No perp {id} yet. It may take a few seconds to appear after it is
+        opened.
+      </p>
+    );
+  if (!p)
+    return <p style={{ fontSize: 18, color: C.muted }}>Loading perp {id}…</p>;
+
+  const d = p.data;
+  const stake = BigInt(d.stake);
+  const sideA = d.t.creatorSide;
+  const nm = (a: string | null) =>
+    displayName(a, names, who.actor?.account, tech);
+  const rd = rope?.data as unknown as Record<string, string> | undefined;
+  const lower = rd ? Number(rd.lower) : null;
+  const upper = rd ? Number(rd.upper) : null;
+  const center =
+    lower !== null
+      ? lower + d.t.d
+      : live.smoothed !== null
+        ? Math.round(live.smoothed * 1e6)
+        : null;
+  const levA =
+    center === null ? null : (sideA === 0 ? center : 1e6 - center) / d.t.d;
+  const levB =
+    center === null ? null : (sideA === 0 ? 1e6 - center : center) / d.t.d;
+  const label =
+    levA !== null && levB !== null
+      ? perpLabel(d.t.d, levA, levB)
+      : `Perp, rope ${points(d.t.d)} points`;
+  const question = p.market
+    ? `${p.market.eventTitle}${p.market.label && p.market.label !== "Yes" ? `: ${p.market.label}` : ""}`
+    : "the market";
+  const lostOf = (x: "a" | "b") =>
+    history.filter(
+      (r) => r.reason === 1 && (x === "a" ? r.paidA : r.paidB) === 0n,
+    ).length;
+  const expiry = rd ? Number(rd.expiry) : 0;
+  const left = expiry ? expiry - Math.floor(now / 1000) : null;
+  const price = live.smoothed;
+
+  const run = async (f: () => Promise<unknown>) => {
+    setErr(null);
+    try {
+      await f();
+      setStep(null);
+      setP(await getPerp(id));
+    } catch (e) {
+      setErr(plainError(e));
+      setStep(null);
+    }
+  };
+
+  const player = (x: "a" | "b") => {
+    const acct = x === "a" ? p.a : p.b;
+    const side = x === "a" ? sideA : 1 - sideA;
+    const free = BigInt(x === "a" ? d.freeA : d.freeB);
+    const lives = Number(x === "a" ? d.livesA : d.livesB);
+    const result = BigInt(x === "a" ? d.resultA : d.resultB);
+    const renew = x === "a" ? d.renewA : d.renewB;
+    const lev = x === "a" ? levA : levB;
+    return (
+      <div
+        key={x}
+        style={{
+          flex: "1 1 280px",
+          border: `1.5px solid ${C.ink}`,
+          padding: "12px 14px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 8,
+        }}
+      >
+        <span style={{ fontSize: 14, color: C.muted }}>
+          {x === "a" ? "Opened the perp" : "Took the other side"} ·{" "}
+          {side === 0 ? "YES" : "NO"}
+          {lev !== null && ` · ${times(lev)}`}
+        </span>
+        <strong style={{ fontSize: 20 }}>
+          {acct ? nm(acct) : "open seat"}
+        </strong>
+        {acct && (
+          <>
+            <Lives left={lives} lost={lostOf(x)} size={20} />
+            <span style={{ fontSize: 16 }}>
+              Result so far: <strong>{signed(result)}</strong>
+            </span>
+            <span style={{ fontSize: 15, color: C.muted }}>
+              {$(free)} not in a rope
+              {p.phase !== "Ended" && !renew ? " · stopped renewing" : ""}
+            </span>
+          </>
+        )}
+      </div>
+    );
+  };
+
+  const mine = me
+    ? {
+        free: BigInt(me === "a" ? d.freeA : d.freeB),
+        lives: Number(me === "a" ? d.livesA : d.livesB),
+        renew: me === "a" ? d.renewA : d.renewB,
+      }
+    : null;
+  // Spare money: what is not a whole life while the chain runs; everything once it ended.
+  const spare = mine
+    ? p.phase === "Ended"
+      ? mine.free
+      : mine.free % stake
+    : 0n;
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 28,
+        maxWidth: 820,
+      }}
+    >
+      <style>{`@keyframes perpDrop { 0% { transform: translateY(-12px); opacity: 0 } 15% { transform: none; opacity: 1 } 85% { opacity: 1 } 100% { opacity: 0 } }`}</style>
+      {ended && (
+        <div
+          key={ended.key}
+          role="status"
+          onAnimationEnd={() => setEnded(null)}
+          style={{
+            animation: "perpDrop 6s ease-out forwards",
+            background: C.ink,
+            color: C.page,
+            padding: "14px 18px",
+            fontSize: 20,
+            fontFamily: F.cond,
+            fontWeight: 600,
+          }}
+        >
+          {ended.text}
+        </div>
+      )}
+      <header style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <span style={{ fontSize: 15, color: C.muted }}>
+          <Link href="/pots">All pots and perps</Link>
+        </span>
+        <h1
+          style={{
+            margin: 0,
+            fontFamily: F.cond,
+            fontSize: "clamp(40px, 8vw, 56px)",
+            fontWeight: 600,
+            lineHeight: 0.95,
+          }}
+        >
+          Perp {id}
+        </h1>
+        <p style={{ margin: 0, fontSize: 19 }}>{label}</p>
+        <p style={{ margin: 0, fontSize: 17, color: C.body }}>
+          On “{question}”. Each rope, both put in {$(stake)}; a rope lasts at
+          most {lifeWords(Number(d.t.ropeLife))}.
+        </p>
+        <p style={{ margin: 0, fontSize: 17 }}>
+          <strong>
+            {p.phase === "Open"
+              ? "Waiting for someone to take the other side."
+              : p.phase === "Funded"
+                ? "Both are in: the first rope starts in a moment."
+                : p.phase === "Joining"
+                  ? "The first rope is starting: its price is being measured over 30 seconds."
+                  : p.phase === "Running"
+                    ? d.leaving
+                      ? "Someone is leaving: this rope is being priced, then the perp ends."
+                      : `Rope ${d.ropes} is running.`
+                    : `Ended after ${d.ropes} ${d.ropes === 1 ? "rope" : "ropes"}${(() => {
+                        const why = p.events.find((e) => e.name === "PerpEnded")
+                          ?.args.why;
+                        return why ? `: ${why}` : "";
+                      })()}.`}
+          </strong>
+        </p>
+      </header>
+
+      {p.phase === "Running" && lower !== null && upper !== null && (
+        <section
+          aria-label="The rope"
+          style={{ display: "flex", flexDirection: "column", gap: 8 }}
+        >
+          <div style={{ position: "relative", height: 56, margin: "0 8px" }}>
+            <div
+              style={{
+                position: "absolute",
+                left: 0,
+                right: 0,
+                top: 26,
+                height: 4,
+                background: C.ink,
+              }}
+            />
+            {[
+              { at: 0, text: `${points(lower)}`, who: "YES post" },
+              { at: 100, text: `${points(upper)}`, who: "NO post" },
+            ].map((x) => (
+              <div
+                key={x.who}
+                style={{
+                  position: "absolute",
+                  left: `${x.at}%`,
+                  top: 8,
+                  transform: "translateX(-50%)",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                }}
+              >
+                <div style={{ width: 4, height: 40, background: C.ink }} />
+              </div>
+            ))}
+            {price !== null && (
+              <div
+                aria-hidden="true"
+                style={{
+                  position: "absolute",
+                  left: `${Math.min(100, Math.max(0, ((price * 1e6 - lower) / (upper - lower)) * 100))}%`,
+                  top: 14,
+                  width: 28,
+                  height: 28,
+                  transform: "translateX(-50%)",
+                  borderRadius: "50%",
+                  background: C.signal,
+                  transition: "left 1s linear",
+                }}
+              />
+            )}
+          </div>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              fontSize: 15,
+            }}
+          >
+            <span>{points(lower)}: the NO side wins this rope</span>
+            <span>
+              {price !== null ? `now ${(price * 100).toFixed(1)}` : ""}
+              {left !== null ? ` · ${clock(left)}` : ""}
+            </span>
+            <span>{points(upper)}: the YES side wins this rope</span>
+          </div>
+          {rope && (
+            <span style={{ fontSize: 14, color: C.muted }}>
+              This rope is{" "}
+              <Link href={`/pots/${rope.potId}`}>pot {rope.potId}</Link>.{" "}
+              <GeminiCredit />
+            </span>
+          )}
+        </section>
+      )}
+
+      <section style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+        {player("a")}
+        {player("b")}
+      </section>
+
+      {p.phase === "Open" && me !== "a" && (
+        <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <h2 style={h2}>Take the other side</h2>
+          <p style={{ margin: 0, fontSize: 18, lineHeight: 1.5 }}>
+            You play {sideA === 0 ? "NO" : "YES"}
+            {levB !== null ? ` at ${times(levB)}` : ""} ({nm(p.a)} plays{" "}
+            {sideA === 0 ? "YES" : "NO"}
+            {levA !== null ? ` at ${times(levA)}` : ""}). Each rope, both put in{" "}
+            {$(stake)}; past your post you lose it, past theirs you win theirs.
+          </p>
+          <label
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+              maxWidth: 220,
+            }}
+          >
+            <span style={{ fontSize: 15, fontWeight: 600 }}>Your lives</span>
+            <input
+              inputMode="numeric"
+              value={joinLives}
+              onChange={(e) =>
+                setJoinLives(e.target.value.replace(/[^0-9]/g, "").slice(0, 2))
+              }
+              style={{
+                minHeight: 48,
+                padding: "0 12px",
+                border: `1.5px solid ${C.ink}`,
+                background: C.page,
+                fontSize: 18,
+              }}
+            />
+          </label>
+          {(() => {
+            const n = BigInt(Math.max(0, Number(joinLives) || 0));
+            const budget = n * stake + treatOf(stake);
+            if (!who.actor)
+              return (
+                <SignIn who={who} purpose="Sign in to take the other side." />
+              );
+            return (
+              <>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: 16,
+                    display: "flex",
+                    gap: 10,
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <Lives left={Number(n)} size={18} /> {String(n)} lives:{" "}
+                  {$(n * stake)}, plus a {$(treatOf(stake))} maker treat to{" "}
+                  {nm(p.a)} on the first rope.
+                </p>
+                <button
+                  type="button"
+                  style={{ ...btn, alignSelf: "flex-start" }}
+                  disabled={!!step || n < 1n || !perps}
+                  onClick={() =>
+                    run(() => joinPerp(who.actor!, perps!, id, budget, setStep))
+                  }
+                >
+                  {step ?? `Give your word and join (${$(budget)})`}
+                </button>
+              </>
+            );
+          })()}
+        </section>
+      )}
+
+      {me && mine && perps && (
+        <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <h2 style={h2}>Your perp</h2>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            {p.phase === "Running" && !d.leaving && (
+              <button
+                type="button"
+                style={btn}
+                disabled={!!step}
+                onClick={() =>
+                  run(() => leaveNow(who.actor!, perps, id, setStep))
+                }
+              >
+                {step ?? "Leave now"}
+              </button>
+            )}
+            {p.phase !== "Ended" && mine.renew && p.phase !== "Open" && (
+              <button
+                type="button"
+                style={btnQuiet}
+                disabled={!!step}
+                onClick={() =>
+                  run(() => stopRenewing(who.actor!, perps, id, setStep))
+                }
+              >
+                Stop renewing
+              </button>
+            )}
+            {spare > 0n && (
+              <button
+                type="button"
+                style={btnQuiet}
+                disabled={!!step}
+                onClick={() =>
+                  run(() =>
+                    withdrawSpare(who.actor!, perps, id, spare, setStep),
+                  )
+                }
+              >
+                {p.phase === "Ended" || (p.phase === "Open" && me === "a")
+                  ? `Take out ${$(spare)}`
+                  : `Take out spare money (${$(spare)})`}
+              </button>
+            )}
+            {p.phase === "Open" && me === "a" && (
+              <button
+                type="button"
+                style={btnQuiet}
+                disabled={!!step}
+                onClick={() =>
+                  run(() =>
+                    withdrawSpare(who.actor!, perps, id, mine.free, setStep),
+                  )
+                }
+              >
+                Take back my offer ({$(mine.free)})
+              </button>
+            )}
+          </div>
+          {p.phase !== "Ended" && (
+            <div
+              style={{
+                display: "flex",
+                gap: 10,
+                alignItems: "flex-end",
+                flexWrap: "wrap",
+              }}
+            >
+              <label
+                style={{ display: "flex", flexDirection: "column", gap: 6 }}
+              >
+                <span style={{ fontSize: 15, fontWeight: 600 }}>Add lives</span>
+                <input
+                  inputMode="numeric"
+                  value={more}
+                  onChange={(e) =>
+                    setMore(e.target.value.replace(/[^0-9]/g, "").slice(0, 2))
+                  }
+                  style={{
+                    minHeight: 48,
+                    width: 90,
+                    padding: "0 12px",
+                    border: `1.5px solid ${C.ink}`,
+                    background: C.page,
+                    fontSize: 18,
+                  }}
+                />
+              </label>
+              <button
+                type="button"
+                style={btnQuiet}
+                disabled={!!step || !(Number(more) > 0)}
+                onClick={() =>
+                  run(() =>
+                    addLives(
+                      who.actor!,
+                      perps,
+                      id,
+                      BigInt(Number(more)) * stake,
+                      setStep,
+                    ),
+                  )
+                }
+              >
+                Add {Number(more) || 0} for{" "}
+                {$(BigInt(Number(more) || 0) * stake)}
+              </button>
+            </div>
+          )}
+          <p
+            style={{ margin: 0, fontSize: 15, color: C.muted, lineHeight: 1.5 }}
+          >
+            Leave now: this rope is priced over the next 30 seconds and you give
+            1% of what you take out to the other side; then the perp ends. Stop
+            renewing: this rope runs to its end, and no new one starts.
+          </p>
+        </section>
+      )}
+      {err && (
+        <p role="alert" style={{ margin: 0, color: C.signalInk }}>
+          {err}
+        </p>
+      )}
+
+      {history.length > 0 && (
+        <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <h2 style={h2}>Ropes so far</h2>
+          <ol
+            style={{
+              margin: 0,
+              padding: 0,
+              listStyle: "none",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            {history.map((r) => (
+              <li
+                key={r.rope}
+                style={{
+                  display: "flex",
+                  gap: 12,
+                  flexWrap: "wrap",
+                  alignItems: "baseline",
+                  borderTop: `1px solid ${C.faint}`,
+                  padding: "10px 0",
+                  fontSize: 16,
+                }}
+              >
+                <strong style={{ minWidth: 70 }}>Rope {r.rope}</strong>
+                <span style={{ flex: "1 1 200px" }}>
+                  {r.reason === null
+                    ? "running"
+                    : (REASONS[r.reason] ?? "ended")}
+                  {r.rolled ? " · started at the last rope's price" : ""}
+                </span>
+                {r.paidA !== null && r.paidB !== null && (
+                  <span style={{ color: C.body }}>
+                    {nm(p.a)} {signed(r.paidA - stake)} · {nm(p.b)}{" "}
+                    {signed(r.paidB - stake)}
+                  </span>
+                )}
+                {r.pot && <Link href={`/pots/${r.pot}`}>pot {r.pot}</Link>}
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
+
+      <p
+        role="note"
+        style={{
+          margin: 0,
+          fontSize: 16,
+          lineHeight: 1.5,
+          border: `2px solid ${C.signal}`,
+          padding: "10px 14px",
+        }}
+      >
+        <strong>A life can be lost in minutes.</strong> A move of{" "}
+        {points(d.t.d)} points ends a rope; on live games the price can jump
+        that far at once.
+      </p>
+      <p style={{ margin: 0, fontSize: 14, color: C.muted }}>
+        Test version on Arc testnet: test money only. Not financial advice. Play
+        within limits.
+      </p>
+    </div>
+  );
+}

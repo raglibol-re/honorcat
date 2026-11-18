@@ -179,7 +179,7 @@ export async function perpDetail(db: Db, perpId: string) {
     "SELECT args, tx_hash, block_time::text AS block_time, event_name, pot_id::text AS pot_id FROM pot_events WHERE event_name LIKE 'Perp:%' AND args->>'perpId' = $1 ORDER BY block_number, log_index",
     [perpId],
   );
-  return { perpId: row.perp_id, phase: PERP_PHASES[row.phase], a: row.a, b: row.b, pot: row.pot_id, data: dataOf(row), events: ropes.map((e) => ({ name: e.event_name.slice(5), args: e.args, tx: e.tx_hash, at: e.block_time ? Number(e.block_time) : null, pot: e.pot_id })) };
+  return { perpId: row.perp_id, phase: PERP_PHASES[row.phase], a: row.a, b: row.b, pot: row.pot_id, data: dataOf(row), market: await perpMarket(db, row), events: ropes.map((e) => ({ name: e.event_name.slice(5), args: e.args, tx: e.tx_hash, at: e.block_time ? Number(e.block_time) : null, pot: e.pot_id })) };
 }
 
 export async function listPerps(db: Db, opts: { owner?: string; phases?: number[]; limit?: number } = {}) {
@@ -198,5 +198,11 @@ export async function listPerps(db: Db, opts: { owner?: string; phases?: number[
     `SELECT perp_id::text AS perp_id, phase, pot_id, data, a, b FROM perps ${where.length ? "WHERE " + where.join(" AND ") : ""} ORDER BY perp_id DESC LIMIT $${args.length}`,
     args,
   );
-  return rows.map((r) => ({ perpId: r.perp_id, phase: PERP_PHASES[r.phase], a: r.a, b: r.b, pot: r.pot_id, data: dataOf(r) }));
+  return Promise.all(rows.map(async (r) => ({ perpId: r.perp_id, phase: PERP_PHASES[r.phase], a: r.a, b: r.b, pot: r.pot_id, data: dataOf(r), market: await perpMarket(db, r) })));
+}
+
+/** The perp's market (by its conditionId), without the trigger parameters. */
+async function perpMarket(db: Db, r: PerpRow) {
+  const m = await marketOf(db, String(dataOf(r).t.conditionId)).catch(() => null);
+  return m ? { instrument: m.instrument, eventTicker: m.eventTicker, contractTicker: m.contractTicker, eventTitle: m.eventTitle, label: m.label } : null;
 }
