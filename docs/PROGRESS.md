@@ -18,18 +18,22 @@
   division record per pot; the first rope opens through the normal join window. Post margin for ropes:
   **2 points**. v2.1 is a redeploy at a new address (asked before deploying).
 
+**No deploys 2026-11-19 00:40 to about 05:40 UTC**: perps e2e runs on live games (data/perps-e2e-nhl.log, data/perps-e2e-nba.log).
+
 ## Status against "finish what is open, then lives and perps done properly" (2026-11-18)
 
 | # | Item | Status |
 |---|---|---|
 | 1 | Two offers only: normal pot and perp; no stand-alone short rope | not started (v2 create page still offers a stand-alone short rope behind the switch, off in production) |
 | 2 | v2 pot contract: posts, clamp, knock-out priced after the trigger, expiry, cap, minimum distance, maximum leverage, maker treat, exit fee on the part exited, referral, copycat, no operator fee, tests | done (72 tests, deployed to testnet, switch off) |
-| 2 | Normal v2 pot behaves exactly like v1, test on the same inputs | in progress |
-| 2 | One-call entry point opening a pot with both sides funded at an attested price | not possible as built: blocks the milestone (above) |
+| 2 | Normal v2 pot behaves exactly like v1, test on the same inputs | done (RopesV1Equivalence fuzz; found and fixed a stricter cap) |
+| 2 | One-call entry point opening a pot with both sides funded at an attested price | done as the owner chose: v2.1 roll entry `openFunded(fromPot)` at the previous rope's division price; deployed 0x5489…B62E |
 | 2 | Joiner sets its own post | not built (withdrawn) |
 | 3 | Lives only in perps; normal pots say "taking one ninth off the rope"; cat-head symbol for lives | not started (today's receipt and v2's extra lives still say "lives" with paw marks) |
-| 4.1 | Perp rope geometry (d from leverage, posts q ± d, both put in S) | partly: v2's pot math supports a symmetric rope; perp checks (post margin) not started |
-| 4.2 | Chain contract (budgets, roll, stop renewing, leave now, handshake, withdraw, optional stop-loss) | not started |
+| 4.1 | Perp rope geometry (d from leverage, posts q ± d, both put in S) | done (v2.1: symmetric rope, 2-point post margin, no takeover by one holder of both sides) |
+| 4.2 | Chain contract (budgets, roll, stop renewing, leave now, handshake, withdraw, optional stop-loss) | done: HonorCatPerps 0x2865…0CEB on Arc testnet (unit, fuzz, invariant tests); stop-loss not built (optional) |
+| 4.2 | Relay: first rope, credit and roll, knock-outs, expiries; list and detail API | done and in production (switch off) |
+| 4.2 | Arc e2e gate before the perps switch | 2026-11-18 run on ZEC (perps 1 to 4): chain of 3 ropes rolled after expiries; ended by leave now (exit fee 1% to the other side), by stop renewing, by running out of lives. Open: a knock-out and a roll after a knock-out (runs on live NHL and NBA games tonight, 00:40 and 02:40 UTC) |
 | 4.3 | Backtest per market type, live games separately, with lives | partly: simulation and model-based BTC done, recorder running since 14:00 UTC, recorded rows and lives pending |
 | 4.3 | Measured bias in plain words on the create page | not started |
 | 4.3 | README: perps as a chain of short ropes | not started (README has v2 short ropes) |
