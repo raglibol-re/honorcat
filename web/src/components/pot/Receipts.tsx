@@ -1,5 +1,7 @@
 "use client";
 
+import { DivisionCard } from "@/components/pot/DivisionCard";
+import { divisionReceipts } from "@/lib/divisionReceipt";
 import { C, F } from "@/components/cat/tokens";
 import { usePolling } from "@/lib/api";
 import { txUrl } from "@/lib/chain";
@@ -30,12 +32,33 @@ export function FeeNote({ fees, kind = "pot_exec", payer }: { fees: Record<strin
  * Every payout of the pot as a receipt sentence ("You left at 74.5% and received $7.40."), how long
  * it took from the request, its network fee in cents, and the transaction whose memo records it.
  */
-export function Receipts({ events, fees, mySide, name, says }: { events: ReceiptEvent[]; fees: Record<string, string>; mySide: number | null; name: (side: number) => string; says: (side: number) => string }) {
-  const list = receiptsOf(events, mySide, name, says);
-  if (!list.length) return null;
+export function Receipts({
+  events,
+  fees,
+  mySide,
+  name,
+  says,
+  fur,
+}: {
+  events: ReceiptEvent[];
+  fees: Record<string, string>;
+  mySide: number | null;
+  name: (side: number) => string;
+  says: (side: number) => string;
+  /** Each side's fur colour (hex), for the exit receipts' bar. */
+  fur?: (side: number) => string;
+}) {
+  // Exits get the full receipt card; handshakes and settlements stay as sentences.
+  const divisions = divisionReceipts(events);
+  const list = receiptsOf(events, mySide, name, says, { skipDivisions: true });
+  if (!list.length && !divisions.length) return null;
   return (
     <section aria-label="Receipts" style={{ display: "flex", flexDirection: "column", gap: 8, maxWidth: 760 }}>
       <h2 style={{ margin: 0, fontFamily: F.cond, fontSize: 32, fontWeight: 600 }}>Receipts</h2>
+      {divisions.map((r) => (
+        <DivisionCard key={r.tx} r={r} mySide={mySide} name={name} fur={fur ?? ((s) => (s === 0 ? C.ink : C.signal))} fee={fees[r.tx.toLowerCase()]} />
+      ))}
+      {list.length > 0 && (
       <ul style={{ margin: 0, padding: 0, listStyle: "none", borderTop: `1.5px solid ${C.ink}` }}>
         {list.map((r) => (
           <li key={r.tx} style={{ display: "flex", flexDirection: "column", gap: 3, padding: "10px 0", borderBottom: `1px solid ${C.faint}` }}>
@@ -51,6 +74,7 @@ export function Receipts({ events, fees, mySide, name, says }: { events: Receipt
           </li>
         ))}
       </ul>
+      )}
     </section>
   );
 }

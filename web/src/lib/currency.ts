@@ -82,5 +82,13 @@ export function money(base: string | number | bigint): string {
   return `$${usd.toFixed(2)}`;
 }
 
+/** Like money(), with three decimals for amounts under one (dollar or euro): "$0.047", "$7.40". */
+export function money3(base: string | number | bigint): string {
+  const usd = Number(base) / 1e6;
+  const eur = state.home === "EURC" && state.rate;
+  const v = eur ? usd * state.rate!.eurcPerUsdc : usd;
+  return `${eur ? "€" : "$"}${v.toFixed(Math.abs(v) < 1 ? 3 : 2)}`;
+}
+
 /** The rate as a plain sentence part: "1 USDC = 0.909 EURC". */
 export const rateText = (r: EurRate) => `1 USDC = ${r.eurcPerUsdc.toFixed(3)} EURC`;

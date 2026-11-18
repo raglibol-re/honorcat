@@ -29,7 +29,7 @@ import { RopeActions } from "@/components/pot/RopeActions";
 import { GeminiCard } from "@/components/cat/GeminiCard";
 import { useTechMode } from "@/components/TechMode";
 import { marketLine, sidesOf, yesMeans, type Sides } from "@/lib/marketName";
-import { displayName, useNames } from "@/lib/names";
+import { displayName, FURS, furOf, useNames } from "@/lib/names";
 import { useLivePrice } from "@/components/pot/usePrice";
 import { AccountLine, FundsHelp, btn, btnQuiet, SignIn, useActor, type ActorState } from "@/components/pot/Who";
 import { getJson, usePolling } from "@/lib/api";
@@ -699,6 +699,7 @@ export function PotView({ id }: { id: string }) {
         mySide={mine}
         name={(side) => nameOf(side === 0 ? pot.owners.yes : pot.owners.no)}
         says={(side) => (st ? (side === 0 ? st.yes : st.no) : side === 0 ? "YES" : "NO")}
+        fur={(side) => FURS[furOf(side === 0 ? pot.owners.yes : pot.owners.no)].hex}
       />
       {!v2 && <ShareSend pot={pot} who={who} mine={mine} />}
 

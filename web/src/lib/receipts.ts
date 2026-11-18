@@ -31,13 +31,13 @@ export type Receipt = { text: string; tx: string; tookS: number | null; at: numb
  * Receipt sentences for the pot's payouts, from the viewer's side when they hold one
  * (`mySide` 0 or 1), else naming both sides. `name(side)` names a side's holder.
  */
-export function receiptsOf(events: ReceiptEvent[], mySide: number | null, name: (side: number) => string, says: (side: number) => string): Receipt[] {
+export function receiptsOf(events: ReceiptEvent[], mySide: number | null, name: (side: number) => string, says: (side: number) => string, opts: { skipDivisions?: boolean } = {}): Receipt[] {
   const out: Receipt[] = [];
   let requestedAt: number | null = null;
   for (const e of events) {
     const g = e.args;
     if (e.name === "ExitRequested") requestedAt = e.at;
-    if (e.name === "PotDivided") {
+    if (e.name === "PotDivided" && !opts.skipDivisions) {
       const exitSide = Number(g.exitSide ?? 0);
       const paid = (side: number) => (side === 0 ? g.paidYes : g.paidNo) ?? "0";
       const fee = g.fee ?? "0";

@@ -8,6 +8,14 @@ import { GeminiCard } from "@/components/cat/GeminiCard";
 import { FURS } from "@/lib/names";
 import { RopeControl, ShortRopeNote, type RopeSetting } from "@/components/pot/RopeControl";
 import { useNow } from "@/lib/useNow";
+import { Receipts } from "@/components/pot/Receipts";
+
+const SAMPLE = [
+  { name: "PotCreated", args: { notional: "900000" }, tx: "0x01", at: 100 },
+  { name: "Joined", args: { depYes: "540000", depNo: "360000" }, tx: "0x02", at: 140 },
+  { name: "ExitRequested", args: { side: "0" }, tx: "0x03", at: 200 },
+  { name: "PotDivided", args: { exitSide: "0", notional: "100000", price: "700000", paidYes: "69000", paidNo: "31000", fee: "1000" }, tx: "0x04", at: 238 },
+];
 
 const CLOSE_MS = Date.UTC(2026, 11, 31);
 
@@ -44,6 +52,11 @@ export function RopePreview() {
             </figure>
           ))}
         </div>
+      </section>
+      <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <h2 style={h2}>Receipt of a partial exit: the leaver, then the other side</h2>
+        <Receipts events={SAMPLE} fees={{ "0x04": "5755" }} mySide={0} name={(s) => (s === 0 ? "you" : "Mia")} says={(s) => (s === 0 ? "YES" : "NO")} fur={(s) => (s === 0 ? "#C9682A" : "#5B6B7A")} />
+        <Receipts events={SAMPLE} fees={{ "0x04": "5755" }} mySide={1} name={(s) => (s === 0 ? "Sam" : "you")} says={(s) => (s === 0 ? "YES" : "NO")} fur={(s) => (s === 0 ? "#C9682A" : "#5B6B7A")} />
       </section>
       <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <h2 style={h2}>The market on Gemini</h2>
