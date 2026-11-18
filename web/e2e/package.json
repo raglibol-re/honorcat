@@ -1,0 +1,17 @@
+{
+  "name": "honorcat-e2e",
+  "private": true,
+  "type": "module",
+  "description": "Browser tests of HonorCat's real pages with virtual passkeys (see README.md).",
+  "scripts": {
+    "practice": "node practice-ui.mjs",
+    "open-cancel": "node open-ui.mjs",
+    "perp": "node perp-ui.mjs",
+    "practice-perp": "node practice-perp-ui.mjs",
+    "a11y": "node a11y.mjs"
+  },
+  "dependencies": {
+    "axe-core": "4.10.3",
+    "playwright-core": "1.56.1"
+  }
+}

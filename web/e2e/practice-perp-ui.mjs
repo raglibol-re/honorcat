@@ -1,0 +1,45 @@
+// A practice perp through the real pages: node practice-perp-ui.mjs <base>
+import { chromium, devices } from "playwright-core";
+import { mkdirSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+// screenshots and logs go to e2e/out (ignored by git)
+mkdirSync(new URL("./out/", import.meta.url), { recursive: true });
+process.chdir(fileURLToPath(new URL("./out/", import.meta.url)));
+const exe = process.env.CHROME_PATH ?? `${process.env.LOCALAPPDATA}/ms-playwright/chromium-1254/chrome-win64/chrome.exe`;
+const base = process.argv[2] ?? "https://honorcat.vercel.app";
+const log = (m) => console.log(`[${new Date().toISOString().slice(11, 19)}] ${m}`);
+const browser = await chromium.launch({ executablePath: exe });
+const ctx = await browser.newContext(devices["Pixel 7"]);
+const page = await ctx.newPage();
+const cdp = await ctx.newCDPSession(page);
+await cdp.send("WebAuthn.enable");
+await cdp.send("WebAuthn.addVirtualAuthenticator", { options: { protocol: "ctap2", transport: "internal", hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true } });
+const shot = (f) => page.screenshot({ path: f, fullPage: true }).then(() => log(`saved ${f}`));
+await page.goto(`${base}/pots/new?kind=perp&perps=preview`, { waitUntil: "load" });
+await page.waitForTimeout(6000);
+await page.getByRole("checkbox", { name: /Even markets/ }).check();
+await page.waitForTimeout(6000);
+await page.locator('button[role="radio"][aria-disabled="false"]').filter({ hasNotText: /^(Normal|Perp)/ }).first().click({ timeout: 60_000 });
+await page.getByRole("textbox", { name: "Stake per life (USDC)" }).fill("0.1");
+await page.getByRole("textbox", { name: "Lives", exact: true }).fill("2");
+await page.getByLabel("Each rope lasts at most").selectOption({ label: "10 minutes" });
+await page.getByRole("checkbox", { name: /Practise alone/ }).check();
+await page.getByRole("button", { name: "Create a passkey" }).first().click();
+await page.getByRole("button", { name: "Create a passkey" }).first().waitFor({ state: "detached", timeout: 60_000 });
+await page.waitForTimeout(4000);
+await page.getByRole("button", { name: /^Give your word/ }).click();
+await page.waitForURL(/\/perps\/\d+/, { timeout: 240_000 });
+log(`practice perp ${page.url().match(/perps\/(\d+)/)[1]} opened`);
+await page.getByText("Practice perp.").waitFor({ timeout: 60_000 });
+await page.getByText("Rope 1 is running").first().waitFor({ timeout: 300_000 });
+log("rope 1 running against the practice cat");
+await page.waitForTimeout(4000);
+await shot("pp-running.png");
+await page.getByRole("button", { name: "Leave now", exact: true }).click();
+await page.getByRole("button", { name: "Yes, leave now" }).click();
+await page.getByText(/Ended after/).first().waitFor({ timeout: 300_000 });
+log("ended after leave now");
+const out = page.getByRole("button", { name: /^Take out/ });
+if (await out.count()) { await out.first().click(); await page.waitForTimeout(15_000); log("took the money out"); }
+await shot("pp-ended.png");
+await browser.close();

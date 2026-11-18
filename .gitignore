@@ -37,3 +37,5 @@ Thumbs.db
 # Vercel CLI link
 .vercel
 __pycache__/
+web/e2e/node_modules/
+web/e2e/out/
