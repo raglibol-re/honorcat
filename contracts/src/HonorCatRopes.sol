@@ -77,7 +77,7 @@ contract HonorCatRopes is RopesBase {
         _checkRope(c, d);
         uint256 escrowY = _worstDeposit(YES, c);
         uint256 escrowN = _worstDeposit(NO, c);
-        if (escrowY + escrowN > globalMaxPot) revert AboveCap(); // ≥ the pot value at any entry in the band
+        if (_maxPotValue(c) > globalMaxPot) revert AboveCap(); // the most the pot can hold at any entry in the band
 
         potId = nextPotId++;
         Pot storage p = _pots[potId];
@@ -134,6 +134,19 @@ contract HonorCatRopes is RopesBase {
         if (c.expiry < block.timestamp + MIN_LIFE || c.expiry > block.timestamp + MAX_LIFE || uint256(c.expiry) + EXPIRY_LEAD > c.closeTime) {
             revert BadParams();
         }
+    }
+
+    /// @dev The largest pot value any entry in the band can give: (U − L) × size, where a side without a
+    ///      post reaches to 0 or 100. A normal pot always holds exactly 100 points × size (as in v1).
+    function _maxPotValue(CreateParams calldata c) internal pure returns (uint256) {
+        uint256 lo = c.tolerance > c.bandCenter ? 0 : c.bandCenter - c.tolerance;
+        uint256 hi = uint256(c.bandCenter) + c.tolerance > P ? P : uint256(c.bandCenter) + c.tolerance;
+        uint256 span;
+        if (c.distYes == 0 && c.distNo == 0) span = P;
+        else if (c.distYes != 0 && c.distNo != 0) span = uint256(c.distYes) + c.distNo;
+        else if (c.distYes != 0) span = uint256(c.distYes) + P - (lo / TICK) * TICK; // U = 100, L = e − dY: largest at the lowest entry
+        else span = (hi / TICK) * TICK + c.distNo; // L = 0, U = e + dN: largest at the highest entry
+        return (span / TICK) * c.size;
     }
 
     /// @dev The most `side` can owe anywhere in the band. A side with a post owes exactly its distance.

@@ -30,6 +30,7 @@ const { values } = parseArgs({
     expiryMin: { type: "string", default: "12" },
     dist: { type: "string", default: "60000" },
     size: { type: "string", default: "50" },
+    tol: { type: "string", default: "20000" },
     fund: { type: "string", default: "150000" },
   },
 });
@@ -129,7 +130,7 @@ async function createRope(who: Acct, symbol: string, o: { side: number; size: bi
     side: o.side,
     size: o.size,
     bandCenter: center,
-    tolerance: 0,
+    tolerance: Number(values.tol), // the entry is the 30-second average after the join, which may move
     distYes: o.dist,
     distNo: o.dist,
     expiry: BigInt(o.expiry),

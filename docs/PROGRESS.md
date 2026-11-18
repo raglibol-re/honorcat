@@ -1,5 +1,42 @@
 # Progress
 
+## Blocks current milestone
+
+- **2026-11-18: the pot contract cannot open a rope with both sides funded in one call at an attested
+  price** (spec 2, needed by the perp chain). v2 as deployed opens a pot only by create, then join,
+  then a forward-priced join window. Proposal and question to the owner below ("Perps: decision
+  needed"). Waiting for the owner's answer before changing the contract.
+
+## Status against "finish what is open, then lives and perps done properly" (2026-11-18)
+
+| # | Item | Status |
+|---|---|---|
+| 1 | Two offers only: normal pot and perp; no stand-alone short rope | not started (v2 create page still offers a stand-alone short rope behind the switch, off in production) |
+| 2 | v2 pot contract: posts, clamp, knock-out priced after the trigger, expiry, cap, minimum distance, maximum leverage, maker treat, exit fee on the part exited, referral, copycat, no operator fee, tests | done (72 tests, deployed to testnet, switch off) |
+| 2 | Normal v2 pot behaves exactly like v1, test on the same inputs | in progress |
+| 2 | One-call entry point opening a pot with both sides funded at an attested price | not possible as built: blocks the milestone (above) |
+| 2 | Joiner sets its own post | not built (withdrawn) |
+| 3 | Lives only in perps; normal pots say "taking one ninth off the rope"; cat-head symbol for lives | not started (today's receipt and v2's extra lives still say "lives" with paw marks) |
+| 4.1 | Perp rope geometry (d from leverage, posts q ± d, both put in S) | partly: v2's pot math supports a symmetric rope; perp checks (post margin) not started |
+| 4.2 | Chain contract (budgets, roll, stop renewing, leave now, handshake, withdraw, optional stop-loss) | not started |
+| 4.3 | Backtest per market type, live games separately, with lives | partly: simulation and model-based BTC done, recorder running since 14:00 UTC, recorded rows and lives pending |
+| 4.3 | Measured bias in plain words on the create page | not started |
+| 4.3 | README: perps as a chain of short ropes | not started (README has v2 short ropes) |
+| 5 | Create page with two cards; perp form with summary sentence | not started |
+| 5 | Join with leverage and lives; perp page; rope-end animation | not started |
+| 5 | Normal pot page with "take one ninth off the rope" | partly (receipts say it; buttons and help text not yet) |
+| 5 | Open sides, leaderboard, copycat show normal or perp | not started |
+| 5 | Perp warning (a life can be lost in minutes) | not started |
+| 6 | Partial-exit receipts (headline, bar, lines, three decimals, technical line) | done (needs the lives wording from item 3) |
+| 6 | One smoothed price with a timestamp for every viewer | not started (each browser smooths its own quotes) |
+| 6 | Paw trail since the pot started, entry and exits marked, legend | not started (trail shows the last few positions) |
+| 6 | Practice mode says the visitor plays the practice cat with test money | done (create page practice note) |
+| 6 | Status and sponsor pages: no retired vault, Streams primary, consistent numbers | not started |
+| 6 | Price chart from the entry onward or saying where history is missing | not started |
+| 6 | Treats, referral link, copycat on leaderboard; follow | done except "follow" |
+| 6 | README: challenges, economics, Arc with every address, Stream set-up, dated build log | partly (all exist; challenges section and v2/perp parts to complete) |
+| 6 | No further Grok Bot work | noted |
+
 ## HonorCat v2: short ropes and treats (2026-11-18)
 
 Design note: docs/rope-design.md. State: contract with tests, knock-out and expiry relay, create page
