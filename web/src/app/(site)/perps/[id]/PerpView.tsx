@@ -36,7 +36,7 @@ import { Notice } from "@/components/ui/Field";
 import { toast } from "@/components/ui/Toast";
 import { CatState } from "@/components/cat/CatState";
 import { Rope } from "@/components/pot/Rope";
-import { Invite } from "@/components/pot/Invite";
+import { Invite, NotifyButton } from "@/components/pot/Invite";
 import { sidesOf } from "@/lib/marketName";
 import { furOf } from "@/lib/names";
 /** Dollars; amounts under a cent (tiny test stakes) keep two significant digits instead of showing $0.00. */
@@ -523,6 +523,8 @@ export function PerpView({ id }: { id: string }) {
           <Invite
             path={`/perps/${id}`}
             text={`Take the other side of my HonorCat perp${st ? `: ${st.yes}?` : ""}`}
+            potId={`-${id}`}
+            account={who.actor?.account ?? null}
           />
         </section>
       )}
@@ -530,6 +532,15 @@ export function PerpView({ id }: { id: string }) {
       {me && mine && perps && (
         <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <h2 style={h2}>Your perp</h2>
+          {p.phase !== "Ended" && p.phase !== "Open" && (
+            <div>
+              <NotifyButton
+                potId={`-${id}`}
+                account={who.actor?.account ?? null}
+                when="change"
+              />
+            </div>
+          )}
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
             {p.phase === "Running" && !d.leaving && (
               <>

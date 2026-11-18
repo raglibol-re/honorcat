@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { isAddress, type Address, type Hex } from "viem";
 import { AgentSeats } from "@/components/agent/AgentSeats";
+import { useTechMode } from "@/components/TechMode";
+import { ButtonLink } from "@/components/ui/Button";
 import { CatName } from "@/components/cat/PlayerCat";
 import { Ears, EyesSmall } from "@/components/cat/shapes";
 import { C, F } from "@/components/cat/tokens";
@@ -46,6 +48,7 @@ export function MoneyView() {
 
 function Signed({ who }: { who: ActorState }) {
   const a = who.actor!.account;
+  const { tech } = useTechMode();
   const names = useNames([a]);
   const [tab, setTab] = useState<Tab | null>(null);
   const [editing, setEditing] = useState(false);
@@ -94,6 +97,15 @@ function Signed({ who }: { who: ActorState }) {
         {low && who.fundsNote && <FundsHelp account={a} reason={who.fundsNote} />}
       </section>
 
+      <nav aria-label="Your play" style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+        <ButtonLink href="/pots" variant="quiet" size="sm">
+          Your pots and perps
+        </ButtonLink>
+        <ButtonLink href={`/record/${a}`} variant="quiet" size="sm">
+          Your honor record
+        </ButtonLink>
+      </nav>
+
       <div role="tablist" aria-label="What to do" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
         {TABS.map((t) => {
           const on = tab === t.id;
@@ -106,7 +118,8 @@ function Signed({ who }: { who: ActorState }) {
               aria-selected={on}
               aria-controls="money-panel"
               onClick={() => setTab(on ? null : t.id)}
-              style={{ minHeight: 52, padding: "0 6px", fontFamily: F.sans, fontSize: 17, fontWeight: 600, cursor: "pointer", border: `1.5px solid ${C.ink}`, background: on ? C.ink : "transparent", color: on ? C.page : C.ink }}
+              className="hc-choice hc-choice--sm"
+              style={{ minHeight: 52, padding: "0 6px", justifyContent: "center", alignItems: "center" }}
             >
               {t.label}
             </button>
@@ -123,7 +136,7 @@ function Signed({ who }: { who: ActorState }) {
       )}
 
       <Currency />
-      <Guarantees account={a} />
+      {tech && <Guarantees account={a} />}
       <AgentSeats />
     </div>
   );

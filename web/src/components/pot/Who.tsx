@@ -197,7 +197,11 @@ export function SignIn({ who, purpose }: { who: ActorState; purpose: string }) {
  * Who is acting: their name (editable), how much test USDC they hold, a button for test USDC when
  * they have little, and the address only with technical details on.
  */
-export function AccountLine({ who }: { who: ActorState }) {
+/**
+ * `askCat`: open the cat picker on its own for a player without a cat (the account page). Elsewhere
+ * it is only offered as a link, so it never interrupts a pot being made or joined.
+ */
+export function AccountLine({ who, askCat = false }: { who: ActorState; askCat?: boolean }) {
   const { tech } = useTechMode();
   const a = who.actor?.account ?? null;
   const names = useNames([a]);
@@ -209,7 +213,7 @@ export function AccountLine({ who }: { who: ActorState }) {
   const low = who.balance !== null && who.balance < 2_000_000n;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      {((!picked && namesLoaded(a)) || editing) && (
+      {((askCat && !picked && namesLoaded(a)) || editing) && (
         <CatPicker
           who={who}
           first={!picked}
@@ -225,9 +229,9 @@ export function AccountLine({ who }: { who: ActorState }) {
       <p style={{ margin: 0, fontSize: 15, lineHeight: 1.5, color: C.muted }}>
         Playing as <strong style={{ color: C.ink }}><CatName account={a} name={myName ?? nickname(a)} /></strong>
         {who.actor.kind === "wallet" && who.wallet.kind === "circle" ? " (Circle smart account)" : ""}{" "}
-        {picked && !editing && (
+        {!editing && !(askCat && !picked) && (
           <button type="button" onClick={() => setEditing(true)} style={{ background: "none", border: 0, padding: 0, color: C.muted, textDecoration: "underline", cursor: "pointer", fontSize: 15 }}>
-            change your cat
+            {picked ? "change your cat" : "name your cat"}
           </button>
         )}
         {tech && (

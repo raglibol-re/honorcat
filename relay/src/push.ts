@@ -39,7 +39,9 @@ export async function notifyPot(db: Db, potId: string, title: string, body: stri
   if (!configured()) return 0;
   const subs = await db.query<{ endpoint: string; sub: PushSubscriptionJson | string }>("SELECT endpoint, sub FROM push_subs WHERE pot_id = $1", [potId]);
   let sent = 0;
-  const payload = JSON.stringify({ title, body, url: `/pots/${potId}` });
+  // A perp's subscriptions are kept under its negative id (one table for both).
+  const url = potId.startsWith("-") ? `/perps/${potId.slice(1)}` : `/pots/${potId}`;
+  const payload = JSON.stringify({ title, body, url });
   for (const r of subs) {
     const sub = typeof r.sub === "string" ? (JSON.parse(r.sub) as PushSubscriptionJson) : r.sub;
     try {
@@ -51,6 +53,22 @@ export async function notifyPot(db: Db, potId: string, title: string, body: stri
     }
   }
   return sent;
+}
+
+/**
+ * The message for a perp's change, if worth a notification: someone joined, a rope ended (with the
+ * lives left), the chain ended. `prev` and `next` are the read model's data before and after.
+ */
+export function perpMessage(perpId: string, prev: Record<string, unknown> | null, next: Record<string, unknown>): { title: string; body: string } | null {
+  if (!prev) return null;
+  const t = `Perp ${perpId}`;
+  const phase = (d: Record<string, unknown>) => Number(d.phase);
+  const ropes = (d: Record<string, unknown>) => Number(d.ropes ?? 0);
+  const lives = (d: Record<string, unknown>) => `${d.livesA} and ${d.livesB}`;
+  if (phase(prev) === 1 && phase(next) >= 2) return { title: t, body: "Someone took the other side. The first rope starts in a moment." };
+  if (phase(next) === 5 && phase(prev) !== 5) return { title: t, body: `Your perp ended after ${ropes(next)} ${ropes(next) === 1 ? "rope" : "ropes"}. Take your money out on its page.` };
+  if (ropes(next) > ropes(prev) && ropes(prev) >= 1) return { title: t, body: `Rope ${ropes(prev)} ended and rope ${ropes(next)} started. Lives left: ${lives(next)}.` };
+  return null;
 }
 
 /** The message for a pot's change of state, if worth a notification. */

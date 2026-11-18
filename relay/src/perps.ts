@@ -23,6 +23,7 @@ import { memoCall } from "./memo";
 import { perpsAbi } from "./perpsAbi";
 import { depthResult, marketOf, recordPotEvent, requestDepthV2, syncPot, type DepthAtt } from "./pots";
 import { ropeDbId } from "./ropes";
+import { notifyPot, perpMessage } from "./push";
 import { sendRelayCalls } from "./txs";
 
 export const PERP_PHASES = ["None", "Open", "Funded", "Joining", "Running", "Ended"] as const;
@@ -47,12 +48,16 @@ export async function syncPerp(db: Db, perpId: bigint) {
   const stake = (await c.readContract({ address, abi: perpsAbi, functionName: "stake", args: [perpId] })) as bigint;
   const potDb = q.pot > 0n ? ropeDbId(q.pot) : null;
   const data = { ...(jsonify(q) as Record<string, unknown>), livesA: livesA.toString(), livesB: livesB.toString(), stake: stake.toString(), potDb };
+  const before = (await db.query<{ data: Record<string, unknown> | string }>("SELECT data FROM perps WHERE perp_id = $1", [perpId.toString()]))[0];
+  const prev = before ? (typeof before.data === "string" ? JSON.parse(before.data) : before.data) : null;
   await db.query(
     `INSERT INTO perps (perp_id, phase, a, b, pot_id, data) VALUES ($1,$2,$3,$4,$5,$6)
      ON CONFLICT (perp_id) DO UPDATE SET phase = EXCLUDED.phase, a = EXCLUDED.a, b = EXCLUDED.b, pot_id = EXCLUDED.pot_id, data = EXCLUDED.data, updated_at = now()`,
     [perpId.toString(), Number(q.phase), String(q.a).toLowerCase(), /^0x0+$/.test(String(q.b)) ? null : String(q.b).toLowerCase(), potDb, JSON.stringify(data)],
   );
   if (potDb) await syncPot(db, BigInt(potDb)).catch(() => {});
+  const msg = perpMessage(perpId.toString(), prev, data);
+  if (msg) await notifyPot(db, `-${perpId}`, msg.title, msg.body).catch((e) => console.error("[push]", e));
   return data;
 }
 

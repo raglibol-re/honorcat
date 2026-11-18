@@ -237,8 +237,8 @@ body {
 .hc-choice { display: inline-flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; min-height: 56px; padding: 8px 14px; box-sizing: border-box;
   text-align: left; line-height: 1.25; font-family: var(--font-barlow), "Helvetica Neue", Arial, sans-serif; font-size: 18px; font-weight: 600;
   background: transparent; color: var(--hc-ink); border: 1.5px solid var(--hc-ink); cursor: pointer; transition: background-color 120ms ease, color 120ms ease; }
-.hc-choice:hover:not(:disabled):not([aria-checked="true"]) { background: var(--hc-card); }
-.hc-choice[aria-checked="true"] { background: var(--hc-ink); color: var(--hc-page); }
+.hc-choice:hover:not(:disabled):not([aria-checked="true"]):not([aria-selected="true"]) { background: var(--hc-card); }
+.hc-choice[aria-checked="true"], .hc-choice[aria-selected="true"] { background: var(--hc-ink); color: var(--hc-page); }
 .hc-choice:disabled { cursor: not-allowed; border-color: #B5B1A8; color: #6E6A62; }
 .hc-choice small { font-size: 15px; font-weight: 500; }
 .hc-choice--sm { min-height: 44px; padding: 0 16px; font-size: 17px; align-items: center; }

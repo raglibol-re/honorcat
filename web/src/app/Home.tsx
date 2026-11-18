@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ButtonLink } from "@/components/ui/Button";
 import { CatName, PlayerCat } from "@/components/cat/PlayerCat";
 import { sidesOf } from "@/lib/statement";
 import { nickname, useNames } from "@/lib/names";
@@ -23,10 +24,11 @@ import type { HomeData } from "@/server/home";
 
 const cond = { fontFamily: F.cond } as const;
 
-function StartButton({ inverted }: { inverted?: boolean }) {
+function StartButton({ inverted, href = "/pots/new", label = "Start a pot", note }: { inverted?: boolean; href?: string; label?: string; note?: string }) {
   return (
     <Link
-      href="/pots/new"
+      href={href}
+      className="hc-btn"
       style={{
         display: "inline-flex",
         alignItems: "center",
@@ -44,7 +46,10 @@ function StartButton({ inverted }: { inverted?: boolean }) {
         fill={inverted ? C.ink : C.page}
         eyes={inverted ? C.page : C.ink}
       />
-      <span style={{ fontSize: 20, fontWeight: 600 }}>Start a pot</span>
+      <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.15 }}>
+        <span style={{ fontSize: 20, fontWeight: 600 }}>{label}</span>
+        {note && <span style={{ fontSize: 14, fontWeight: 500, opacity: 0.8 }}>{note}</span>}
+      </span>
     </Link>
   );
 }
@@ -363,26 +368,14 @@ export function Home({ data }: { data: HomeData }) {
               alignItems: "center",
             }}
           >
-            <StartButton />
-            <Link
-              href="/pots/new?practice=1"
-              style={{ fontSize: 19, fontWeight: 500, padding: "14px 0" }}
-            >
-              Try it alone
-            </Link>
-            <Link
-              href="/pots/together"
-              style={{ fontSize: 19, fontWeight: 500, padding: "14px 0" }}
-            >
-              Start one with a friend
-            </Link>
-            <Link
-              href="/pots"
-              style={{ fontSize: 19, fontWeight: 500, padding: "14px 0" }}
-            >
-              Take an open side
-            </Link>
+            <StartButton href="/pots/new?practice=1" label="Try it now" note="Free test money, about two minutes" />
+            <ButtonLink href="/pots/new" variant="quiet" style={{ minHeight: 64 }}>
+              Start a real pot
+            </ButtonLink>
           </div>
+          <p style={{ margin: 0, fontSize: 17, color: C.body }}>
+            Or <Link href="/pots/together">play with a friend</Link>, or <Link href="/pots">take a side someone left open</Link>.
+          </p>
         </div>
       </section>
 
