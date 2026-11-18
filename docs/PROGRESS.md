@@ -41,7 +41,8 @@
 | 5 | Join with leverage and lives; perp page; rope-end animation | done (/perps/[id]: rope between posts with price and time left, both players' lives, results, ropes so far, leave now, stop renewing, add lives, take out spare money, join with own lives, a short banner when a rope ends); passkey calls to HonorCatPerps relayed |
 | 5 | Open pot shows an open seat on the empty side | done (pale cat outline and "open seat" instead of a cat; user request 2026-11-18) |
 | 5 | Normal pot page with "take one ninth off the rope" | partly (receipts say it; buttons and help text not yet) |
-| 5 | Open sides, leaderboard, copycat show normal or perp | not started |
+| 5 | Open sides, leaderboard, copycat show normal or perp | done for the pots page and the landing (Normal and Perp tags; open perps listed once switched on); copycat is normal pots only; the leaderboard ranks players, not pots |
+| 5 | Perps through the real pages on production | done 2026-11-18 (perp 5): two new passkey accounts; open through the form, join from the perp page, relay started rope 1, leave now, both took their money out |
 | 5 | Perp warning (a life can be lost in minutes) | done (form and perp page) |
 | 6 | Partial-exit receipts (headline, bar, lines, three decimals, technical line) | done (needs the lives wording from item 3) |
 | 6 | One smoothed price with a timestamp for every viewer | not started (each browser smooths its own quotes) |
@@ -52,6 +53,7 @@
 | 6 | Treats, referral link, copycat on leaderboard; follow | done except "follow" |
 | 6 | README: challenges, economics, Arc with every address, Stream set-up, dated build log | partly (all exist; challenges section and v2/perp parts to complete) |
 | 6 | No further Grok Bot work | noted |
+| - | Gemini links | fixed 2026-11-18: gemini.com/predictions/<EVENT_TICKER>/<slug> (the slug alone redirected); Gemini Predictions redirects visitors outside the US to its home page whatever the link |
 
 ## HonorCat v2: short ropes and treats (2026-11-18)
 
