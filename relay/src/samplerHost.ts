@@ -5,7 +5,7 @@ import { getConfig } from "./config";
 import { getState, setState, type Db } from "./db";
 import { armedPots, submitEarlySamples, submitEarlySignature } from "./early";
 import { RestBookSource, Sampler, type SamplerIo } from "./sampler";
-import { openLevelWindow, potsWork, submitAverage, submitCosig } from "./pots";
+import { openKnockWindow, openLevelWindow, potsWork, submitAverage, submitCosig } from "./pots";
 import { PotSampler, type PotsIo } from "./potsSampler";
 import type { Sample } from "./trigger/engine";
 
@@ -31,6 +31,7 @@ function potsDirectIo(db: Db): PotsIo {
     average: (id, body) => submitAverage(db, id, body),
     cosign: (id, body) => submitCosig(db, id, body),
     level: (body) => openLevelWindow(db, body),
+    knock: (body) => openKnockWindow(db, body),
   };
 }
 

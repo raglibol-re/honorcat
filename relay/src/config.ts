@@ -35,6 +35,12 @@ const schema = z.object({
   // The two-sided pot contract (default: deployments/<chain>.pots.json).
   POTS_ADDRESS: z.string().optional(),
   POTS_DEPLOY_BLOCK: z.coerce.bigint().optional(),
+  // HonorCat v2 (short ropes and treats; default: deployments/<chain>.ropes.json).
+  ROPES_ADDRESS: z.string().optional(),
+  ROPES_DEPLOY_BLOCK: z.coerce.bigint().optional(),
+  ROPES_MEDIAN_ADDRESS: z.string().optional(),
+  /** "true": new pots are created on HonorCat v2. Off until the owner switches (pots on v1 keep working). */
+  ROPES_FOR_NEW_POTS: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
   SAMPLERS: z.string().optional(), // comma-separated sampler addresses
   SAMPLER_KEY: z.string().optional(), // the Vercel app's own sampler key
   /** Smallest amount (USDC, decimal) the relay will sponsor gas for. */
@@ -87,6 +93,8 @@ export type Config = {
   fairValue: Address | null;
   /** MedianResolver: the price-agreement rule on-chain; new pots use it. */
   median: Address | null;
+  /** HonorCatRopes (v2) and its own MedianResolver; null if not deployed/configured. */
+  ropes: { address: Address; deployBlock: bigint; median: Address | null; forNewPots: boolean } | null;
   samplerKey: string | undefined;
 };
 
@@ -140,6 +148,7 @@ export function getConfig(): Config {
       const f = readJson<{ fairValue: string }>(`deployments/${env.ARC_CHAIN_ID}.fairvalue.json`);
       return f && isAddress(f.fairValue) ? getAddress(f.fairValue) : null;
     })(),
+    ropes: ropesConfig(env),
     samplerKey: env.SAMPLER_KEY,
   };
   return cached;
@@ -189,6 +198,19 @@ function potsConfig(env: z.infer<typeof schema>): Config["pots"] {
   const a = env.POTS_ADDRESS ?? f?.pots;
   if (!a || !isAddress(a)) return null;
   return { address: getAddress(a), deployBlock: env.POTS_DEPLOY_BLOCK ?? (f ? BigInt(f.deployBlock) : 0n) };
+}
+
+function ropesConfig(env: z.infer<typeof schema>): Config["ropes"] {
+  const f = readJson<{ ropes: string; deployBlock: number; median: string }>(`deployments/${env.ARC_CHAIN_ID}.ropes.json`);
+  const a = env.ROPES_ADDRESS ?? f?.ropes;
+  if (!a || !isAddress(a)) return null;
+  const m = env.ROPES_MEDIAN_ADDRESS ?? f?.median;
+  return {
+    address: getAddress(a),
+    deployBlock: env.ROPES_DEPLOY_BLOCK ?? (f ? BigInt(f.deployBlock) : 0n),
+    median: m && isAddress(m) ? getAddress(m) : null,
+    forNewPots: env.ROPES_FOR_NEW_POTS,
+  };
 }
 
 function readJson<T>(relative: string | undefined): T | undefined {

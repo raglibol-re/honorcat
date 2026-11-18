@@ -5,7 +5,8 @@ import { evaluate, classify, type Sample } from "./trigger/engine";
 import { buildRecord, evidenceHash, recordToJson } from "./trigger/evidence";
 import type { TriggerParams } from "./trigger/params";
 import type { BookSource } from "./sampler";
-import { KIND, P, averageTyped, depthDigest, marketGate, outcomeDigest, windowDigest, wouldCosign, type CosignTask, type DepthAtt, type LevelWatch, type MeasureTask, type OutcomeAtt, type WindowAtt } from "./pots";
+import { KIND, P, averageTyped, depthDigest, marketGate, outcomeDigest, windowDigest, wouldCosign, type At, type CosignTask, type DepthAtt, type KnockWatch, type LevelWatch, type MeasureTask, type OutcomeAtt, type WindowAtt } from "./pots";
+import { atPost, knockWindowOk } from "./ropes";
 
 /**
  * A pot sampler: one of the three independent signers for two-sided pots. It reads Gemini's public
@@ -16,7 +17,7 @@ import { KIND, P, averageTyped, depthDigest, marketGate, outcomeDigest, windowDi
  * It signs depth (the cap) only if its own reading is at least 80% of the proposed figure, and an
  * outcome only if Gemini's own settlement says the same.
  */
-export type PotsWork = { now: number; measure: MeasureTask[]; cosign: CosignTask[]; levels: LevelWatch[]; pots: Address; chainId: number; median?: Address | null };
+export type PotsWork = { now: number; measure: MeasureTask[]; cosign: CosignTask[]; levels: LevelWatch[]; knocks?: KnockWatch[]; pots: Address; chainId: number; median?: Address | null };
 export type SignedAverage = { priceYes: number; valid: boolean; sampleCount: number; signature: Hex };
 
 export type PotsIo = {
@@ -24,7 +25,14 @@ export type PotsIo = {
   average(requestId: string, body: { signer: Address; record: unknown; signature: Hex; average?: SignedAverage }): Promise<unknown>;
   cosign(requestId: string, body: { signer: Address; signature: Hex }): Promise<unknown>;
   level(body: { potId: string; side: 0 | 1; kind: number; windowEnd: number }): Promise<unknown>;
+  /** v2: a short rope's price held at or beyond a post over [windowEnd − W, windowEnd]. */
+  knock?(body: { potId: string; windowEnd: number }): Promise<unknown>;
 };
+
+/** Crypto markets get 10× leverage on v2, others 5×: a sampler only signs "crypto" for a crypto symbol. */
+export const CRYPTO_SYMBOL = /^GEMI-(BTC|ETH|SOL|XRP|DOGE|HYPE|ZEC|LTC|AVAX|LINK|ADA|BNB|SUI)/i;
+/** A sampler co-signs a v2 spread only if its own reading is at most this much wider (1 cent). */
+export const SPREAD_TOLERANCE_PPM = 10_000;
 
 type Book = { samples: Sample[]; params: TriggerParams; nextAt: number };
 
@@ -44,6 +52,14 @@ export class PotSampler {
     if (!raw) return null;
     const s = bookStats(raw, Date.now());
     return s.bid === null || s.ask === null ? 0 : Math.floor(Math.min(s.bidDepth, s.askDepth) * 100);
+  };
+
+  /** The spread of a market's book in ppm (v2 depth checks); null if unreadable or one-sided. */
+  spreadOf: (instrument: string) => Promise<number | null> = async (i) => {
+    const raw = await readBook(i);
+    if (!raw) return null;
+    const s = bookStats(raw, Date.now());
+    return s.bid === null || s.ask === null ? null : Math.round((s.ask - s.bid) * 1e6);
   };
 
   constructor(
@@ -77,6 +93,7 @@ export class PotSampler {
     const want = new Map<string, TriggerParams>();
     for (const m of this.work.measure) want.set(m.instrument, m.params);
     for (const l of this.work.levels) want.set(l.instrument, l.params);
+    for (const k of this.work.knocks ?? []) want.set(k.instrument, k.params);
     for (const k of [...this.books.keys()]) if (!want.has(k)) this.books.delete(k);
     for (const [instrument, params] of want) {
       if (this.books.has(instrument)) continue;
@@ -106,8 +123,8 @@ export class PotSampler {
     const samples = (b?.samples ?? []).filter((x) => x.t > m.windowStart * 1000 && x.t <= m.windowEnd * 1000);
     return buildRecord({
       chainId: w.chainId,
-      vault: w.pots,
-      potId: BigInt(m.potId),
+      vault: m.contract ?? w.pots, // v2 pots: HonorCatRopes and its own pot id
+      potId: BigInt(m.chainPotId ?? m.potId),
       instrument: m.instrument,
       side: "yes",
       mode: "early-only",
@@ -137,9 +154,10 @@ export class PotSampler {
       this.own.set(m.requestId, { ppm, valid });
       // Pots on the MedianResolver: sign this average itself; the contract computes the price from them.
       let average: SignedAverage | undefined;
-      if (w.median && m.resolver && m.resolver.toLowerCase() === w.median.toLowerCase()) {
+      const med = m.median ?? w.median;
+      if (med && m.resolver && m.resolver.toLowerCase() === med.toLowerCase()) {
         const v = { priceYes: Number(ppm), valid, sampleCount: record.validCount, evidenceHash: hash };
-        const typed = averageTyped(w.median, { potId: m.potId, kind: m.kind, nonce: m.nonce, windowStart: m.windowStart, windowEnd: m.windowEnd }, v, { chainId: w.chainId, pots: w.pots });
+        const typed = averageTyped(med, { potId: m.chainPotId ?? m.potId, kind: m.kind, nonce: m.nonce, windowStart: m.windowStart, windowEnd: m.windowEnd }, v, { chainId: w.chainId, pots: m.contract ?? w.pots });
         average = { priceYes: v.priceYes, valid, sampleCount: v.sampleCount, signature: await this.account.signTypedData(typed) };
       }
       if (gate) this.log(`pot ${m.potId}: ${gate}; this sampler gives no price`);
@@ -156,12 +174,13 @@ export class PotSampler {
     for (const c of w.cosign) {
       if (this.done.has(`sig:${c.requestId}`)) continue;
       this.done.add(`sig:${c.requestId}`);
-      const at = { chainId: w.chainId, pots: w.pots };
+      // v2 requests name their contract (and its EIP-712 name); v1 requests use the v1 pots contract.
+      const at: At = c.payload.contract ? { chainId: w.chainId, pots: getAddress(String(c.payload.contract)), name: c.payload.name as At["name"] } : { chainId: w.chainId, pots: w.pots };
       let ok = false;
       let why = "";
       if (c.kind === "window") {
         const a = c.payload.attestation as WindowAtt;
-        if (w.median && String(c.payload.resolver ?? "").toLowerCase() === w.median.toLowerCase()) why = "pots on the MedianResolver get signed averages, never co-signed prices";
+        if (c.payload.contract || (w.median && String(c.payload.resolver ?? "").toLowerCase() === w.median.toLowerCase())) why = "pots on the MedianResolver get signed averages, never co-signed prices";
         else if (windowDigest(a, at) !== c.digest) why = "digest does not match the proposal";
         else {
           // A short-lived host (the app) may have lost its memory: its own signed average is in the payload.
@@ -179,6 +198,17 @@ export class PotSampler {
         else {
           ok = mine >= Number(d.contracts5c) * DEPTH_TOLERANCE;
           why = `own depth ${mine / 100} vs proposed ${Number(d.contracts5c) / 100} contracts`;
+          if (ok && d.spread !== undefined) {
+            // v2: the spread sets the shortest rope and the category the most leverage.
+            const own = await this.spreadOf(instrument);
+            if (own === null || own > d.spread + SPREAD_TOLERANCE_PPM) {
+              ok = false;
+              why = `own spread ${own === null ? "unknown" : own / 10_000} points vs proposed ${d.spread / 10_000}`;
+            } else if (d.crypto && !CRYPTO_SYMBOL.test(instrument)) {
+              ok = false;
+              why = `${instrument} is not a crypto market`;
+            }
+          }
         }
       } else if (c.kind === "outcome") {
         const o = c.payload.attestation as OutcomeAtt;
@@ -205,6 +235,27 @@ export class PotSampler {
 
     // 3. Nets and bowls: a side's own price held at or beyond its level for a full window.
     const nowS = Math.floor(now / 1000);
+    // 3b. Short ropes (v2): the price held at or beyond a post for a full window: ask for a knock-out.
+    for (const k of w.knocks ?? []) {
+      if (!this.io.knock || !knockWindowOk({ windowEnd: nowS, window: k.window, armedAt: k.armedAt, expiry: k.expiry })) continue;
+      const key = `knock:${k.potId}:${k.nonce}`;
+      if (now - (this.levelAsked.get(key) ?? 0) < 60_000) continue;
+      const b = this.books.get(k.instrument);
+      if (!b) continue;
+      const end = nowS * 1000;
+      const d = evaluate(b.samples.filter((x) => x.t > end - k.window * 1000 && x.t <= end), k.params, "yes", end);
+      if (d.code !== 0 && d.code !== 1) continue;
+      const ppm = Number(d.averageMicro / 10n ** BigInt(k.params.priceDecimals));
+      const post = atPost(ppm, k.lower, k.upper);
+      if (!post) continue;
+      this.levelAsked.set(key, now);
+      try {
+        await this.io.knock({ potId: k.potId, windowEnd: nowS });
+        this.log(`pot ${k.potId}: price ${(ppm / 10_000).toFixed(2)}% held at the ${post} post; knock-out window requested`);
+      } catch (err) {
+        this.log(`pot ${k.potId}: knock-out request failed: ${(err as Error).message.slice(0, 160)}`);
+      }
+    }
     for (const l of w.levels) {
       if (nowS - l.window <= l.setAt) continue; // the window must start after the level was set
       const key = `${l.potId}:${l.side}:${l.nonce}`;
@@ -248,5 +299,6 @@ export function potsHttpIo(api: string): PotsIo {
     average: (id, body) => req(`/api/hc/sampler/average?id=${enc(id)}`, { method: "POST", body: JSON.stringify(body) }),
     cosign: (id, body) => req(`/api/hc/sampler/cosign?id=${enc(id)}`, { method: "POST", body: JSON.stringify(body) }),
     level: (body) => req(`/api/hc/sampler/level`, { method: "POST", body: JSON.stringify(body) }),
+    knock: (body) => req(`/api/hc/sampler/knock`, { method: "POST", body: JSON.stringify(body) }),
   };
 }
