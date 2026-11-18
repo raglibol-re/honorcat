@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   closesIn,
-  GeminiCredit,
   MarketList,
   midYes,
   type MarketItem,
@@ -279,7 +278,11 @@ export function NewPot() {
         if (practice && r.potId) {
           setStep("The practice cat is taking the other side");
           try {
-            await getJson(`/api/hc/practice`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ potId: r.potId }) });
+            await getJson(`/api/hc/practice`, {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ potId: r.potId }),
+            });
           } catch {
             // The pot exists; it now waits for a real opponent and can be cancelled on its page.
             router.push(`/pots/${r.potId}?practice=failed`);
@@ -601,7 +604,7 @@ export function NewPot() {
                 price={p}
               />
             )}
-            {market ? <Reliability symbol={market.symbol} /> : <GeminiCredit />}
+            {market && <Reliability symbol={market.symbol} />}
           </section>
 
           {market && st && (

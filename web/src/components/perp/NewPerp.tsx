@@ -5,7 +5,6 @@ import { useMemo, useState } from "react";
 import type { Address } from "viem";
 import {
   closesIn,
-  GeminiCredit,
   MarketList,
   midYes,
   type MarketItem,
@@ -233,7 +232,7 @@ export function NewPerp({ perps }: { perps: Address }) {
             price={p}
           />
         )}
-        {market ? <Reliability symbol={market.symbol} /> : <GeminiCredit />}
+        {market && <Reliability symbol={market.symbol} />}
       </section>
 
       {market && st && (
