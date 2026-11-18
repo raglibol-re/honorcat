@@ -13,71 +13,24 @@ import {RopesBase} from "./RopesBase.sol";
 contract HonorCatRopesExtension is RopesBase {
     using SafeERC20 for IERC20;
 
-    constructor(IERC20 usdc_) RopesBase(usdc_, address(1)) {}
+    /// @notice HonorCatRopesExtra (views, settlement, roll), run on HonorCatRopes' storage by delegatecall.
+    address public immutable views;
 
-    // ---------------------------------------------------------------- views
-
-    function yesShare(uint256 size, uint256 price, uint256 lower, uint256 upper) external pure returns (uint256) {
-        return _yesShare(size, price, lower, upper);
+    constructor(IERC20 usdc_, address views_) RopesBase(usdc_, address(1)) {
+        if (views_.code.length == 0) revert BadParams();
+        views = views_;
     }
 
-    function potValue(uint256 size, uint256 lower, uint256 upper) external pure returns (uint256) {
-        return _potValue(size, lower, upper);
-    }
-
-    function exitFee(uint256 exited) external pure returns (uint256) {
-        return _exitFee(exited);
-    }
-
-    function makerTreat(uint256 deposit) external pure returns (uint256) {
-        return _makerTreat(deposit);
-    }
-
-    function divideMath(uint8 exitSide, uint256 size, uint32 price, bool withFee, uint256 lower, uint256 upper)
-        external
-        pure
-        returns (uint256 payYes, uint256 payNo, uint256 fee)
-    {
-        return _divideMath(exitSide, size, price, withFee, lower, upper);
-    }
-
-    function tokenOf(uint256 potId, uint8 side) external pure returns (uint256) {
-        return _tokenOf(potId, side);
-    }
-
-    /// @notice Each side's share of the whole pot at `price`.
-    function shares(uint256 potId, uint32 price) external view returns (uint256 yes, uint256 no) {
-        Pot storage p = _pots[potId];
-        yes = _yesShare(p.size, price, p.lower, p.upper);
-        no = _total(p) - yes;
-    }
-
-    function lockout(uint256 potId) external view returns (uint64) {
-        return _lockout(_pots[potId]);
-    }
-
-    function endTime(uint256 potId) external view returns (uint64) {
-        return _end(_pots[potId]);
-    }
-
-    function expiryWindowStart(uint256 potId, uint8 attempt) external view returns (uint64) {
-        return _expiryStart(_pots[potId], attempt);
-    }
-
-    function outcomeDigest(OutcomeAttestation calldata a) external view returns (bytes32) {
-        return _hashTypedDataV4(keccak256(abi.encode(OUTCOME_TYPEHASH, a.potId, a.conditionId, a.outcome, a.evidenceHash)));
-    }
-
-    function exitRequestDigest(uint256 potId, uint8 side, uint256 size, uint256 deadline) external view returns (bytes32) {
-        return _exitRequestDigest(potId, side, size, deadline);
-    }
-
-    function handshakeDigest(uint256 potId, uint32 priceYes, uint256 size, uint256 deadline) external view returns (bytes32) {
-        return _handshakeDigest(potId, priceYes, size, deadline);
-    }
-
-    function depositNonce(bytes32 action, bytes32 salt) external view returns (bytes32) {
-        return keccak256(abi.encode(DEPOSIT_TAG, block.chainid, address(this), action, salt));
+    /// @dev Anything not defined here is in HonorCatRopesExtra, run on the same storage.
+    fallback() external {
+        address v = views;
+        assembly {
+            calldatacopy(0, 0, calldatasize())
+            let ok := delegatecall(gas(), v, 0, calldatasize(), 0, 0)
+            returndatacopy(0, 0, returndatasize())
+            if iszero(ok) { revert(0, returndatasize()) }
+            return(0, returndatasize())
+        }
     }
 
     // ---------------------------------------------------------------- admin (new pots only; no fees, no funds)
@@ -190,6 +143,26 @@ contract HonorCatRopesExtension is RopesBase {
         _exitFailed(potId, p, bytes32(0));
     }
 
+    // ---------------------------------------------------------------- expiry
+
+    /// @notice Divides a short rope at its expiry. The window is fixed by the expiry and the attempt number,
+    ///         priced forward and clamped, no fee. An invalid window moves on to the next fixed one.
+    function resolveExpiry(WindowAttestation calldata a, bytes calldata sigs) external nonReentrant {
+        Pot storage p = _pots[a.potId];
+        if (p.state != State.Live || p.expiry == 0 || p.expiryTry >= EXPIRY_TRIES) revert WrongState();
+        uint64 start = _expiryStart(p, p.expiryTry);
+        if (a.kind != KIND_EXPIRY || a.nonce != p.nonce || a.windowStart != start || a.windowEnd != start + p.window) revert InvalidAttestation();
+        if (a.windowEnd > block.timestamp) revert TooEarly();
+        if (a.priceYes > P || (a.valid && a.sampleCount < p.minSamples)) revert InvalidAttestation();
+        if (!SignatureChecker.isValidERC1271SignatureNow(p.resolver, _windowDigest(a), sigs)) revert InvalidAttestation();
+        if (!a.valid) {
+            emit ExpiryWindowFailed(a.potId, p.expiryTry, a.evidenceHash);
+            p.expiryTry += 1;
+            return;
+        }
+        _divide(a.potId, p, YES, p.size, a.priceYes, false, R_EXPIRY, a.evidenceHash);
+    }
+
     /// @notice An expiry window that got no attestation in time is skipped; the next fixed one applies.
     function skipExpiryWindow(uint256 potId) external {
         Pot storage p = _pots[potId];
@@ -207,6 +180,8 @@ contract HonorCatRopesExtension is RopesBase {
         Pot storage p = _pots[potId];
         if (p.state != State.ExitRequested || p.knock || p.joiner != address(0) || p.exitSize != p.size) revert WrongState();
         if (block.timestamp >= p.requestTime + DELAY + p.window) revert TooLate();
+        // A pot whose two sides one holder owns (a perp chain) is not open to takeovers.
+        if (ownerOf(_tokenOf(potId, YES)) == ownerOf(_tokenOf(potId, NO))) revert WrongState();
         address taker = _payer(auth);
         p.joiner = taker;
         _pull(taker, _total(p), keccak256(abi.encode("takeover", potId, taker, p.nonce)), auth);
@@ -261,66 +236,6 @@ contract HonorCatRopesExtension is RopesBase {
         p.nonce += 1;
         emit Handshake(potId, priceYes, size);
         _divide(potId, p, YES, size, priceYes, false, R_HANDSHAKE, bytes32(0));
-    }
-
-    // ---------------------------------------------------------------- settle / expire
-
-    /// @notice Ends a pot still running at Gemini's settlement: YES counts as price 100 and NO as 0,
-    ///         clamped to the posts (normal pot: the winner gets everything). Void: deposits back.
-    function settle(OutcomeAttestation calldata a, bytes calldata sigs) external nonReentrant {
-        Pot storage p = _pots[a.potId];
-        if (p.state != State.Live && p.state != State.ExitRequested) revert WrongState();
-        if (block.timestamp < p.closeTime) revert TooEarly();
-        if (a.conditionId != p.conditionId || a.outcome > OUTCOME_VOID) revert InvalidAttestation();
-        bytes32 digest = _hashTypedDataV4(keccak256(abi.encode(OUTCOME_TYPEHASH, a.potId, a.conditionId, a.outcome, a.evidenceHash)));
-        if (!SignatureChecker.isValidERC1271SignatureNow(p.resolver, digest, sigs)) revert InvalidAttestation();
-        _refundTaker(a.potId, p); // a pending exit is dropped
-        uint256 total = _total(p);
-        uint256 payYes;
-        if (a.outcome == OUTCOME_YES) payYes = total;
-        else if (a.outcome == OUTCOME_VOID) payYes = _yesShare(p.size, p.entry, p.lower, p.upper);
-        uint256 payNo = total - payYes;
-        p.size = 0;
-        p.state = a.outcome == OUTCOME_VOID ? State.Expired : State.Settled;
-        emit PotSettled(a.potId, a.outcome, payYes, payNo, a.evidenceHash);
-        _endWith(a.potId, payYes, payNo);
-    }
-
-    /// @notice After the deadline anyone can end any pot still running: deposits (or escrows) go back.
-    function expire(uint256 potId) external nonReentrant {
-        Pot storage p = _pots[potId];
-        State s = p.state;
-        if (s == State.None || s == State.Divided || s == State.Settled || s == State.Expired) revert WrongState();
-        if (block.timestamp < p.deadline) revert TooEarly();
-        if (s == State.Open || s == State.Joining) {
-            if (s == State.Joining) {
-                uint8 joinSide = 1 - p.creatorSide;
-                uint256 r = joinSide == YES ? p.escrowYes : p.escrowNo;
-                if (joinSide == YES) p.escrowYes = 0;
-                else p.escrowNo = 0;
-                address joiner = p.joiner;
-                p.joiner = address(0);
-                p.joinerLeader = address(0);
-                _pay(potId, joiner, r);
-            }
-            _refundEscrowsAndExpire(potId, p);
-            return;
-        }
-        _refundTaker(potId, p);
-        uint256 payYes = _yesShare(p.size, p.entry, p.lower, p.upper);
-        uint256 payNo = _total(p) - payYes;
-        p.size = 0;
-        p.state = State.Expired;
-        emit PotExpired(potId, payYes, payNo);
-        _endWith(potId, payYes, payNo);
-    }
-
-    function _endWith(uint256 potId, uint256 payYes, uint256 payNo) internal {
-        uint256 y = _tokenOf(potId, YES);
-        uint256 n = _tokenOf(potId, NO);
-        _payPosition(potId, y, ownerOf(y), payYes);
-        _payPosition(potId, n, ownerOf(n), payNo);
-        _endPot(potId);
     }
 
     // ---------------------------------------------------------------- withdrawals

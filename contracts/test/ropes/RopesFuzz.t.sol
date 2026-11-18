@@ -3,6 +3,7 @@ pragma solidity 0.8.30;
 
 import {RopesTestBase} from "./RopesTestBase.sol";
 import {RopesBase} from "../../src/ropes/RopesBase.sol";
+import {HonorCatRopesExtra} from "../../src/ropes/HonorCatRopesExtra.sol";
 
 /// @notice Fuzz tests: payouts sum to the pot at every price (jumps far beyond a post included), the
 ///         clamp, the 1% fee bound, extra lives never reducing the other claim, and random sequences of
@@ -19,8 +20,8 @@ contract RopesFuzzTest is RopesTestBase {
         lower = _grid(bound(lower, 0, P - 100));
         upper = _grid(bound(upper, lower + 100, P));
         price = uint32(bound(price, 0, P));
-        (uint256 y, uint256 n, uint256 fee) = ext.divideMath(side, size, price, withFee, lower, upper);
-        uint256 total = ext.potValue(size, lower, upper);
+        (uint256 y, uint256 n, uint256 fee) = HonorCatRopesExtra(address(ropes)).divideMath(side, size, price, withFee, lower, upper);
+        uint256 total = HonorCatRopesExtra(address(ropes)).potValue(size, lower, upper);
         assertEq(y + n, total);
         assertLe(fee * 100, total); // never more than 1% of the pot value exited
         if (!withFee) assertEq(fee, 0);
@@ -32,19 +33,19 @@ contract RopesFuzzTest is RopesTestBase {
         lower = _grid(bound(lower, 0, P - 100));
         upper = _grid(bound(upper, lower + 100, P));
         price = uint32(bound(price, 0, P));
-        uint256 y = ext.yesShare(size, price, lower, upper);
-        uint256 total = ext.potValue(size, lower, upper);
+        uint256 y = HonorCatRopesExtra(address(ropes)).yesShare(size, price, lower, upper);
+        uint256 total = HonorCatRopesExtra(address(ropes)).potValue(size, lower, upper);
         assertLe(y, total);
         if (price <= lower) assertEq(y, 0);
         if (price >= upper) assertEq(y, total);
-        if (price < P) assertLe(y, ext.yesShare(size, price + 1, lower, upper)); // monotonic
+        if (price < P) assertLe(y, HonorCatRopesExtra(address(ropes)).yesShare(size, price + 1, lower, upper)); // monotonic
     }
 
     /// @dev A rope with fuzzed post distance and entry, knocked out by a jump to any price beyond the
     ///      lower post: YES loses exactly its deposit, NO gets exactly the pot, nothing is left.
     function testFuzz_jumpPastPost(uint32 dist, uint32 entry, uint32 jump) public {
         dist = uint32(_grid(bound(dist, 50_000, 300_000)));
-        entry = uint32(bound(entry, uint256(dist) + 100, P - 100));
+        entry = uint32(bound(entry, uint256(dist) + 20_000, P - 100)); // the lower post at least 2 points above 0
         if (entry > 10 * uint256(dist)) entry = uint32(10 * uint256(dist));
         uint256 id = _create(_rope(YES, 100, entry, 0, dist, 0, uint64(block.timestamp + 6 hours)));
         _join(id, entry);
@@ -69,10 +70,10 @@ contract RopesFuzzTest is RopesTestBase {
         price = uint32(bound(price, 0, P));
         uint8 side = noSide ? NO : YES;
         for (uint256 i; i < lives; ++i) {
-            (uint256 y0, uint256 n0) = ext.shares(id, price);
+            (uint256 y0, uint256 n0) = HonorCatRopesExtra(address(ropes)).shares(id, price);
             vm.prank(alice);
             ext.addLife(id, side, _noAuth());
-            (uint256 y1, uint256 n1) = ext.shares(id, price);
+            (uint256 y1, uint256 n1) = HonorCatRopesExtra(address(ropes)).shares(id, price);
             if (side == YES) assertGe(n1, n0);
             else assertGe(y1, y0);
         }
@@ -102,7 +103,7 @@ contract RopesFuzzTest is RopesTestBase {
             finalPrice = uint32(bound(finalPrice, 0, P));
             if (byExpiry) {
                 (RopesBase.WindowAttestation memory a, bytes memory sigs) = _expiryAtt(id, 0, finalPrice, true);
-                ropes.resolveExpiry(a, sigs);
+                ext.resolveExpiry(a, sigs);
             } else {
                 uint256 left = ropes.pot(id).size;
                 vm.prank(bob);
@@ -123,8 +124,8 @@ contract RopesFuzzTest is RopesTestBase {
         n = bound(n, 1, 1_000);
         price = uint32(bound(price, 0, P));
         RopesBase.Pot memory p = ropes.pot(id);
-        uint256 exited = ext.potValue(n, p.lower, p.upper);
-        uint256 cashYes = ext.yesShare(n, price, p.lower, p.upper);
+        uint256 exited = HonorCatRopesExtra(address(ropes)).potValue(n, p.lower, p.upper);
+        uint256 cashYes = HonorCatRopesExtra(address(ropes)).yesShare(n, price, p.lower, p.upper);
         uint256 a0 = _bal(alice);
         _exit(id, alice, YES, n, price);
         uint256 fee = cashYes - (_bal(alice) - a0);

@@ -6,6 +6,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {HonorCatPots} from "../../src/HonorCatPots.sol";
 import {HonorCatRopes} from "../../src/HonorCatRopes.sol";
 import {HonorCatRopesExtension} from "../../src/ropes/HonorCatRopesExtension.sol";
+import {HonorCatRopesExtra} from "../../src/ropes/HonorCatRopesExtra.sol";
 import {RopesBase} from "../../src/ropes/RopesBase.sol";
 import {MultisigResolver} from "../../src/resolvers/MultisigResolver.sol";
 import {MockUSDC} from "../mocks/MockUSDC.sol";
@@ -40,7 +41,7 @@ contract RopesV1EquivalenceTest is Test {
             }
         }
         v1 = new HonorCatPots(IERC20(address(usdc)), address(this));
-        HonorCatRopesExtension impl = new HonorCatRopesExtension(IERC20(address(usdc)));
+        HonorCatRopesExtension impl = new HonorCatRopesExtension(IERC20(address(usdc)), address(new HonorCatRopesExtra(IERC20(address(usdc)))));
         v2 = new HonorCatRopes(IERC20(address(usdc)), address(this), address(impl));
         x2 = HonorCatRopesExtension(address(v2));
         close = uint64(block.timestamp + 1 days);
@@ -115,7 +116,7 @@ contract RopesV1EquivalenceTest is Test {
         uint32 entry = _grid(bound(entryOff, center - tol, center + tol));
         uint32 exitPrice = _grid(bound(exitP, 0, 1_000_000));
         (uint256 p1, uint256 p2) = _open(side, size, uint32(center), uint32(tol), entry);
-        assertEq(v1.pot(p1).depYes, x2.yesShare(size, entry, 0, 1_000_000), "deposits");
+        assertEq(v1.pot(p1).depYes, HonorCatRopesExtra(address(v2)).yesShare(size, entry, 0, 1_000_000), "deposits");
         address who = (leaver == side) ? a : b;
         vm.startPrank(who);
         v1.requestExit(p1, leaver, v1.pot(p1).notional);
@@ -143,7 +144,7 @@ contract RopesV1EquivalenceTest is Test {
     function test_normalPotSameAsV1_exitAndSettle() public {
         (uint256 p1, uint256 p2) = _open(0, 900, 600_000, 20_000, 612_300); // $9.00 at 61.23%
         assertEq(v1.pot(p1).depYes, 5_510_700);
-        (uint256 y2, uint256 n2) = x2.shares(p2, 612_300);
+        (uint256 y2, uint256 n2) = HonorCatRopesExtra(address(v2)).shares(p2, 612_300);
         assertEq(y2, v1.pot(p1).depYes);
         assertEq(n2, v1.pot(p1).depNo);
         // YES takes a ninth off at 70%
@@ -163,7 +164,7 @@ contract RopesV1EquivalenceTest is Test {
         RopesBase.OutcomeAttestation memory o2 = RopesBase.OutcomeAttestation(p2, COND, 1, bytes32(0));
         a0 = usdc.balanceOf(a);
         v1.settle(o1, _sign2(v1.outcomeDigest(o1)));
-        x2.settle(o2, _sign2(x2.outcomeDigest(o2)));
+        HonorCatRopesExtra(address(v2)).settle(o2, _sign2(HonorCatRopesExtra(address(v2)).outcomeDigest(o2)));
         assertEq(usdc.balanceOf(a) - a0, 2 * 8_000_000);
         assertEq(usdc.balanceOf(address(v1)), 0);
         assertEq(usdc.balanceOf(address(v2)), 0);

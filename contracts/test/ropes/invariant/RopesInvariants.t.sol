@@ -5,6 +5,7 @@ import {Test, console} from "forge-std/Test.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {HonorCatRopes} from "../../../src/HonorCatRopes.sol";
 import {HonorCatRopesExtension} from "../../../src/ropes/HonorCatRopesExtension.sol";
+import {HonorCatRopesExtra} from "../../../src/ropes/HonorCatRopesExtra.sol";
 import {RopesBase} from "../../../src/ropes/RopesBase.sol";
 import {MultisigResolver} from "../../../src/resolvers/MultisigResolver.sol";
 import {MockUSDC} from "../../mocks/MockUSDC.sol";
@@ -201,9 +202,9 @@ contract RopesHandler is Test {
         if (id == 0) return;
         RopesBase.Pot memory p = ropes.pot(id);
         if (p.expiry == 0 || p.expiryTry >= 4) return;
-        RopesBase.WindowAttestation memory a = _att(id, 8, p.nonce, ext.expiryWindowStart(id, p.expiryTry), p.window, uint32(bound(price, 0, P)), valid);
+        RopesBase.WindowAttestation memory a = _att(id, 8, p.nonce, HonorCatRopesExtra(address(ropes)).expiryWindowStart(id, p.expiryTry), p.window, uint32(bound(price, 0, P)), valid);
         if (block.timestamp < a.windowEnd) vm.warp(a.windowEnd);
-        try ropes.resolveExpiry(a, _sign2(ropes.windowDigest(a))) {
+        try ext.resolveExpiry(a, _sign2(ropes.windowDigest(a))) {
             done["resolveExpiry"]++;
             _record(id);
         } catch {}
@@ -217,7 +218,7 @@ contract RopesHandler is Test {
             vm.warp(closeOf[id]);
         }
         RopesBase.OutcomeAttestation memory o = RopesBase.OutcomeAttestation(id, COND, outcome % 3, keccak256("settled"));
-        try ext.settle(o, _sign2(ext.outcomeDigest(o))) {
+        try HonorCatRopesExtra(address(ropes)).settle(o, _sign2(HonorCatRopesExtra(address(ropes)).outcomeDigest(o))) {
             done["settle"]++;
         } catch {}
         _recordAll();
@@ -231,7 +232,7 @@ contract RopesHandler is Test {
             if (seed % 8 != 0) return; // rarely jump to the deadline
             vm.warp(dl);
         }
-        try ext.expire(id) {
+        try HonorCatRopesExtra(address(ropes)).expire(id) {
             done["expire"]++;
         } catch {}
         _recordAll();
@@ -288,7 +289,7 @@ contract RopesInvariants is Test {
                 if (vm.addr(sorted[j]) < vm.addr(sorted[i])) (sorted[i], sorted[j]) = (sorted[j], sorted[i]);
             }
         }
-        HonorCatRopesExtension impl = new HonorCatRopesExtension(IERC20(address(usdc)));
+        HonorCatRopesExtension impl = new HonorCatRopesExtension(IERC20(address(usdc)), address(new HonorCatRopesExtra(IERC20(address(usdc)))));
         ropes = new HonorCatRopes(IERC20(address(usdc)), address(this), address(impl));
         ext = HonorCatRopesExtension(address(ropes));
         h = new RopesHandler(ropes, usdc, sorted, res);
@@ -311,7 +312,7 @@ contract RopesInvariants is Test {
             RopesBase.Pot memory p = ropes.pot(id);
             if (p.state == RopesBase.State.Open || p.state == RopesBase.State.Joining) owed += p.escrowYes + p.escrowNo;
             if (p.state == RopesBase.State.Live || p.state == RopesBase.State.ExitRequested) {
-                uint256 v = ext.potValue(p.size, p.lower, p.upper);
+                uint256 v = HonorCatRopesExtra(address(ropes)).potValue(p.size, p.lower, p.upper);
                 owed += v;
                 if (p.state == RopesBase.State.ExitRequested && p.joiner != address(0)) owed += v; // taker escrow
             }
@@ -335,10 +336,10 @@ contract RopesInvariants is Test {
             uint256 id = h.ids(i);
             RopesBase.Pot memory p = ropes.pot(id);
             if (p.state != RopesBase.State.Live && p.state != RopesBase.State.ExitRequested) continue;
-            uint256 v = ext.potValue(p.size, p.lower, p.upper);
+            uint256 v = HonorCatRopesExtra(address(ropes)).potValue(p.size, p.lower, p.upper);
             uint32[4] memory prices = [uint32(0), p.lower, p.upper, uint32(1_000_000)];
             for (uint256 k; k < 4; ++k) {
-                (uint256 y, uint256 no) = ext.shares(id, prices[k]);
+                (uint256 y, uint256 no) = HonorCatRopesExtra(address(ropes)).shares(id, prices[k]);
                 assertEq(y + no, v);
             }
             assertLe(p.lower, p.entry);

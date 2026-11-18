@@ -3,6 +3,7 @@ pragma solidity 0.8.30;
 
 import {RopesTestBase} from "./RopesTestBase.sol";
 import {RopesBase} from "../../src/ropes/RopesBase.sol";
+import {HonorCatRopesExtra} from "../../src/ropes/HonorCatRopesExtra.sol";
 
 /// @notice Unit tests of HonorCat v2: posts, deposits, knock-out, expiry, extra lives, settlement and the
 ///         features carried over from v1, with real 2-of-3 signatures.
@@ -33,7 +34,7 @@ contract RopesTest is RopesTestBase {
         vm.warp(closeTime);
         (RopesBase.OutcomeAttestation memory o, bytes memory s) = _outcome(id, 1);
         uint256 b0 = _bal(bob);
-        ext.settle(o, s);
+        HonorCatRopesExtra(address(ropes)).settle(o, s);
         assertEq(_bal(bob) - b0, 10_000 * 500); // YES (bob) gets the whole pot
     }
 
@@ -52,7 +53,7 @@ contract RopesTest is RopesTestBase {
         assertEq(_bal(address(ropes)), 6_000_000); // the pot: (100 − 40) points × 10 contracts
         assertEq(_bal(alice) - a0, 12_500); // maker treat: 0.25% of bob's $5 deposit
         assertEq(b0 - _bal(bob), 5_000_000 + 12_500);
-        (uint256 y, uint256 n) = ext.shares(id, 500_000);
+        (uint256 y, uint256 n) = HonorCatRopesExtra(address(ropes)).shares(id, 500_000);
         assertEq(y, 1_000_000);
         assertEq(n, 5_000_000);
     }
@@ -64,7 +65,7 @@ contract RopesTest is RopesTestBase {
         RopesBase.Pot memory p = ropes.pot(id);
         assertEq(p.entry, 512_300);
         assertEq(p.lower, 412_300);
-        (uint256 y, uint256 n) = ext.shares(id, p.entry);
+        (uint256 y, uint256 n) = HonorCatRopesExtra(address(ropes)).shares(id, p.entry);
         assertEq(y, 1_000_000); // YES's deposit is exactly its distance whatever the entry
         assertEq(n, (10_000 - 5_123) * 1_000);
         assertEq(_bal(address(ropes)), y + n);
@@ -290,7 +291,7 @@ contract RopesTest is RopesTestBase {
         uint256 a0 = _bal(alice);
         uint256 b0 = _bal(bob);
         (RopesBase.WindowAttestation memory a, bytes memory sigs) = _expiryAtt(id, 0, 570_000, true);
-        ropes.resolveExpiry(a, sigs);
+        ext.resolveExpiry(a, sigs);
         assertEq(_bal(alice) - a0, 1_700_000); // (57 − 40) × 10, no fee
         assertEq(_bal(bob) - b0, 4_300_000);
         assertEq(uint8(_state(id)), uint8(RopesBase.State.Divided));
@@ -305,11 +306,11 @@ contract RopesTest is RopesTestBase {
         RopesBase.WindowAttestation memory a = _att(id, 8, p.nonce, p.expiry + 601, 60, 900_000, true);
         bytes memory sigs = _sign2(ropes.windowDigest(a));
         vm.expectRevert(RopesBase.InvalidAttestation.selector);
-        ropes.resolveExpiry(a, sigs);
+        ext.resolveExpiry(a, sigs);
         // and retry windows cannot be used before the earlier one failed
         (a, sigs) = _expiryAtt(id, 1, 900_000, true);
         vm.expectRevert(RopesBase.InvalidAttestation.selector);
-        ropes.resolveExpiry(a, sigs);
+        ext.resolveExpiry(a, sigs);
     }
 
     function test_expiry_notBeforeTheWindowEnds() public {
@@ -320,7 +321,7 @@ contract RopesTest is RopesTestBase {
         bytes memory sigs = _sign2(ropes.windowDigest(a));
         vm.warp(p.expiry + 30);
         vm.expectRevert(RopesBase.TooEarly.selector);
-        ropes.resolveExpiry(a, sigs);
+        ext.resolveExpiry(a, sigs);
     }
 
     function test_expiry_cannotBeSkipped() public {
@@ -341,28 +342,28 @@ contract RopesTest is RopesTestBase {
         // and settlement waits for trading close and all expiry windows
         (RopesBase.OutcomeAttestation memory o, bytes memory s) = _outcome(id, 1);
         vm.expectRevert(RopesBase.TooEarly.selector);
-        ext.settle(o, s);
+        HonorCatRopesExtra(address(ropes)).settle(o, s);
     }
 
     function test_expiry_invalidWindowMovesToTheNext() public {
         uint256 id = _create(_stdRope(YES));
         _join(id, 500_000);
         (RopesBase.WindowAttestation memory a, bytes memory sigs) = _expiryAtt(id, 0, 0, false);
-        ropes.resolveExpiry(a, sigs);
+        ext.resolveExpiry(a, sigs);
         assertEq(ropes.pot(id).expiryTry, 1);
         // the failed window cannot be reused, the next fixed one prices it
         vm.expectRevert(RopesBase.InvalidAttestation.selector);
-        ropes.resolveExpiry(a, sigs);
+        ext.resolveExpiry(a, sigs);
         (a, sigs) = _expiryAtt(id, 1, 450_000, true);
         uint256 a0 = _bal(alice);
-        ropes.resolveExpiry(a, sigs);
+        ext.resolveExpiry(a, sigs);
         assertEq(_bal(alice) - a0, 500_000);
     }
 
     function test_expiry_skipAfterTimeout() public {
         uint256 id = _create(_stdRope(YES));
         _join(id, 500_000);
-        uint64 start = ext.expiryWindowStart(id, 0);
+        uint64 start = HonorCatRopesExtra(address(ropes)).expiryWindowStart(id, 0);
         vm.warp(start + 60 + 10 minutes);
         vm.expectRevert(RopesBase.TooEarly.selector);
         ext.skipExpiryWindow(id);
@@ -376,15 +377,15 @@ contract RopesTest is RopesTestBase {
         _join(id, 500_000);
         for (uint8 i; i < 4; ++i) {
             (RopesBase.WindowAttestation memory a, bytes memory sigs) = _expiryAtt(id, i, 0, false);
-            ropes.resolveExpiry(a, sigs);
+            ext.resolveExpiry(a, sigs);
         }
         (RopesBase.WindowAttestation memory a2, bytes memory s2) = _expiryAtt(id, 3, 0, true);
         vm.expectRevert(RopesBase.WrongState.selector);
-        ropes.resolveExpiry(a2, s2);
+        ext.resolveExpiry(a2, s2);
         vm.warp(closeTime);
         (RopesBase.OutcomeAttestation memory o, bytes memory s) = _outcome(id, 0); // NO: price 0, clamped to 40
         uint256 b0 = _bal(bob);
-        ext.settle(o, s);
+        HonorCatRopesExtra(address(ropes)).settle(o, s);
         assertEq(_bal(bob) - b0, 6_000_000);
         assertEq(_bal(address(ropes)), 0);
     }
@@ -393,13 +394,13 @@ contract RopesTest is RopesTestBase {
         uint256 id = _create(_stdRope(YES));
         _join(id, 500_000);
         for (uint8 i; i < 4; ++i) {
-            vm.warp(ext.expiryWindowStart(id, i) + 60 + 10 minutes + 1);
+            vm.warp(HonorCatRopesExtra(address(ropes)).expiryWindowStart(id, i) + 60 + 10 minutes + 1);
             ext.skipExpiryWindow(id);
         }
         vm.warp(closeTime);
         (RopesBase.OutcomeAttestation memory o, bytes memory s) = _outcome(id, 1);
         uint256 a0 = _bal(alice);
-        ext.settle(o, s);
+        HonorCatRopesExtra(address(ropes)).settle(o, s);
         assertEq(_bal(alice) - a0, 6_000_000); // YES at 100 gets everything; no debt for NO
     }
 
@@ -412,7 +413,7 @@ contract RopesTest is RopesTestBase {
         (RopesBase.OutcomeAttestation memory o, bytes memory s) = _outcome(id, 2);
         uint256 a0 = _bal(alice);
         uint256 b0 = _bal(bob);
-        ext.settle(o, s);
+        HonorCatRopesExtra(address(ropes)).settle(o, s);
         assertEq(_bal(alice) - a0, 2_000_000);
         assertEq(_bal(bob) - b0, 5_000_000);
     }
@@ -422,7 +423,7 @@ contract RopesTest is RopesTestBase {
         _join(id, 500_000);
         vm.warp(ropes.pot(id).deadline);
         uint256 a0 = _bal(alice);
-        ext.expire(id);
+        HonorCatRopesExtra(address(ropes)).expire(id);
         assertEq(_bal(alice) - a0, 1_000_000);
         assertEq(_bal(address(ropes)), 0);
     }
@@ -434,7 +435,7 @@ contract RopesTest is RopesTestBase {
         _join(id, 500_000);
         uint256[5] memory prices = [uint256(0), 350_000, 420_000, 650_000, P];
         uint256[5] memory noBefore;
-        for (uint256 i; i < 5; ++i) (, noBefore[i]) = ext.shares(id, uint32(prices[i]));
+        for (uint256 i; i < 5; ++i) (, noBefore[i]) = HonorCatRopesExtra(address(ropes)).shares(id, uint32(prices[i]));
         uint256 a0 = _bal(alice);
         vm.prank(alice);
         ext.addLife(id, YES, _noAuth());
@@ -443,7 +444,7 @@ contract RopesTest is RopesTestBase {
         assertEq(p.lower, 300_000);
         assertEq(p.livesYes, 1);
         for (uint256 i; i < 5; ++i) {
-            (, uint256 noAfter) = ext.shares(id, uint32(prices[i]));
+            (, uint256 noAfter) = HonorCatRopesExtra(address(ropes)).shares(id, uint32(prices[i]));
             assertGe(noAfter, noBefore[i]);
         }
         assertEq(_bal(address(ropes)), 7_000_000);
@@ -533,7 +534,7 @@ contract RopesTest is RopesTestBase {
         // NO's cash at 45: 6.00 − 0.50 = 5.50; fee 0.06
         assertEq(_bal(bob) - b0, 5_500_000 - 60_000);
         assertEq(c0 - _bal(carol), 5_500_000);
-        assertEq(ropes.ownerOf(ext.tokenOf(id, NO)), carol);
+        assertEq(ropes.ownerOf(HonorCatRopesExtra(address(ropes)).tokenOf(id, NO)), carol);
         assertEq(uint8(_state(id)), uint8(RopesBase.State.Live));
     }
 
@@ -542,18 +543,18 @@ contract RopesTest is RopesTestBase {
         _join(id, 500_000);
         // both agree on 0 (below the post): YES gets 0, never less
         uint256 deadline = block.timestamp + 1 hours;
-        bytes32 d = ext.handshakeDigest(id, 0, 1_000, deadline);
+        bytes32 d = HonorCatRopesExtra(address(ropes)).handshakeDigest(id, 0, 1_000, deadline);
         uint256 alicePk = uint256(keccak256("alice-key"));
         uint256 bobPk = uint256(keccak256("bob-key"));
         address a2 = vm.addr(alicePk);
         address b2 = vm.addr(bobPk);
-        uint256 ty = ext.tokenOf(id, YES);
-        uint256 tn = ext.tokenOf(id, NO);
+        uint256 ty = HonorCatRopesExtra(address(ropes)).tokenOf(id, YES);
+        uint256 tn = HonorCatRopesExtra(address(ropes)).tokenOf(id, NO);
         vm.prank(alice);
         ropes.transferFrom(alice, a2, ty);
         vm.prank(bob);
         ropes.transferFrom(bob, b2, tn);
-        d = ext.handshakeDigest(id, 0, 1_000, deadline);
+        d = HonorCatRopesExtra(address(ropes)).handshakeDigest(id, 0, 1_000, deadline);
         ext.handshake(id, 0, 1_000, deadline, _sig(alicePk, d), _sig(bobPk, d));
         assertEq(_bal(a2), 0);
         assertEq(_bal(b2), 6_000_000);
@@ -575,7 +576,7 @@ contract RopesTest is RopesTestBase {
     function test_positionsTransferable() public {
         uint256 id = _create(_stdRope(YES));
         _join(id, 500_000);
-        uint256 ty = ext.tokenOf(id, YES);
+        uint256 ty = HonorCatRopesExtra(address(ropes)).tokenOf(id, YES);
         vm.prank(alice);
         ropes.transferFrom(alice, carol, ty);
         uint256 c0 = _bal(carol);

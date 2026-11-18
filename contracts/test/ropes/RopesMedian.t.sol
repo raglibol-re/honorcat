@@ -3,6 +3,7 @@ pragma solidity 0.8.30;
 
 import {RopesTestBase} from "./RopesTestBase.sol";
 import {RopesBase} from "../../src/ropes/RopesBase.sol";
+import {HonorCatRopesExtra} from "../../src/ropes/HonorCatRopesExtra.sol";
 import {HonorCatPots} from "../../src/HonorCatPots.sol";
 import {MedianResolver} from "../../src/resolvers/MedianResolver.sol";
 
@@ -77,9 +78,9 @@ contract RopesMedianTest is RopesTestBase {
 
     function test_median_expiry() public {
         uint256 id = _medianRope();
-        (RopesBase.WindowAttestation memory a, bytes memory sig) = _measured(id, 8, ext.expiryWindowStart(id, 0), [uint32(610_000), 600_000, 620_000]);
+        (RopesBase.WindowAttestation memory a, bytes memory sig) = _measured(id, 8, HonorCatRopesExtra(address(ropes)).expiryWindowStart(id, 0), [uint32(610_000), 600_000, 620_000]);
         uint256 a0 = _bal(alice);
-        ropes.resolveExpiry(a, sig);
+        ext.resolveExpiry(a, sig);
         assertEq(_bal(alice) - a0, 2_100_000); // (61 − 40) × 10
     }
 }

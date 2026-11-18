@@ -2,10 +2,11 @@
 
 ## Blocks current milestone
 
-- **2026-11-18: the pot contract cannot open a rope with both sides funded in one call at an attested
-  price** (spec 2, needed by the perp chain). v2 as deployed opens a pot only by create, then join,
-  then a forward-priced join window. Proposal and question to the owner below ("Perps: decision
-  needed"). Waiting for the owner's answer before changing the contract.
+- (resolved 2026-11-18) One-call funded entry: the owner chose **v2.1 with a roll entry**:
+  `openFunded(fromPot)` opens the next rope with both sides funded by the caller, at the previous
+  rope's recorded division price (knock-out or expiry, within 15 minutes, once per rope), plus a
+  division record per pot; the first rope opens through the normal join window. Post margin for ropes:
+  **2 points**. v2.1 is a redeploy at a new address (asked before deploying).
 
 ## Status against "finish what is open, then lives and perps done properly" (2026-11-18)
 

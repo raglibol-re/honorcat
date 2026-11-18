@@ -3,6 +3,7 @@ pragma solidity 0.8.30;
 
 import {RopesTestBase} from "./RopesTestBase.sol";
 import {RopesBase} from "../../src/ropes/RopesBase.sol";
+import {HonorCatRopesExtra} from "../../src/ropes/HonorCatRopesExtra.sol";
 
 /// @notice Treats: every reward is a share of a fee someone paid. Maker treat, exit fee, referral share,
 ///         copycat treat, and the properties that keep them from being farmed.
@@ -89,7 +90,7 @@ contract RopesTreatsTest is RopesTestBase {
         _join(id, 500_000);
         uint256 d0 = _bal(dave);
         (RopesBase.WindowAttestation memory a, bytes memory sigs) = _expiryAtt(id, 0, 650_000, true);
-        ropes.resolveExpiry(a, sigs);
+        ext.resolveExpiry(a, sigs);
         assertEq(_bal(dave), d0);
     }
 
@@ -122,10 +123,10 @@ contract RopesTreatsTest is RopesTestBase {
         lead = _create(_stdRope(YES));
         _join(lead, 500_000);
         RopesBase.CreateParams memory c = _stdRope(YES);
-        c.copyOf = ext.tokenOf(lead, YES);
+        c.copyOf = HonorCatRopesExtra(address(ropes)).tokenOf(lead, YES);
         copy = _createAs(carol, c);
         _joinAs(dave, copy, 500_000);
-        (address leader,,,) = ext.copies(ext.tokenOf(copy, YES));
+        (address leader,,,) = ext.copies(HonorCatRopesExtra(address(ropes)).tokenOf(copy, YES));
         assertEq(leader, alice);
     }
 
@@ -136,7 +137,7 @@ contract RopesTreatsTest is RopesTestBase {
         (RopesBase.WindowAttestation memory a, bytes memory sigs) = _expiryAtt(copy, 0, 700_000, true);
         vm.expectEmit(true, true, true, true, address(ropes));
         emit RopesBase.CopycatTreat(copy, carol, alice, 100_000, 2_000_000);
-        ropes.resolveExpiry(a, sigs);
+        ext.resolveExpiry(a, sigs);
         // carol's cash 3.00 on a 1.00 deposit: profit 2.00, treat 5% = 0.10 to alice
         assertEq(_bal(alice) - a0, 100_000);
         assertEq(_bal(carol) - c0, 3_000_000 - 100_000);
@@ -166,12 +167,12 @@ contract RopesTreatsTest is RopesTestBase {
         uint256 lead = _create(_stdRope(NO)); // alice NO, bob YES
         _join(lead, 500_000);
         uint256 copy = _createAs(dave, _stdRope(YES)); // dave YES; carol joins NO copying alice
-        uint256 leadNo = ext.tokenOf(lead, NO);
+        uint256 leadNo = HonorCatRopesExtra(address(ropes)).tokenOf(lead, NO);
         vm.prank(carol);
         ropes.requestJoin(copy, leadNo, _noAuth());
         (RopesBase.WindowAttestation memory a, bytes memory sigs) = _window(copy, 0, 500_000, true);
         ropes.resolveJoin(a, sigs);
-        (address leader, uint256 paidIn,,) = ext.copies(ext.tokenOf(copy, NO));
+        (address leader, uint256 paidIn,,) = ext.copies(HonorCatRopesExtra(address(ropes)).tokenOf(copy, NO));
         assertEq(leader, alice);
         assertEq(paidIn, 5_000_000 + 12_500); // deposit plus the maker treat carol paid
         uint256 a0 = _bal(alice);
@@ -182,7 +183,7 @@ contract RopesTreatsTest is RopesTestBase {
 
     function test_copycat_tenureEndsOnTransfer() public {
         (, uint256 copy) = _copySetup();
-        uint256 t = ext.tokenOf(copy, YES);
+        uint256 t = HonorCatRopesExtra(address(ropes)).tokenOf(copy, YES);
         vm.prank(carol);
         ropes.transferFrom(carol, bob, t);
         (address leader,,,) = ext.copies(t);
@@ -190,7 +191,7 @@ contract RopesTreatsTest is RopesTestBase {
         uint256 a0 = _bal(alice);
         uint256 b0 = _bal(bob);
         (RopesBase.WindowAttestation memory a, bytes memory sigs) = _expiryAtt(copy, 0, 700_000, true);
-        ropes.resolveExpiry(a, sigs);
+        ext.resolveExpiry(a, sigs);
         assertEq(_bal(alice), a0); // bob never copied anyone
         assertEq(_bal(bob) - b0, 3_000_000);
     }
@@ -200,7 +201,7 @@ contract RopesTreatsTest is RopesTestBase {
         _join(lead, 500_000);
         RopesBase.CreateParams memory c = _stdRope(YES);
         // copying yourself
-        c.copyOf = ext.tokenOf(lead, YES);
+        c.copyOf = HonorCatRopesExtra(address(ropes)).tokenOf(lead, YES);
         (RopesBase.DepthAttestation memory d, bytes memory sigs) = _depth(alice, 10_000_000, 20_000, true);
         vm.prank(alice);
         vm.expectRevert(RopesBase.BadCopy.selector);
@@ -220,7 +221,7 @@ contract RopesTreatsTest is RopesTestBase {
         uint256 a0 = _bal(alice);
         uint256 b0 = _bal(bob);
         (RopesBase.WindowAttestation memory a, bytes memory sigs) = _expiryAtt(copy, 0, 700_000, true);
-        ropes.resolveExpiry(a, sigs);
+        ext.resolveExpiry(a, sigs);
         assertEq(_bal(alice) - a0, 80_000);
         assertEq(_bal(bob) - b0, 20_000);
     }
@@ -241,7 +242,7 @@ contract RopesTreatsTest is RopesTestBase {
         _exit(lead, bob, NO, 300, 520_000);
         _knockOut(lead, 290_000, 100_000);
         (RopesBase.WindowAttestation memory a, bytes memory sigs) = _expiryAtt(copy, 0, 820_000, true);
-        ropes.resolveExpiry(a, sigs);
+        ext.resolveExpiry(a, sigs);
         assertEq(_bal(address(ropes)), 0);
         assertEq(_total4(), total0);
         assertEq(ropes.totalClaimable(), 0);

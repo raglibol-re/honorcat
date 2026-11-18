@@ -77,6 +77,13 @@ abstract contract RopesBase is ERC721, EIP712, ReentrancyGuard, Ownable {
     uint8 internal constant R_KNOCK = 1;
     uint8 internal constant R_EXPIRY = 2;
     uint8 internal constant R_HANDSHAKE = 3;
+    uint8 internal constant R_SETTLED = 4;
+    uint8 internal constant R_EXPIRED = 5; // void settlement or the deadline: deposits back
+
+    /// @notice Posts stay this far inside the 0–100 scale (decision 2026-11-18: 2 points).
+    uint32 public constant POST_MARGIN = 20_000;
+    /// @notice A roll must open within this long of the previous rope's division (v2.1, perps).
+    uint64 public constant ROLL_WINDOW = 15 minutes;
 
     // ---------------------------------------------------------------- types
 
@@ -193,6 +200,15 @@ abstract contract RopesBase is ERC721, EIP712, ReentrancyGuard, Ownable {
         uint256 held; // 5% (rounded up) of every payout, held until the tenure ends
     }
 
+    /// @notice How a pot was last divided or paid out (v2.1): the chain contract credits players from it.
+    struct Division {
+        uint32 price; // ppm (0 or 100 for a settlement, the entry for deposits back)
+        uint8 reason; // 0 exit, 1 knock-out, 2 expiry, 3 handshake, 4 settled, 5 deposits back
+        uint64 at;
+        uint128 paidYes;
+        uint128 paidNo;
+    }
+
     struct Levels {
         uint32 net;
         uint32 bowl;
@@ -228,6 +244,10 @@ abstract contract RopesBase is ERC721, EIP712, ReentrancyGuard, Ownable {
     mapping(address => uint256) public potCount; // pots an account has entered (created or joined)
     mapping(address => uint256) public claimable;
     uint256 public totalClaimable;
+    /// @notice The last division or payout of each pot (v2.1).
+    mapping(uint256 => Division) public divisions;
+    /// @notice Pots a new rope was already rolled from (one roll per rope).
+    mapping(uint256 => bool) public rolledFrom;
 
     // ---------------------------------------------------------------- events
 
@@ -272,6 +292,7 @@ abstract contract RopesBase is ERC721, EIP712, ReentrancyGuard, Ownable {
     event Withdrawn(address indexed account, uint256 amount);
     event Paused(bool paused);
     event GlobalMaxPotSet(uint256 max);
+    event Rolled(uint256 indexed fromPot, uint256 indexed potId, address indexed by, uint32 entryPrice);
 
     // ---------------------------------------------------------------- errors
 
@@ -350,12 +371,81 @@ abstract contract RopesBase is ERC721, EIP712, ReentrancyGuard, Ownable {
         );
     }
 
+    function _depthDigest(DepthAttestation calldata d) internal view returns (bytes32) {
+        return _hashTypedDataV4(keccak256(abi.encode(DEPTH_TYPEHASH, d.conditionId, d.account, d.contracts5c, d.spread, d.crypto, d.closeTime, d.validUntil)));
+    }
+
     function _handshakeDigest(uint256 potId, uint32 priceYes, uint256 size, uint256 deadline) internal view returns (bytes32) {
         return _hashTypedDataV4(keccak256(abi.encode(HANDSHAKE_TYPEHASH, potId, priceYes, size, _pots[potId].nonce, deadline)));
     }
 
     function _exitRequestDigest(uint256 potId, uint8 side, uint256 size, uint256 deadline) internal view returns (bytes32) {
         return _hashTypedDataV4(keccak256(abi.encode(EXIT_REQUEST_TYPEHASH, potId, side, size, sigNonce[_tokenOf(potId, side)], deadline)));
+    }
+
+    /// @dev Posts, leverage and expiry of a short rope (any post set); a normal pot has no expiry.
+    function _checkRope(CreateParams calldata c, DepthAttestation calldata d) internal view {
+        if (c.distYes == 0 && c.distNo == 0) {
+            if (c.expiry != 0) revert BadParams();
+            return;
+        }
+        uint256 minDist = 2 * uint256(d.spread);
+        if (minDist < MIN_DISTANCE) minDist = MIN_DISTANCE;
+        uint256 maxLev = d.crypto ? MAX_LEVERAGE_CRYPTO : MAX_LEVERAGE_OTHER;
+        uint256 lo = c.tolerance > c.bandCenter ? 0 : c.bandCenter - c.tolerance; // lowest possible entry
+        uint256 hi = uint256(c.bandCenter) + c.tolerance; // highest possible entry
+        // L = entry − distYes ≥ the 2-point margin; YES leverage entry / distYes ≤ max at every entry in the band
+        if (c.distYes != 0 && (c.distYes % TICK != 0 || c.distYes < minDist || lo < uint256(c.distYes) + POST_MARGIN || hi > maxLev * c.distYes)) {
+            revert BadParams();
+        }
+        // U = entry + distNo ≤ 100 − the 2-point margin; NO leverage (100 − entry) / distNo ≤ max
+        if (c.distNo != 0 && (c.distNo % TICK != 0 || c.distNo < minDist || hi + c.distNo + POST_MARGIN > P || P - lo > maxLev * c.distNo)) {
+            revert BadParams();
+        }
+        if (c.expiry < block.timestamp + MIN_LIFE || c.expiry > block.timestamp + MAX_LIFE || uint256(c.expiry) + EXPIRY_LEAD > c.closeTime) {
+            revert BadParams();
+        }
+    }
+
+    /// @dev The largest pot value any entry in the band can give: (U − L) × size, where a side without a
+    ///      post reaches to 0 or 100. A normal pot always holds exactly 100 points × size (as in v1).
+    function _maxPotValue(CreateParams calldata c) internal pure returns (uint256) {
+        uint256 lo = c.tolerance > c.bandCenter ? 0 : c.bandCenter - c.tolerance;
+        uint256 hi = uint256(c.bandCenter) + c.tolerance > P ? P : uint256(c.bandCenter) + c.tolerance;
+        uint256 span;
+        if (c.distYes == 0 && c.distNo == 0) span = P;
+        else if (c.distYes != 0 && c.distNo != 0) span = uint256(c.distYes) + c.distNo;
+        else if (c.distYes != 0) span = uint256(c.distYes) + P - (lo / TICK) * TICK; // U = 100, L = e − dY: largest at the lowest entry
+        else span = (hi / TICK) * TICK + c.distNo; // L = 0, U = e + dN: largest at the highest entry
+        return (span / TICK) * c.size;
+    }
+
+    /// @dev The most `side` can owe anywhere in the band. A side with a post owes exactly its distance.
+    function _worstDeposit(uint8 side, CreateParams calldata c) internal pure returns (uint256) {
+        return _worst(side, c.size, c.bandCenter, c.tolerance, c.distYes, c.distNo);
+    }
+
+    function _worst(uint8 side, uint256 size, uint256 center, uint256 tol, uint256 dY, uint256 dN) internal pure returns (uint256) {
+        if (side == YES) {
+            if (dY != 0) return (dY / TICK) * size;
+            uint256 hi = center + tol > P ? P : center + tol;
+            return (hi / TICK) * size;
+        }
+        if (dN != 0) return (dN / TICK) * size;
+        uint256 lo = tol > center ? 0 : center - tol;
+        return (P / TICK - lo / TICK) * size;
+    }
+
+    /// @dev Counts a pot for `account`; returns who shares in the fees its new token pays.
+    function _enter(address account) internal returns (address ref) {
+        if (potCount[account]++ < REFERRAL_POTS) ref = referrerOf[account];
+    }
+
+    /// @dev The owner of `leaderToken` (another pot's side), who must not be the copier.
+    function _leaderOf(uint256 potId, uint256 leaderToken, address copier) internal view returns (address leader) {
+        if (leaderToken / 2 == potId) revert BadCopy();
+        leader = _ownerOf(leaderToken);
+        if (leader == address(0) || leader == copier) revert BadCopy();
     }
 
     // ---------------------------------------------------------------- shared state changes
@@ -433,6 +523,7 @@ abstract contract RopesBase is ERC721, EIP712, ReentrancyGuard, Ownable {
         bool done = p.size == 0;
         p.state = done ? State.Divided : State.Live;
         emit PotDivided(potId, reason, size, price, payYes, payNo, fee, evidenceHash);
+        _record(potId, price, reason, payYes, payNo);
         uint256 exitToken = _tokenOf(potId, exitSide);
         uint256 otherToken = _tokenOf(potId, 1 - exitSide);
         address exiter = ownerOf(exitToken);
@@ -442,6 +533,11 @@ abstract contract RopesBase is ERC721, EIP712, ReentrancyGuard, Ownable {
         _payPosition(potId, otherToken, other, payOther - fee);
         _payFee(potId, exitToken, exiter, other, fee, 0);
         if (done) _endPot(potId);
+    }
+
+    /// @dev Records a pot's division or payout (v2.1), so a contract holding both sides can credit them.
+    function _record(uint256 potId, uint32 price, uint8 reason, uint256 payYes, uint256 payNo) internal {
+        divisions[potId] = Division(price, reason, uint64(block.timestamp), uint128(payYes), uint128(payNo));
     }
 
     /// @dev Pays a position's cash. For a copy, 5% (rounded up) is held back until the tenure ends.
@@ -518,6 +614,14 @@ abstract contract RopesBase is ERC721, EIP712, ReentrancyGuard, Ownable {
             bytes32 nonce = keccak256(abi.encode(DEPOSIT_TAG, block.chainid, address(this), action, auth.salt));
             IERC3009(address(usdc)).receiveWithAuthorization(from, address(this), amount, auth.validAfter, auth.validBefore, nonce, auth.v, auth.r, auth.s);
         }
+        if (usdc.balanceOf(address(this)) != before + amount) revert TransferMismatch();
+    }
+
+    /// @dev Pulls `amount` from the caller with transferFrom (contracts such as the perp chain).
+    function _pullCaller(uint256 amount) internal {
+        if (amount == 0) return;
+        uint256 before = usdc.balanceOf(address(this));
+        usdc.safeTransferFrom(msg.sender, address(this), amount);
         if (usdc.balanceOf(address(this)) != before + amount) revert TransferMismatch();
     }
 

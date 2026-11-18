@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {HonorCatRopes} from "../../src/HonorCatRopes.sol";
 import {HonorCatRopesExtension} from "../../src/ropes/HonorCatRopesExtension.sol";
+import {HonorCatRopesExtra} from "../../src/ropes/HonorCatRopesExtra.sol";
 import {RopesBase} from "../../src/ropes/RopesBase.sol";
 import {MultisigResolver} from "../../src/resolvers/MultisigResolver.sol";
 import {MockUSDC} from "../mocks/MockUSDC.sol";
@@ -43,7 +44,7 @@ abstract contract RopesTestBase is Test {
                 if (vm.addr(sorted[j]) < vm.addr(sorted[i])) (sorted[i], sorted[j]) = (sorted[j], sorted[i]);
             }
         }
-        HonorCatRopesExtension impl = new HonorCatRopesExtension(IERC20(address(usdc)));
+        HonorCatRopesExtension impl = new HonorCatRopesExtension(IERC20(address(usdc)), address(new HonorCatRopesExtra(IERC20(address(usdc)))));
         ropes = new HonorCatRopes(IERC20(address(usdc)), address(this), address(impl));
         ext = HonorCatRopesExtension(address(ropes));
         closeTime = uint64(block.timestamp + 1 days);
@@ -175,7 +176,7 @@ abstract contract RopesTestBase is Test {
     /// @dev The expiry window number `attempt`, warped past its end, signed.
     function _expiryAtt(uint256 id, uint8 attempt, uint32 price, bool valid) internal returns (RopesBase.WindowAttestation memory a, bytes memory sigs) {
         RopesBase.Pot memory p = ropes.pot(id);
-        a = _att(id, 8, p.nonce, ext.expiryWindowStart(id, attempt), p.window, price, valid);
+        a = _att(id, 8, p.nonce, HonorCatRopesExtra(address(ropes)).expiryWindowStart(id, attempt), p.window, price, valid);
         if (block.timestamp < a.windowEnd) vm.warp(a.windowEnd);
         sigs = _sign2(ropes.windowDigest(a));
     }
@@ -200,7 +201,7 @@ abstract contract RopesTestBase is Test {
 
     function _outcome(uint256 id, uint8 outcome) internal view returns (RopesBase.OutcomeAttestation memory a, bytes memory sigs) {
         a = RopesBase.OutcomeAttestation({potId: id, conditionId: COND, outcome: outcome, evidenceHash: keccak256("settled")});
-        sigs = _sign2(ext.outcomeDigest(a));
+        sigs = _sign2(HonorCatRopesExtra(address(ropes)).outcomeDigest(a));
     }
 
     function _bal(address a) internal view returns (uint256) {

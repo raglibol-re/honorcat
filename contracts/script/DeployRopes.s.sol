@@ -5,6 +5,7 @@ import {Script, console2} from "forge-std/Script.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {HonorCatRopes} from "../src/HonorCatRopes.sol";
 import {HonorCatRopesExtension} from "../src/ropes/HonorCatRopesExtension.sol";
+import {HonorCatRopesExtra} from "../src/ropes/HonorCatRopesExtra.sol";
 import {HonorCatPots} from "../src/HonorCatPots.sol";
 import {MedianResolver} from "../src/resolvers/MedianResolver.sol";
 
@@ -29,7 +30,8 @@ contract DeployRopes is Script {
         samplers[2] = vm.parseJsonAddress(s, ".samplerLocal");
 
         vm.startBroadcast(pk);
-        HonorCatRopesExtension ext = new HonorCatRopesExtension(IERC20(ARC_USDC));
+        HonorCatRopesExtra views = new HonorCatRopesExtra(IERC20(ARC_USDC));
+        HonorCatRopesExtension ext = new HonorCatRopesExtension(IERC20(ARC_USDC), address(views));
         ropes = new HonorCatRopes(IERC20(ARC_USDC), owner, address(ext));
         median = new MedianResolver(HonorCatPots(address(ropes)), samplers, 2);
         vm.stopBroadcast();
@@ -40,6 +42,7 @@ contract DeployRopes is Script {
         vm.serializeAddress(obj, "owner", owner);
         vm.serializeUint(obj, "deployBlock", block.number);
         vm.serializeAddress(obj, "extension", address(ext));
+        vm.serializeAddress(obj, "views", address(views));
         vm.serializeAddress(obj, "median", address(median));
         string memory json = vm.serializeAddress(obj, "ropes", address(ropes));
         vm.writeJson(json, string.concat(root, ".ropes.json"));
