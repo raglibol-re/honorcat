@@ -22,10 +22,17 @@ const RULES: [RegExp, string][] = [
   [/insufficient|exceeds balance|TransferMismatch/i, "Your account does not hold enough test USDC for this. Put in less, or add test money from the account page."],
   [/NotOwner|unknown passkey account/i, "This account does not hold that side of the pot. Sign in with the passkey or wallet you played with."],
   [/stale account nonce/i, "Two actions crossed. Press the button again; nothing was sent twice."],
+  // Perps
+  [/TooLittle/i, "That is less than one stake. Put in at least one life."],
+  [/WrongPhase/i, "This perp has moved on since you opened the page. The page now shows where it stands."],
+  [/NotPlayer/i, "Only the two players of this perp can do that. Sign in with the account you played with."],
+  [/BadParams/i, "The contract refused these settings. Pick another leverage or rope length; nothing was sent."],
   // Circle smart accounts
   [/entity config/i, "Circle smart accounts are not switched on for this site yet. Use a passkey or a wallet for now."],
   // The browser
-  [/cancelled|NotAllowedError|denied|rejected/i, "You cancelled the confirmation, so nothing was sent. Press the button again when you are ready."],
+  [/SecurityError|relying party|rp ?id|not allowed for this domain/i, "This passkey belongs to another web address. Open honorcat.vercel.app and sign in there."],
+  [/timed out or was not allowed|NotAllowedError/i, "The passkey prompt was closed or timed out, so nothing was sent. Press the button again when you are ready."],
+  [/cancelled|denied|rejected/i, "You cancelled the confirmation, so nothing was sent. Press the button again when you are ready."],
   [/does not use P-256|does not expose the passkey/i, "This passkey cannot sign on Arc. Try another device or password manager, or use a wallet instead."],
   [/transaction failed on Arc/i, "The transaction failed on Arc, so nothing moved. Try again in a moment."],
   [/Failed to fetch|NetworkError|network error|timed? ?out/i, "HonorCat could not be reached. Check your connection; nothing was sent if no transaction is shown."],
@@ -33,9 +40,11 @@ const RULES: [RegExp, string][] = [
 
 export function plainMessage(raw: string): string {
   for (const [re, text] of RULES) if (re.test(raw)) return text;
-  const s = raw.split("\n")[0]!.trim().replace(/^(Error: )+/, "");
+  // Relay texts start with the call that failed ("create failed: …"): keep only the reason.
+  const s = raw.split("\n")[0]!.trim().replace(/^(Error: )+/, "").replace(/^\w+ failed: /, "");
   if (!s) return "Something went wrong and nothing was sent. Try again in a moment.";
-  return `${s.charAt(0).toUpperCase()}${s.slice(1)}`.replace(/[.;:]?$/, ".");
+  const reason = `${s.charAt(0).toUpperCase()}${s.slice(1)}`.replace(/[.;:]?$/, ".");
+  return `That did not go through: ${reason.length > 140 ? `${reason.slice(0, 137)}…` : reason} If no transaction is shown, nothing was sent.`;
 }
 
 export const plainError = (e: unknown) => plainMessage(e instanceof Error ? e.message : String(e));

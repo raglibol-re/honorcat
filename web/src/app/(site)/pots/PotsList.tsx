@@ -218,9 +218,10 @@ export function PotsList() {
             <Link href={`/record/${me}`} style={{ fontSize: 16 }}>
               Your honor record
             </Link>
-            {mine.data &&
-            mine.data.pots.length === 0 &&
-            !(myPerps.data?.perps.length ?? 0) ? (
+            {!mine.data ? (
+              <CatState kind="loading" text="Reading your pots from Arc…" size={90} />
+            ) : mine.data.pots.length === 0 &&
+              !(myPerps.data?.perps.length ?? 0) ? (
               <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
                 <Cat pose="box" size={140} />
                 <p style={{ margin: 0, fontSize: 17, color: C.body }}>

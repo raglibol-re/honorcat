@@ -30,6 +30,32 @@ import { sendRelayCalls } from "./txs";
 const OWNER_CALLS = new Set(["create", "requestJoin", "cancel", "requestExit", "setLevels", "takeover", "transferFrom", "safeTransferFrom", "withdraw", "abandonJoin", "abandonExit", "expire", "addLife", "setReferrer", "skipExpiryWindow"]);
 /** Calls a player makes on HonorCatPerps (each acts only on the caller's own budget or chain). */
 const PERP_CALLS = new Set(["open", "join", "stopRenewing", "leaveNow", "agreeHandshake", "addLives", "withdraw"]);
+/** What each call does, in the words a player sees under the button while confirming. */
+const STEP_LABELS: Record<string, string> = {
+  create: "open the pot",
+  requestJoin: "join the pot",
+  cancel: "take back your offer",
+  requestExit: "leave the pot",
+  setLevels: "save your net and bowl",
+  takeover: "take over the side",
+  withdraw: "take out your money",
+  abandonJoin: "end a join that could not be priced",
+  abandonExit: "end an exit that could not be priced",
+  expire: "close the pot",
+  addLife: "move your post out",
+  setReferrer: "record who invited you",
+  skipExpiryWindow: "try the expiry price again",
+  transferFrom: "send your side",
+  safeTransferFrom: "send your side",
+  open: "open the perp",
+  join: "join the perp",
+  stopRenewing: "stop renewing",
+  leaveNow: "leave now",
+  agreeHandshake: "agree the price",
+  addLives: "add lives",
+};
+const stepLabel = (fn: string) => STEP_LABELS[fn] ?? "confirm";
+
 const FORWARD_CALLS = new Set(["create", "requestJoin", "takeover", "requestExitFor", "handshake", "abandonJoin", "abandonExit", "expire", "cancel"]);
 
 const DAILY_LIMIT = 40;
@@ -104,11 +130,11 @@ export async function preparePasskeyPotCall(db: Db, account: Address, data: Hex,
       // Once per account: the pot contract only ever pulls from the caller for the caller's own
       // deposit (transferFrom(msg.sender)), so an unlimited allowance cannot be used by anyone else.
       const approve = encodeFunctionData({ abi: erc20Abi, functionName: "approve", args: [pots, maxUint256] });
-      steps.push({ target: ARC_USDC, data: approve, deadline: deadline.toString(), nonce: nonce.toString(), challenge: executeDigest(chainId, account, nonce, ARC_USDC, 0n, approve, deadline), label: "allow the pot contract to take your deposits (asked only once)" });
+      steps.push({ target: ARC_USDC, data: approve, deadline: deadline.toString(), nonce: nonce.toString(), challenge: executeDigest(chainId, account, nonce, ARC_USDC, 0n, approve, deadline), label: "allow HonorCat to take your stake (asked only once)" });
       nonce += 1n;
     }
   }
-  steps.push({ target: pots, data, deadline: deadline.toString(), nonce: nonce.toString(), challenge: executeDigest(chainId, account, nonce, pots, 0n, data, deadline), label: call.functionName });
+  steps.push({ target: pots, data, deadline: deadline.toString(), nonce: nonce.toString(), challenge: executeDigest(chainId, account, nonce, pots, 0n, data, deadline), label: stepLabel(call.functionName) });
   return { account, steps };
 }
 
