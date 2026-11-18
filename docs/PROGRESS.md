@@ -20,6 +20,12 @@
 
 **No deploys 2026-11-19 00:40 to about 05:40 UTC**: perps e2e runs on live games (data/perps-e2e-nhl.log, data/perps-e2e-nba.log).
 
+## Next: Grok Catbot minds perps (spec 2026-11-18)
+
+Named **Grok Catbot** by the owner (a cute pop-up in HonorCat's style; replaces the spec's "no
+GrokCat" line). Starts only after perps pass every end-to-end run (knock-out runs tonight). Step 0
+done: xAI's docs read and checked against /api/mcp, see docs/grok-bot/docs-check.md.
+
 ## Status against "finish what is open, then lives and perps done properly" (2026-11-18)
 
 | # | Item | Status |
