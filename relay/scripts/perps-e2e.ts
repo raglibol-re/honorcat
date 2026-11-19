@@ -116,8 +116,10 @@ async function main() {
   const treat = (stake * 25n) / 10_000n;
   log(`market ${values.symbol} at ${((prep.midPpm ?? 0) / 10_000).toFixed(1)}%: rope ±${d / 10_000} points, stake $${Number(stake) / 1e6} per side per rope`);
   const [A, B] = [fresh(), fresh()];
+  // Fund what the planned lives need (plus two stakes for the treat and gas), not a fixed 40 stakes.
+  const maxLives = 9n;
   for (const w of wallets) {
-    const h = await dw.writeContract({ address: ARC_USDC, abi: erc20Abi, functionName: "transfer", args: [w.address, 40n * stake + 200_000n] });
+    const h = await dw.writeContract({ address: ARC_USDC, abi: erc20Abi, functionName: "transfer", args: [w.address, (maxLives + 2n) * stake + 200_000n] });
     await client.waitForTransactionReceipt({ hash: h });
     const ww = createWalletClient({ account: w, chain: arcTestnet, transport: http(rpc) });
     const ha = await ww.writeContract({ address: ARC_USDC, abi: erc20Abi, functionName: "approve", args: [PERPS, maxUint256] });

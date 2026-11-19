@@ -92,6 +92,23 @@
   worker. Render services `honorcat` (full site, out of memory on 512 MB) and `honorcat-sampler` are
   no longer needed: the owner deletes them (the tools cannot).
 
+## Groups live on Arc (2026-11-19, 16:00-17:00 UTC)
+
+- Group 3 end to end (relay/scripts/groups-e2e.ts, data/groups-e2e-3.log), Iowa State vs UCF at
+  52.5%: two players joined with $2 each; batch 0 cleared 94 s after the joins ($3.81 per team);
+  A left half: priced 57 s after the request; A took out $0.99 ($1.00 at 52.5% less the 1% fee);
+  the group holds $3.01 = the remaining $1.90 that pays out plus B's $1.11 to take out.
+- Group 2: 13 one-minute batches cleared on time while an unmatched rest waited (as designed).
+- Found and fixed on the way: a group's depth attestation was hashed in the v1 layout (create
+  refused, InvalidAttestation; relay/test/groups-depth.test.ts); the batch due next had no price
+  request when only waiting joins carried into it. After an outage, stale batches can only fail 10
+  minutes after their window (contract rule), so a group then lags about 10 minutes until the
+  waiting joins run out (20 batches).
+- Tick steps now run on their own and name themselves; the occasional "Request exceeds defined
+  limit." comes from the perps index step (cursors are a few blocks from the head; still open).
+- The laptop's background tasks were stopped at about 16:00 UTC when memory ran low (sampler,
+  recorder, the BTC and scheduled NHL runs); the local sampler was started again with the owner's go.
+
 ## Groups spec, steps 5 and 6, copycat leftovers (2026-11-19 afternoon)
 
 - **Knock-outs work live** (Bitcoin run, perp 13 on GEMI-BTC2611192200-HI63000): ropes 11 and 12
