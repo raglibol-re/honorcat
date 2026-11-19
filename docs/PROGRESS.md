@@ -40,6 +40,27 @@
 - Deploy after the NBA run (owner's yes): these commits plus the speed branch (merged locally);
   then a new perp on a live game to see a knock-out go through, and timings into docs/tests.
 
+## Review and fixes (2026-11-19, 03:00-04:30 UTC)
+
+Three code reviews (player flows, relay correctness, cost/reliability) and a live scan of 14 pages
+(no page errors, no failed requests, no overflow; one keyboard issue on the ledger, fixed). Fixed:
+- Perps: a rope that settled, was left or stopped renewing is credited without a depth attestation
+  (perps could wait forever); one perp's error no longer stops the others; no depth requests for
+  ropes past their end. Median signatures carry only the averages proposed; ready attestations are
+  claimed before sending (a double send had marked perp 12's priced entry "failed"); windows still
+  measuring after 11 minutes are given up; each push notice is sent once; samplers look again at a
+  market result Gemini had not published, and result proposals stay open for a week.
+- Cost: idle samplers asked for armed pots ~4 times a second (now every 30 s) and for work every
+  3 s (now 6 s when idle); polls on ledger/status/live line slowed; pot, perp, list, price-check
+  reads shared 1-5 s at the edge; Streams heartbeat once a minute; indexes for owner lists.
+- Pages: friend pots never link to the host's older pot; perp ropes point to their perp; sign-in
+  before copy; failed bot invite goes to the paid pot; no takeover promise on v2; feedback after an
+  extra life; funds help on friend pots; honest "copied"; loading/error states on lists; euro
+  amounts; v1 exit levels prefilled and checked; chance and band checked; confirm before withdrawing
+  everything; v2 joins refused too close to the end, warning outside the band; perp leaderboard.
+- Checked and not a bug: expiry retries on perp 8 had full samples; they failed on a thin book
+  (under 10 contracts at the best bid after the game).
+
 ## Quality pass (2026-11-18 evening, plan: faster settlement, steadier connection, a designed UI)
 
 Done and live (web, plus read-only relay additions):
