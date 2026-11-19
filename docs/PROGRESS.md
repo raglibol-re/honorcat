@@ -40,6 +40,26 @@
 - Deploy after the NBA run (owner's yes): these commits plus the speed branch (merged locally);
   then a new perp on a live game to see a knock-out go through, and timings into docs/tests.
 
+## Database again out of transfer; groups and social spec started (2026-11-19)
+
+- (resolved 10:25 UTC) **`honorcat-2` used its 5 GB monthly transfer in under a day.** Causes,
+  measured from the `[db] bytes` log lines: the app's sampler re-read every stored sample list
+  (~35 KB a market) on each page visit, about 200 MB an hour (3eee1c8), and three copies of each
+  laptop sampler were running (stopping a background task had not ended its processes). Owner's
+  choice: a new free project `honorcat-3` (late-band-99888778), rebuilt from the chain (62 pots,
+  12 perps, all events; markets registered for all running pots and perps; 7 old test pots on
+  finished markets have no market name). Lost again: names, passkeys, drafts, price-check history.
+- QuickNode Streams hit its free monthly limit (cannot be updated); the poller trails 10 blocks.
+- Render: service `honorcat-sampler` created (free, from main); it starts once the owner sets
+  `SAMPLER_KEY_GITHUB` in Render; the app pings it (`SAMPLER_PING_URLS`).
+- Spec "groups, the social loop, copycat and incentives" (2026-11-19). **Step 1 (section 3 without
+  the watch view) done:** head-to-head record on pots and challenges; cat gestures at the rope
+  (paw up, purr, hiss; no text; one per sender every 3 s; kept a day); link preview names the
+  challenger and becomes a three-sentence share card when the pot ends; "Share what happened";
+  one-tap rematch on the same market and side (the rematch on a new market existed); "Trade this
+  market on Gemini" on pot and perp pages ("Well played" already existed). Private pots and the
+  watch view belong to step 5. Next: step 2 (copycat and incentives).
+
 ## Review and fixes (2026-11-19, 03:00-04:30 UTC)
 
 Three code reviews (player flows, relay correctness, cost/reliability) and a live scan of 14 pages

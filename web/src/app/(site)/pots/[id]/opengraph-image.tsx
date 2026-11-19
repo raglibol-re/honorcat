@@ -3,6 +3,7 @@ import { connection } from "next/server";
 import { getDb, namesOf, pots } from "@/server/relay";
 import { sidesOf } from "@/lib/statement";
 import { splitPot } from "@/lib/shares";
+import { nickname } from "@/lib/nickname";
 
 /**
  * The preview image of a pot link (invitations): the question, the rope between two posts with the
@@ -45,7 +46,7 @@ export default async function Image({ params }: { params: Promise<{ id: string }
       const nm = (await namesOf(await getDb(), [owners.yes, owners.no].filter((x): x is string => !!x)).catch(() => ({}))) as Record<string, { name?: string } | string>;
       const nameOf = (a: string | null) => {
         const v = a ? nm[a.toLowerCase()] : undefined;
-        return (typeof v === "string" ? v : v?.name) || "A cat";
+        return (typeof v === "string" ? v : v?.name) || (a ? nickname(a) : "A cat");
       };
       const creator = Number(data.creatorSide ?? 0) === 0 ? owners.yes : owners.no;
       if (String(d.state) === "Open") challenger = `${nameOf(creator)} challenges you`;
@@ -57,6 +58,9 @@ export default async function Image({ params }: { params: Promise<{ id: string }
         const paid = ev.filter((e) => ["PotDivided", "PotSettled", "PotExpired"].includes(e.name));
         const py = paid.reduce((t, e) => t + Number(e.args.paidYes ?? 0), 0);
         const yNet = py - Number(joined?.args.depYes ?? 0);
+        // the pot's size: what both put in when it was joined (a settled pot's notional is 0)
+        const both = Number(joined?.args.depYes ?? 0) + Number(joined?.args.depNo ?? 0);
+        if (both > 0) pot = both / 1e6;
         const last = paid.at(-1);
         const how =
           last?.name === "PotSettled"
