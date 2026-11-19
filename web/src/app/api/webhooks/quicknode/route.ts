@@ -10,6 +10,7 @@ import {
   getDb,
   ingestLogs,
   nudgeRelay,
+  perps,
   pots,
   ARC_MEMO,
   publicClient,
@@ -48,8 +49,16 @@ export async function POST(req: Request) {
   const db = await getDb();
   // Vault, GuaranteeBook and Arc Memo logs; ingestLogs keeps memo logs only for our transactions.
   const logs = extractStreamsLogs(payload, [cfg.vault, ...(cfg.guarantees ? [cfg.guarantees.book] : []), ...(cfg.merkle ? [cfg.merkle.book] : []), ARC_MEMO]);
-  // Two-sided pots (HonorCatPots): Streams is the primary path for their events.
-  const potLogs = cfg.pots ? extractStreamsLogs(payload, [cfg.pots.address]) : [];
+  // Two-sided pots (HonorCatPots v1 and every HonorCatRopes deployment): Streams is the primary path
+  // for their events; ingestPotLogs sorts them by contract.
+  const potAddresses = [...(cfg.pots ? [cfg.pots.address] : []), ...cfg.ropesAll.map((d) => d.address)];
+  const potLogs = potAddresses.length ? extractStreamsLogs(payload, potAddresses) : [];
+  // Perps: a log names the perp (first indexed topic); re-read those perps at once (the poller
+  // records the events themselves a few blocks later).
+  const perpsAt = cfg.ropes?.perps;
+  const perpLogs = perpsAt ? extractStreamsLogs(payload, [perpsAt]) : [];
+  const perpIds = [...new Set(perpLogs.map((l) => (l.topics as string[] | undefined)?.[1]).filter((t): t is string => !!t).map((t) => BigInt(t).toString()))];
+  for (const id of perpIds) await perps.syncPerp(db, BigInt(id)).catch((e) => console.error("[streams] perp", id, e));
   const potResult = potLogs.length
     ? await pots.ingestPotLogs(db, potLogs, async (n) => Number((await publicClient().getBlock({ blockNumber: n })).timestamp)).catch((e) => {
         console.error("[streams] pots", e);

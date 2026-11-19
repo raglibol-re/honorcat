@@ -52,7 +52,7 @@ export async function sendViaCircle(to: Address, data: Hex, refId?: string): Pro
     if (tx?.txHash) return tx.txHash as Hex;
     if (tx?.state && FINAL_FAIL.has(tx.state)) throw new Error(`Circle ${tx.state.toLowerCase()}: ${tx.errorReason ?? tx.errorDetails ?? "no reason given"}`);
     if (Date.now() > deadline) throw new Error(`Circle transaction ${id} not broadcast within 60 s (state ${tx?.state ?? "unknown"})`);
-    await new Promise((r) => setTimeout(r, 700));
+    await new Promise((r) => setTimeout(r, 250));
   }
 }
 
