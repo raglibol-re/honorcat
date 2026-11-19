@@ -313,6 +313,11 @@ export async function groupDetail(db: Db, groupId: string, account?: string | nu
     [dbId],
   );
   const market = await marketOf(db, row.condition_id);
+  // The newest events, for "Mochi joined Texas with $5" lines (names are added in the browser).
+  const recent = await db.query<{ event_name: string; args: Record<string, string>; block_time: string | null; tx_hash: string }>(
+    "SELECT event_name, args, block_time::text AS block_time, tx_hash FROM pot_events WHERE pot_id = $1 ORDER BY block_number DESC, log_index DESC LIMIT 20",
+    [dbId],
+  );
   let mine = null;
   if (account && /^0x[0-9a-fA-F]{40}$/.test(account)) mine = await syncMember(db, BigInt(groupId), getAddress(account)).catch(() => null);
   const now = Math.floor(Date.now() / 1000);
@@ -336,6 +341,7 @@ export async function groupDetail(db: Db, groupId: string, account?: string | nu
     // batches close every minute on the group's own clock; the current one clears after its window
     clock: { now, currentBatch, collectingUntil: createdAt + (currentBatch + 1) * GROUP_PERIOD_S, window: windowOfBatch(d, BigInt(currentBatch)) },
     prices: cleared.map((e) => ({ batch: e.args.batch, price: Number(e.args.price), matched: e.args.matched, at: e.block_time ? Number(e.block_time) : null, tx: e.tx_hash })).reverse(),
+    events: recent.map((e) => ({ name: e.event_name.replace(/^Group:/, ""), args: e.args, at: e.block_time ? Number(e.block_time) : null, tx: e.tx_hash })),
     pricing: pricing.map((p) => ({ id: p.id, status: p.status, batch: p.nonce, windowStart: Number(p.ws), windowEnd: Number(p.we), error: p.error })),
     market: market && { instrument: market.instrument, eventTicker: market.eventTicker, contractTicker: market.contractTicker, eventTitle: market.eventTitle, label: market.label },
     mine,

@@ -1,5 +1,7 @@
 "use client";
 
+import { Watching } from "@/components/pot/Watching";
+
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { CatState } from "@/components/cat/CatState";
@@ -159,6 +161,7 @@ export function GroupView({ id }: { id: string }) {
           }}
         />
         <Reactions potId={String(9_000_000_000 + Number(g.groupId))} />
+        <Watching watchKey={`g${g.groupId}`} startHref="/pots/new?kind=group" tvHref={`/groups/${g.groupId}/tv`} player={myTeam !== null} />
         <p style={{ margin: 0, fontSize: 17 }}>
           {open && !closing && (
             <>

@@ -45,6 +45,7 @@ export type GroupDetail = {
   clock: { now: number; currentBatch: number; collectingUntil: number; window: { start: number; end: number } };
   prices: { batch: string; price: number; matched: string; at: number | null; tx: string }[];
   pricing: { id: string; status: string; batch: string; windowStart: number; windowEnd: number; error: string | null }[];
+  events?: { name: string; args: Record<string, string>; at: number | null; tx: string }[];
   market: { instrument: string; eventTicker: string; contractTicker: string; eventTitle: string; label: string } | null;
   mine: MemberStanding | null;
 };
@@ -137,4 +138,34 @@ export async function sendPosition(actor: Actor, groups: Address, groupId: strin
 
 export async function setTeamLines(groupId: string, account: Address, lines: [string, string]) {
   return getJson<{ ok: boolean }>(`/api/hc/groups/${groupId}/lines`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ account, lines }) });
+}
+
+/** A group event in plain words ("Mochi joined Texas with $5"), newest first; null for the quiet ones. */
+export function groupEventText(e: { name: string; args: Record<string, string> }, names: [string, string], who: (a: string) => string, money: (b: string | bigint) => string): string | null {
+  const a = e.args;
+  const team = (t: string | number | undefined) => names[Number(t ?? 0)] ?? "a team";
+  switch (e.name) {
+    case "GroupCreated":
+      return `${who(a.creator ?? "")} opened the group: ${names[0]} against ${names[1]}`;
+    case "JoinRequested":
+      return `${who(a.account ?? "")} joined ${team(a.team)} with ${money(a.amount ?? "0")}`;
+    case "LeaveRequested":
+      return `${who(a.account ?? "")} is leaving ${team(a.team)}`;
+    case "BatchCleared": {
+      const parts: string[] = [];
+      if (BigInt(a.matched ?? "0") > 0n) parts.push(`${money(a.matched ?? "0")} matched at ${(Number(a.price) / 10_000).toFixed(1)}%`);
+      if (BigInt(a.shrinkYes ?? "0") > 0n) parts.push(`${names[0]} shrank by ${money(a.shrinkYes ?? "0")}`);
+      if (BigInt(a.shrinkNo ?? "0") > 0n) parts.push(`${names[1]} shrank by ${money(a.shrinkNo ?? "0")}`);
+      if (BigInt(a.takeoverYes ?? "0") > 0n || BigInt(a.takeoverNo ?? "0") > 0n) parts.push("waiting joins took over a leaver's share");
+      return parts.length ? parts.join("; ") : null;
+    }
+    case "BatchFailed":
+      return "No agreed price for a batch: its requests went back";
+    case "GroupSettled":
+      return Number(a.outcome) === 2 ? "Gemini settled it void: every deposit goes back" : `Gemini settled it: ${team(Number(a.outcome) === 1 ? 0 : 1)} land the pot`;
+    case "GroupVoided":
+      return "No result in time: every deposit goes back";
+    default:
+      return null;
+  }
 }

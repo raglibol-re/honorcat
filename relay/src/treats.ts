@@ -254,3 +254,19 @@ export async function recentReactions(db: Db, potId: string) {
   );
   return rows.map((r) => ({ id: r.id, kind: Number(r.kind), ageMs: Number(r.age_ms) }));
 }
+
+/* ------------------------------------------------------------------ watchers */
+
+/**
+ * A viewer's heartbeat at a pot, perp ("-id") or group ("g" + id): kept as a daily hash only, and
+ * counted as watching for 70 seconds. Returns how many watch now.
+ */
+export async function watch(db: Db, key: string, who: string) {
+  await db.query(
+    "INSERT INTO pot_watchers (pot_id, who, at) VALUES ($1, $2, now()) ON CONFLICT (pot_id, who) DO UPDATE SET at = now()",
+    [key, who],
+  );
+  if (Math.random() < 0.02) await db.query("DELETE FROM pot_watchers WHERE at < now() - interval '10 minutes'");
+  const r = await db.query<{ n: string }>("SELECT count(*)::text AS n FROM pot_watchers WHERE pot_id = $1 AND at > now() - interval '70 seconds'", [key]);
+  return Number(r[0]?.n ?? 0);
+}

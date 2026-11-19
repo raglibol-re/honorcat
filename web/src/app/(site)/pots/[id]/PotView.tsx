@@ -1,5 +1,7 @@
 "use client";
 
+import { Watching } from "@/components/pot/Watching";
+
 import { CatState } from "@/components/cat/CatState";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -1497,6 +1499,7 @@ export function PotView({ id }: { id: string }) {
       </header>
 
       <Rope {...scene} trail={live.trail} speed={live.speed} />
+      <Watching watchKey={String(pot.potId)} startHref="/pots/new" tvHref={`/pots/${pot.potId}/tv`} player={mine !== null} />
       {(pot.state === "Live" || pot.state === "ExitRequested" || pot.state === "Joining") && !pot.perp && (
         <Reactions potId={String(pot.potId)} />
       )}

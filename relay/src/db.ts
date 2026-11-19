@@ -570,6 +570,13 @@ CREATE TABLE IF NOT EXISTS market_catalog (
   book      JSONB
 );
 CREATE INDEX IF NOT EXISTS market_catalog_cat_idx ON market_catalog (category, close_ms);
+-- Who is watching a pot, perp or group right now (treats.ts watch): a daily hash, no address or IP.
+CREATE TABLE IF NOT EXISTS pot_watchers (
+  pot_id  TEXT NOT NULL,
+  who     TEXT NOT NULL,
+  at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (pot_id, who)
+);
 -- Invite codes (refCodes.ts): a short code per account, so invite links carry no address.
 CREATE TABLE IF NOT EXISTS ref_codes (
   code     TEXT PRIMARY KEY,

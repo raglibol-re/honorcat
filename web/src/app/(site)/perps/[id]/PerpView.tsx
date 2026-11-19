@@ -1,5 +1,7 @@
 "use client";
 
+import { Watching } from "@/components/pot/Watching";
+
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Address } from "viem";
@@ -557,6 +559,7 @@ export function PerpView({ id }: { id: string }) {
             }}
           />
           <Reactions potId={`-${id}`} />
+          <Watching watchKey={`-${id}`} startHref="/pots/new?kind=perp" tvHref={`/perps/${id}/tv`} player={me !== null} />
           <p style={{ margin: 0, fontSize: 17 }}>
             <strong>Rope {d.ropes}</strong>
             {left !== null ? ` · ${clock(left)}` : ""} · past {points(lower)}{" "}
