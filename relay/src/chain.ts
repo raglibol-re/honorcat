@@ -18,7 +18,9 @@ let pub: PublicClient | undefined;
  */
 function rpcTransport(): Transport {
   const urls = [getConfig().rpcUrl, ...(process.env.ARC_RPC_FALLBACK_URLS ?? "").split(",").map((u) => u.trim()).filter(Boolean)];
-  const one = (u: string) => http(u, { retryCount: 2, retryDelay: 250, timeout: 8_000, batch: { wait: 10 } });
+  // The public RPC answers bursts with -32005 (viem: "Request exceeds defined limit."): back off
+  // 250, 500, 1000, 2000 ms before giving up.
+  const one = (u: string) => http(u, { retryCount: 4, retryDelay: 250, timeout: 8_000, batch: { wait: 10 } });
   return urls.length > 1 ? fallback(urls.map(one), { rank: false }) : one(urls[0]!);
 }
 

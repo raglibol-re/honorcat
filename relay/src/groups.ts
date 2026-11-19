@@ -22,6 +22,7 @@ import { memoCall } from "./memo";
 import { marketOf, openOutcome, POT_MIN_SAMPLES, POT_WINDOW_S, potParams, recordPotEvent, registerMarket, requestDepthV2 } from "./pots";
 import { groupDbId } from "./ropes";
 import { paramsFor } from "./trigger/params";
+import { rowsWhileUnchanged } from "./rowCache";
 import { sendRelayCalls } from "./txs";
 
 export const GROUP_STATES = ["None", "Open", "Settled", "Void"] as const;
@@ -175,7 +176,11 @@ export function windowOfBatch(d: { createdAt: string | number; window: string | 
 export async function groupsHousekeeping(db: Db, own: LocalAccount | null) {
   const cfg = getConfig().groups;
   if (!cfg) return { checked: 0, calls: 0 };
-  const rows = await db.query<GroupRow>(
+  // Re-read only when a group changed (a one-line fingerprint first): every byte read leaves the database.
+  const rows = await rowsWhileUnchanged<GroupRow>(
+    db,
+    "house:groups",
+    "SELECT count(*)::text || ':' || coalesce(max(updated_at)::text, '') AS fp FROM groups WHERE state = 1",
     "SELECT group_id::text AS group_id, state, creator, condition_id, close_time::text AS close_time, next_batch::text AS next_batch, data FROM groups WHERE state = 1",
   );
   const now = Math.floor(Date.now() / 1000);
