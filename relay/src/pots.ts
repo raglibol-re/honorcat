@@ -840,6 +840,9 @@ const TRANSIENT = "exceeds defined limit|rate limit|too many requests|429|timed?
 export async function potsHousekeeping(db: Db, own: LocalAccount | null) {
   if (!getConfig().pots) return { checked: 0 };
   const now = Math.floor(Date.now() / 1000);
+  // Windows still measuring after 11 minutes never got two averages (a sampler was down): give
+  // them up, so they stop blocking new knock-out windows and stop costing every pass a look.
+  await db.query("UPDATE att_requests SET status = 'failed', error = 'no agreement in time', updated_at = now() WHERE kind = 'window' AND status = 'measuring' AND created_at < now() - interval '11 minutes'");
   // Windows with two averages whose wait for the third is over.
   for (const r of await db.query<{ id: string }>("SELECT id FROM att_requests WHERE kind = 'window' AND status = 'measuring'")) await maybePropose(db, r.id);
   // Ready but not yet submitted (e.g. a failed send).

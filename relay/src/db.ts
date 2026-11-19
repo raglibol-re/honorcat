@@ -581,6 +581,13 @@ CREATE TABLE IF NOT EXISTS perps (
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS perps_phase_idx ON perps (phase);
+-- Hot lookups (owner lists polled by every signed-in page, a perp's events).
+CREATE INDEX IF NOT EXISTS perps_a_idx ON perps (a);
+CREATE INDEX IF NOT EXISTS perps_b_idx ON perps (b);
+CREATE INDEX IF NOT EXISTS pots_yes_owner_idx ON pots (yes_owner);
+CREATE INDEX IF NOT EXISTS pots_no_owner_idx ON pots (no_owner);
+CREATE INDEX IF NOT EXISTS pots_joiner_idx ON pots ((lower(data->>'joiner')));
+CREATE INDEX IF NOT EXISTS pot_events_perp_idx ON pot_events ((args->>'perpId')) WHERE event_name LIKE 'Perp:%';
 `;
 
 type GlobalWithDb = typeof globalThis & { __honorcatDb?: Promise<Db> };
