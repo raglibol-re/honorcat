@@ -984,7 +984,7 @@ function ShareSend({
         onClick={() => setOpen(true)}
         style={{ alignSelf: "flex-start" }}
       >
-        Send my ${(Number(paid) / 1e6).toFixed(2)} to…
+        Send my {money(paid)} to…
       </Button>
     );
   return (

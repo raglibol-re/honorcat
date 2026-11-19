@@ -1,5 +1,7 @@
 "use client";
 
+import { FeeNote, useFees } from "@/components/pot/Receipts";
+
 import { Watching } from "@/components/pot/Watching";
 
 import Link from "next/link";
@@ -153,6 +155,7 @@ function replay(r: RopeStory): string | null {
 
 export function PerpView({ id }: { id: string }) {
   const who = useActor();
+  const fees = useFees();
   const { tech } = useTechMode();
   const now = useNow();
   const [p, setP] = useState<PerpDetail | null>(null);
@@ -666,6 +669,7 @@ export function PerpView({ id }: { id: string }) {
                   {`Give your word and join (${$(budget)})`}
                 </Button>
                 <ActionProgress step={step} />
+                <FeeNote fees={fees} kind="pot_exec" payer={who.actor?.kind === "wallet" ? "wallet" : "honorcat"} />
               </>
             );
           })()}
@@ -738,6 +742,7 @@ export function PerpView({ id }: { id: string }) {
                         Keep playing
                       </Button>
                       <ActionProgress step={step} />
+                      <FeeNote fees={fees} kind="pot_exec" payer={who.actor?.kind === "wallet" ? "wallet" : "honorcat"} />
                     </div>
                   </Notice>
                 ) : (

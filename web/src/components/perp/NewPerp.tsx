@@ -1,5 +1,7 @@
 "use client";
 
+import { FeeNote, useFees } from "@/components/pot/Receipts";
+
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import type { Address } from "viem";
@@ -69,6 +71,7 @@ const MAX_BUDGET = 25_000_000n; // test version: at most $25 per player
 export function NewPerp({ perps }: { perps: Address }) {
   const router = useRouter();
   const who = useActor();
+  const fees = useFees();
   const [market, setMarket] = useState<MarketItem | null>(null);
   const [side, setSide] = useState<0 | 1>(YES);
   const [lev, setLev] = useState<number | null>(null);
@@ -516,6 +519,7 @@ export function NewPerp({ perps }: { perps: Address }) {
                 {`Give your word: ${n} ${n === 1 ? "life" : "lives"} for ${$(budget)}`}
               </Button>
               <ActionProgress step={step} />
+              <FeeNote fees={fees} kind="pot_exec" payer={who.actor?.kind === "wallet" ? "wallet" : "honorcat"} />
             </>
           )}
           {err && (

@@ -1,5 +1,7 @@
 "use client";
 
+import { FeeNote, useFees } from "@/components/pot/Receipts";
+
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { closesIn, MarketList, type MarketItem } from "@/components/cat/Markets";
@@ -22,6 +24,7 @@ const label = { display: "flex", flexDirection: "column", gap: 6, fontSize: 16, 
 export function NewGroup() {
   const router = useRouter();
   const who = useActor();
+  const fees = useFees();
   const [market, setMarket] = useState<MarketItem | null>(null);
   const [names, setNames] = useState<[string, string]>(["", ""]);
   const [lines, setLines] = useState<[string, string]>(["", ""]);
@@ -139,6 +142,7 @@ export function NewGroup() {
               </div>
               {why && <p style={{ margin: 0, fontSize: 15, color: C.muted }}>{why}</p>}
               <ActionProgress step={step} />
+              <FeeNote fees={fees} kind="pot_exec" payer={who.actor?.kind === "wallet" ? "wallet" : "honorcat"} />
             </div>
           )}
           {err && (

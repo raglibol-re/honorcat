@@ -1,5 +1,7 @@
 "use client";
 
+import { FeeNote, useFees } from "@/components/pot/Receipts";
+
 import { Watching } from "@/components/pot/Watching";
 
 import Link from "next/link";
@@ -19,8 +21,10 @@ import { Input, Notice } from "@/components/ui/Field";
 import { toast } from "@/components/ui/Toast";
 import { pollFast, usePolling } from "@/lib/api";
 import { money } from "@/lib/currency";
-import { collect, getGroups, groupPath, joinTeam, leaveGroup, MAX_WAIT_BATCHES, P, valueOf, type GroupDetail, type GroupsStatus } from "@/lib/group";
+import { collect, getGroups, groupEventText, groupPath, joinTeam, leaveGroup, MAX_WAIT_BATCHES, P, valueOf, type GroupDetail, type GroupsStatus } from "@/lib/group";
 import { plainError } from "@/lib/messages";
+import { displayName, useNames } from "@/lib/names";
+import { txUrl } from "@/lib/chain";
 import { SITE_URL } from "@/lib/site";
 import { useNow } from "@/lib/useNow";
 
@@ -45,6 +49,7 @@ function secs(s: number) {
  */
 export function GroupView({ id }: { id: string }) {
   const who = useActor();
+  const fees = useFees();
   const account = who.actor?.account ?? null;
   const { data: g, error } = usePolling<GroupDetail>(groupPath(id, account), 5_000);
   const [status, setStatus] = useState<GroupsStatus | null>(null);
@@ -54,6 +59,7 @@ export function GroupView({ id }: { id: string }) {
       .catch(() => {});
   }, []);
   const live = useLivePrice(g?.market?.instrument ?? null);
+  const names = useNames((g?.events ?? []).flatMap((e) => [e.args.account, e.args.creator]));
   const nowMs = useNow();
   const now = Math.floor(nowMs / 1000);
 
@@ -268,6 +274,7 @@ export function GroupView({ id }: { id: string }) {
             </div>
           )}
           <ActionProgress step={busy === "collect" || busy === "leave" ? step : null} />
+          <FeeNote fees={fees} kind="pot_exec" payer={who.actor?.kind === "wallet" ? "wallet" : "honorcat"} />
         </section>
       )}
 
@@ -331,6 +338,7 @@ export function GroupView({ id }: { id: string }) {
               {joinTooBig && <p style={{ margin: 0, fontSize: 15, color: C.signalInk }}>On the test version a player puts at most {money(PER_PLAYER)} into one group (you have about {money(already)} in it).</p>}
               <BreakReminder who={who} />
               <ActionProgress step={busy === "join" ? step : null} />
+              <FeeNote fees={fees} kind="pot_exec" payer={who.actor?.kind === "wallet" ? "wallet" : "honorcat"} />
             </>
           )}
         </section>
@@ -356,6 +364,26 @@ export function GroupView({ id }: { id: string }) {
                   Batch {b.batch} at {pct(b.price)} for {nameA}
                   {BigInt(b.matched) > 0n ? `: ${money(b.matched)} matched on each team` : ""}
                   {b.at ? ` · ${new Date(b.at * 1000).toLocaleTimeString()}` : ""}
+                </li>
+              ))}
+          </ol>
+        </section>
+      )}
+      {(g.events ?? []).length > 0 && (
+        <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <h2 style={h2}>What happened</h2>
+          <ol style={{ margin: 0, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 4, fontSize: 16 }}>
+            {(g.events ?? [])
+              .map((e) => ({ e, text: groupEventText(e, g.names, (a) => displayName(a, names, account, false), money) }))
+              .filter((x) => x.text)
+              .slice(0, 12)
+              .map(({ e, text }) => (
+                <li key={`${e.tx}-${e.name}`}>
+                  {text}
+                  {e.at ? ` · ${new Date(e.at * 1000).toLocaleTimeString()}` : ""} ·{" "}
+                  <a href={txUrl(e.tx)} target="_blank" rel="noreferrer">
+                    receipt on Arc
+                  </a>
                 </li>
               ))}
           </ol>
