@@ -337,4 +337,5 @@ QuickNode
       (tx 0x5fceacd007bb26d6cde8acd8202e7413dec714ef76ead69113ec76891e200e58).
 - [ ] E Two showcase perps ($1.00 per life, liquid even markets): waiting for the owner's go.
 - [x] E /how-it-is-built and /developers list every current contract (read from the deployment files).
-- [ ] F Production check of every page at desktop and 390 px, console errors: after the deploy.
+- [x] F Production check of 16 pages at 1280 px and 390 px: no console errors, no sideways scrolling
+      after the table fix, pot 19 shows its final state, /perps/new opens the perp form.

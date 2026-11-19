@@ -92,6 +92,34 @@
   worker. Render services `honorcat` (full site, out of memory on 512 MB) and `honorcat-sampler` are
   no longer needed: the owner deletes them (the tools cannot).
 
+## Groups spec, steps 5 and 6, copycat leftovers (2026-11-19 afternoon)
+
+- **Knock-outs work live** (Bitcoin run, perp 13 on GEMI-BTC2611192200-HI63000): ropes 11 and 12
+  (pots 38 and 39) were knocked out at a post (RopeCredited reason 1: 0 and 20,000 base units), 5 to
+  6 minutes into their 15-minute lives; each time the next rope started at the division price.
+  Ropes before ran to their time limit (reason 2) and rolled.
+- **Watch view:** every pot, perp and group page shows how many cats watch (a heartbeat every 30 s,
+  kept as a daily hash), "Start your own" for spectators and a link to the big screen.
+- **Big screen** for pots (/pots/[id]/tv), perps (/perps/[id]/tv) and groups (/groups/[id]/tv): the
+  rope, the cats (with member counts for groups), live reactions, a large QR code per open seat or
+  team, the newest events in large plain words ("Mochi joined Texas with $5", "Arkansas shrank by $12").
+- **Private pots:** a player makes a pot private with one signature; then only its players and
+  people with the link (it carries a key) see it; it leaves every list, the feed and leaderboard
+  amounts; its link preview says nothing (relay/test/private-pots.test.ts).
+- **Send money by name, end to end** (relay/scripts/send-e2e.ts on production): a receiver named its
+  cat, the sender found it by that name and sent $0.03 with one passkey confirmation in 2.2 s,
+  HonorCat paid the fee (tx 0x5dd8b48febd52aa660e33039883aa36c08c167bd587c51f5aa4a315123053328).
+  "Send my share to…" after a pot uses the same flow.
+- **Fees and receipts:** the Arc fee line next to perp and group actions; the group page lists what
+  happened in plain words, each with its transaction on Arc.
+- **Copycat:** before opening a pot, the start page offers open pots waiting for that side on the
+  same market and any group playing it; a copycat side has a small shadow cat of its leader behind
+  its cat. Not done: automatic copycat through seats (the relay would act for players; left out).
+- **Production check (F), 16 pages at 1280 px and 390 px:** no console errors on any page; /perps/new
+  opens the perp form; pot 19 shows its final state ($0.00 and $1.00, settled by Gemini); /honor and
+  /leaderboard no longer scroll sideways on phones (a screen-reader label was positioned against the
+  page; the wide tables now scroll inside their box).
+
 ## Fixes from the browser review of production (2026-11-19 afternoon)
 
 Each item: the cause in one sentence, the fix, the evidence. Rubric: docs/rubric.md section 16.
