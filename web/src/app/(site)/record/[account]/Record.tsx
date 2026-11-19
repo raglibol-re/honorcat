@@ -62,7 +62,7 @@ export function Record({ account }: { account: string }) {
   const who = useActor();
   const me = who.actor?.account.toLowerCase() ?? null;
   const { data: r, error } = usePolling<HonorRecord>(`/api/hc/record/${account}`, 15_000);
-  const follows = usePolling<{ followers: number }>(`/api/hc/follows?account=${account}`, 60_000);
+  const follows = usePolling<{ followers: number; copiedBy: number }>(`/api/hc/follows?account=${account}`, 60_000);
   const streak = usePolling<{ current: number; best: number }>(`/api/hc/streaks?account=${account}`, 120_000);
   const names = useNames([account]);
   const { tech } = useTechMode();
@@ -95,6 +95,7 @@ export function Record({ account }: { account: string }) {
           {follows.data && (
             <span>
               {follows.data.followers} {follows.data.followers === 1 ? "follower" : "followers"}
+              {follows.data.copiedBy > 0 && ` · copied by ${follows.data.copiedBy} ${follows.data.copiedBy === 1 ? "cat" : "cats"}`}
             </span>
           )}
           {streak.data && streak.data.best > 0 && (

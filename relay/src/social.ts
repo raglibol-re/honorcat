@@ -43,7 +43,9 @@ export async function followsOf(db: Db, account: string) {
   const a = account.toLowerCase();
   const following = (await db.query<{ leader: string }>("SELECT leader FROM follows WHERE follower = $1 ORDER BY at DESC", [a])).map((r) => r.leader);
   const followers = Number((await db.query<{ n: string }>("SELECT count(*)::text AS n FROM follows WHERE leader = $1", [a]))[0]?.n ?? 0);
-  return { account: a, following, followers };
+  // pots that copied one of this player's sides (the contract's CopyMarked events)
+  const copiedBy = Number((await db.query<{ n: string }>("SELECT count(*)::text AS n FROM pot_events WHERE event_name = 'CopyMarked' AND lower(args->>'leader') = $1", [a]))[0]?.n ?? 0);
+  return { account: a, following, followers, copiedBy };
 }
 
 export type FeedItem = {
