@@ -6,7 +6,7 @@ import type { Db } from "./db";
  * is live, a side asked to leave, the pot ended. Nothing personal is stored: a browser's push
  * subscription and the pot it is for. Env: VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY.
  */
-const SUBJECT = "https://honorcat.vercel.app";
+const SUBJECT = process.env.NEXT_PUBLIC_SITE_URL ?? "https://honorcat.vercel.app";
 
 export function pushPublicKey(): string | null {
   return process.env.VAPID_PUBLIC_KEY ?? null;

@@ -30,7 +30,7 @@ const RULES: [RegExp, string][] = [
   // Circle smart accounts
   [/entity config/i, "Circle smart accounts are not switched on for this site yet. Use a passkey or a wallet for now."],
   // The browser
-  [/SecurityError|relying party|rp ?id|not allowed for this domain/i, "This passkey belongs to another web address. Open honorcat.vercel.app and sign in there."],
+  [/SecurityError|relying party|rp ?id|not allowed for this domain/i, `This passkey belongs to another web address. Open ${(process.env.NEXT_PUBLIC_SITE_URL ?? "https://honorcat.vercel.app").replace(/^https?:\/\//, "")} and sign in there.`],
   [/timed out or was not allowed|NotAllowedError/i, "The passkey prompt was closed or timed out, so nothing was sent. Press the button again when you are ready."],
   [/cancelled|denied|rejected/i, "You cancelled the confirmation, so nothing was sent. Press the button again when you are ready."],
   [/does not use P-256|does not expose the passkey/i, "This passkey cannot sign on Arc. Try another device or password manager, or use a wallet instead."],
