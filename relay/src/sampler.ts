@@ -26,6 +26,9 @@ export interface BookSource {
 const top = (b: RawBook | null, recv: number): Book | null =>
   b ? { recv, bid: b.bids[0]?.price ?? null, bidSize: b.bids[0]?.amount ?? null, ask: b.asks[0]?.price ?? null, askSize: b.asks[0]?.amount ?? null } : null;
 
+/** How old the socket's last book may be before a sample reads REST instead. */
+const WS_FRESH_MS = 2_500;
+
 /** Gemini public WebSocket, `{symbol}@depth5` (a full top-5 snapshot every second), via gemini.ts. */
 export class WsBookSource implements BookSource {
   readonly name = "gemini:wss://ws.gemini.com:depth5";
@@ -39,9 +42,19 @@ export class WsBookSource implements BookSource {
     this.stream.watch(instruments);
   }
 
+  /**
+   * The socket's last book when it is recent; otherwise one REST read. Gemini does not always
+   * resend an unchanged book every second, so a quiet but valid book would look stale and the
+   * sampler's window would come out invalid (seen in a live knock-out on an NHL game).
+   */
   async snapshot(instrument: string) {
     const l = this.stream.latest(instrument);
-    return l ? top(l.book, l.recv) : null;
+    if (l && Date.now() - l.recv <= WS_FRESH_MS) return top(l.book, l.recv);
+    try {
+      return top(await readBook(instrument, { levels: 1, timeoutMs: 1500 }), Date.now());
+    } catch {
+      return l ? top(l.book, l.recv) : null;
+    }
   }
 
   close() {
