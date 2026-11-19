@@ -143,7 +143,8 @@ export function windowDigest(a: WindowAtt, at?: At): Hex {
 
 export function depthDigest(d: DepthAtt, at?: At): Hex {
   const dom = domainOf(at);
-  if (dom.name === "HonorCatRopes") {
+  // HonorCatRopes and HonorCatGroups take the v2 depth layout (with spread and crypto).
+  if (dom.name === "HonorCatRopes" || dom.name === "HonorCatGroups") {
     return hashTypedData({
       domain: dom,
       types: depthTypesV2,
