@@ -20,6 +20,26 @@
 
 **No deploys 2026-11-19 00:40 to about 05:40 UTC**: perps e2e runs on live games (data/perps-e2e-nhl.log, data/perps-e2e-nba.log).
 
+## Perps live, knock-outs on live games (2026-11-19 night)
+
+- **Switched on** (owner's yes, 2026-11-18): `ROPES_FOR_NEW_POTS=true`, `PERPS_FOR_NEW_POTS=true`.
+  The laptop is the server for now (two samplers, recorder, e2e runs); a hosted service comes later.
+- **NHL run (perps 8, 9; 15-point ropes)**: rolls at expiry, out of lives and the payouts worked.
+  Live knock-outs did not: 46 + 1 price checks gave no agreed price. Cause, from the stored
+  samples: Gemini's in-game book was mostly 5 cents wide (31/36) and the rule accepts 4, so the
+  samplers correctly gave no price and ropes ran to their time limit (same payout as a division).
+  The app's sampler stored far more samples per window (90 to 130, against 15) because every page
+  visit woke it and it sampled at once; with them it asked for knock-outs the others could not
+  confirm. (A first guess, stale WebSocket books, was wrong; the REST fallback added for it,
+  1a7c41c, is harmless and stays.)
+- **Owner's decision**: a perp's price windows accept a book up to a third of its rope distance
+  wide, between 4 and 6 cents (056550e); other pots keep 4. Sampler pace fixed (a7a2fc5).
+- **Perp pages** (7650ff1): Perps page and menu link; price chart with each rope's posts and the
+  samplers' 30-second prices; "how each rope went" with the deciding window, each sampler's price
+  and the checks that gave none; lives in words.
+- Deploy after the NBA run (owner's yes): these commits plus the speed branch (merged locally);
+  then a new perp on a live game to see a knock-out go through, and timings into docs/tests.
+
 ## Quality pass (2026-11-18 evening, plan: faster settlement, steadier connection, a designed UI)
 
 Done and live (web, plus read-only relay additions):
