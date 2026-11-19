@@ -92,6 +92,31 @@
   worker. Render services `honorcat` (full site, out of memory on 512 MB) and `honorcat-sampler` are
   no longer needed: the owner deletes them (the tools cannot).
 
+## Full review and fixes (2026-11-19 evening)
+
+Checks: 199 contract tests, 201 relay tests, web typecheck and lint; 30 production pages at 1280
+and 390 px (no console errors); two independent code reviews of the day's relay and web changes.
+Fixed and deployed (b070ad6 and after):
+- Private pots: only the link's key opens one (an address alone never did prove anything); a player
+  without the link unlocks it with one signature; every per-pot API route checks the key; private
+  pots are out of every list, the feed, leaderboards and public records; the browser remembers keys.
+- Groups: only groups priced by HonorCat's own MedianResolver are listed, offered or kept by the
+  relay (the contract lets a creator name any resolver); team lines need the creator's signature;
+  names never stick at "Yes"/"No"; a settled group's cat lands at 0 or 100; a failed first join no
+  longer leads to a second group; "pays" per team uses that team's pool; a page view no longer reads
+  or writes a membership for visitors.
+- Group batches: a "no price" with fewer averages than samplers waits for the chain's clock to pass
+  the resolver's 60 s (group 2's batch 20 had been refused as InvalidAttestation); with waiting
+  joins the next batch's price is requested ahead; open groups are re-read every minute.
+- Pages: proof, terms and the big screens show an error instead of loading forever; a missing pot
+  says so plainly; big screens fit phones; the remaining amounts use the shared rule (with an exact
+  four-decimal form for a perp's stake); invite links wait for their code; codes never collide.
+- Database: group housekeeping reads only when a group changed; the worker reads about 3-5 MB an hour.
+- RPC: "Request exceeds defined limit." is viem's name for the public RPC's rate limit (-32005); four
+  backed-off retries now, and a failing tick step no longer skips the others.
+- Open: automatic copycat through seats (seats play practice pots with HonorCat's test money only;
+  the owner decides); the QuickNode key pasted in chat should be replaced after the hackathon.
+
 ## Streams back, showcase perps (2026-11-19, 17:00 UTC)
 
 - QuickNode: a new account (free tier) and a new stream (84e0c8de-13ec-4705-b6d3-babfa5336b00) from
