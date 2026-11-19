@@ -309,7 +309,7 @@ QuickNode
       issues, no overflow at phone width.
 
 ## 16. Browser review of production (2026-11-19), fixes in the order given
-- [ ] A1 QuickNode Streams delivers again. Cause: QuickNode stopped the stream on 2026-11-18 13:18
+- [x] A1 QuickNode Streams delivers again (new account and stream 84e0c8de…, from block 73,050,111, 9 contracts; first deliveries 17:04 UTC). Cause: QuickNode stopped the stream on 2026-11-18 13:18
       UTC at block 72,855,292 ("You've reached the monthly limit for streams in your plan"); the
       webhook address (honorcat.vercel.app) and signature check were right. Done in code: the filter
       also covers HonorCatGroups and HonorRoots, and perp and group logs from Streams are recorded as
@@ -335,7 +335,7 @@ QuickNode
       decorative Z hidden, the old domain gone from docs and scripts.
 - [x] E Gateway run again: 1 USDC deposited on Arc, $0.40 minted by the Circle wallet in 2.8 s
       (tx 0x5fceacd007bb26d6cde8acd8202e7413dec714ef76ead69113ec76891e200e58).
-- [ ] E Two showcase perps ($1.00 per life, liquid even markets): waiting for the owner's go.
+- [x] E Two showcase perps at $1.00 per life, 9 lives each, 1-hour ropes: perp 15 (Iowa State vs UCF) and perp 16 (Syracuse vs Boston College), running.
 - [x] E /how-it-is-built and /developers list every current contract (read from the deployment files).
 - [x] F Production check of 16 pages at 1280 px and 390 px: no console errors, no sideways scrolling
       after the table fix, pot 19 shows its final state, /perps/new opens the perp form.

@@ -92,6 +92,17 @@
   worker. Render services `honorcat` (full site, out of memory on 512 MB) and `honorcat-sampler` are
   no longer needed: the owner deletes them (the tools cannot).
 
+## Streams back, showcase perps (2026-11-19, 17:00 UTC)
+
+- QuickNode: a new account (free tier) and a new stream (84e0c8de-13ec-4705-b6d3-babfa5336b00) from
+  block 73,050,111, filtering 9 contracts (v1 pots, both rope deployments, perps, groups,
+  HonorRoots, vault, books) plus Memo logs of our transactions; webhook honorcat.vercel.app with a
+  new signing token (set on Vercel, never printed). QuickNode terminated it once while the site still
+  had the old token; reactivated after the redeploy, deliveries since 17:04 UTC.
+  relay/scripts/quicknode-create.ts creates a stream from the current block.
+- Showcase perps (owner's go): perp 15 on Iowa State vs UCF and perp 16 on Syracuse vs Boston
+  College, $1.00 per life, 9 lives each, 1-hour ropes, posts 15 points either side; both running.
+
 ## Groups live on Arc (2026-11-19, 16:00-17:00 UTC)
 
 - Group 3 end to end (relay/scripts/groups-e2e.ts, data/groups-e2e-3.log), Iowa State vs UCF at
