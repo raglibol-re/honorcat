@@ -46,3 +46,30 @@ export function SamplerList() {
     </section>
   );
 }
+
+type Delayed = { ok: boolean; ropes: { potId: string; expiry: number; lateS: number }[]; waitingForResult?: { potId: string }[] };
+
+/** The list for /status: short ropes running well past their end (no agreed end price yet). */
+export function DelayedRopes() {
+  const h = usePolling<Delayed>("/api/health/ropes", 15_000).data;
+  return (
+    <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <h2 style={{ margin: 0, fontFamily: F.cond, fontSize: 36, fontWeight: 600 }}>Ropes past their end</h2>
+      <p style={{ margin: 0, fontSize: 16, color: C.body, maxWidth: 680 }}>
+        {!h ? "Checking…" : h.ok ? "None: every short rope ended on time." : `${h.ropes.length} running more than 150 s past their end, waiting for a price the samplers agree on. The money stays in the contract.`}{" "}
+        {h?.waitingForResult?.length ? `${h.waitingForResult.length} more ${h.waitingForResult.length === 1 ? "waits" : "wait"} for the market's result (no end price after four tries, as the contract says). ` : ""}
+        Uptime monitors can watch <span style={{ fontFamily: F.mono, fontSize: 14 }}>/api/health/ropes</span> (503 while any is late).
+      </p>
+      {h && !h.ok && (
+        <ul style={{ margin: 0, padding: 0, listStyle: "none", borderTop: `1.5px solid ${C.ink}` }}>
+          {h.ropes.map((r) => (
+            <li key={r.potId} style={{ display: "flex", gap: 16, padding: "10px 0", borderBottom: `1px solid ${C.faint}`, fontSize: 16 }}>
+              <a href={`/pots/${r.potId}`}>pot {r.potId}</a>
+              <span style={{ color: C.muted }}>{Math.round(r.lateS / 60)} min late</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}

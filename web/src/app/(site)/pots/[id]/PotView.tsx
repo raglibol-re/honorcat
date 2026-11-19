@@ -20,6 +20,7 @@ import type { AgentInfo } from "@/lib/agent";
 import { HelperBubble } from "@/components/helper/Helper";
 import { adviceFree, exitOptions, levelOptions, readWish } from "@/lib/helper";
 import { SamplerNotice } from "@/components/pot/SamplerHealth";
+import { RopePricing } from "@/components/perp/RopePricing";
 import { asV1Pot, sceneOf, storyOf } from "@/components/pot/scene";
 import { ShortRopeNote } from "@/components/pot/RopeControl";
 import { RopeLives } from "@/components/pot/RopeLives";
@@ -1435,6 +1436,9 @@ export function PotView({ id }: { id: string }) {
       <Rope {...scene} trail={live.trail} speed={live.speed} />
       {v2 && expiry > 0 && (
         <ShortRopeNote expiry={expiry} nowS={nowS} ended={ended} />
+      )}
+      {v2 && (pot.state === "Joining" || pot.state === "Live" || pot.state === "ExitRequested") && (
+        <RopePricing expiryTries={Number((pot.data as unknown as { expiryTry?: string }).expiryTry ?? 0)} potId={String(pot.potId)} expiry={expiry} leaving={pot.state === "ExitRequested"} />
       )}
 
       {!v2 && mine !== null && pot.state === "Live" && (

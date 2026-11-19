@@ -32,6 +32,8 @@ import {
   type RopeStory,
 } from "@/lib/perp";
 import { PerpChart } from "@/components/perp/PerpChart";
+import { RopePricing } from "@/components/perp/RopePricing";
+import { SamplerNotice } from "@/components/pot/SamplerHealth";
 import { useNow } from "@/lib/useNow";
 import { money } from "@/lib/currency";
 
@@ -495,7 +497,9 @@ export function PerpView({ id }: { id: string }) {
                   : p.phase === "Running"
                     ? d.leaving
                       ? "Someone is leaving: this rope is being priced, then the perp ends."
-                      : `Rope ${d.ropes} is running.`
+                      : rd && Number(rd.expiryTry ?? 0) >= 4
+                        ? `Rope ${d.ropes} is past its end and waits for the market's result.`
+                        : `Rope ${d.ropes} is running.`
                     : `Ended after ${d.ropes} ${d.ropes === 1 ? "rope" : "ropes"}${(() => {
                         const why = p.events.find((e) => e.name === "PerpEnded")
                           ?.args.why;
@@ -504,6 +508,11 @@ export function PerpView({ id }: { id: string }) {
           </strong>
         </p>
       </header>
+
+      {p.phase !== "Ended" && p.phase !== "Open" && <SamplerNotice />}
+      {(p.phase === "Joining" || p.phase === "Running") && potDb && (
+        <RopePricing expiryTries={rd ? Number(rd.expiryTry ?? 0) : 0} potId={potDb} expiry={expiry} leaving={d.leaving} />
+      )}
 
       {p.phase === "Running" && lower !== null && upper !== null && (
         <section

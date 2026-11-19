@@ -1727,3 +1727,59 @@ export async function prepareRope(db: Db, input: { symbol: string; account: Addr
     market: { symbol: row.symbol, eventTicker: row.eventTicker, contractTicker: row.contractTicker, eventTitle: row.eventTitle, label: row.label, category: row.category, closeMs: row.closeMs },
   };
 }
+
+/* ------------------------------------------------------------------ pricing in progress (for the pot and perp pages) */
+
+const PRICING_KIND: Record<number, string> = { 0: "join", 1: "exit", 7: "post", 8: "expiry" };
+
+/**
+ * The newest price window for a pot in the last ten minutes, for a live progress line: what is being
+ * priced, the window's times, how many samplers have reported, and where it stands (measuring,
+ * agreed and on its way to Arc, recorded, or no price). Null when nothing is being priced.
+ */
+export async function potPricing(db: Db, potId: string) {
+  const r = (
+    await db.query<{ id: string; status: string; kind: string | null; ws: string | null; we: string | null; memo: string | null; error: string | null; updated: string }>(
+      `SELECT id, status, payload->>'kind' AS kind, payload->>'windowStart' AS ws, payload->>'windowEnd' AS we, payload->>'memo' AS memo, error,
+              extract(epoch FROM updated_at)::bigint::text AS updated
+         FROM att_requests WHERE pot_id = $1 AND kind = 'window' AND created_at > now() - interval '10 minutes'
+        ORDER BY created_at DESC LIMIT 1`,
+      [potId],
+    )
+  )[0];
+  if (!r || r.kind === null || PRICING_KIND[Number(r.kind)] === undefined) return null;
+  const reported = await db.query<{ valid: boolean }>("SELECT valid FROM att_averages WHERE request_id = $1", [r.id]);
+  const price = r.memo?.match(/(\d+(?:\.\d+)?)% \(YES\)/);
+  return {
+    what: PRICING_KIND[Number(r.kind)]!,
+    state: r.status === "measuring" ? "measuring" : r.status === "failed" ? "no-price" : r.status === "submitted" ? (/^no /.test(r.memo ?? "") ? "no-price" : "recorded") : "sending",
+    windowStart: Number(r.ws ?? 0),
+    windowEnd: Number(r.we ?? 0),
+    reported: reported.length,
+    validReports: reported.filter((x) => x.valid).length,
+    samplers: signerSet().samplers.length,
+    priceYes: price ? Math.round(Number(price[1]) * 10_000) : null,
+    updatedAt: Number(r.updated),
+  };
+}
+
+/** How long past its end (seconds) a short rope may run before it counts as delayed. */
+export const ROPE_DELAY_S = 150;
+
+/**
+ * Short ropes still running well past their end (no agreed end price yet), and how long. Used by
+ * /status and /api/health/ropes (503 while any is delayed, for an uptime monitor to alert on).
+ */
+export async function delayedRopes(db: Db) {
+  const now = Math.floor(Date.now() / 1000);
+  const rows = await db.query<{ pot_id: string; expiry: string; tries: string | null }>(
+    `SELECT pot_id::text AS pot_id, data->>'expiry' AS expiry, data->>'expiryTry' AS tries FROM pots
+      WHERE state IN (3, 4) AND (data->>'v2')::boolean IS TRUE AND COALESCE((data->>'expiry')::bigint, 0) > 0
+        AND (data->>'expiry')::bigint < $1`,
+    [now - ROPE_DELAY_S],
+  );
+  // After four failed end windows the contract waits for the market's result: expected, not an alert.
+  const all = rows.map((r) => ({ potId: r.pot_id, expiry: Number(r.expiry), lateS: now - Number(r.expiry), waitingForResult: Number(r.tries ?? 0) >= EXPIRY_TRIES }));
+  const ropes = all.filter((r) => !r.waitingForResult);
+  return { ok: ropes.length === 0, ropes, waitingForResult: all.filter((r) => r.waitingForResult), at: now };
+}

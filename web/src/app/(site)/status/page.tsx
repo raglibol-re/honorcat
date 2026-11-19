@@ -1,5 +1,5 @@
 import { C, F } from "@/components/cat/tokens";
-import { SamplerList } from "@/components/pot/SamplerHealth";
+import { DelayedRopes, SamplerList } from "@/components/pot/SamplerHealth";
 import { StatusView } from "./StatusView";
 
 export const metadata = { title: { absolute: "Relay status · HonorCat" } };
@@ -14,6 +14,7 @@ export default function StatusPage() {
         </p>
       </div>
       <SamplerList />
+      <DelayedRopes />
       <StatusView />
     </div>
   );
