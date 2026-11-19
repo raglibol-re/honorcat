@@ -28,11 +28,15 @@ export const EXPIRY_TRIES = 4;
 export const ATTEST_TIMEOUT_S = 600;
 export const P = 1_000_000;
 
-export const isRopeDbId = (dbId: string | bigint) => BigInt(dbId) >= ROPE_BASE;
+/** Group pots (HonorCatGroups) live at 9e9 + their on-chain id in the same tables and requests. */
+export const GROUP_BASE = 9_000_000_000n;
+export const isGroupDbId = (dbId: string | bigint) => BigInt(dbId) >= GROUP_BASE;
+export const groupDbId = (groupId: bigint | string) => (GROUP_BASE + BigInt(groupId)).toString();
+export const isRopeDbId = (dbId: string | bigint) => BigInt(dbId) >= ROPE_BASE && BigInt(dbId) < GROUP_BASE;
 /** The database id of a v2 pot: its deployment's id base (default: the current deployment) + its on-chain id. */
 export const ropeDbId = (chainPotId: bigint | string, base?: bigint) => ((base ?? currentBase()) + BigInt(chainPotId)).toString();
 /** The contract's own pot id for a database pot id (v1 ids are the same in both). */
-export const chainPotId = (dbId: string | bigint) => (isRopeDbId(dbId) ? BigInt(dbId) % SPAN : BigInt(dbId));
+export const chainPotId = (dbId: string | bigint) => (BigInt(dbId) >= ROPE_BASE ? BigInt(dbId) % SPAN : BigInt(dbId));
 /** The id base of a database pot id's deployment. */
 export const baseOf = (dbId: string | bigint) => BigInt(dbId) - (BigInt(dbId) % SPAN);
 function currentBase() {
@@ -52,7 +56,12 @@ export function ropesConfig() {
 }
 
 /** The contract, its EIP-712 domain name and its MedianResolver for a database pot id. */
-export function contractOf(dbId: string | bigint): { address: Address; v2: boolean; name: "HonorCatPots" | "HonorCatRopes"; median: Address | null; chainPotId: bigint } {
+export function contractOf(dbId: string | bigint): { address: Address; v2: boolean; name: "HonorCatPots" | "HonorCatRopes" | "HonorCatGroups"; median: Address | null; chainPotId: bigint; group?: boolean } {
+  if (isGroupDbId(dbId)) {
+    const g = getConfig().groups;
+    if (!g) throw new Error(`no HonorCatGroups deployment for ${dbId}`);
+    return { address: g.address, v2: true, name: "HonorCatGroups", median: g.median, chainPotId: chainPotId(dbId), group: true };
+  }
   if (isRopeDbId(dbId)) {
     const r = deploymentOf(dbId);
     if (!r) throw new Error(`no HonorCat v2 deployment for pot ${dbId}`);
@@ -64,7 +73,9 @@ export function contractOf(dbId: string | bigint): { address: Address; v2: boole
 }
 
 /** The domain name for a pot contract address (v2 when it is the configured HonorCatRopes). */
-export function domainNameFor(address: Address): "HonorCatPots" | "HonorCatRopes" {
+export function domainNameFor(address: Address): "HonorCatPots" | "HonorCatRopes" | "HonorCatGroups" {
+  const g = getConfig().groups;
+  if (g && getAddress(g.address) === getAddress(address)) return "HonorCatGroups";
   return getConfig().ropesAll.some((d) => getAddress(d.address) === getAddress(address)) ? "HonorCatRopes" : "HonorCatPots";
 }
 

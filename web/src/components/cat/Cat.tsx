@@ -537,7 +537,7 @@ export function Cat({
   label?: string;
   lives?: number;
   /** The player's fur: colour, name (for the text alternative), and whether it is light (gets an ink outline). Default: HonorCat's black cat. */
-  fur?: { hex: string; label: string; light: boolean };
+  fur?: { hex: string; label: string; light: boolean; pattern?: "tabby" | "tuxedo" };
   mood?: Mood;
   /** The helper cat's signal-coloured collar, so it never looks like a player's cat. */
   collar?: boolean;
@@ -550,7 +550,9 @@ export function Cat({
   const furWord = fur ? fur.label.toLowerCase() : "black";
   const base = POSE_TEXT[pose].replace("A black cat", `A ${furWord} cat`).replace("Two black cats", `Two ${furWord} cats`);
   const text = label ?? (pose === "lives" ? `${n} of 9 lives left.` : pose === "sit" ? `${base.replace(/\.$/, "")}, ${MOOD_TEXT[mood]}.` : base);
-  const k = { ...(fur ? { body: fur.hex, line: fur.light ? C.ink : "none", w: fur.light ? 1.6 : 0 } : { body: C.ink, line: "none", w: 0 }), collar, wear: collar ? null : wear };
+  // A coat pattern (tiger stripes, black-and-white patches) paints the body with an SVG pattern.
+  const body = fur?.pattern ? `url(#${uid}-coat)` : fur ? fur.hex : C.ink;
+  const k = { ...(fur ? { body, line: fur.light ? C.ink : "none", w: fur.light ? 1.6 : 0 } : { body, line: "none", w: 0 }), collar, wear: collar ? null : wear };
   return (
     <svg
       viewBox={`0 0 ${w} ${h}`}
@@ -561,6 +563,23 @@ export function Cat({
       style={{ display: "block", overflow: "visible" }}
     >
       <title>{text}</title>
+      {fur?.pattern === "tabby" && (
+        <defs>
+          <pattern id={`${uid}-coat`} patternUnits="userSpaceOnUse" width="11" height="11" patternTransform="rotate(18)">
+            <rect width="11" height="11" fill={fur.hex} />
+            <rect width="4" height="11" fill="#2E1D10" />
+          </pattern>
+        </defs>
+      )}
+      {fur?.pattern === "tuxedo" && (
+        <defs>
+          <pattern id={`${uid}-coat`} patternUnits="userSpaceOnUse" width="34" height="30">
+            <rect width="34" height="30" fill={fur.hex} />
+            <ellipse cx="9" cy="8" rx="9" ry="6.5" fill="#FAF8F3" />
+            <ellipse cx="26" cy="23" rx="8" ry="6" fill="#FAF8F3" />
+          </pattern>
+        </defs>
+      )}
       <FurCtx.Provider value={k}>
         <Scene pose={pose} lives={n} uid={uid} mood={mood} />
       </FurCtx.Provider>

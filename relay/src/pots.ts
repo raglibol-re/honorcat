@@ -39,7 +39,8 @@ import { decodeMemoBody, decodeMemoLog, memoCall } from "./memo";
 import { ARC_MEMO } from "./arc";
 import { potsAbi } from "./potsAbi";
 import { ropesAbi } from "./ropesAbi";
-import { ATTEST_TIMEOUT_S, EXPIRY_TRIES, KIND_EXPIRY, KIND_KNOCK, chainPotId, contractOf, deploymentOf, domainNameFor, expiryWindowStart, isRopeDbId, knockWindowOk, ropeDbId } from "./ropes";
+import { groupsAbi } from "./groupsAbi";
+import { ATTEST_TIMEOUT_S, EXPIRY_TRIES, KIND_EXPIRY, KIND_KNOCK, chainPotId, contractOf, deploymentOf, domainNameFor, expiryWindowStart, isGroupDbId, isRopeDbId, knockWindowOk, ropeDbId } from "./ropes";
 import { notifyPot, stateMessage } from "./push";
 import { sendRelayCalls } from "./txs";
 import { evidenceHash, evidenceRootOf, recordFromJson, verifyRecord } from "./trigger/evidence";
@@ -53,7 +54,7 @@ export const P = 1_000_000n;
 export const DELAY = 1; // seconds, matches the contract
 
 /** Where an attestation is checked: chain, contract and (v2) the contract's EIP-712 name. */
-export type At = { chainId: number; pots: Address; name?: "HonorCatPots" | "HonorCatRopes" };
+export type At = { chainId: number; pots: Address; name?: "HonorCatPots" | "HonorCatRopes" | "HonorCatGroups" };
 const domain = (chainId: number, verifyingContract: Address, name?: string) => ({ name: name ?? domainNameFor(verifyingContract), version: "1", chainId, verifyingContract });
 const domainOf = (at?: At) => (at ? domain(at.chainId, at.pots, at.name) : domain(getConfig().chainId, potsAddress()));
 /** The `At` of a database pot id (v1 or v2). */
@@ -280,6 +281,10 @@ const jsonify = (o: PotStruct) => Object.fromEntries(Object.entries(o).map(([k, 
 
 /** Reads a pot and its owners from the chain into `pots`, and opens the request for a pending window. */
 export async function syncPot(db: Db, potId: bigint, createdTx?: string) {
+  if (isGroupDbId(potId)) {
+    await (await import("./groups")).syncGroup(db, chainPotId(potId));
+    return null;
+  }
   if (isRopeDbId(potId)) return syncRope(db, potId, createdTx);
   const c = publicClient();
   const address = potsAddress();
@@ -437,7 +442,7 @@ export type MeasureTask = {
   /** The pot contract and its own pot id (v2 pots differ from the database id), its EIP-712 name and MedianResolver. */
   contract?: Address;
   chainPotId?: string;
-  name?: "HonorCatPots" | "HonorCatRopes";
+  name?: "HonorCatPots" | "HonorCatRopes" | "HonorCatGroups";
   median?: Address | null;
 };
 /** A live short rope whose posts the samplers watch for a knock-out. */
@@ -730,7 +735,28 @@ export async function submitReady(db: Db, requestId: string) {
   const abi: readonly unknown[] = ct.v2 ? ropesAbi : potsAbi;
   let data: Hex;
   let why: string;
-  if (req.kind === "window") {
+  if (ct.group) {
+    // Group pots (HonorCatGroups): a batch's window clears it; the outcome settles the group. Both
+    // take the group id first.
+    if (req.kind === "window") {
+      const a = p.attestation as WindowAtt;
+      // Batches clear strictly in order: a later batch waits (ready) until the ones before it are done;
+      // one the group has moved past (cleared, or failed for lack of a price) is closed here.
+      const next = (await import("./groups")).nextBatchOf;
+      const nb = await next(ct.chainPotId);
+      if (nb === null || BigInt(a.nonce) < nb) {
+        await db.query("UPDATE att_requests SET status = 'failed', error = $2, updated_at = now() WHERE id = $1 AND status = 'ready'", [requestId, "the group is past this batch"]);
+        return null;
+      }
+      if (BigInt(a.nonce) > nb) return null;
+      data = encodeFunctionData({ abi: groupsAbi, functionName: "clear", args: [ct.chainPotId, toWindowArg(a) as never, sigs] });
+      why = a.valid ? `group batch ${a.nonce} at ${(a.priceYes / 10_000).toFixed(2)}% (YES), window ${a.windowStart}-${a.windowEnd}, ${String(p.reason)}` : `no price for group batch ${a.nonce}: ${String(p.reason)}`;
+    } else if (req.kind === "outcome") {
+      const o = p.attestation as OutcomeAtt;
+      data = encodeFunctionData({ abi: groupsAbi, functionName: "settle", args: [ct.chainPotId, { potId: BigInt(o.potId), conditionId: o.conditionId, outcome: o.outcome, evidenceHash: o.evidenceHash }, sigs] });
+      why = `Gemini settled ${o.outcome === 1 ? "YES" : o.outcome === 0 ? "NO" : "void"}`;
+    } else return null;
+  } else if (req.kind === "window") {
     const a = p.attestation as WindowAtt;
     const fn = a.kind === KIND.join ? "resolveJoin" : a.kind === KIND.exit ? "resolveExit" : a.kind === KIND_KNOCK ? "triggerKnockOut" : a.kind === KIND_EXPIRY ? "resolveExpiry" : "triggerLevel";
     data = encodeCall(abi, fn, [toWindowArg(a), sigs]);
@@ -802,6 +828,8 @@ export async function requestDepthV2(
   db: Db,
   input: { conditionId: Hex; account: Address; instrument: string; closeTime: number; crypto: boolean },
   own: LocalAccount | null,
+  /** the contract the attestation is for (default: the current HonorCatRopes) */
+  target?: At,
 ) {
   const raw = await readBook(input.instrument);
   if (!raw) throw Object.assign(new Error("Gemini did not return this market's order book"), { status: 502 });
@@ -818,13 +846,13 @@ export async function requestDepthV2(
     validUntil: String(Math.floor(Date.now() / 1000) + 120),
   };
   const r = getConfig().ropes;
-  if (!r) throw Object.assign(new Error("HonorCat v2 is not deployed"), { status: 409 });
-  const at: At = { chainId: getConfig().chainId, pots: r.address, name: "HonorCatRopes" };
+  if (!target && !r) throw Object.assign(new Error("HonorCat v2 is not deployed"), { status: 409 });
+  const at: At = target ?? { chainId: getConfig().chainId, pots: r!.address, name: "HonorCatRopes" };
   const id = `d:${randomUUID()}`;
   const digest = depthDigest(d, at);
   await db.query("INSERT INTO att_requests (id, kind, payload, status, digest) VALUES ($1,'depth',$2,'proposed',$3)", [
     id,
-    JSON.stringify({ attestation: d, instrument: input.instrument, contract: r.address.toLowerCase(), name: at.name }),
+    JSON.stringify({ attestation: d, instrument: input.instrument, contract: at.pots.toLowerCase(), name: at.name }),
     digest,
   ]);
   if (own) await submitCosig(db, id, { signer: own.address, signature: await own.sign!({ hash: digest }) });
@@ -909,7 +937,7 @@ export async function potsHousekeeping(db: Db, own: LocalAccount | null) {
 }
 
 /** After the close: if Gemini has settled the contract, propose the outcome; the app's sampler signs. */
-async function openOutcome(db: Db, pot: bigint, conditionId: string, own: LocalAccount | null) {
+export async function openOutcome(db: Db, pot: bigint, conditionId: string, own: LocalAccount | null) {
   const id = `o:${pot}`;
   if ((await db.query("SELECT 1 FROM att_requests WHERE id = $1", [id])).length) return;
   const m = await marketOf(db, conditionId);

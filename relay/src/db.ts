@@ -570,6 +570,28 @@ CREATE TABLE IF NOT EXISTS market_catalog (
   book      JSONB
 );
 CREATE INDEX IF NOT EXISTS market_catalog_cat_idx ON market_catalog (category, close_ms);
+-- Group pots (HonorCatGroups): projection of each group and of each member's standing (groups.ts).
+CREATE TABLE IF NOT EXISTS groups (
+  group_id     BIGINT PRIMARY KEY,
+  state        SMALLINT NOT NULL,
+  creator      TEXT NOT NULL,
+  condition_id TEXT NOT NULL,
+  close_time   BIGINT NOT NULL,
+  next_batch   BIGINT,
+  data         JSONB NOT NULL,
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS groups_state_idx ON groups (state);
+CREATE TABLE IF NOT EXISTS group_members (
+  group_id    BIGINT NOT NULL,
+  account     TEXT NOT NULL,
+  team        SMALLINT,
+  member      BOOLEAN NOT NULL,
+  data        JSONB NOT NULL,
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (group_id, account)
+);
+CREATE INDEX IF NOT EXISTS group_members_account_idx ON group_members (account);
 -- Perps (HonorCatPerps): projection of each chain, read from the chain after each event (perps.ts).
 CREATE TABLE IF NOT EXISTS perps (
   perp_id     BIGINT PRIMARY KEY,

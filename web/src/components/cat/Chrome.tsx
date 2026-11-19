@@ -33,9 +33,13 @@ const techOnly = [["/guarantees", "Guarantees"]] as const;
  * The header: a slim test-money line, the logo, and the links (the current page marked). On phones
  * the links fold into a menu that closes after a choice.
  */
+// Groups appear in the menu only once switched on (GROUPS=on, passed to the browser at build time).
+const GROUPS_ON = (process.env.NEXT_PUBLIC_GROUPS ?? "").toLowerCase() === "on";
+const primaryNow: readonly (readonly [string, string])[] = GROUPS_ON ? [...primary.slice(0, 3), ["/groups", "Groups"], ...primary.slice(3)] : primary;
+
 export function HcHeader() {
   const { tech } = useTechMode();
-  const items = tech ? [...primary, ...technical, ...techOnly] : primary;
+  const items = tech ? [...primaryNow, ...technical, ...techOnly] : primaryNow;
   return (
     <>
       <div className="hc-strip">

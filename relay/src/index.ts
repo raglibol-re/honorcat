@@ -102,6 +102,7 @@ export * as pots from "./pots";
 export * as treats from "./treats";
 export * as cosmetics from "./cosmetics";
 export * as perps from "./perps";
+export * as groups from "./groups";
 export * as social from "./social";
 export { catalogTick } from "./catalogTick";
 export * as honor from "./honor/store";

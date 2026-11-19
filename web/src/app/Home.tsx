@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { ButtonLink } from "@/components/ui/Button";
-import { CatName, PlayerCat } from "@/components/cat/PlayerCat";
+import { Cat } from "@/components/cat/Cat";
+import { CatName } from "@/components/cat/PlayerCat";
 import { sidesOf } from "@/lib/statement";
 import { nickname, useNames } from "@/lib/names";
 import { HcFooterLinks, HcHeader } from "@/components/cat/Chrome";
@@ -414,14 +415,14 @@ export function Home({ data }: { data: HomeData }) {
                   fontWeight: 600,
                 }}
               >
-                <PlayerCat
-                  fur="ginger"
+                <Cat
+                  fur={{ hex: "#9A6A35", label: "Brown tabby", light: false, pattern: "tabby" }}
                   pose="sit"
                   size={58}
                   mood="up"
                   label=""
                 />{" "}
-                Mochi
+                Micky
               </span>
               <span
                 style={{
@@ -432,14 +433,14 @@ export function Home({ data }: { data: HomeData }) {
                   fontWeight: 600,
                 }}
               >
-                <PlayerCat
-                  fur="white"
+                <Cat
+                  fur={{ hex: "#111111", label: "Black and white", light: false, pattern: "tuxedo" }}
                   pose="sit"
                   size={58}
                   mood="down"
                   label=""
                 />{" "}
-                Tofu
+                Morty
               </span>
             </div>
             <ol
@@ -459,15 +460,15 @@ export function Home({ data }: { data: HomeData }) {
                 [
                   [
                     "1",
-                    "Mochi holds “Boston beats Orlando” at 60%, Tofu the other side: Mochi puts in $6, Tofu $4.",
+                    "Micky holds “Boston beats Orlando” at 60%, Morty the other side: Micky puts in $6, Morty $4.",
                   ],
                   [
                     "2",
-                    "Boston pulls ahead and the market moves to 75%: Mochi’s share is now $7.50, Tofu’s $2.50.",
+                    "Boston pulls ahead and the market moves to 75%: Micky’s share is now $7.50, Morty’s $2.50.",
                   ],
                   [
                     "3",
-                    "Mochi leaves with $7.40 (a $0.10 treat for Tofu), or both hold and the right side gets the $10.",
+                    "Micky leaves with $7.40 (a $0.10 treat for Morty), or both hold and the right side gets the $10.",
                   ],
                 ] as const
               ).map(([n, t]) => (

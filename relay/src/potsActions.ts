@@ -23,6 +23,7 @@ import { potsAbi } from "./potsAbi";
 import { syncPerp } from "./perps";
 import { potsAddress, syncPot } from "./pots";
 import { perpsAbi } from "./perpsAbi";
+import { groupsAbi } from "./groupsAbi";
 import { ropesAbi } from "./ropesAbi";
 import { ropeDbId } from "./ropes";
 import { sendRelayCalls } from "./txs";
@@ -55,6 +56,28 @@ const STEP_LABELS: Record<string, string> = {
   addLives: "add lives",
 };
 const stepLabel = (fn: string) => STEP_LABELS[fn] ?? "confirm";
+/** Calls a player makes on HonorCatGroups (each acts only on the caller's own money or position). */
+const GROUP_CALLS = new Set(["create", "join", "leave", "claim", "withdraw", "transferPosition"]);
+const GROUP_LABELS: Record<string, string> = {
+  create: "open the group",
+  join: "join the team",
+  leave: "leave the group",
+  claim: "collect what the group owes you",
+  withdraw: "take out your money",
+  transferPosition: "send your share",
+};
+/** HonorCatGroups, when the target is it. */
+const groupsAt = (target?: Address | null) => {
+  const g = getConfig().groups?.address;
+  return target && g && getAddress(target) === getAddress(g) ? getAddress(g) : null;
+};
+function decodeGroups(data: Hex) {
+  try {
+    return decodeFunctionData({ abi: groupsAbi, data });
+  } catch {
+    throw new GaslessError("not a call to the group contract", 400);
+  }
+}
 
 const FORWARD_CALLS = new Set(["create", "requestJoin", "takeover", "requestExitFor", "handshake", "abandonJoin", "abandonExit", "expire", "cancel"]);
 
@@ -116,9 +139,10 @@ async function rateLimit(db: Db, who: Address) {
 export async function preparePasskeyPotCall(db: Db, account: Address, data: Hex, spend: bigint, target?: Address | null) {
   const pk = await getPasskeyByAccount(db, account);
   if (!pk) throw new GaslessError("unknown passkey account", 404);
-  const t = potTarget(target);
-  const call = t.perps ? decodePerps(data) : decodePots(data, t.v2);
-  if (!(t.perps ? PERP_CALLS : OWNER_CALLS).has(call.functionName)) throw new GaslessError(`${call.functionName} is not relayed`, 400);
+  const ga = groupsAt(target);
+  const t = ga ? { address: ga, v2: true, perps: false } : potTarget(target);
+  const call = ga ? decodeGroups(data) : t.perps ? decodePerps(data) : decodePots(data, t.v2);
+  if (!(ga ? GROUP_CALLS : t.perps ? PERP_CALLS : OWNER_CALLS).has(call.functionName)) throw new GaslessError(`${call.functionName} is not relayed`, 400);
   const pots = t.address;
   const chainId = getConfig().chainId;
   const deadline = BigInt(Math.floor(Date.now() / 1000) + 600);
@@ -134,7 +158,7 @@ export async function preparePasskeyPotCall(db: Db, account: Address, data: Hex,
       nonce += 1n;
     }
   }
-  steps.push({ target: pots, data, deadline: deadline.toString(), nonce: nonce.toString(), challenge: executeDigest(chainId, account, nonce, pots, 0n, data, deadline), label: stepLabel(call.functionName) });
+  steps.push({ target: pots, data, deadline: deadline.toString(), nonce: nonce.toString(), challenge: executeDigest(chainId, account, nonce, pots, 0n, data, deadline), label: ga ? (GROUP_LABELS[call.functionName] ?? "confirm") : stepLabel(call.functionName) });
   return { account, steps };
 }
 
@@ -150,13 +174,22 @@ export async function submitPasskeyPotCall(db: Db, input: { account: Address; st
   const calls = [];
   let potId: string | null = null;
   let perpId: string | null = null;
+  let groupId: string | null = null;
+  let isGroup = false;
   let what = "";
   for (const s of input.steps) {
     const target = getAddress(s.target);
     if (target === ARC_USDC) {
       const c = decodeFunctionData({ abi: erc20Abi, data: s.data });
       const spender = getAddress(c.args[0] as Address);
-      if (c.functionName !== "approve" || (spender !== pots && !ropesAt(spender) && spender !== getConfig().ropes?.perps)) throw new GaslessError("only an approval for the pot contract", 400);
+      if (c.functionName !== "approve" || (spender !== pots && !ropesAt(spender) && spender !== getConfig().ropes?.perps && !groupsAt(spender))) throw new GaslessError("only an approval for the pot contract", 400);
+    } else if (groupsAt(target)) {
+      const c = decodeGroups(s.data);
+      if (!GROUP_CALLS.has(c.functionName)) throw new GaslessError(`${c.functionName} is not relayed`, 400);
+      what = c.functionName;
+      isGroup = true;
+      const first = (c.args as readonly unknown[] | undefined)?.[0];
+      if (typeof first === "bigint" && c.functionName !== "create") groupId = first.toString();
     } else if (perpsAt(target)) {
       const c = decodePerps(s.data);
       if (!PERP_CALLS.has(c.functionName)) throw new GaslessError(`${c.functionName} is not relayed`, 400);
@@ -186,7 +219,7 @@ export async function submitPasskeyPotCall(db: Db, input: { account: Address; st
         { r: s.assertion.r, s: s.assertion.s, challengeIndex: BigInt(s.assertion.challengeIndex), typeIndex: BigInt(s.assertion.typeIndex), authenticatorData: s.assertion.authenticatorData, clientDataJSON: s.assertion.clientDataJSON },
       ],
     });
-    const ref = input.ref ?? (potId ? `pot-${potId}` : perpId ? `perp-${perpId}` : "pot");
+    const ref = input.ref ?? (potId ? `pot-${potId}` : perpId ? `perp-${perpId}` : groupId ? `group-${groupId}` : "pot");
     calls.push({ ...memoCall(input.account, exec, ref, { v: 1, t: "pot", ref, why: `${target === ARC_USDC ? "approval" : what} by passkey; HonorCat paid the fee` }), label: target === ARC_USDC ? "approve" : what });
     nonce += 1n;
   }
@@ -200,6 +233,16 @@ export async function submitPasskeyPotCall(db: Db, input: { account: Address; st
   );
   await logRequest(db, input.account, null, `pot:${what}`, 0n, res.ok ? res.tx : undefined);
   if (!res.ok) throw new GaslessError(`${what} failed: ${res.error}`, 502);
+  if (isGroup) {
+    // A create has no group id in its arguments: take it from the contract's own event in the receipt.
+    const groups = await import("./groups");
+    const id = groupId ?? (await groups.groupIdFrom(res.tx as Hex));
+    if (id) {
+      await groups.syncGroup(db, BigInt(id)).catch((e) => console.error("[groups] sync", id, e));
+      await groups.syncMember(db, BigInt(id), input.account).catch(() => null);
+    }
+    return { tx: res.tx, potId: null, groupId: id };
+  }
   if (what && PERP_CALLS.has(what) && input.steps.some((s) => perpsAt(s.target))) {
     // An open has no perp id in its arguments: take it from the contract's own event in the receipt.
     const id = perpId ?? (await perpIdFrom(res.tx));

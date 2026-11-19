@@ -10,6 +10,7 @@
     "./potsAbi": "./src/potsAbi.ts",
     "./ropesAbi": "./src/ropesAbi.ts",
     "./perpsAbi": "./src/perpsAbi.ts",
+    "./groupsAbi": "./src/groupsAbi.ts",
     "./honorConfig": "./src/honor/config.ts"
   },
   "scripts": {

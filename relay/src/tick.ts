@@ -91,6 +91,13 @@ export async function runTick(opts: { reason: string; force?: boolean; skipIndex
         await indexPerps(db, head, { deadlineMs: 8_000 });
         const perpsHouse = await perpsHousekeeping(db, own);
         if (perpsHouse.calls) (report as Record<string, unknown>).perps = perpsHouse;
+        // Group pots: index, open each batch's price window, fail stuck batches, settle (groups.ts).
+        if (cfg.groups) {
+          const { indexGroups, groupsHousekeeping } = await import("./groups");
+          await indexGroups(db, head, { deadlineMs: 6_000 });
+          const groupsHouse = await groupsHousekeeping(db, own);
+          if (groupsHouse.calls) (report as Record<string, unknown>).groups = groupsHouse;
+        }
       } catch (err) {
         report.errors.push(`pots: ${(err as Error).message.split(String.fromCharCode(10))[0]}`);
       }

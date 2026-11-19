@@ -37,6 +37,8 @@ import {
   type RopesStatus,
 } from "@/lib/hc";
 import { NewPerp } from "@/components/perp/NewPerp";
+import { NewGroup } from "@/components/group/NewGroup";
+import { getGroups } from "@/lib/group";
 import { ropeFor } from "@/lib/rope";
 import { inviteMyAgent, seatsOf, type SeatView } from "@/lib/agent";
 
@@ -102,12 +104,20 @@ export function NewPot() {
   }, []);
   // Two offers: a normal pot, or a perp (a chain of short ropes with lives). ?kind=perp opens the perp
   // form; ?perps=preview shows it before perps are switched on for everyone (testing).
-  const [kind, setKind] = useState<"normal" | "perp">("normal");
+  const [kind, setKind] = useState<"normal" | "perp" | "group">("normal");
+  // Group pots: only once switched on (GROUPS=on); ?groups=preview shows them for testing.
+  const [groupsOn, setGroupsOn] = useState(false);
+  useEffect(() => {
+    getGroups()
+      .then((r) => setGroupsOn(r.status.on || (r.status.available && new URLSearchParams(window.location.search).get("groups") === "preview")))
+      .catch(() => {});
+  }, []);
   const [preview, setPreview] = useState(false);
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
     void Promise.resolve().then(() => {
       if (q.get("kind") === "perp") setKind("perp");
+      if (q.get("kind") === "group") setKind("group");
       if (q.get("perps") === "preview") setPreview(true);
     });
   }, []);
@@ -370,7 +380,7 @@ export function NewPot() {
             lineHeight: 0.95,
           }}
         >
-          {kind === "perp" ? "Start a perp" : "Start a pot"}
+          {kind === "perp" ? "Start a perp" : kind === "group" ? "Start a group" : "Start a pot"}
         </h1>
         <div
           role="radiogroup"
@@ -389,10 +399,15 @@ export function NewPot() {
                 title: "Perp",
                 line: "Leverage on the price: a chain of short ropes. You pick the leverage and how many lives you bring.",
               },
+              {
+                k: "group",
+                title: "Group",
+                line: "Two teams on one market. Anyone joins a team with any amount; everyone's share follows the price.",
+              },
             ] as const
           ).map((o) => {
             const on = kind === o.k;
-            const off = o.k === "perp" && !perpsOn;
+            const off = (o.k === "perp" && !perpsOn) || (o.k === "group" && !groupsOn);
             return (
               <button
                 key={o.k}
@@ -402,7 +417,7 @@ export function NewPot() {
                 disabled={off}
                 onClick={() => (
                   setKind(o.k),
-                  o.k === "perp" && setPractice(false)
+                  o.k !== "normal" && setPractice(false)
                 )}
                 className="hc-choice"
                 style={{
@@ -425,7 +440,7 @@ export function NewPot() {
                   {o.title}
                 </strong>
                 <span style={{ fontSize: 16, lineHeight: 1.4 }}>
-                  {off ? "Coming soon: perps are being tested on Arc." : o.line}
+                  {off ? `Coming soon: ${o.k === "group" ? "groups" : "perps"} are being tested on Arc.` : o.line}
                 </span>
               </button>
             );
@@ -535,6 +550,7 @@ export function NewPot() {
       </header>
       <BreakReminder who={who} />
       {kind === "perp" && perpsOn && ropes?.perps ? <NewPerp perps={ropes.perps} /> : null}
+      {kind === "group" && groupsOn ? <NewGroup /> : null}
 
       {kind === "normal" && (
         <>

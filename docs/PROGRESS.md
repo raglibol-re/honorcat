@@ -92,6 +92,30 @@
   worker. Render services `honorcat` (full site, out of memory on 512 MB) and `honorcat-sampler` are
   no longer needed: the owner deletes them (the tools cannot).
 
+## Groups spec, step 4: group relay and pages (2026-11-19 afternoon)
+
+- Switch: `GROUPS=on` shows group pots (menu, start page, create, prepare route); off by default.
+  The relay clears and settles existing groups either way.
+- Relay (relay/src/groups.ts): own event cursor, tables `groups` and `group_members` (each member's
+  position, waiting join, leave and what they can take out, read from the chain after their events
+  and after every clearing). Every batch with a join or leave gets a price window request as soon as
+  the request is seen (kind 20, nonce = batch, the 30 s after the batch stops collecting); the
+  agreed price goes out with `clear`, strictly in batch order (a later batch waits, one the group
+  moved past is closed). No agreed price 10 minutes after a window: `failBatch`. After the close:
+  the outcome proposal, then `settle`; past the deadline: `voidLate`. Groups live at 9e9 + id.
+- Passkey accounts: create, join, leave, claim, withdraw and transferPosition go through the relay
+  with HonorCat paying the fee, with plain step labels ("join the team", "leave the group").
+- Pages: /groups (all and mine), /groups/[id] (rope with both teams' cats and member counts, next
+  clearing countdown, each team's total, my position, waiting join and leave, join form with the
+  spec's sentence and the wait-or-come-back choice, leave with the takeover/shrink explanation and
+  the fee, "take out what is mine", join link and QR per team, clearings), "Group" on the start page
+  (market, team names and a short line each, own first join).
+- Team lines are kept off-chain (first write by the creator within 15 minutes).
+- Start page example cats renamed: Micky (brown tabby) and Morty (black and white); the cat
+  drawing takes a coat pattern for them.
+- Test: relay/scripts/groups-e2e.ts (two fresh accounts, join opposite teams, clear, leave half,
+  take out). Runs after the worker has the group code.
+
 ## Groups spec, step 3 done (2026-11-19)
 
 - HonorCatGroups (contracts/src/HonorCatGroups.sol, design docs/groups.md): two teams on one market,

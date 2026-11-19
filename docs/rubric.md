@@ -201,7 +201,7 @@ QuickNode
 - [x] The closing block shaped like a cat's face (ears and eyes) ends the landing page.
 - [x] No emoji or stock art; one cat component.
 ### P8. Landing page and sharing
-- [x] Under the headline, a three-line worked example with two cats (Mochi, ginger; Tofu, white)
+- [x] Under the headline, a three-line worked example with two cats (Micky, brown tabby; Morty, black and white)
       and dollar amounts: the start, a moment when one leaves, and what each gets.
 - [x] Invitations by link and QR code (the pot page and the friend draft); every pot link carries a
       preview image with the question, the rope with the cat at the last price and both amounts

@@ -94,6 +94,7 @@ export type Config = {
   /** HonorCatFairValue (stateless reader of a side's value from a signed quote). */
   fairValue: Address | null;
   honorRoots: Address | null;
+  groups: { address: Address; median: Address; deployBlock: bigint } | null;
   /** MedianResolver: the price-agreement rule on-chain; new pots use it. */
   median: Address | null;
   /** HonorCatRopes (v2, the current deployment) with its MedianResolver and perp contract; null if not deployed. */
@@ -155,6 +156,11 @@ export function getConfig(): Config {
     })(),
     ropes: ropesConfig(env),
     ropesAll: ropesAllConfig(env),
+    // Group pots (HonorCatGroups and its MedianResolver; deployments/<chain>.groups.json).
+    groups: (() => {
+      const f = readJson<{ groups: string; median: string; deployBlock: number }>(`deployments/${env.ARC_CHAIN_ID}.groups.json`);
+      return f && isAddress(f.groups) && isAddress(f.median) ? { address: getAddress(f.groups), median: getAddress(f.median), deployBlock: BigInt(f.deployBlock) } : null;
+    })(),
     // HonorRoots (daily Merkle roots of honor; deployments/<chain>.honor.json), null until deployed.
     honorRoots: (() => {
       const f = readJson<{ honorRoots: string }>(`deployments/${env.ARC_CHAIN_ID}.honor.json`);
