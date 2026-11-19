@@ -62,6 +62,8 @@ export type PostCat = {
   mood: Mood;
   name: string;
   wear?: Cosmetic | null;
+  /** On a copied side: the player this side copies, drawn as a small shadow cat behind. */
+  copies?: string | null;
 };
 
 /* The drawing, in the approved mockup's units: 1440 wide, the 0..100 scale from x 40 to x 1400. */
@@ -422,13 +424,18 @@ function PostCatView({
         transform: `translate(${side === 0 ? "-30%" : "-70%"}, -92%) scaleX(${side === 0 ? 1 : -1})`,
       }}
     >
+      {c.copies && (
+        <div style={{ position: "absolute", left: "-38%", bottom: 0, width: w * 0.62, opacity: 0.35, filter: "grayscale(1)" }}>
+          <Cat pose="sit" size={w * 0.62} fur={FURS.black} mood="even" label={`a shadow cat: this side copies ${c.copies}`} />
+        </div>
+      )}
       <Cat
         pose="sit"
         size={w}
         fur={FURS[c.fur]}
         wear={c.wear ?? null}
         mood={c.mood}
-        label={`${c.name}'s cat, on the ${side === 0 ? "YES" : "NO"} post`}
+        label={`${c.name}'s cat, on the ${side === 0 ? "YES" : "NO"} post${c.copies ? `, copying ${c.copies}` : ""}`}
       />
     </div>
   );

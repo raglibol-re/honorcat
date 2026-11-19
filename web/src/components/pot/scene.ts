@@ -76,6 +76,13 @@ function sceneOfV1(pot: HcPot, price: number | null, nowS: number, o: NameOpts =
   const stamp = lastDivision?.payload.attestation ? `Exit at ${(lastDivision.payload.attestation.priceYes / 10_000).toFixed(1)}%` : null;
   const startedAt = initial && initial !== notional ? initial : null;
   const cats = { yes: cat(owners.yes, 0, names.yes), no: cat(owners.no, 1, names.no) };
+  // A copycat side (v2): a small shadow cat of the player it copies sits behind its cat.
+  const copies = (d as unknown as { copies?: ({ leader: string } | null)[] }).copies;
+  for (const [k, i] of [["yes", 0], ["no", 1]] as const) {
+    const leader = copies?.[i]?.leader;
+    const c = cats[k];
+    if (c && leader && !/^0x0{40}$/i.test(leader)) cats[k] = { ...c, copies: name(leader) };
+  }
   const sides = pot.market ? sidesOf(pot.market) : undefined;
 
   switch (pot.state) {

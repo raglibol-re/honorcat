@@ -38,6 +38,7 @@ import {
 } from "@/lib/hc";
 import { NewPerp } from "@/components/perp/NewPerp";
 import { NewGroup } from "@/components/group/NewGroup";
+import { OpenHere } from "@/components/pot/OpenHere";
 import { getGroups } from "@/lib/group";
 import { ropeFor } from "@/lib/rope";
 import { inviteMyAgent, seatsOf, type SeatView } from "@/lib/agent";
@@ -738,6 +739,7 @@ export function NewPot() {
                   </p>
                 </div>
               )}
+              {market && <OpenHere symbol={market.symbol} side={side} sideWord={side === YES ? "the yes side" : "the no side"} />}
               {v2 && copy && (
                 <p
                   role="note"

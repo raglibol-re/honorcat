@@ -1888,3 +1888,30 @@ export async function delayedRopes(db: Db) {
   const ropes = all.filter((r) => !r.waitingForResult);
   return { ok: ropes.length === 0, ropes, waitingForResult: all.filter((r) => r.waitingForResult), at: now };
 }
+
+/**
+ * On a market (conditionId): open pots whose free seat is `side` (someone already took the other
+ * side and waits), and open groups. A copycat (or anyone) joins those instead of opening a new pot.
+ */
+export async function openOnMarket(db: Db, symbol: string, side: 0 | 1) {
+  const pots = await db.query<{ pot_id: string; data: Record<string, string> | string }>(
+    `SELECT pot_id::text AS pot_id, data FROM pots
+      WHERE state = 1 AND condition_id IN (SELECT condition_id FROM pot_markets WHERE instrument = $1) AND (data->>'creatorSide')::int = $2
+        AND NOT EXISTS (SELECT 1 FROM practice_pots pp WHERE pp.pot_id = pots.pot_id)
+        AND NOT EXISTS (SELECT 1 FROM pot_private pv WHERE pv.pot_id = pots.pot_id::text)
+        AND NOT EXISTS (SELECT 1 FROM pot_drafts d WHERE d.data->>'potId' = pots.pot_id::text)
+      ORDER BY pot_id DESC LIMIT 5`,
+    [symbol, 1 - side],
+  );
+  const groups = await db
+    .query<{ group_id: string; data: Record<string, unknown> | string }>(
+      "SELECT group_id::text AS group_id, data FROM groups WHERE state = 1 AND condition_id IN (SELECT lower(condition_id) FROM pot_markets WHERE instrument = $1) AND close_time > extract(epoch FROM now()) + 180 ORDER BY group_id DESC LIMIT 3",
+      [symbol],
+    )
+    .catch(() => []);
+  const j = <T,>(v: T | string) => (typeof v === "string" ? (JSON.parse(v) as T) : v);
+  return {
+    pots: pots.map((p) => ({ potId: p.pot_id, notional: String(j<Record<string, string>>(p.data).notional ?? j<Record<string, string>>(p.data).size ?? "0"), v2: !!j<Record<string, unknown>>(p.data).v2 })),
+    groups: groups.map((g) => ({ groupId: g.group_id, names: (j<{ names?: [string, string] }>(g.data).names ?? ["Yes", "No"]) as [string, string] })),
+  };
+}
