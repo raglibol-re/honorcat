@@ -92,6 +92,23 @@
   worker. Render services `honorcat` (full site, out of memory on 512 MB) and `honorcat-sampler` are
   no longer needed: the owner deletes them (the tools cannot).
 
+## Groups spec, step 3 done (2026-11-19)
+
+- HonorCatGroups (contracts/src/HonorCatGroups.sol, design docs/groups.md): two teams on one market,
+  joins and leaves cleared in 60-second batches at the next 30-second window's price; takeover by
+  waiting joins of the leaver's team first, then leaves on both teams cancel, then the other team
+  shrinks pro rata; product-sum accounting per team (P, S, scale, epoch; no loop over members);
+  waiting joins carried with their own product (up to 20 batches); settlement, void by remaining
+  deposits, transferable positions; dust stays in the contract. 12 tests incl. 5,000 random runs
+  (funds add up, teams equal, every withdrawal goes through, at most 1,000 base units of dust),
+  a scale change and an epoch, gas flat with 300 members, attestation checks.
+- Deployed with the owner's go: HonorCatGroups 0xDe28a5d9E328c09eb02A099f1480DE89E0FEb547 and its
+  MedianResolver 0x1c952c9d7912c09135317B697c90224CA1BBc0eE (same three samplers, 2 of 3).
+- Also today: markets back (the worker refreshes the catalogue), start page explains the app,
+  test money swept from perps 9 and 12, Central Michigan vs Buffalo market name restored (six older
+  test pots stay unnamed: Gemini lists only its newest 1,000 settled events).
+- Next: step 4 (the relay clears group batches; group pages), then steps 5 and 6.
+
 ## Review and fixes (2026-11-19, 03:00-04:30 UTC)
 
 Three code reviews (player flows, relay correctness, cost/reliability) and a live scan of 14 pages
