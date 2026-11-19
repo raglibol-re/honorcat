@@ -24,7 +24,17 @@ import type { HomeData } from "@/server/home";
 
 const cond = { fontFamily: F.cond } as const;
 
-function StartButton({ inverted, href = "/pots/new", label = "Start a pot", note }: { inverted?: boolean; href?: string; label?: string; note?: string }) {
+function StartButton({
+  inverted,
+  href = "/pots/new",
+  label = "Start a pot",
+  note,
+}: {
+  inverted?: boolean;
+  href?: string;
+  label?: string;
+  note?: string;
+}) {
   return (
     <Link
       href={href}
@@ -46,9 +56,20 @@ function StartButton({ inverted, href = "/pots/new", label = "Start a pot", note
         fill={inverted ? C.ink : C.page}
         eyes={inverted ? C.page : C.ink}
       />
-      <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.15 }}>
+      <span
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "flex-start",
+          lineHeight: 1.15,
+        }}
+      >
         <span style={{ fontSize: 20, fontWeight: 600 }}>{label}</span>
-        {note && <span style={{ fontSize: 14, fontWeight: 500, opacity: 0.8 }}>{note}</span>}
+        {note && (
+          <span style={{ fontSize: 14, fontWeight: 500, opacity: 0.8 }}>
+            {note}
+          </span>
+        )}
       </span>
     </Link>
   );
@@ -231,156 +252,328 @@ export function Home({ data }: { data: HomeData }) {
         style={{
           paddingTop: 36,
           display: "flex",
-          flexWrap: "wrap",
-          gap: "24px 72px",
-          alignItems: "flex-end",
+          flexDirection: "column",
+          gap: 28,
         }}
       >
         <div
           style={{
-            flex: "1 1 520px",
             display: "flex",
             flexDirection: "column",
-            gap: 22,
-            minWidth: 0,
+            gap: 18,
+            maxWidth: 1100,
           }}
         >
+          <span
+            style={{
+              fontFamily: F.mono,
+              fontSize: 13,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              color: C.muted,
+            }}
+          >
+            Prediction markets between two people · on Arc
+          </span>
           <h1
             style={{
               margin: 0,
               ...cond,
-              fontSize: "clamp(72px, 11vw, 168px)",
-              lineHeight: 0.86,
+              fontSize: "clamp(54px, 8vw, 116px)",
+              lineHeight: 0.9,
               fontWeight: 600,
               letterSpacing: "-0.01em",
             }}
           >
-            Money in the air.
+            Take a side on a real question. Leave whenever you like.
           </h1>
-          <div
-            aria-hidden="true"
-            style={{ display: "flex", gap: 18, alignItems: "flex-end" }}
-          >
-            <span
-              style={{
-                display: "inline-flex",
-                alignItems: "flex-end",
-                gap: 6,
-                fontSize: 16,
-                fontWeight: 600,
-              }}
-            >
-              <PlayerCat fur="ginger" pose="sit" size={58} mood="up" label="" />{" "}
-              Mochi
-            </span>
-            <span
-              style={{
-                display: "inline-flex",
-                alignItems: "flex-end",
-                gap: 6,
-                fontSize: 16,
-                fontWeight: 600,
-              }}
-            >
-              <PlayerCat
-                fur="white"
-                pose="sit"
-                size={58}
-                mood="down"
-                label=""
-              />{" "}
-              Tofu
-            </span>
-          </div>
-          <ol
-            aria-label="A worked example"
-            style={{
-              margin: 0,
-              padding: 0,
-              listStyle: "none",
-              display: "flex",
-              flexDirection: "column",
-              gap: 2,
-              fontSize: 18,
-              lineHeight: 1.45,
-            }}
-          >
-            {(
-              [
-                [
-                  "1",
-                  "Mochi holds “Boston beats Orlando” at 60%, Tofu the other side: Mochi puts in $6, Tofu $4.",
-                ],
-                [
-                  "2",
-                  "Boston pulls ahead and the market moves to 75%: Mochi’s share is now $7.50, Tofu’s $2.50.",
-                ],
-                [
-                  "3",
-                  "Mochi leaves with $7.40 (a $0.10 treat for Tofu), or both hold and the right side gets the $10.",
-                ],
-              ] as const
-            ).map(([n, t]) => (
-              <li key={n} style={{ display: "flex", gap: 12 }}>
-                <span
-                  style={{
-                    ...cond,
-                    fontWeight: 600,
-                    color: C.signalInk,
-                    flex: "none",
-                    width: 14,
-                  }}
-                >
-                  {n}
-                </span>
-                <span>{t}</span>
-              </li>
-            ))}
-          </ol>
         </div>
         <div
           style={{
-            flex: "1 1 380px",
             display: "flex",
-            flexDirection: "column",
-            gap: 20,
-            paddingBottom: 8,
+            flexWrap: "wrap",
+            gap: "32px 72px",
+            alignItems: "flex-start",
           }}
         >
-          <p
-            style={{
-              margin: 0,
-              fontSize: 21,
-              lineHeight: 1.45,
-              color: C.body,
-              maxWidth: 520,
-            }}
-          >
-            Two people, one pot, one question on Gemini. While the market runs,
-            each side&apos;s share follows the price, and either of you can step
-            off the rope at that share.
-          </p>
           <div
             style={{
+              flex: "1 1 380px",
               display: "flex",
-              flexWrap: "wrap",
-              gap: "12px 28px",
-              alignItems: "center",
+              flexDirection: "column",
+              gap: 20,
+              paddingBottom: 8,
             }}
           >
-            <StartButton href="/pots/new?practice=1" label="Try it now" note="Free test money, about two minutes" />
-            <ButtonLink href="/pots/new" variant="quiet" style={{ minHeight: 64 }}>
-              Start a real pot
-            </ButtonLink>
+            <p
+              style={{
+                margin: 0,
+                fontSize: 21,
+                lineHeight: 1.45,
+                color: C.body,
+                maxWidth: 520,
+              }}
+            >
+              Pick a question from Gemini&apos;s prediction markets, like “Will
+              Boston beat Denver?”. You and another player each put in your
+              side&apos;s part of one pot. While the market runs, your share
+              follows the live price, and you can leave at that price at any
+              moment. Or hold to the end, and the result decides who gets the
+              pot.
+            </p>
+            <ul
+              style={{
+                margin: 0,
+                padding: 0,
+                listStyle: "none",
+                display: "flex",
+                flexDirection: "column",
+                gap: 6,
+                fontSize: 16,
+                color: C.body,
+              }}
+            >
+              {[
+                "Prices from Gemini, measured by three independent samplers",
+                "Every pot is a contract on Arc: no one holds your money",
+                "Nothing goes to a house · test money only",
+              ].map((t) => (
+                <li
+                  key={t}
+                  style={{ display: "flex", gap: 10, alignItems: "baseline" }}
+                >
+                  <span
+                    aria-hidden
+                    style={{
+                      width: 8,
+                      height: 8,
+                      background: C.signal,
+                      flex: "none",
+                      transform: "translateY(-1px)",
+                    }}
+                  />
+                  {t}
+                </li>
+              ))}
+            </ul>
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "12px 28px",
+                alignItems: "center",
+              }}
+            >
+              <StartButton
+                href="/pots/new?practice=1"
+                label="Try it now"
+                note="Free test money, about two minutes"
+              />
+              <ButtonLink
+                href="/pots/new"
+                variant="quiet"
+                style={{ minHeight: 64 }}
+              >
+                Start a real pot
+              </ButtonLink>
+            </div>
+            <p style={{ margin: 0, fontSize: 17, color: C.body }}>
+              Or <Link href="/pots/together">play with a friend</Link>, or{" "}
+              <Link href="/pots">take a side someone left open</Link>.
+            </p>
           </div>
-          <p style={{ margin: 0, fontSize: 17, color: C.body }}>
-            Or <Link href="/pots/together">play with a friend</Link>, or <Link href="/pots">take a side someone left open</Link>.
-          </p>
+          <div
+            style={{
+              flex: "1 1 520px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 22,
+              minWidth: 0,
+            }}
+          >
+            <span
+              style={{
+                fontSize: 15,
+                fontWeight: 600,
+                color: C.muted,
+                marginTop: 4,
+              }}
+            >
+              An example
+            </span>
+            <div
+              aria-hidden="true"
+              style={{ display: "flex", gap: 18, alignItems: "flex-end" }}
+            >
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "flex-end",
+                  gap: 6,
+                  fontSize: 16,
+                  fontWeight: 600,
+                }}
+              >
+                <PlayerCat
+                  fur="ginger"
+                  pose="sit"
+                  size={58}
+                  mood="up"
+                  label=""
+                />{" "}
+                Mochi
+              </span>
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "flex-end",
+                  gap: 6,
+                  fontSize: 16,
+                  fontWeight: 600,
+                }}
+              >
+                <PlayerCat
+                  fur="white"
+                  pose="sit"
+                  size={58}
+                  mood="down"
+                  label=""
+                />{" "}
+                Tofu
+              </span>
+            </div>
+            <ol
+              aria-label="A worked example"
+              style={{
+                margin: 0,
+                padding: 0,
+                listStyle: "none",
+                display: "flex",
+                flexDirection: "column",
+                gap: 2,
+                fontSize: 18,
+                lineHeight: 1.45,
+              }}
+            >
+              {(
+                [
+                  [
+                    "1",
+                    "Mochi holds “Boston beats Orlando” at 60%, Tofu the other side: Mochi puts in $6, Tofu $4.",
+                  ],
+                  [
+                    "2",
+                    "Boston pulls ahead and the market moves to 75%: Mochi’s share is now $7.50, Tofu’s $2.50.",
+                  ],
+                  [
+                    "3",
+                    "Mochi leaves with $7.40 (a $0.10 treat for Tofu), or both hold and the right side gets the $10.",
+                  ],
+                ] as const
+              ).map(([n, t]) => (
+                <li key={n} style={{ display: "flex", gap: 12 }}>
+                  <span
+                    style={{
+                      ...cond,
+                      fontWeight: 600,
+                      color: C.signalInk,
+                      flex: "none",
+                      width: 14,
+                    }}
+                  >
+                    {n}
+                  </span>
+                  <span>{t}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
         </div>
       </section>
 
       <section className="hc-wrap" style={{ paddingTop: 48 }}>
         <LivePot data={data} />
+      </section>
+
+      <section
+        className="hc-wrap"
+        style={{
+          paddingTop: 72,
+          display: "flex",
+          flexDirection: "column",
+          gap: 20,
+        }}
+      >
+        <h2
+          style={{
+            margin: 0,
+            ...cond,
+            fontSize: 56,
+            fontWeight: 600,
+            lineHeight: 0.95,
+          }}
+        >
+          Three ways to play
+        </h2>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
+          {(
+            [
+              [
+                "A pot",
+                "One question, two sides. Hold to the end or leave at the live price whenever you like.",
+                "/pots/new",
+                "Start a pot",
+              ],
+              [
+                "A perp",
+                "A chain of short ropes with lives: a rope ends when the price reaches a post, and the next one starts. Leverage, but you can only lose the lives you put in.",
+                "/perps",
+                "See perps",
+              ],
+              [
+                "With a friend",
+                "Agree on the question and the stakes together, then send the link. Your head-to-head record is kept.",
+                "/pots/together",
+                "Invite a friend",
+              ],
+            ] as const
+          ).map(([t, d, href, cta]) => (
+            <div
+              key={t}
+              style={{
+                flex: "1 1 260px",
+                border: `1.5px solid ${C.ink}`,
+                padding: "18px 20px",
+                display: "flex",
+                flexDirection: "column",
+                gap: 10,
+              }}
+            >
+              <h3 style={{ margin: 0, ...cond, fontSize: 32, fontWeight: 600 }}>
+                {t}
+              </h3>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 16,
+                  lineHeight: 1.5,
+                  color: C.body,
+                  flex: 1,
+                }}
+              >
+                {d}
+              </p>
+              <Link href={href} style={{ fontWeight: 600 }}>
+                {cta}
+              </Link>
+            </div>
+          ))}
+        </div>
+        <p style={{ margin: 0, fontSize: 16, color: C.body }}>
+          Play fair and earn <Link href="/honor">Honor</Link>: points for
+          holding on, shaking hands and saying “well played”, never for winning.
+          It has no cash value.
+        </p>
       </section>
 
       <OpenOffers />

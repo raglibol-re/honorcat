@@ -14,7 +14,14 @@ export async function homeData(): Promise<HomeData> {
   const db = await getDb();
   const running = await pots.listPotsHc(db, { states: [3, 4, 2], limit: 20 }).catch(() => []);
   const now = Date.now();
-  const pick = running.find((p) => p.state === "Live" || p.state === "ExitRequested") ?? running.find((p) => Number(p.data.closeTime) * 1000 > now);
+  // Two real players only: a perp's rope is held on both sides by the perps contract ("Shadow" vs
+  // "Shadow"), and a short rope past its end is only waiting for its result.
+  const shown = running.filter((p) => {
+    const o = (p as unknown as { owners?: { yes: string | null; no: string | null } }).owners;
+    const expiry = Number((p.data as unknown as { expiry?: string }).expiry ?? 0);
+    return !(o?.yes && o.no && o.yes.toLowerCase() === o.no.toLowerCase()) && !(expiry > 0 && expiry * 1000 < now);
+  });
+  const pick = shown.find((p) => p.state === "Live" || p.state === "ExitRequested") ?? shown.find((p) => Number(p.data.closeTime) * 1000 > now);
   if (pick) return { potId: pick.potId, market: null };
   const list = await catalogList(db, { usable: true, limit: 60 }).catch(() => null);
   const m = list?.items.find((x) => {
