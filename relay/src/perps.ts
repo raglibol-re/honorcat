@@ -144,7 +144,7 @@ export async function perpsHousekeeping(db: Db, own: LocalAccount | null) {
       data = encodeFunctionData({ abi: perpsAbi, functionName: "startFirstRope", args: [id, center, depthArg(dep.depth), dep.sigs] });
       why = `first rope around ${(center / 10_000).toFixed(2)}%`;
     } else if (row.pot_id) {
-      const pot = (await db.query<{ state: number }>("SELECT state FROM pots WHERE pot_id = $1", [row.pot_id]))[0];
+      const pot = (await db.query<{ state: number; expiry: string | null }>("SELECT state, data->>'expiry' AS expiry FROM pots WHERE pot_id = $1", [row.pot_id]))[0];
       if (!pot) {
         await syncPot(db, BigInt(row.pot_id)).catch(() => {});
         continue;
@@ -152,7 +152,14 @@ export async function perpsHousekeeping(db: Db, own: LocalAccount | null) {
       const s = POT_STATES[pot.state];
       const joinDone = row.phase === 3 && (s === "Live" || s === "Open");
       const ropeDone = row.phase === 4 && (s === "Divided" || s === "Settled" || s === "Expired");
-      if (!joinDone && !ropeDone) continue;
+      if (!joinDone && !ropeDone) {
+        // A rope about to end (an exit or knock-out being priced, or its expiry under a minute away):
+        // ask for the next rope's depth attestation now, so the roll goes out with the division.
+        const nowS = Math.floor(Date.now() / 1000);
+        const expiry = Number(pot.expiry ?? 0);
+        if (row.phase === 4 && (s === "ExitRequested" || (expiry > 0 && expiry - nowS < 60))) await perpDepth(db, row.perp_id, q.t, own).catch(() => null);
+        continue;
+      }
       let depth = NO_DEPTH;
       let sigs: Hex = "0x";
       if (ropeDone) {

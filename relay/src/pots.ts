@@ -578,7 +578,28 @@ export async function submitAverage(
   return { accepted: true, ppm: ppm.toString(), valid };
 }
 
-/** Proposes once every sampler has reported, or two have and 20 s passed since the window ended. */
+/** How long to wait for the third sampler when the first two disagree (seconds after the window). */
+export const THIRD_WAIT_S = 6;
+
+/**
+ * Whether the reported averages already settle the price: at least `threshold` of them, all with the
+ * same verdict on validity and, when valid, within half a point of each other. The contract's median
+ * rule gives the same price with or without a third that agrees, so there is no reason to wait.
+ */
+export function averagesAgree(rows: { price_ppm: string; valid: boolean }[], threshold: number) {
+  if (rows.length < threshold) return false;
+  if (!rows.every((r) => r.valid === rows[0]!.valid)) return false;
+  if (!rows[0]!.valid) return true;
+  const ps = rows.map((r) => BigInt(r.price_ppm));
+  const max = ps.reduce((a, b) => (b > a ? b : a));
+  const min = ps.reduce((a, b) => (b < a ? b : a));
+  return max - min <= AGREE_PPM;
+}
+
+/**
+ * Proposes once every sampler has reported; or as soon as two agree (within half a point); or, when
+ * they disagree, once the third had THIRD_WAIT_S seconds after the window to report.
+ */
 export async function maybePropose(db: Db, requestId: string, force = false) {
   const req = (await db.query<ReqRow>("SELECT * FROM att_requests WHERE id = $1", [requestId]))[0];
   if (!req || req.status !== "measuring") return null;
@@ -588,8 +609,8 @@ export async function maybePropose(db: Db, requestId: string, force = false) {
     [requestId],
   );
   const set = signerSet();
-  const ended = Math.floor(Date.now() / 1000) > Number(p.windowEnd) + 20;
-  if (!force && rows.length < set.samplers.length && !(rows.length >= set.threshold && ended)) return null;
+  const ended = Math.floor(Date.now() / 1000) > Number(p.windowEnd) + THIRD_WAIT_S;
+  if (!force && rows.length < set.samplers.length && !(rows.length >= set.threshold && (ended || averagesAgree(rows, set.threshold)))) return null;
   if (rows.length < set.threshold && !force) return null;
   const avgs: Avg[] = rows.map((r) => ({ signer: getAddress(r.signer), ppm: BigInt(r.price_ppm), valid: r.valid, sampleCount: r.sample_count, evidenceHash: r.evidence_hash as Hex }));
   const median = contractOf(String(req.pot_id)).median;
@@ -713,10 +734,11 @@ export async function submitReady(db: Db, requestId: string) {
   // not ended by block.timestamp (TooEarly), so wait for the chain's clock first (at most ~20 s).
   if (req.kind === "window") {
     const end = Number((p.attestation as WindowAtt).windowEnd);
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 3; i++) {
       const b = await publicClient().getBlock();
-      if (Number(b.timestamp) >= end) break;
-      await new Promise((r) => setTimeout(r, 1000));
+      const gap = end - Number(b.timestamp);
+      if (gap <= 0) break;
+      await new Promise((r) => setTimeout(r, Math.min(20, gap) * 1000 + 300));
     }
   }
   const res = await sendRelayCalls(db, req.kind === "outcome" ? "pot_settle" : "pot_attest", [
@@ -953,7 +975,7 @@ async function openExpiryWindow(db: Db, row: PotRow, d: Record<string, string>, 
  * Reads new HonorCatPots logs (in 5,000-block chunks; Arc caps eth_getLogs at 10,000) and
  * refreshes every pot they touch. Covers transactions the relay did not send (wallet users).
  */
-export const POLLER_LAG_BLOCKS = 90n; // ~1 minute of Arc blocks
+export const POLLER_LAG_BLOCKS = 10n; // Arc is final in under a second: a few blocks of margin is plenty
 // The database was rebuilt from the chain on 2026-11-16 (every older event is marked as found by
 // the poller), and the stream was resumed at about this block: count Streams' share from here.
 export const STREAMS_POTS_SINCE_BLOCK = 72_600_235n;

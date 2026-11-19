@@ -1,6 +1,6 @@
 import { circleRelay } from "./circleWallet";
 import type { Address } from "viem";
-import { createPublicClient, createWalletClient, http, type PublicClient } from "viem";
+import { createPublicClient, createWalletClient, fallback, http, type PublicClient, type Transport } from "viem";
 import { privateKeyToAccount, type PrivateKeyAccount } from "viem/accounts";
 import { arcTestnet } from "viem/chains";
 import { getConfig } from "./config";
@@ -11,12 +11,23 @@ export const ARC_RECEIPT_POLL_MS = 500;
 
 let pub: PublicClient | undefined;
 
+/**
+ * The relay's RPC: ARC_RPC_URL first, then any ARC_RPC_FALLBACK_URLS (comma-separated) when it fails
+ * or rate-limits. Requests made together are batched into one HTTP call; each attempt times out
+ * after 8 s instead of hanging.
+ */
+function rpcTransport(): Transport {
+  const urls = [getConfig().rpcUrl, ...(process.env.ARC_RPC_FALLBACK_URLS ?? "").split(",").map((u) => u.trim()).filter(Boolean)];
+  const one = (u: string) => http(u, { retryCount: 2, retryDelay: 250, timeout: 8_000, batch: { wait: 10 } });
+  return urls.length > 1 ? fallback(urls.map(one), { rank: false }) : one(urls[0]!);
+}
+
 export function publicClient(): PublicClient {
   // Arc has deterministic sub-second finality (~2 blocks/s). viem's default 4 s polling would
   // dominate settlement latency, so receipts are polled every 500 ms; one receipt is final.
   pub ??= createPublicClient({
     chain: arcTestnet,
-    transport: http(getConfig().rpcUrl, { retryCount: 3 }),
+    transport: rpcTransport(),
     pollingInterval: ARC_RECEIPT_POLL_MS,
   });
   return pub;

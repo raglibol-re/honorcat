@@ -68,7 +68,19 @@ if (values.batch || values.status || values.filter || values.url) {
     })();
     const pots = (process.env.POTS_ADDRESS ?? potsFile?.pots)?.toLowerCase();
     if (!pots) throw new Error("POTS_ADDRESS (or deployments/5042002.pots.json) must be set");
+    // HonorCat v2 (every HonorCatRopes deployment) and HonorCatPerps, from deployments/*.ropes*.json.
+    const extra: string[] = [];
+    for (const f of ["5042002.ropes.json", "5042002.ropes-v20.json"]) {
+      try {
+        const d = JSON.parse(readFileSync(new URL(`../../deployments/${f}`, import.meta.url), "utf8")) as { ropes?: string; perps?: string };
+        if (d.ropes) extra.push(d.ropes.toLowerCase());
+        if (d.perps) extra.push(d.perps.toLowerCase());
+      } catch {
+        /* not deployed */
+      }
+    }
     const code = STREAMS_FILTER_TEMPLATE.replace("<VAULT_ADDRESS_LOWERCASE>", vault)
+      .replace("<EXTRA_ADDRESSES_LOWERCASE>", extra.map((a) => `, "${a}"`).join(""))
       .replace("<GUARANTEE_BOOK_ADDRESS_LOWERCASE>", book)
       .replace("<MERKLE_BOOK_ADDRESS_LOWERCASE>", merkle)
       .replace("<POTS_ADDRESS_LOWERCASE>", pots);
