@@ -212,8 +212,8 @@ export function NewPot() {
           ? "This side is almost certain either way; pick a closer market."
           : Number(n) / 1e6 > cap
             ? practice
-              ? `The practice cat plays pots up to $${PRACTICE_N}: put in at most ${$(Math.floor(PRACTICE_N * 1e6 * sideChance!))}.`
-              : `Pots go up to $${MAX_N} on the test version: put in at most ${$(Math.floor(MAX_N * 1e6 * sideChance!))}.`
+              ? `The practice cat plays pots up to ${$(PRACTICE_N * 1_000_000)}: put in at most ${$(Math.floor(PRACTICE_N * 1e6 * sideChance!))}.`
+              : `Pots go up to ${$(MAX_N * 1_000_000)} on the test version: put in at most ${$(Math.floor(MAX_N * 1e6 * sideChance!))}.`
             : Number(grace) < 1
               ? "Gemini needs at least one day to settle."
               : null;
@@ -318,8 +318,10 @@ export function NewPot() {
       );
       if (practice && opponent === "bot" && r.potId) {
         setStep("Inviting your Grok Bot");
-        await inviteMyAgent(r.potId);
-        router.push(`/pots/${r.potId}?bot=1`);
+        // The pot exists and is paid for: whatever happens to the invite, go to it (never back to
+        // this form, where pressing again would open and pay for a second pot).
+        const ok = await inviteMyAgent(r.potId).then(() => true, () => false);
+        router.push(`/pots/${r.potId}?bot=${ok ? "1" : "failed"}`);
         return;
       }
       if (practice && r.potId) {

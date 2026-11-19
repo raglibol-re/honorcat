@@ -73,26 +73,25 @@ export function NotifyButton({ potId, account, when = "join" }: { potId: string;
  */
 export function Invite({ path, text, potId, account, extra }: { path: string; text: string; potId?: string; account?: string | null; extra?: React.ReactNode }) {
   const url = () => `${SITE_URL}${path}`;
+  // Clipboard can be missing or refused (some browsers, embedded views): say so and show the link.
+  const copy = async (ok: string) => {
+    const done = navigator.clipboard ? await navigator.clipboard.writeText(url()).then(() => true, () => false) : false;
+    toast(done ? ok : `Copying did not work here. The link: ${url()}`);
+  };
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
         <Button
           onClick={async () => {
             if (navigator.share) await navigator.share({ title: "HonorCat", text, url: url() }).catch(() => {});
-            else {
-              await navigator.clipboard?.writeText(url()).catch(() => {});
-              toast("Link copied. Send it to the other player.");
-            }
+            else await copy("Link copied. Send it to the other player.");
           }}
         >
           Share the invite
         </Button>
         <Button
           variant="quiet"
-          onClick={async () => {
-            await navigator.clipboard?.writeText(url()).catch(() => {});
-            toast("Link copied.");
-          }}
+          onClick={() => copy("Link copied.")}
         >
           Copy the link
         </Button>

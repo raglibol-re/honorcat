@@ -10,6 +10,8 @@ import { MAX_LIVES, P } from "@/lib/rope";
 
 import { ActionProgress, Button } from "@/components/ui/Button";
 import { money } from "@/lib/currency";
+import { pollFast } from "@/lib/api";
+import { toast } from "@/components/ui/Toast";
 const $ = (base: bigint | number | string) => money(base);
 const pts = (ppm: number) => (ppm / 10_000).toFixed(0);
 
@@ -63,6 +65,8 @@ export function RopeLives({
         setStep,
       );
       setStep(null);
+      pollFast();
+      toast("Extra life bought: your post moved out.");
     } catch (e) {
       setErr(plainError(e));
       setStep(null);

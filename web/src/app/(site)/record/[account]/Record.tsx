@@ -1,5 +1,7 @@
 "use client";
 
+import { money } from "@/lib/currency";
+
 import { CatState } from "@/components/cat/CatState";
 import Link from "next/link";
 import { PlayerCat } from "@/components/cat/PlayerCat";
@@ -74,7 +76,7 @@ export function Record({ account }: { account: string }) {
     ["Settled in their favour", r.settledFor],
     ["Settled against them", r.settledAgainst],
     ["Voided", r.voided],
-    ["Paid out to them", `$${(Number(r.paid) / 1e6).toFixed(2)}`],
+    ["Paid out to them", money(r.paid)],
   ];
   const labels = honorLabels(r);
   return (

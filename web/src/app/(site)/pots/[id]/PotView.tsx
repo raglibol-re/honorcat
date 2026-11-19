@@ -659,7 +659,7 @@ function Actions({
                   onClick={() =>
                     setAsk({
                       amount: BigInt(Math.round(Number(part) * 1e6)),
-                      what: `$${Number(part).toFixed(2)} of the pot (a partial exit)`,
+                      what: `${money(Math.round(Number(part) * 1e6))} of the pot (a partial exit)`,
                     })
                   }
                 >
@@ -1260,6 +1260,7 @@ export function PotView({ id }: { id: string }) {
   const q = useSearchParams();
   const practiceFailed = q.get("practice") === "failed";
   const botInvited = q.get("bot") === "1";
+  const botFailed = q.get("bot") === "failed";
   const { tech } = useTechMode();
   const names = useNames([
     pot?.owners.yes,
@@ -1402,6 +1403,15 @@ export function PotView({ id }: { id: string }) {
             below and get your deposit back.
           </p>
         )}
+        {botFailed && pot.state === "Open" && (
+          <p
+            role="alert"
+            style={{ margin: 0, fontSize: 17, color: C.signalInk, maxWidth: 760 }}
+          >
+            Your pot is open, but the invite for your Grok Bot did not go through. Send the link to a
+            friend, or take the pot back below and get your deposit back.
+          </p>
+        )}
         {botInvited && pot.state === "Open" && (
           <p
             role="status"
@@ -1429,6 +1439,7 @@ export function PotView({ id }: { id: string }) {
             Number(pot.data.exitSide) === 0 ? pot.owners.yes : pot.owners.no,
           )}
           rope={v2 && expiry > 0}
+          v2={v2}
         />
         {ended && mine !== null && <ResultBanner pot={pot} mine={mine} />}
       </header>

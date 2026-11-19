@@ -51,7 +51,7 @@ export function StatusBadge({ state, rope }: { state: string; rope?: boolean }) 
  * What state the pot is in, said to this viewer, with what they can do now (the buttons below follow
  * the same state, so a closed pot never offers an action that no longer applies).
  */
-export function PotStatusLine({ state, mySide, exitSide, exitFull, leaverName, rope }: { state: string; mySide: number | null; exitSide: number | null; exitFull: boolean; leaverName: string; rope?: boolean }) {
+export function PotStatusLine({ state, mySide, exitSide, exitFull, leaverName, rope, v2 }: { state: string; mySide: number | null; exitSide: number | null; exitFull: boolean; leaverName: string; rope?: boolean; /** v2 pots have no takeover. */ v2?: boolean }) {
   const mine = mySide !== null;
   const text: Record<string, string> = {
     Open: mine ? "Waiting for a player to take the other side. Share the link below, or take your offer back." : "Open: you can take the other side below.",
@@ -65,7 +65,9 @@ export function PotStatusLine({ state, mySide, exitSide, exitFull, leaverName, r
         : mine
           ? `${leaverName} asked to ${exitFull ? "leave" : "take part of the pot off the rope"}; the price is being measured. You stay in.`
           : exitFull
-            ? "A side is leaving. You can take over its place below while the window is open."
+            ? rope || v2
+              ? "A side is leaving; the price is being measured over 30 seconds."
+              : "A side is leaving. You can take over its place below while the window is open."
             : "A side is taking part of the pot off the rope.",
     Divided: mine ? "Closed: the pot was divided. See below what you received, and what you would have now if you had stayed." : "Closed: the pot was divided.",
     Settled: mine ? "Closed: Gemini settled the market and the pot was paid out." : "Closed: Gemini settled the market.",

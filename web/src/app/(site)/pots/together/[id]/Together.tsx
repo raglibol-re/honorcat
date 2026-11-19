@@ -1,5 +1,7 @@
 "use client";
 
+import { money } from "@/lib/currency";
+
 import { plainError } from "@/lib/messages";
 import { SITE_URL } from "@/lib/site";
 import { InviteQR } from "@/components/pot/InviteQR";
@@ -538,8 +540,14 @@ export function Together({ id }: { id: string }) {
                   const prep = await prepare(d.symbol!, who.actor!.account);
                   if (BigInt(prep.cap) < n)
                     throw new Error(
-                      `This market's order book allows pots up to $${(Number(prep.cap) / 1e6).toFixed(2)} right now.`,
+                      `This market's order book allows pots up to ${money(BigInt(prep.cap))} right now.`,
                     );
+                  // The host's pots before this one: if the new pot's id is not in the receipt, it is
+                  // the one that appears that was not here before (never simply the newest listed).
+                  const mineUrl = `/api/hc/pots?owner=${who.actor!.account}`;
+                  const before = new Set(
+                    (await getJson<{ pots: { potId: string }[] }>(mineUrl).catch(() => ({ pots: [] }))).pots.map((x) => x.potId),
+                  );
                   const r = await createPot(
                     who.actor!,
                     prep,
@@ -553,11 +561,10 @@ export function Together({ id }: { id: string }) {
                     setStep,
                   );
                   let potId = r.potId;
-                  if (!potId) {
-                    const mine = await getJson<{ pots: { potId: string }[] }>(
-                      `/api/hc/pots?owner=${who.actor!.account}`,
-                    );
-                    potId = mine.pots[0]?.potId ?? null;
+                  for (let i = 0; !potId && i < 10; i++) {
+                    if (i) await new Promise((res) => setTimeout(res, 2000));
+                    const mine = await getJson<{ pots: { potId: string }[] }>(mineUrl).catch(() => ({ pots: [] }));
+                    potId = mine.pots.find((x) => !before.has(x.potId))?.potId ?? null;
                   }
                   if (!potId)
                     throw new Error(
@@ -568,7 +575,7 @@ export function Together({ id }: { id: string }) {
               }
             >
               {agreed
-                ? `Start the pot and put in up to $${hostPays === null ? "…" : (Number(hostPays) / 1e6).toFixed(2)}`
+                ? `Start the pot and put in up to ${hostPays === null ? "…" : money(hostPays)}`
                 : "Waiting for your friend to agree"}
             </Button>
             <ActionProgress step={step} />
@@ -597,7 +604,7 @@ export function Together({ id }: { id: string }) {
                 })
               }
             >
-              {`Put in my side (up to $${guestPays === null ? "…" : (Number(guestPays) / 1e6).toFixed(2)})`}
+              {`Put in my side (up to ${guestPays === null ? "…" : money(guestPays)})`}
             </Button>
             <ActionProgress step={step} />
           </>
@@ -619,11 +626,9 @@ export function Together({ id }: { id: string }) {
             {err}
           </p>
         )}
-        {err?.startsWith("Could not add test money") && who.actor && (
-          <FundsHelp
-            account={who.actor.account}
-            reason={err.replace(/^Could not add test money: /, "")}
-          />
+        {/* plainError has already turned the relay's wording into this sentence */}
+        {err?.startsWith("HonorCat's test money") && who.actor && (
+          <FundsHelp account={who.actor.account} />
         )}
         <p style={{ margin: 0, fontSize: 14, color: C.muted }}>
           Test version on Arc testnet: test money only. Not financial advice.

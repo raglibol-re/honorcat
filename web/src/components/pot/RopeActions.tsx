@@ -180,10 +180,31 @@ export function RopeActions({
     );
   }
 
+  // A perp's rope: both seats belong to the perps contract; the players act on the perp's page.
+  if (pot.perp)
+    return (
+      <section style={box}>
+        <p style={{ margin: 0, fontSize: 16, color: C.body }}>
+          This is rope {pot.perp.rope} of perp {pot.perp.perpId}. Leave, add lives or stop renewing on the
+          perp&apos;s page.
+        </p>
+        <div style={row}>
+          <ButtonLink href={`/perps/${pot.perp.perpId}`}>Go to perp {pot.perp.perpId}</ButtonLink>
+        </div>
+      </section>
+    );
+
   if (pot.state !== "Live")
     return copies.some(Boolean) ? (
       <section style={box}>{copies}</section>
     ) : null;
+
+  if (mine === null && !who.actor)
+    return (
+      <section style={box}>
+        <SignIn who={who} purpose="Sign in to see your side's options, or to copy a side." />
+      </section>
+    );
 
   if (mine === null) {
     // Someone else's running pot: copy one of its sides in a new pot on the same market.

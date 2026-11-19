@@ -1,5 +1,7 @@
 "use client";
 
+import { money } from "@/lib/currency";
+
 import { CatState } from "@/components/cat/CatState";
 import Link from "next/link";
 import { Cat } from "@/components/cat/Cat";
@@ -91,7 +93,7 @@ function Rows({ pots, me }: { pots: HcPotSummary[]; me?: string | null }) {
             </span>
             <StatusBadge state={p.state} rope={rope} />
             <span style={{ fontSize: 16, fontVariantNumeric: "tabular-nums" }}>
-              {Number.isFinite(n) ? `$${n.toFixed(2)}` : ""}
+              {Number.isFinite(n) ? money(Math.round(n * 1e6)) : ""}
             </span>
             {side !== null && p.market && (
               <span style={{ fontSize: 15, color: C.muted }}>
@@ -224,7 +226,11 @@ export function PotsList() {
               Your honor record
             </Link>
             {!mine.data ? (
-              <CatState kind="loading" text="Reading your pots from Arc…" size={90} />
+              <CatState
+                kind={mine.error ? "error" : "loading"}
+                text={mine.error ? "Could not read your pots just now; trying again." : "Reading your pots from Arc…"}
+                size={90}
+              />
             ) : mine.data.pots.length === 0 &&
               !(myPerps.data?.perps.length ?? 0) ? (
               <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
@@ -314,7 +320,13 @@ export function PotsList() {
         {perpOffers.length > 0 && <PerpRows perps={perpOffers} me={me} offer />}
         {offers.length ? (
           <Rows pots={offers} me={me} />
-        ) : perpOffers.length ? null : (
+        ) : perpOffers.length ? null : !open.data ? (
+          <CatState
+            kind={open.error ? "error" : "loading"}
+            text={open.error ? "Could not read the open offers just now; trying again." : "Reading open offers…"}
+            size={90}
+          />
+        ) : (
           <CatState
             kind="empty"
             text="No open offers right now. Start one, or try it alone against the practice cat."
