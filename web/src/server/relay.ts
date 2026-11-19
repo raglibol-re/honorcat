@@ -14,6 +14,9 @@ export * from "@honorcat/relay";
  */
 /** `samplerBudgetMs`: how long this invocation may run the app's sampler (needs a matching maxDuration). */
 export function nudgeRelay(reason: string, opts: { samplerBudgetMs?: number } = {}) {
+  // With the background worker running elsewhere (relay/scripts/worker.ts on Render), requests to
+  // the website never start relay work: no hidden background invocations, the worker does it all.
+  if ((process.env.RELAY_WORKER ?? "").toLowerCase() === "on") return;
   after(async () => {
     try {
       const report = await runTick({ reason });
