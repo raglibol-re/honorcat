@@ -6,6 +6,7 @@ import { PotSampler, type PotsIo, type PotsWork } from "../src/potsSampler";
 import type { BookSource } from "../src/sampler";
 import { evidenceHash, recordFromJson, verifyRecord } from "../src/trigger/evidence";
 import { paramsFor } from "../src/trigger/params";
+import type { Sample } from "../src/trigger/engine";
 
 const a = (n: number, ppm: number, valid = true): Avg => ({
   signer: getAddress(`0x${String(n).repeat(40)}`),
@@ -99,6 +100,19 @@ describe("pot sampler", () => {
       },
     };
   }
+
+  it("keeps the rule's pace when the host restarts often (a fresh sampler per wake-up, samples stored)", async () => {
+    let stored: Sample[] = [];
+    const store = { load: async () => stored, save: async (_i: string, x: Sample[]) => void (stored = x) };
+    const source: BookSource = { name: "test", watch() {}, async snapshot() { return { recv: 0, bid: "0.60", bidSize: "100.00", ask: "0.62", askSize: "100.00" }; }, close() {} };
+    const start = T0 / 1000;
+    const work: PotsWork = { now: 0, measure: [{ requestId: "w:1:0:1", potId: "1", kind: KIND.exit, nonce: "0", windowStart: start, windowEnd: start + 30, instrument: INSTR, params, conditionId, eventTicker: "", contractTicker: "", resolver: null }], cosign: [], levels: [], pots: POTS, chainId: CHAIN };
+    const io: PotsIo = { work: async () => work, average: async () => {}, cosign: async () => {}, level: async () => ({}) };
+    // woken every 300 ms for 30 s, each time a new instance (like the app's sampler on page visits)
+    for (let now = T0; now < T0 + 30_000; now += 300) await new PotSampler(privateKeyToAccount(KEY), source, io, () => {}, store).step(now);
+    expect(stored.length).toBeGreaterThanOrEqual(14);
+    expect(stored.length).toBeLessThanOrEqual(16);
+  });
 
   it("measures exactly the requested window, signs its own average, then co-signs a close proposal", async () => {
     const h = harness(() => ["0.60", "0.62"]);

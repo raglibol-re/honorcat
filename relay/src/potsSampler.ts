@@ -127,6 +127,14 @@ export class PotSampler {
   private async sample(now: number) {
     for (const [instrument, b] of this.books) {
       if (now < b.nextAt) continue;
+      // A host that restarts often (the app's sampler, woken by page visits) reloads its samples:
+      // never sample sooner than the rule's interval after the last one, so every sampler reads at
+      // the same pace and none counts more readings in a window than the others can.
+      const prev = b.samples.at(-1);
+      if (prev && now - prev.t < b.params.intervalMs - 100) {
+        b.nextAt = prev.t + b.params.intervalMs;
+        continue;
+      }
       b.nextAt = Math.max(now, (b.nextAt || now) + b.params.intervalMs);
       const top = await this.source.snapshot(instrument);
       const s = classify({ t: now, dataT: top?.recv ?? 0, bid: top?.bid ?? null, bidSize: top?.bidSize ?? null, ask: top?.ask ?? null, askSize: top?.askSize ?? null }, b.params);
