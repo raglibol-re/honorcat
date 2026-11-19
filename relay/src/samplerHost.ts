@@ -47,6 +47,37 @@ const de = (j: string): Sample[] =>
     status: Number(x.status) as Sample["status"],
   }));
 
+type Samplers = { sampler: Sampler; potSampler: PotSampler | null };
+const instances = new WeakMap<Db, Samplers>();
+
+function makeSamplers(db: Db, cfg: ReturnType<typeof getConfig>): Samplers {
+  const account = privateKeyToAccount(cfg.samplerKey as `0x${string}`);
+  const sampler = new Sampler(
+    account,
+    new RestBookSource(),
+    directIo(db),
+    publicClient(),
+    (m) => console.log(`[sampler:vercel] ${m}`),
+    {
+      load: async (id) => {
+        const v = await getState(db, `sampler_samples:${id}`);
+        return v ? de(v) : [];
+      },
+      save: (id, s) => setState(db, `sampler_samples:${id}`, ser(s)),
+    },
+  );
+  const potSampler = cfg.pots
+    ? new PotSampler(account, new RestBookSource(), potsDirectIo(db), (m) => console.log(`[pots:vercel] ${m}`), {
+        load: async (i) => {
+          const v = await getState(db, `pot_samples:${i}`);
+          return v ? de(v) : [];
+        },
+        save: (i, s) => setState(db, `pot_samples:${i}`, ser(s)),
+      })
+    : null;
+  return { sampler, potSampler };
+}
+
 export async function runAppSampler(db: Db, opts: { budgetMs: number }): Promise<{ ran: boolean; pots: number }> {
   const cfg = getConfig();
   if (!cfg.samplerKey || !cfg.early) return { ran: false, pots: 0 };
@@ -62,30 +93,11 @@ export async function runAppSampler(db: Db, opts: { budgetMs: number }): Promise
   );
   if (got.length === 0) return { ran: false, pots: 0 };
 
-  const sampler = new Sampler(
-    privateKeyToAccount(cfg.samplerKey as `0x${string}`),
-    new RestBookSource(),
-    directIo(db),
-    publicClient(),
-    (m) => console.log(`[sampler:vercel] ${m}`),
-    {
-      load: async (id) => {
-        const v = await getState(db, `sampler_samples:${id}`);
-        return v ? de(v) : [];
-      },
-      save: (id, s) => setState(db, `sampler_samples:${id}`, ser(s)),
-    },
-  );
-  const account = privateKeyToAccount(cfg.samplerKey as `0x${string}`);
-  const potSampler = cfg.pots
-    ? new PotSampler(account, new RestBookSource(), potsDirectIo(db), (m) => console.log(`[pots:vercel] ${m}`), {
-        load: async (i) => {
-          const v = await getState(db, `pot_samples:${i}`);
-          return v ? de(v) : [];
-        },
-        save: (i, s) => setState(db, `pot_samples:${i}`, ser(s)),
-      })
-    : null;
+  // Kept for the life of the instance: a fresh pair per burst re-read every stored sample list
+  // (about 35 KB per market) on each page visit, which used up the database's monthly transfer.
+  const kept = instances.get(db);
+  const { sampler, potSampler } = kept ?? makeSamplers(db, cfg);
+  if (!kept) instances.set(db, { sampler, potSampler });
   const steps = async () => {
     await sampler.step().catch((e) => console.error("[sampler:vercel]", (e as Error).message));
     if (potSampler) await potSampler.step().catch((e) => console.error("[pots:vercel]", (e as Error).message));

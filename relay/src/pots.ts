@@ -253,8 +253,21 @@ export async function registerMarket(
 }
 
 type MarketRow = { condition_id: string; instrument: string; event_ticker: string; contract_ticker: string; event_title: string; label: string; params: Record<string, string> | string };
+/** A market row never changes once written (its id is the hash of its rule): kept per instance. */
+const marketCache = new Map<string, NonNullable<Awaited<ReturnType<typeof readMarket>>>>();
 export async function marketOf(db: Db, conditionId: string) {
-  const r = (await db.query<MarketRow>("SELECT * FROM pot_markets WHERE condition_id = $1", [conditionId.toLowerCase()]))[0];
+  const key = conditionId.toLowerCase();
+  const hit = marketCache.get(key);
+  if (hit) return hit;
+  const m = await readMarket(db, key);
+  if (m) {
+    if (marketCache.size > 2000) marketCache.clear();
+    marketCache.set(key, m);
+  }
+  return m;
+}
+async function readMarket(db: Db, conditionId: string) {
+  const r = (await db.query<MarketRow>("SELECT * FROM pot_markets WHERE condition_id = $1", [conditionId]))[0];
   if (!r) return null;
   const params = paramsFromJson(typeof r.params === "string" ? JSON.parse(r.params) : r.params);
   return { conditionId: r.condition_id as Hex, instrument: r.instrument, eventTicker: r.event_ticker, contractTicker: r.contract_ticker, eventTitle: r.event_title, label: r.label, params };

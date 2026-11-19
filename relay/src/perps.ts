@@ -219,7 +219,10 @@ export async function perpDetail(db: Db, perpId: string) {
     [perpId],
   );
   const practice = (await db.query("SELECT 1 FROM practice_pots WHERE pot_id = $1", [`-${row.perp_id}`])).length > 0;
-  return { perpId: row.perp_id, phase: PERP_PHASES[row.phase], a: row.a, b: row.b, pot: row.pot_id, data: dataOf(row), practice, market: await perpMarket(db, row), events: ropes.map((e) => ({ name: e.event_name.slice(5), args: e.args, tx: e.tx_hash, at: e.block_time ? Number(e.block_time) : null, pot: e.pot_id })) };
+  const market = await perpMarket(db, row);
+  // Gemini's page slug for the "trade this market" link (the event ticker alone also works).
+  const slug = market ? ((await rowBySymbol(db, market.instrument).catch(() => null)) as { slug?: string | null } | null)?.slug ?? null : null;
+  return { perpId: row.perp_id, phase: PERP_PHASES[row.phase], a: row.a, b: row.b, pot: row.pot_id, data: dataOf(row), practice, market: market && { ...market, slug }, events: ropes.map((e) => ({ name: e.event_name.slice(5), args: e.args, tx: e.tx_hash, at: e.block_time ? Number(e.block_time) : null, pot: e.pot_id })) };
 }
 
 export async function listPerps(db: Db, opts: { owner?: string; phases?: number[]; limit?: number } = {}) {
