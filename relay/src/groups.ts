@@ -191,8 +191,11 @@ export async function groupsHousekeeping(db: Db, own: LocalAccount | null) {
           WHERE pot_id = $1 AND event_name IN ('Group:JoinRequested','Group:LeaveRequested') AND block_time > $2`,
         [dbId, now - 3600],
       );
-      for (const b of batches) {
-        const k = BigInt(b.batch);
+      // The batch due next too: waiting joins carry into later batches with no new event of their own.
+      const due = new Set(batches.map((b) => b.batch));
+      if (row.next_batch !== null) due.add(row.next_batch);
+      for (const kb of due) {
+        const k = BigInt(kb);
         const w = windowOfBatch(d, k);
         if (w.end < now - GROUP_ATTEST_TIMEOUT_S) continue;
         await db.query(`INSERT INTO att_requests (id, kind, pot_id, payload, status) VALUES ($1,'window',$2,$3,'measuring') ON CONFLICT (id) DO NOTHING`, [
