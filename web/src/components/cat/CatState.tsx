@@ -19,9 +19,9 @@ const DEFAULT: Record<CatStateKind, string> = {
   waiting: "Waiting for someone to take the other side.",
 };
 
-export function CatState({ kind, text, size = 120, children }: { kind: CatStateKind; text?: string | null; size?: number; children?: React.ReactNode }) {
-  // Raw errors ("HTTP 500") become plain sentences with what happens next.
-  const shown = kind === "error" && text ? (/^HTTP \d+/.test(text) ? DEFAULT.error : plainMessage(text)) : (text ?? DEFAULT[kind]);
+export function CatState({ kind, text, size = 120, children, plain = false }: { kind: CatStateKind; text?: string | null; size?: number; children?: React.ReactNode; plain?: boolean }) {
+  // Raw errors ("HTTP 500") become plain sentences with what happens next; `plain` texts stay as written.
+  const shown = kind === "error" && text && !plain ? (/^HTTP \d+/.test(text) ? DEFAULT.error : plainMessage(text)) : (text ?? DEFAULT[kind]);
   return (
     <div role={kind === "error" ? "alert" : "status"} aria-live="polite" style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", padding: "8px 0" }}>
       <Cat pose={POSE[kind]} size={size} label={kind === "loading" ? "A cat peeking in: loading." : undefined} />

@@ -1315,6 +1315,7 @@ export function PotView({ id }: { id: string }) {
     return error ? (
       <CatState
         kind="error"
+        plain={/404|not found|no such pot|private/i.test(error)}
         text={
           /404|not found|no such pot/i.test(error)
             ? `There is no pot ${id}. Check the link, or see all pots.`

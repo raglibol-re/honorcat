@@ -18,7 +18,7 @@ export function PerpTvView({ id }: { id: string }) {
   const { data: r } = usePolling<{ ropes: RopeStory[] }>(`/api/hc/perps/${id}/ropes`, 10_000);
   const live = useLivePrice(p && p.phase !== "Ended" ? (p.market?.instrument ?? null) : null);
   const names = useNames([p?.a, p?.b]);
-  if (!p) return error ? <CatState kind="error" text={(/404|not found|no such/i.test(error) ? "There is nothing at this address. Check the link." : /private/i.test(error) ? "This pot is private: open it from its private link." : error)} size={300} /> : <CatState kind="loading" text={`Reading perp ${id} from Arc…`} size={300} />;
+  if (!p) return error ? <CatState kind="error" plain={/404|not found|no such|private/i.test(error)} text={(/404|not found|no such/i.test(error) ? "There is nothing at this address. Check the link." : /private/i.test(error) ? "This pot is private: open it from its private link." : error)} size={300} /> : <CatState kind="loading" text={`Reading perp ${id} from Arc…`} size={300} />;
   const d = p.data;
   const stake = BigInt(d.stake);
   const running = p.phase === "Running" || p.phase === "Joining";

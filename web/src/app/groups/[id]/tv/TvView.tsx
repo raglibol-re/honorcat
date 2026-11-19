@@ -17,7 +17,7 @@ export function GroupTvView({ id }: { id: string }) {
   const live = useLivePrice(g && g.state === "Open" ? (g.market?.instrument ?? null) : null);
   const names = useNames((g?.events ?? []).flatMap((e) => [e.args.account, e.args.creator]));
   const nowMs = useNow();
-  if (!g) return error ? <CatState kind="error" text={(/404|not found|no such/i.test(error) ? "There is nothing at this address. Check the link." : /private/i.test(error) ? "This pot is private: open it from its private link." : error)} size={300} /> : <CatState kind="loading" text={`Reading group ${id} from Arc…`} size={300} />;
+  if (!g) return error ? <CatState kind="error" plain={/404|not found|no such|private/i.test(error)} text={(/404|not found|no such/i.test(error) ? "There is nothing at this address. Check the link." : /private/i.test(error) ? "This pot is private: open it from its private link." : error)} size={300} /> : <CatState kind="loading" text={`Reading group ${id} from Arc…`} size={300} />;
   const [a, b] = g.names;
   const last = g.prices.length ? g.prices[g.prices.length - 1]!.price : null;
   const settled = g.state === "Settled";

@@ -21,7 +21,7 @@ export function TvView({ id }: { id: string }) {
   const live = useLivePrice(closed ? null : (pot?.market?.instrument ?? null), Number(pot?.data.window ?? 30));
   const nowS = Math.floor(useNow() / 1000);
   const names = useNames([pot?.owners.yes, pot?.owners.no, pot?.data.joiner, ...(pot?.events ?? []).flatMap((e) => [e.args.creator, e.args.joiner, e.args.to, e.args.from])]);
-  if (!pot) return error ? <CatState kind="error" text={(/404|not found|no such/i.test(error) ? "There is nothing at this address. Check the link." : /private/i.test(error) ? "This pot is private: open it from its private link." : error)} size={300} /> : <CatState kind="loading" text="Reading the pot from Arc…" size={300} />;
+  if (!pot) return error ? <CatState kind="error" plain={/404|not found|no such|private/i.test(error)} text={(/404|not found|no such/i.test(error) ? "There is nothing at this address. Check the link." : /private/i.test(error) ? "This pot is private: open it from its private link." : error)} size={300} /> : <CatState kind="loading" text="Reading the pot from Arc…" size={300} />;
   const nm = (a: string | null) => displayName(a, names, null, false);
   const events = storyOf(pot, nm)
     .map((x) => x.text)

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { memoryDb } from "../src/db";
-import { maySee } from "../src/privatePots";
+import { keyForPlayer, maySee } from "../src/privatePots";
 import { listPotsHc } from "../src/pots";
 
 const A = "0x00000000000000000000000000000000000000a1";
@@ -19,5 +19,13 @@ describe("a private pot is seen only by its players and people with the link", (
     const ids = (await listPotsHc(db, { states: [3] }).catch(() => [])).map((p: { potId: string }) => p.potId);
     expect(ids).toContain("6");
     expect(ids).not.toContain("5");
+  });
+  it("gives the key back only to a player who signs, never to anyone else", async () => {
+    const db = await memoryDb();
+    await db.query("INSERT INTO pots (pot_id, state, data, condition_id, yes_owner, no_owner) VALUES (7, 3, '{}', '0x01', $1, $2)", [A, B]);
+    await db.query("INSERT INTO pot_private (pot_id, key, by_account) VALUES ('7', 'k7', $1)", [A]);
+    const stranger = "0x00000000000000000000000000000000000000c3";
+    await expect(keyForPlayer(db, { potId: "7", account: stranger as never, issuedAt: new Date().toISOString(), signature: "0x00" })).rejects.toThrow(/only the players/);
+    await expect(keyForPlayer(db, { potId: "7", account: A as never, issuedAt: "2020-01-01T00:00:00Z", signature: "0x00" })).rejects.toThrow(/too old/);
   });
 });

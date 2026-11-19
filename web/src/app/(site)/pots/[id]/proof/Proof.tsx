@@ -24,7 +24,7 @@ const KIND_TEXT = ["Entry price", "Exit price", "YES net", "NO net", "YES bowl",
 export function Proof({ id }: { id: string }) {
   const k = useSearchParams().get("k");
   const { data: pot, error } = usePolling<HcPot>(`/api/hc/pots/${id}${k ? `?k=${encodeURIComponent(k)}` : ""}`, 15_000);
-  if (!pot) return error ? <CatState kind="error" text={(/404|not found|no such/i.test(error) ? "There is nothing at this address. Check the link." : /private/i.test(error) ? "This pot is private: open it from its private link." : error)} /> : <CatState kind="loading" />;
+  if (!pot) return error ? <CatState kind="error" plain={/404|not found|no such|private/i.test(error)} text={(/404|not found|no such/i.test(error) ? "There is nothing at this address. Check the link." : /private/i.test(error) ? "This pot is private: open it from its private link." : error)} /> : <CatState kind="loading" />;
   const windows = pot.requests.filter((r) => r.kind === "window");
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
