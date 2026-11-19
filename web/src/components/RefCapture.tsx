@@ -17,7 +17,7 @@ export function RefCapture() {
     };
     // Old links carry the account itself; new ones a short code (no address in the link).
     if (/^0x[0-9a-fA-F]{40}$/.test(ref)) keep(ref);
-    else if (/^[0-9a-z]{6,12}$/.test(ref))
+    else if (/^[0-9a-z]{6,16}$/.test(ref))
       fetch(`/api/hc/ref?code=${ref}`)
         .then((r) => (r.ok ? r.json() : null))
         .then((j: { account?: string } | null) => j?.account && keep(j.account))

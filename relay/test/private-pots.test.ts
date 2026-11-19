@@ -15,7 +15,7 @@ describe("a private pot is seen only by its players and people with the link", (
     expect((await maySee(db, "5", {})).ok).toBe(false);
     expect((await maySee(db, "5", { key: "wrong" })).ok).toBe(false);
     expect((await maySee(db, "5", { key: "secret-key" })).ok).toBe(true);
-    expect((await maySee(db, "5", { account: B })).ok).toBe(true);
+    expect((await maySee(db, "5", { account: B } as never)).ok).toBe(false); // an address alone proves nothing
     const ids = (await listPotsHc(db, { states: [3] }).catch(() => [])).map((p: { potId: string }) => p.potId);
     expect(ids).toContain("6");
     expect(ids).not.toContain("5");

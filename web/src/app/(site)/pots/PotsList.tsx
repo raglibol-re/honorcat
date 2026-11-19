@@ -7,7 +7,7 @@ import Link from "next/link";
 import { Cat } from "@/components/cat/Cat";
 import { C, F } from "@/components/cat/tokens";
 import { AccountLine, SignIn, useActor } from "@/components/pot/Who";
-import { usePolling } from "@/lib/api";
+import { usePolling, getJson } from "@/lib/api";
 import { formatDate, short } from "@/lib/format";
 import { sideOf, type HcPotSummary } from "@/lib/hc";
 import { useNow } from "@/lib/useNow";
@@ -135,10 +135,33 @@ function Rows({ pots, me }: { pots: HcPotSummary[]; me?: string | null }) {
 export function PotsList() {
   const who = useActor();
   const me = who.actor?.account ?? null;
-  const mine = usePolling<{ pots: HcPotSummary[] }>(
+  const mineListed = usePolling<{ pots: HcPotSummary[] }>(
     me ? `/api/hc/pots?owner=${me}` : null,
     6000,
   );
+  // Private pots never appear in lists: add the ones this device has the key for (lib/potKey.ts).
+  const [priv, setPriv] = useState<HcPotSummary[]>([]);
+  useEffect(() => {
+    if (!me) return;
+    let ids: string[] = [];
+    try {
+      ids = Object.keys(localStorage)
+        .filter((k) => k.startsWith("hc.pkey."))
+        .map((k) => k.slice("hc.pkey.".length));
+    } catch {
+      /* no storage */
+    }
+    let alive = true;
+    void Promise.all(ids.map((id) => getJson<HcPotSummary>(`/api/hc/pots/${id}`).catch(() => null))).then((list) => {
+      if (alive) setPriv(list.filter((p): p is HcPotSummary => !!p && sideOf(p, me) !== null));
+    });
+    return () => {
+      alive = false;
+    };
+  }, [me]);
+  const mine = mineListed.data
+    ? { ...mineListed, data: { pots: [...priv.filter((p) => !mineListed.data!.pots.some((q) => q.potId === p.potId)), ...mineListed.data.pots] } }
+    : mineListed;
   const open = usePolling<{ pots: HcPotSummary[] }>(
     `/api/hc/pots?state=open`,
     8000,

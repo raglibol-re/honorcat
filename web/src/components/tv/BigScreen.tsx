@@ -32,7 +32,7 @@ export function BigScreen({
   events: string[];
 }) {
   return (
-    <div className="hc" style={{ minHeight: "100vh", background: C.page, color: C.ink, display: "flex", flexDirection: "column", padding: "3vh 4vw", boxSizing: "border-box", gap: "2.5vh" }}>
+    <div className="hc" style={{ minHeight: "100vh", background: C.page, color: C.ink, display: "flex", flexDirection: "column", padding: "3vh 4vw", boxSizing: "border-box", gap: "2.5vh", overflowX: "hidden", maxWidth: "100vw" }}>
       <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
         <Link href={home} style={{ display: "flex", alignItems: "center", gap: 14, textDecoration: "none" }}>
           <CatHead width={48} height={45} eyes={C.signal} />
@@ -52,12 +52,12 @@ export function BigScreen({
       <div style={{ display: "flex", gap: "4vw", alignItems: "flex-start", flexWrap: "wrap" }}>
         {qrs.map((q) => (
           <figure key={q.url} style={{ margin: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-            <InviteQR url={q.url} size={220} label={q.label} />
+            <InviteQR url={q.url} size={200} label={q.label} />
             <figcaption style={{ fontFamily: F.cond, fontSize: 30, fontWeight: 600 }}>{q.label}</figcaption>
           </figure>
         ))}
         {events.length > 0 && (
-          <ol aria-label="Latest" style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 10, flex: "1 1 420px", fontSize: 30, lineHeight: 1.3 }}>
+          <ol aria-label="Latest" style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 10, flex: "1 1 280px", minWidth: 0, overflowWrap: "anywhere", fontSize: "clamp(20px, 2.4vw, 30px)", lineHeight: 1.3 }}>
             {events.slice(0, 5).map((e, i) => (
               <li key={i} style={{ opacity: 1 - i * 0.15 }}>
                 {e}

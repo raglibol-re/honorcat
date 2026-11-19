@@ -1,5 +1,7 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
+
 import { formatAmount } from "@/lib/amount";
 
 import { CatState } from "@/components/cat/CatState";
@@ -18,8 +20,9 @@ const li: React.CSSProperties = { fontSize: 17, lineHeight: 1.55, color: C.body 
 
 /** The plain terms of one pot, filled with its own numbers. */
 export function Terms({ id }: { id: string }) {
-  const { data: pot } = usePolling<HcPot>(`/api/hc/pots/${id}`, 30_000);
-  if (!pot) return <CatState kind="loading" />;
+  const k = useSearchParams().get("k");
+  const { data: pot, error } = usePolling<HcPot>(`/api/hc/pots/${id}${k ? `?k=${encodeURIComponent(k)}` : ""}`, 30_000);
+  if (!pot) return error ? <CatState kind="error" text={(/404|not found|no such/i.test(error) ? "There is nothing at this address. Check the link." : /private/i.test(error) ? "This pot is private: open it from its private link." : error)} /> : <CatState kind="loading" />;
   const d = pot.data;
   const n = Number((d as { initialNotional?: string }).initialNotional ?? d.notional) / 1e6;
   const fee = Number(d.feeBps) / 100;

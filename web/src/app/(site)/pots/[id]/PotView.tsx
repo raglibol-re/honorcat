@@ -1,12 +1,13 @@
 "use client";
 
 import { Watching } from "@/components/pot/Watching";
-import { PrivateControl } from "@/components/pot/PrivateControl";
+import { PrivateControl, UnlockPrivate } from "@/components/pot/PrivateControl";
+import { setPotKey } from "@/lib/potKey";
 
 import { CatState } from "@/components/cat/CatState";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Cat } from "@/components/cat/Cat";
 import { PlayerCat } from "@/components/cat/PlayerCat";
 import { GeminiLink } from "@/components/cat/GeminiLink";
@@ -1279,11 +1280,12 @@ function ResultBanner({ pot, mine }: { pot: HcPot; mine: number }) {
 export function PotView({ id }: { id: string }) {
   useHome();
   const who = useActor();
-  // A private pot needs the link's key (?k=) or a player's own account.
+  // A private pot needs the link's key (?k=); it is remembered on this device (lib/potKey.ts).
   const linkKey = useSearchParams().get("k");
-  const viewer = who.actor?.account ?? null;
-  const potQs = new URLSearchParams({ ...(linkKey ? { k: linkKey } : {}), ...(viewer ? { account: viewer } : {}) }).toString();
-  const { data: pot, error } = usePolling<HcPot & { private?: boolean; privateKey?: string | null }>(`/api/hc/pots/${id}${potQs ? `?${potQs}` : ""}`, 3000);
+  useEffect(() => {
+    if (linkKey) setPotKey(id, linkKey);
+  }, [id, linkKey]);
+  const { data: pot, error } = usePolling<HcPot & { private?: boolean; privateKey?: string | null }>(`/api/hc/pots/${id}${linkKey ? `?k=${encodeURIComponent(linkKey)}` : ""}`, 3000);
   // A closed pot shows its final state: no live price is read for it.
   const closed = pot ? pot.state === "Divided" || pot.state === "Settled" || pot.state === "Expired" : false;
   const live = useLivePrice(
@@ -1314,13 +1316,15 @@ export function PotView({ id }: { id: string }) {
       <CatState
         kind="error"
         text={
-          /404|not found/i.test(error)
+          /404|not found|no such pot/i.test(error)
             ? `There is no pot ${id}. Check the link, or see all pots.`
             : /private/i.test(error)
               ? "This pot is private: only its players and people with its link can see it."
               : error
         }
-      />
+      >
+        {/private/i.test(error) && <UnlockPrivate potId={id} who={who} />}
+      </CatState>
     ) : (
       <CatState kind="loading" text="Reading the pot from Arc…" />
     );
@@ -1506,7 +1510,7 @@ export function PotView({ id }: { id: string }) {
       </header>
 
       <Rope {...scene} trail={live.trail} speed={live.speed} />
-      <Watching watchKey={String(pot.potId)} startHref="/pots/new" tvHref={`/pots/${pot.potId}/tv${linkKey ? `?k=${linkKey}` : ""}`} player={mine !== null} />
+      <Watching watchKey={String(pot.potId)} startHref="/pots/new" tvHref={`/pots/${pot.potId}/tv${(linkKey ?? pot.privateKey) ? `?k=${encodeURIComponent((linkKey ?? pot.privateKey)!)}` : ""}`} player={mine !== null} />
       {mine !== null && !pot.practice && <PrivateControl potId={String(pot.potId)} who={who} isPrivate={!!pot.private} privateKey={pot.privateKey ?? null} />}
       {(pot.state === "Live" || pot.state === "ExitRequested" || pot.state === "Joining") && !pot.perp && (
         <Reactions potId={String(pot.potId)} />

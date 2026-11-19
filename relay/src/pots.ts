@@ -794,12 +794,19 @@ export async function submitReady(db: Db, requestId: string) {
   // Arc's block time trails the wall clock by a few seconds: the contract refuses a window that has
   // not ended by block.timestamp (TooEarly), so wait for the chain's clock first (at most ~20 s).
   if (req.kind === "window") {
-    const end = Number((p.attestation as WindowAtt).windowEnd);
+    // A "no price" on the MedianResolver with fewer averages than samplers is accepted only
+    // MEDIAN_NO_PRICE_DELAY s after the window, by the chain's clock: if that is still ahead, leave it
+    // ready for the next pass (it was refused as InvalidAttestation and failed for good before).
+    const att = p.attestation as WindowAtt;
+    const avgN = Array.isArray(p.averages) ? (p.averages as unknown[]).length : 0;
+    const noPriceEarly = !att.valid && p.median === true && avgN < signerSet().samplers.length;
+    const end = Number(att.windowEnd) + (noPriceEarly ? MEDIAN_NO_PRICE_DELAY : 0);
     for (let i = 0; i < 3; i++) {
       const b = await publicClient().getBlock();
       const gap = end - Number(b.timestamp);
       if (gap <= 0) break;
-      await new Promise((r) => setTimeout(r, Math.min(20, gap) * 1000 + 300));
+      if (gap > 20) return null;
+      await new Promise((r) => setTimeout(r, gap * 1000 + 300));
     }
   }
   // Claim it: two passes (the sampler's request and housekeeping) must not both send it.
@@ -1266,9 +1273,10 @@ export async function listPotsHc(db: Db, opts: { owner?: string; states?: number
   } else {
     // Practice pots (against the relay's practice cat) stay out of public lists and numbers.
     where.push("NOT EXISTS (SELECT 1 FROM practice_pots pp WHERE pp.pot_id = pots.pot_id)");
-    // Private pots are seen only by their players and people with the link: never in a public list.
-    where.push("NOT EXISTS (SELECT 1 FROM pot_private pv WHERE pv.pot_id = pots.pot_id::text)");
   }
+  // Private pots are seen only with their link's key: never in a list (an owner's list is not proven
+  // to be asked for by that owner). Players see theirs from the keys their browser keeps.
+  where.push("NOT EXISTS (SELECT 1 FROM pot_private pv WHERE pv.pot_id = pots.pot_id::text)");
   if (opts.states?.length) {
     args.push(opts.states);
     where.push(`state = ANY($${args.length}::smallint[])`);
@@ -1366,7 +1374,7 @@ export async function honorRecord(db: Db, account: string) {
   const a = account.toLowerCase();
   // Practice pots (against the relay's practice cat) never count towards an honor record.
   const ev = await db.query<Ev>(
-    "SELECT tx_hash, block_time::text AS block_time, event_name, pot_id::text AS pot_id, args FROM pot_events e WHERE e.pot_id IS NULL OR (NOT EXISTS (SELECT 1 FROM practice_pots pp WHERE pp.pot_id = e.pot_id) AND NOT EXISTS (SELECT 1 FROM seat_pots sp WHERE sp.pot_id = e.pot_id)) ORDER BY block_number, log_index",
+    "SELECT tx_hash, block_time::text AS block_time, event_name, pot_id::text AS pot_id, args FROM pot_events e WHERE e.pot_id IS NULL OR (NOT EXISTS (SELECT 1 FROM practice_pots pp WHERE pp.pot_id = e.pot_id) AND NOT EXISTS (SELECT 1 FROM seat_pots sp WHERE sp.pot_id = e.pot_id) AND NOT EXISTS (SELECT 1 FROM pot_private pv WHERE pv.pot_id = e.pot_id::text)) ORDER BY block_number, log_index",
   );
   const ownerOf = new Map<string, string>(); // tokenId -> owner, replayed from Transfer events
   const played = new Set<string>();
@@ -1906,8 +1914,8 @@ export async function openOnMarket(db: Db, symbol: string, side: 0 | 1) {
   );
   const groups = await db
     .query<{ group_id: string; data: Record<string, unknown> | string }>(
-      "SELECT group_id::text AS group_id, data FROM groups WHERE state = 1 AND condition_id IN (SELECT lower(condition_id) FROM pot_markets WHERE instrument = $1) AND close_time > extract(epoch FROM now()) + 180 ORDER BY group_id DESC LIMIT 3",
-      [symbol],
+      "SELECT group_id::text AS group_id, data FROM groups WHERE state = 1 AND lower(data->>'resolver') = lower($2) AND condition_id IN (SELECT lower(condition_id) FROM pot_markets WHERE instrument = $1) AND close_time > extract(epoch FROM now()) + 180 ORDER BY group_id DESC LIMIT 3",
+      [symbol, getConfig().groups?.median ?? "0x"],
     )
     .catch(() => []);
   const j = <T,>(v: T | string) => (typeof v === "string" ? (JSON.parse(v) as T) : v);

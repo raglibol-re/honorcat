@@ -243,7 +243,7 @@ export function AccountLine({ who, askCat = false }: { who: ActorState; askCat?:
             </a>
           </>
         )}{" "}
-        · holds <strong style={{ color: C.ink }}>{who.balance === null ? "…" : inEuros() ? `${money(who.balance)} (in test USDC)` : `${(Number(who.balance) / 1e6).toFixed(2)} USDC`}</strong> (test money).
+        · holds <strong style={{ color: C.ink }}>{who.balance === null ? "…" : inEuros() ? `${money(who.balance)} (in test USDC)` : money(who.balance)}</strong> (test money).
         {who.actor.kind === "wallet" && who.wallet.kind === "circle" && (
           <>
             {" "}

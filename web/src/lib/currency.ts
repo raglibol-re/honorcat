@@ -86,6 +86,18 @@ export function money(base: string | number | bigint): string {
   return formatAmount(eur ? usd * state.rate!.eurcPerUsdc : usd, eur ? "€" : "$");
 }
 
+/**
+ * An exact amount with up to four decimals ("$0.9997"), in the home currency: for the few places
+ * that must show a value finer than a tenth of a cent (a perp's stake per life).
+ */
+export function moneyExact(base: string | number | bigint): string {
+  const usd = Number(base) / 1e6;
+  const eur = state.home === "EURC" && state.rate;
+  const v = eur ? usd * state.rate!.eurcPerUsdc : usd;
+  const t = Math.abs(v).toFixed(4).replace(/(\.\d\d\d?)0+$/, "$1");
+  return `${v < 0 ? "-" : ""}${eur ? "€" : "$"}${t}`;
+}
+
 /** Same as money() (kept for callers that asked for three decimals under one). */
 export const money3 = money;
 

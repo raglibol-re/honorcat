@@ -1,6 +1,6 @@
 import { connection } from "next/server";
 import { z } from "zod";
-import { errorResponse, getDb, handshakeOffers, nudgeRelay, offerHandshake } from "@/server/relay";
+import { errorResponse, getDb, handshakeOffers, nudgeRelay, offerHandshake, privatePots } from "@/server/relay";
 
 export const maxDuration = 60;
 
@@ -13,10 +13,12 @@ const body = z.object({
 });
 
 /** Open handshake offers on this pot (unexpired). */
-export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
+export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
   await connection();
   try {
     const { id } = await ctx.params;
+    // A private pot: only with its link's key (?k=).
+    await privatePots.assertMaySee(await getDb(), id, new URL(req.url).searchParams.get("k"));
     if (!/^\d+$/.test(id)) return Response.json({ error: "bad id" }, { status: 400 });
     return Response.json({ offers: await handshakeOffers(await getDb(), id) }, { headers: { "cache-control": "no-store" } });
   } catch (err) {
@@ -29,6 +31,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   await connection();
   try {
     const { id } = await ctx.params;
+    // A private pot: only with its link's key (?k=).
+    await privatePots.assertMaySee(await getDb(), id, new URL(req.url).searchParams.get("k"));
     if (!/^\d+$/.test(id)) return Response.json({ error: "bad id" }, { status: 400 });
     const b = body.parse(await req.json());
     const r = await offerHandshake(await getDb(), { potId: id, ...b, signature: b.signature as `0x${string}` });

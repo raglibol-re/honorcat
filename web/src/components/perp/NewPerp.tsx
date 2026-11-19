@@ -38,7 +38,7 @@ import {
 
 import { ActionProgress, Button } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Field";
-import { money } from "@/lib/currency";
+import { money, moneyExact } from "@/lib/currency";
 const label: React.CSSProperties = {
   fontSize: 15,
   fontWeight: 600,
@@ -366,7 +366,7 @@ export function NewPerp({ perps }: { perps: Address }) {
                 <span style={{ fontSize: 14, color: C.muted }}>
                   Your balance {$(who.balance)}: up to {affordable ?? 0}{" "}
                   {affordable === 1 ? "life" : "lives"}.{" "}
-                  {affordable !== null && affordable < n ? (
+                  {affordable !== null && affordable > 0 && affordable < n ? (
                     <button type="button" onClick={() => setLives(String(Math.max(1, affordable)))} style={{ background: "none", border: 0, padding: 0, textDecoration: "underline", cursor: "pointer", fontSize: 14 }}>
                       Use {Math.max(1, affordable)}
                     </button>
@@ -433,13 +433,13 @@ export function NewPerp({ perps }: { perps: Address }) {
                 }}
               >
                 <Lives left={n} size={20} /> {n} {n === 1 ? "life" : "lives"} ×{" "}
-                ${(Number(stake) / 1e6).toFixed(4)} = {$(budget)} in all. Spare
+                {moneyExact(stake)} = {$(budget)} in all. Spare
                 money stays yours: take it out whenever no rope needs it.
               </p>
               <p style={{ margin: 0, fontSize: 15, color: C.muted }}>
                 A life is {(Number(size) / 100).toFixed(2)} contracts at{" "}
                 {(rope.d / 10_000).toFixed(1)}¢ each (the rope&apos;s length in points),
-                so it comes to ${(Number(stake) / 1e6).toFixed(4)}, at most what
+                so it comes to {moneyExact(stake)}, at most what
                 you asked per life. {perpLabel(rope.d, rope.levMine, rope.levTheirs)} (you first).
                 The other side pays you a {$(treatOf(stake))} maker treat on the
                 first rope. Nothing goes to HonorCat.

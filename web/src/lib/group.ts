@@ -5,6 +5,7 @@ import { groupsAbi } from "@honorcat/relay/groupsAbi";
 import { getJson } from "./api";
 import { publicClient } from "./chain";
 import { ensureFunds, passkeyCall, waitDepth, walletSend, type Actor, type Step } from "./hc";
+import { joinChallenge, signChallenge } from "./passkey";
 
 /**
  * Group pots in the browser: types mirroring /api/hc/groups and every player action. Two teams
@@ -136,8 +137,15 @@ export async function sendPosition(actor: Actor, groups: Address, groupId: strin
   return groupCall(actor, groups, data, 0n, groupId, onStep);
 }
 
-export async function setTeamLines(groupId: string, account: Address, lines: [string, string]) {
-  return getJson<{ ok: boolean }>(`/api/hc/groups/${groupId}/lines`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ account, lines }) });
+export async function setTeamLines(actor: Actor, groupId: string, lines: [string, string]) {
+  // Signed by the creator: the relay accepts team lines only with the creator's own signature.
+  const { getAddress } = await import("viem");
+  const issuedAt = new Date().toISOString();
+  const message = `HonorCat: the team lines of group ${groupId}: "${lines[0]}" / "${lines[1]}".
+Account: ${getAddress(actor.account)}
+Issued: ${issuedAt}`;
+  const proof = actor.kind === "wallet" ? { signature: await actor.adapter.signMessage!(message) } : { passkey: await signChallenge(actor.session, await joinChallenge(message)) };
+  return getJson<{ ok: boolean }>(`/api/hc/groups/${groupId}/lines`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ account: actor.account, lines, issuedAt, ...proof }) });
 }
 
 /** A group event in plain words ("Mochi joined Texas with $5"), newest first; null for the quiet ones. */

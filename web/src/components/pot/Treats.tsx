@@ -127,9 +127,10 @@ export function TreatsPanel({ account, mine }: { account: string; mine: boolean 
           <span style={{ fontSize: 15, lineHeight: 1.5 }}>
             A player who opens it before their first pot gives you 20% of the fees they pay in their first 20 pots. It comes out of the fee, not out of their pocket, and never from HonorCat.
           </span>
-          <code style={{ fontFamily: "var(--font-plex-mono), monospace", fontSize: 14, overflowWrap: "anywhere", background: C.faint, padding: "6px 8px" }}>{link}</code>
+          <code style={{ fontFamily: "var(--font-plex-mono), monospace", fontSize: 14, overflowWrap: "anywhere", background: C.faint, padding: "6px 8px" }}>{link || "Making your link…"}</code>
           <Button variant="quiet"
             style={{ alignSelf: "flex-start" }}
+            disabled={!link}
             onClick={async () => {
               if (navigator.share) await navigator.share({ title: "HonorCat", text: "Play a pot with me on HonorCat", url: link }).catch(() => {});
               else await navigator.clipboard?.writeText(link);

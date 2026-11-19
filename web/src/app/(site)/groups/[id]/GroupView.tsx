@@ -58,7 +58,8 @@ export function GroupView({ id }: { id: string }) {
       .then((r) => setStatus(r.status))
       .catch(() => {});
   }, []);
-  const live = useLivePrice(g?.market?.instrument ?? null);
+  // Only an open group reads the live price; a settled one shows where the cat landed.
+  const live = useLivePrice(g && g.state === "Open" ? (g.market?.instrument ?? null) : null);
   const names = useNames((g?.events ?? []).flatMap((e) => [e.args.account, e.args.creator]));
   const nowMs = useNow();
   const now = Math.floor(nowMs / 1000);
@@ -76,6 +77,11 @@ export function GroupView({ id }: { id: string }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [step, setStep] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  // The create form sends the creator here when the group opened but their first join failed.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get("joinfailed");
+    if (q) void Promise.resolve().then(() => setErr(`The group is open, but your first join did not go through: ${q} Join below.`));
+  }, []);
 
   if (!g && error) return error.includes("no such group") ? <CatState kind="empty" text={`No group ${id} yet. A new group takes a few seconds to appear; check the link otherwise.`} /> : <CatState kind="error" text={error} />;
   if (!g) return <CatState kind="loading" text={`Reading group ${id} from Arc…`} />;
@@ -84,7 +90,8 @@ export function GroupView({ id }: { id: string }) {
   const [nameA, nameB] = g.names;
   const lastPrice = g.prices.length ? g.prices[g.prices.length - 1]!.price : null;
   // The rope shows the live 30-second price; the teams' totals use the last cleared price.
-  const priceNow = live.smoothed ?? (lastPrice !== null ? lastPrice / P : null);
+  const priceNow =
+    g.state === "Settled" ? (g.outcome === 1 ? 1 : g.outcome === 0 ? 0 : lastPrice !== null ? lastPrice / P : null) : (live.smoothed ?? (lastPrice !== null ? lastPrice / P : null));
   const pricePpm = lastPrice ?? (live.smoothed !== null ? Math.round(live.smoothed * P) : null);
   const pool = BigInt(g.teams[0]?.pool ?? "0");
   // The two teams' cats: fixed, different furs (ginger for the first team, grey for the second).
@@ -194,7 +201,7 @@ export function GroupView({ id }: { id: string }) {
               <h2 style={h2}>{name}</h2>
               {g.lines?.[t] && <p style={{ margin: 0, fontSize: 16, color: C.body }}>{g.lines[t]}</p>}
               <p style={{ margin: 0, fontSize: 17 }}>
-                {g.teams[t]?.members ?? 0} {(g.teams[t]?.members ?? 0) === 1 ? "member" : "members"} · team share {price === null ? "–" : money(valueOf(pool, pricePpm!, t))} · pays {money(pool)} if {t === 0 ? "yes" : "no"}
+                {g.teams[t]?.members ?? 0} {(g.teams[t]?.members ?? 0) === 1 ? "member" : "members"} · team share {price === null ? "–" : money(valueOf(BigInt(g.teams[t]?.pool ?? "0"), pricePpm!, t))} · pays {money(BigInt(g.teams[t]?.pool ?? "0"))} if {t === 0 ? "yes" : "no"}
               </p>
               {open && takingRequests && (
                 <details>

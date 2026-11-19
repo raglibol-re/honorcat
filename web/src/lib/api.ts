@@ -1,5 +1,7 @@
 "use client";
 
+import { withPotKey } from "./potKey";
+
 import { useEffect, useRef, useState } from "react";
 import type { Address } from "viem";
 
@@ -70,7 +72,8 @@ export type Health = {
 };
 
 export async function getJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, { cache: "no-store", ...init });
+  // A private pot this browser may see: the request carries its key.
+  const res = await fetch(withPotKey(path), { cache: "no-store", ...init });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error((body as { error?: string }).error ?? `HTTP ${res.status}`);
   return body as T;

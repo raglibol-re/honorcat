@@ -26,6 +26,12 @@ import { rowsWhileUnchanged } from "./rowCache";
 import { sendRelayCalls } from "./txs";
 
 export const GROUP_STATES = ["None", "Open", "Settled", "Void"] as const;
+
+/**
+ * Only groups priced by HonorCat's own MedianResolver are shown, offered or kept by the relay: the
+ * contract lets a creator name any resolver, and one of their own could sign any result.
+ */
+const OURS = () => `lower(data->>'resolver') = '${(getConfig().groups?.median ?? "0x").toLowerCase()}'`;
 export const GROUP_PERIOD_S = 60;
 export const GROUP_ATTEST_TIMEOUT_S = 600;
 export const GROUP_GRACE_S = 7 * 24 * 3600;
@@ -65,7 +71,10 @@ export type GroupRow = {
   next_batch: string | null;
   data: Record<string, unknown> | string;
 };
-export const groupData = (r: GroupRow) => (typeof r.data === "string" ? JSON.parse(r.data) : r.data) as Record<string, unknown> & { teams: Record<string, string>[]; names: [string, string]; createdAt: string; window: string };
+export const groupData = (r: GroupRow) => {
+  const d = (typeof r.data === "string" ? JSON.parse(r.data) : r.data) as Record<string, unknown> & { teams: Record<string, string>[]; names: [string, string] | null; createdAt: string; window: string };
+  return { ...d, names: (d.names ?? ["Yes", "No"]) as [string, string] } as Record<string, unknown> & { teams: Record<string, string>[]; names: [string, string]; createdAt: string; window: string };
+};
 
 /** Reads a group (and both teams) from the chain into `groups`. */
 export async function syncGroup(db: Db, groupId: bigint) {
@@ -83,7 +92,8 @@ export async function syncGroup(db: Db, groupId: bigint) {
     const ev = (await db.query<{ args: Record<string, string> }>("SELECT args FROM pot_events WHERE event_name = 'Group:GroupCreated' AND pot_id = $1 LIMIT 1", [groupDbId(groupId)]))[0];
     if (ev) names = [String(ev.args.yesName), String(ev.args.noName)];
   }
-  const data = { ...(jsonify(g) as Record<string, unknown>), teams: [jsonify(t0), jsonify(t1)], names: names ?? ["Yes", "No"] };
+  // Names from the creation event; until it is indexed none are stored (read with a fallback).
+  const data = { ...(jsonify(g) as Record<string, unknown>), teams: [jsonify(t0), jsonify(t1)], names };
   await db.query(
     `INSERT INTO groups (group_id, state, creator, condition_id, close_time, next_batch, data) VALUES ($1,$2,$3,$4,$5,$6,$7)
      ON CONFLICT (group_id) DO UPDATE SET state = EXCLUDED.state, next_batch = EXCLUDED.next_batch, data = EXCLUDED.data, updated_at = now()`,
@@ -172,6 +182,8 @@ export function windowOfBatch(d: { createdAt: string | number; window: string | 
   return { start, end: start + Number(d.window) };
 }
 
+const lastSync = new Map<string, number>();
+
 /** One pass over open groups: open price windows, fail stuck batches, settle or void. */
 export async function groupsHousekeeping(db: Db, own: LocalAccount | null) {
   const cfg = getConfig().groups;
@@ -180,13 +192,19 @@ export async function groupsHousekeeping(db: Db, own: LocalAccount | null) {
   const rows = await rowsWhileUnchanged<GroupRow>(
     db,
     "house:groups",
-    "SELECT count(*)::text || ':' || coalesce(max(updated_at)::text, '') AS fp FROM groups WHERE state = 1",
-    "SELECT group_id::text AS group_id, state, creator, condition_id, close_time::text AS close_time, next_batch::text AS next_batch, data FROM groups WHERE state = 1",
+    `SELECT count(*)::text || ':' || coalesce(max(updated_at)::text, '') AS fp FROM groups WHERE state = 1 AND ${OURS()}`,
+    `SELECT group_id::text AS group_id, state, creator, condition_id, close_time::text AS close_time, next_batch::text AS next_batch, data FROM groups WHERE state = 1 AND ${OURS()}`,
   );
   const now = Math.floor(Date.now() / 1000);
   let calls = 0;
   for (const row of rows) {
     try {
+      // Re-read each open group from the chain at least once a minute: a refresh that failed after an
+      // event (an RPC limit) must not leave a stale next batch without a price request.
+      if (Date.now() - (lastSync.get(row.group_id) ?? 0) > 60_000) {
+        lastSync.set(row.group_id, Date.now());
+        await syncGroup(db, BigInt(row.group_id)).catch(() => null);
+      }
       const d = groupData(row);
       const gid = BigInt(row.group_id);
       const dbId = groupDbId(gid);
@@ -198,7 +216,12 @@ export async function groupsHousekeeping(db: Db, own: LocalAccount | null) {
       );
       // The batch due next too: waiting joins carry into later batches with no new event of their own.
       const due = new Set(batches.map((b) => b.batch));
-      if (row.next_batch !== null) due.add(row.next_batch);
+      if (row.next_batch !== null) {
+        due.add(row.next_batch);
+        // Waiting joins carry on into the batch after: ask for its price ahead, so the samplers
+        // measure its whole window (a request made only after this batch clears could come late).
+        if (d.teams.some((t) => String(t.carryBase ?? "0") !== "0")) due.add((BigInt(row.next_batch) + 1n).toString());
+      }
       for (const kb of due) {
         const k = BigInt(kb);
         const w = windowOfBatch(d, k);
@@ -241,7 +264,9 @@ export async function groupsHousekeeping(db: Db, own: LocalAccount | null) {
       const ref = `group-${gid}`;
       const res = await sendRelayCalls(db, "pot_house", [{ ...memoCall(cfg.address, data, ref, { v: 1, t: "pot", ref, pot: dbId, why }), potIds: [], label: `group ${gid}: ${why}` }]);
       calls++;
-      if (res.ok) await syncGroup(db, gid).catch(() => {});
+      // Re-read either way: a refused send usually means the group moved on.
+      await syncGroup(db, gid).catch(() => {});
+      if (!res.ok) lastSync.set(row.group_id, Date.now());
     } catch (e) {
       console.error("[groups] housekeeping", row.group_id, (e as Error).message.slice(0, 200));
     }
@@ -302,7 +327,7 @@ export async function prepareGroup(db: Db, input: { symbol: string; account: Add
 export async function groupDetail(db: Db, groupId: string, account?: string | null) {
   const row = (
     await db.query<GroupRow>(
-      "SELECT group_id::text AS group_id, state, creator, condition_id, close_time::text AS close_time, next_batch::text AS next_batch, data FROM groups WHERE group_id = $1",
+      `SELECT group_id::text AS group_id, state, creator, condition_id, close_time::text AS close_time, next_batch::text AS next_batch, data FROM groups WHERE group_id = $1 AND ${OURS()}`,
       [groupId],
     )
   )[0];
@@ -327,7 +352,16 @@ export async function groupDetail(db: Db, groupId: string, account?: string | nu
     [dbId],
   );
   let mine = null;
-  if (account && /^0x[0-9a-fA-F]{40}$/.test(account)) mine = await syncMember(db, BigInt(groupId), getAddress(account)).catch(() => null);
+  // Only an account that took part (a member row or an event of its own) is read from the chain:
+  // a visitor's page view must not cost four chain reads and a database write.
+  if (account && /^0x[0-9a-fA-F]{40}$/.test(account)) {
+    const a = account.toLowerCase();
+    const took = await db.query(
+      "SELECT 1 FROM group_members WHERE group_id = $1 AND account = $2 UNION ALL SELECT 1 FROM pot_events WHERE pot_id = $3 AND lower(args->>'account') = $2 LIMIT 1",
+      [groupId, a, dbId],
+    );
+    if (took.length) mine = await syncMember(db, BigInt(groupId), getAddress(account)).catch(() => null);
+  }
   const now = Math.floor(Date.now() / 1000);
   const createdAt = Number(d.createdAt);
   const currentBatch = now >= createdAt ? Math.floor((now - createdAt) / GROUP_PERIOD_S) : 0;
@@ -361,11 +395,13 @@ export async function listGroups(db: Db, opts: { account?: string | null; limit?
   const rows = opts.account
     ? await db.query<GroupRow>(
         `SELECT g.group_id::text AS group_id, g.state, g.creator, g.condition_id, g.close_time::text AS close_time, g.next_batch::text AS next_batch, g.data
-           FROM groups g JOIN group_members m ON m.group_id = g.group_id WHERE m.account = $1 ORDER BY g.state, g.group_id DESC LIMIT $2`,
+           FROM groups g JOIN group_members m ON m.group_id = g.group_id
+          WHERE m.account = $1 AND (m.member OR (m.data->>'claimable')::numeric > 0) AND lower(g.data->>'resolver') = '${(getConfig().groups?.median ?? "0x").toLowerCase()}'
+          ORDER BY g.state, g.group_id DESC LIMIT $2`,
         [opts.account.toLowerCase(), opts.limit ?? 50],
       )
     : await db.query<GroupRow>(
-        "SELECT group_id::text AS group_id, state, creator, condition_id, close_time::text AS close_time, next_batch::text AS next_batch, data FROM groups ORDER BY state, group_id DESC LIMIT $1",
+        `SELECT group_id::text AS group_id, state, creator, condition_id, close_time::text AS close_time, next_batch::text AS next_batch, data FROM groups WHERE ${OURS()} ORDER BY state, group_id DESC LIMIT $1`,
         [opts.limit ?? 50],
       );
   const counts = await db.query<{ group_id: string; team: number; n: string }>(
@@ -406,12 +442,29 @@ export function groupsStatus() {
  * Each team's short line ("Texas fans since 1990"), written once by the creator right after the
  * group opens. They move no money and are kept off-chain; the first write within 15 minutes wins.
  */
-export async function setGroupLines(db: Db, groupId: string, account: string, lines: [string, string]) {
+export const linesMessage = (groupId: string, account: string, lines: [string, string], issuedAt: string) =>
+  `HonorCat: the team lines of group ${groupId}: "${lines[0]}" / "${lines[1]}".
+Account: ${getAddress(account)}
+Issued: ${issuedAt}`;
+
+export async function setGroupLines(
+  db: Db,
+  input: { groupId: string; account: Address; lines: [string, string]; issuedAt: string } & ({ signature: Hex } | { passkey: import("./passkeys").WebAuthnAssertion }),
+) {
+  const { groupId } = input;
   const row = (await db.query<GroupRow>("SELECT group_id::text AS group_id, state, creator, condition_id, close_time::text AS close_time, next_batch::text AS next_batch, data FROM groups WHERE group_id = $1", [groupId]))[0];
   if (!row) throw Object.assign(new Error("no such group"), { status: 404 });
+  const account = getAddress(input.account);
   if (row.creator !== account.toLowerCase()) throw Object.assign(new Error("only the group's creator writes the team lines"), { status: 403 });
   if (Date.now() / 1000 - Number(groupData(row).createdAt) > 15 * 60) throw Object.assign(new Error("team lines are set only right after the group opens"), { status: 409 });
-  const clean = lines.map((l) => l.replace(/\s+/g, " ").trim().slice(0, 80)) as [string, string];
+  const issued = Date.parse(input.issuedAt);
+  if (!Number.isFinite(issued) || Math.abs(Date.now() - issued) > 10 * 60_000) throw Object.assign(new Error("the signed request is too old; sign again"), { status: 401 });
+  // Signed by the creator (wallet signature or passkey): an address alone proves nothing.
+  const message = linesMessage(groupId, account, input.lines, input.issuedAt);
+  if ("signature" in input) {
+    if (!(await publicClient().verifyMessage({ address: account, message, signature: input.signature }))) throw Object.assign(new Error("signature does not match the account"), { status: 401 });
+  } else await (await import("./passkeys")).verifyPasskeyJoin(db, account, message, input.passkey);
+  const clean = input.lines.map((l) => l.replace(/\s+/g, " ").trim().slice(0, 80)) as [string, string];
   await db.query("INSERT INTO relay_state (key, value) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING", [`group_lines:${groupId}`, JSON.stringify(clean)]);
   return { ok: true };
 }

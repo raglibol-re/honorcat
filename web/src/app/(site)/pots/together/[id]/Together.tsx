@@ -450,10 +450,10 @@ export function Together({ id }: { id: string }) {
             >
               You take <strong>{sideName(mySide)}</strong> and put in up to{" "}
               <strong>
-                ${(Number(isHost ? hostPays : guestPays) / 1e6).toFixed(2)}
+                {money(isHost ? hostPays : guestPays)}
               </strong>
-              ; {other ? nm(other.account) : "your friend"} up to $
-              {(Number(isHost ? guestPays : hostPays) / 1e6).toFixed(2)}. The
+              ; {other ? nm(other.account) : "your friend"} up to{" "}
+              {money(isHost ? guestPays : hostPays)}. The
               starting split is the market&apos;s 30-second average when your
               friend puts in their side (now about{" "}
               {p === null ? "…" : `${(p * 100).toFixed(1)}%`} chance); anything

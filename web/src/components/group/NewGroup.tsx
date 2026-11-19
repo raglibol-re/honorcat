@@ -60,9 +60,12 @@ export function NewGroup() {
       const prep = await prepareGroup(market.symbol, who.actor.account);
       const r = await createGroup(who.actor, prep, clean, setStep);
       if (!r.groupId) throw new Error("The group opened, but its number did not come back yet. Look under Groups in a moment.");
-      if (lines[0].trim() || lines[1].trim()) await setTeamLines(r.groupId, who.actor.account, lines).catch(() => {});
-      if (amount > 0n) await joinTeam(who.actor, prep.groups, r.groupId, team, amount, true, setStep);
-      router.push(`/groups/${r.groupId}?team=${team}`);
+      const gid = r.groupId;
+      if (lines[0].trim() || lines[1].trim()) await setTeamLines(who.actor, gid, lines).catch(() => {});
+      // The group exists now: whatever happens to the first join, go to its page (never open a second group).
+      let joinErr: string | null = null;
+      if (amount > 0n) await joinTeam(who.actor, prep.groups, gid, team, amount, true, setStep).catch((e) => (joinErr = plainError(e)));
+      router.push(`/groups/${gid}?team=${team}${joinErr ? `&joinfailed=${encodeURIComponent(joinErr)}` : ""}`);
     } catch (e) {
       setErr(plainError(e));
     } finally {

@@ -37,13 +37,40 @@ export async function keyOf(db: Db, potId: string): Promise<string | null> {
   return (await db.query<{ key: string }>("SELECT key FROM pot_private WHERE pot_id = $1", [potId]))[0]?.key ?? null;
 }
 
-/** Whether this viewer may see a pot: public, or the link's key, or a player's own account. */
-export async function maySee(db: Db, potId: string, viewer: { key?: string | null; account?: string | null }) {
+/**
+ * Whether a viewer may see a pot: public pots always; a private one only with its link's key. A
+ * player who has no link proves they are a player with one signature (keyForPlayer) and gets the key.
+ */
+export async function maySee(db: Db, potId: string, viewer: { key?: string | null }) {
   const key = await keyOf(db, potId);
   if (!key) return { ok: true, private: false };
-  if (viewer.key && viewer.key === key) return { ok: true, private: true };
-  if (viewer.account && (await playersAll(db, potId)).includes(viewer.account.toLowerCase())) return { ok: true, private: true, key };
+  if (viewer.key && viewer.key === key) return { ok: true, private: true, key };
   return { ok: false, private: true };
+}
+
+export const keyMessage = (potId: string, account: string, issuedAt: string) =>
+  `HonorCat: show me the private link of pot ${potId}.
+Account: ${getAddress(account)}
+Issued: ${issuedAt}`;
+
+/** A player's signed request for their private pot's link key. */
+export async function keyForPlayer(db: Db, input: { potId: string; account: Address; issuedAt: string } & ({ signature: Hex } | { passkey: WebAuthnAssertion })) {
+  const issued = Date.parse(input.issuedAt);
+  if (!Number.isFinite(issued) || Math.abs(Date.now() - issued) > 10 * 60_000) throw Object.assign(new Error("the signed request is too old; sign again"), { status: 401 });
+  const account = getAddress(input.account);
+  if (!(await playersAll(db, input.potId)).includes(account.toLowerCase())) throw Object.assign(new Error("only the players of this pot can see it"), { status: 403 });
+  const message = keyMessage(input.potId, account, input.issuedAt);
+  if ("signature" in input) {
+    if (!(await publicClient().verifyMessage({ address: account, message, signature: input.signature }))) throw Object.assign(new Error("signature does not match the account"), { status: 401 });
+  } else await verifyPasskeyJoin(db, account, message, input.passkey);
+  return { key: await keyOf(db, input.potId) };
+}
+
+/** Throws 403 unless the viewer may see the pot (every per-pot API route calls this). */
+export async function assertMaySee(db: Db, potId: string, key: string | null | undefined) {
+  const see = await maySee(db, potId, { key });
+  if (!see.ok) throw Object.assign(new Error("this pot is private"), { status: 403 });
+  return see;
 }
 
 /** SQL fragment: the pot (column `col`) is not private. */

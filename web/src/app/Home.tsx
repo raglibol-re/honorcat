@@ -1,5 +1,7 @@
 "use client";
 
+import { money } from "@/lib/currency";
+
 import Link from "next/link";
 import { ButtonLink } from "@/components/ui/Button";
 import { Cat } from "@/components/cat/Cat";
@@ -211,7 +213,7 @@ function OpenOffers() {
                   </span>
                 )}
                 <span style={{ fontSize: 16 }}>
-                  ${(Number(p.data.notional) / 1e6).toFixed(2)} pot
+                  {money(p.data.notional)} pot
                 </span>
                 <span style={{ fontSize: 16, color: C.muted }}>
                   {p.market
