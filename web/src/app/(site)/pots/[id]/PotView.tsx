@@ -21,6 +21,8 @@ import { HelperBubble } from "@/components/helper/Helper";
 import { adviceFree, exitOptions, levelOptions, readWish } from "@/lib/helper";
 import { SamplerNotice } from "@/components/pot/SamplerHealth";
 import { RopePricing } from "@/components/perp/RopePricing";
+import { RivalryLine } from "@/components/pot/Rivalry";
+import { Reactions } from "@/components/pot/Reactions";
 import { asV1Pot, sceneOf, storyOf } from "@/components/pot/scene";
 import { ShortRopeNote } from "@/components/pot/RopeControl";
 import { RopeLives } from "@/components/pot/RopeLives";
@@ -1464,9 +1466,29 @@ export function PotView({ id }: { id: string }) {
           v2={v2}
         />
         {ended && mine !== null && <ResultBanner pot={pot} mine={mine} />}
+        {!pot.practice && !pot.perp && pot.owners.yes && pot.owners.no ? (
+          <RivalryLine
+            a={pot.owners.yes}
+            b={pot.owners.no}
+            nameA={nameOf(pot.owners.yes)}
+            nameB={nameOf(pot.owners.no)}
+          />
+        ) : !pot.practice && pot.state === "Open" && me && mine === null ? (
+          // A challenge: the visitor's record against the player who opened it.
+          <RivalryLine
+            a={me}
+            b={pot.owners.yes ?? pot.owners.no}
+            nameA="you"
+            nameB={nameOf(pot.owners.yes ?? pot.owners.no)}
+            intro
+          />
+        ) : null}
       </header>
 
       <Rope {...scene} trail={live.trail} speed={live.speed} />
+      {(pot.state === "Live" || pot.state === "ExitRequested" || pot.state === "Joining") && !pot.perp && (
+        <Reactions potId={String(pot.potId)} />
+      )}
       {v2 && expiry > 0 && (
         <ShortRopeNote expiry={expiry} nowS={nowS} ended={ended} />
       )}

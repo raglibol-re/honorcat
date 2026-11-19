@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 import { connection } from "next/server";
-import { getDb, pots } from "@/server/relay";
+import { getDb, namesOf, pots } from "@/server/relay";
 import { sidesOf } from "@/lib/statement";
 import { splitPot } from "@/lib/shares";
 
@@ -17,6 +17,8 @@ const PAGE = "#ECEAE4";
 const SIGNAL = "#E8421A";
 const MUTED = "#55534E";
 
+const usd0 = (v: number) => `$${v.toFixed(2)}`;
+
 export default async function Image({ params }: { params: Promise<{ id: string }> }) {
   await connection();
   const { id } = await params;
@@ -25,6 +27,8 @@ export default async function Image({ params }: { params: Promise<{ id: string }
   let price: number | null = null;
   let pot = 0;
   let state = "";
+  let challenger = "";
+  let story: string[] = [];
   try {
     const d = /^\d+$/.test(id) ? await pots.potDetail(await getDb(), id) : null;
     if (d) {
@@ -34,8 +38,40 @@ export default async function Image({ params }: { params: Promise<{ id: string }
         question = `${st.yes}?`;
         other = st.no;
       }
-      const data = d.data as { notional: string; bandCenter: string; initialNotional?: string };
-      pot = Number(data.notional === "0" ? (data.initialNotional ?? "0") : data.notional) / 1e6;
+      const data = d.data as { notional?: string; bandCenter: string; initialNotional?: string; potValue?: string; creatorSide?: string };
+      pot = data.potValue ? Number(data.potValue) / 1e6 : Number(data.notional === "0" ? (data.initialNotional ?? "0") : (data.notional ?? "0")) / 1e6;
+      // Names for the challenge line and the share card (the cat's name, never an address).
+      const owners = d.owners as { yes: string | null; no: string | null };
+      const nm = (await namesOf(await getDb(), [owners.yes, owners.no].filter((x): x is string => !!x)).catch(() => ({}))) as Record<string, { name?: string } | string>;
+      const nameOf = (a: string | null) => {
+        const v = a ? nm[a.toLowerCase()] : undefined;
+        return (typeof v === "string" ? v : v?.name) || "A cat";
+      };
+      const creator = Number(data.creatorSide ?? 0) === 0 ? owners.yes : owners.no;
+      if (String(d.state) === "Open") challenger = `${nameOf(creator)} challenges you`;
+      // Share card: what happened, in three plain sentences.
+      const ev = d.events as { name: string; args: Record<string, string> }[];
+      const ended = ["Divided", "Settled", "Expired"].includes(String(d.state));
+      if (ended && owners.yes && owners.no) {
+        const joined = ev.find((e) => e.name === "Joined");
+        const paid = ev.filter((e) => ["PotDivided", "PotSettled", "PotExpired"].includes(e.name));
+        const py = paid.reduce((t, e) => t + Number(e.args.paidYes ?? 0), 0);
+        const yNet = py - Number(joined?.args.depYes ?? 0);
+        const last = paid.at(-1);
+        const how =
+          last?.name === "PotSettled"
+            ? `Gemini settled it ${Number(last.args.outcome) === 1 ? "YES" : Number(last.args.outcome) === 0 ? "NO" : "void"}.`
+            : last?.name === "PotExpired"
+              ? "The deposits went back."
+              : `It ended at ${(Number(last?.args.price ?? 0) / 10_000).toFixed(0)}% chance.`;
+        const yn = nameOf(owners.yes);
+        const nn = nameOf(owners.no);
+        story = [
+          `${yn} and ${nn} held a ${usd0(pot)} pot.`,
+          how,
+          Math.abs(yNet) < 10_000 ? "They ended about even." : `${yNet > 0 ? yn : nn} came out ahead by ${usd0(Math.abs(yNet) / 1e6)}.`,
+        ];
+      }
       const last = (d.requests as { payload: { attestation?: { valid: boolean; priceYes: number } } }[]).find((r) => r.payload.attestation?.valid);
       price = last?.payload.attestation ? last.payload.attestation.priceYes / 1e6 : Number(data.bandCenter) / 1e6 || null;
       state = String(d.state);
@@ -74,6 +110,7 @@ export default async function Image({ params }: { params: Promise<{ id: string }
         </div>
         <div style={{ display: "flex", fontSize: question.length > 40 ? 58 : 72, fontWeight: 700, lineHeight: 1.05, marginTop: 28 }}>{question}</div>
         {other && <div style={{ display: "flex", fontSize: 28, color: MUTED, marginTop: 8 }}>The other side: {other}</div>}
+        {challenger && <div style={{ display: "flex", fontSize: 40, fontWeight: 700, color: SIGNAL, marginTop: 10 }}>{challenger}</div>}
         <svg width="1040" height="250" viewBox="0 300 1200 250" style={{ position: "absolute", left: 80, top: 300 }}>
           <rect x={X0 - 8} y={TOP - 20} width="16" height="60" fill={INK} />
           <rect x={X0 + SPAN - 8} y={TOP - 20} width="16" height="60" fill={SIGNAL} />
@@ -86,6 +123,13 @@ export default async function Image({ params }: { params: Promise<{ id: string }
           <ellipse cx={x - 10} cy={y - 40} rx="7" ry="9" fill={SIGNAL} />
           <ellipse cx={x + 10} cy={y - 40} rx="7" ry="9" fill={SIGNAL} />
         </svg>
+        {story.length > 0 ? (
+          <div style={{ display: "flex", flexDirection: "column", marginTop: "auto", fontSize: 34, lineHeight: 1.3, background: PAGE, padding: "10px 0" }}>
+            {story.map((t) => (
+              <span key={t}>{t}</span>
+            ))}
+          </div>
+        ) : (
         <div style={{ display: "flex", marginTop: "auto", justifyContent: "space-between", alignItems: "flex-end" }}>
           <div style={{ display: "flex", flexDirection: "column" }}>
             <span style={{ fontSize: 26, color: MUTED }}>{price === null ? "" : `${Math.round(p * 100)}% chance`}</span>
@@ -97,6 +141,7 @@ export default async function Image({ params }: { params: Promise<{ id: string }
             <span style={{ fontSize: 56, fontWeight: 700, color: "#B8320F" }}>{pot ? usd(Number(shares.no) / 1e6) : ""}</span>
           </div>
         </div>
+        )}
       </div>
     ),
     { ...size },

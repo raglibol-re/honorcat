@@ -116,3 +116,67 @@ export async function perpLeaderboard(db: Db, opts: { days?: number; friendsOf?:
     rows: rows.map((r) => ({ account: r.account, perps: Number(r.perps), won: Number(r.won), ropes: Number(r.ropes), livesLost: Number(r.lost), result: r.result })),
   };
 }
+
+/**
+ * Head to head between two players: every finished pot where one held YES and the other NO (not
+ * practice, not agent seats), and who came out ahead in each: what each side was paid in all, less
+ * what it put in when the pot was joined. Newest first.
+ */
+export async function rivalry(db: Db, a: string, b: string) {
+  const x = a.toLowerCase();
+  const y = b.toLowerCase();
+  if (x === y) return { a: x, b: y, played: 0, aAhead: 0, bAhead: 0, even: 0, pots: [] as { potId: string; aNet: string; bNet: string }[] };
+  const rows = await db.query<{ pot_id: string; yes: string; no: string; yes_net: string; no_net: string }>(
+    `WITH p AS (SELECT pot_id, lower(yes_owner) AS yes, lower(no_owner) AS no FROM pots
+                 WHERE state IN (5, 6, 7) AND ((lower(yes_owner) = $1 AND lower(no_owner) = $2) OR (lower(yes_owner) = $2 AND lower(no_owner) = $1))
+                   AND NOT EXISTS (SELECT 1 FROM practice_pots pp WHERE pp.pot_id = pots.pot_id)
+                   AND NOT EXISTS (SELECT 1 FROM seat_pots sp WHERE sp.pot_id = pots.pot_id)),
+          j AS (SELECT pot_id, max((args->>'depYes')::numeric) AS dy, max((args->>'depNo')::numeric) AS dn FROM pot_events
+                 WHERE event_name = 'Joined' AND pot_id IN (SELECT pot_id FROM p) GROUP BY pot_id),
+          paid AS (SELECT pot_id, sum(coalesce((args->>'paidYes')::numeric, 0)) AS py, sum(coalesce((args->>'paidNo')::numeric, 0)) AS pn FROM pot_events
+                 WHERE event_name IN ('PotDivided', 'PotSettled', 'PotExpired') AND pot_id IN (SELECT pot_id FROM p) GROUP BY pot_id)
+     SELECT p.pot_id::text AS pot_id, p.yes, p.no, (paid.py - j.dy)::text AS yes_net, (paid.pn - j.dn)::text AS no_net
+       FROM p JOIN j USING (pot_id) JOIN paid USING (pot_id) ORDER BY p.pot_id DESC LIMIT 200`,
+    [x, y],
+  );
+  let aAhead = 0;
+  let bAhead = 0;
+  let even = 0;
+  const pots = rows.map((r) => {
+    const aNet = r.yes === x ? r.yes_net : r.no_net;
+    const bNet = r.yes === x ? r.no_net : r.yes_net;
+    const d = Number(aNet) - Number(bNet);
+    // within a cent counts as even (fees and rounding)
+    if (Math.abs(d) < 10_000) even++;
+    else if (d > 0) aAhead++;
+    else bAhead++;
+    return { potId: r.pot_id, aNet, bNet };
+  });
+  return { a: x, b: y, played: rows.length, aAhead, bAhead, even, pots };
+}
+
+/* ------------------------------------------------------------------ reactions (cat gestures at the rope) */
+
+export const REACTIONS = ["paw up", "purr", "hiss"] as const;
+
+/**
+ * Records one gesture. `who` is an opaque daily hash of the sender; one gesture per sender per pot
+ * every 3 seconds. Returns false when it came too soon.
+ */
+export async function react(db: Db, potId: string, kind: number, who: string) {
+  if (!Number.isInteger(kind) || kind < 0 || kind >= REACTIONS.length) throw Object.assign(new Error("unknown reaction"), { status: 400 });
+  const recent = await db.query("SELECT 1 FROM pot_reactions WHERE pot_id = $1 AND who = $2 AND at > now() - interval '3 seconds'", [potId, who]);
+  if (recent.length) return false;
+  await db.query("INSERT INTO pot_reactions (pot_id, kind, who) VALUES ($1, $2, $3)", [potId, kind, who]);
+  if (Math.random() < 0.02) await db.query("DELETE FROM pot_reactions WHERE at < now() - interval '1 day'");
+  return true;
+}
+
+/** Gestures of the last 20 seconds for a pot (or -perpId): each with its kind and age in ms. */
+export async function recentReactions(db: Db, potId: string) {
+  const rows = await db.query<{ id: string; kind: number; age_ms: string }>(
+    "SELECT id::text AS id, kind, (extract(epoch FROM now() - at) * 1000)::bigint::text AS age_ms FROM pot_reactions WHERE pot_id = $1 AND at > now() - interval '20 seconds' ORDER BY at DESC LIMIT 40",
+    [potId],
+  );
+  return rows.map((r) => ({ id: r.id, kind: Number(r.kind), ageMs: Number(r.age_ms) }));
+}

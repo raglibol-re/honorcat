@@ -11,7 +11,8 @@ import { plainError } from "@/lib/messages";
 import { joinChallenge, signChallenge } from "@/lib/passkey";
 import { type ActorState } from "./Who";
 
-import { Button } from "@/components/ui/Button";
+import { Button, ButtonLink } from "@/components/ui/Button";
+import { toast } from "@/components/ui/Toast";
 type Note = { account: string; kind: "well_played" | "rematch"; draft_id: string | null; created_at: string };
 
 /** Signs a note on a pot the way names are signed: a wallet signature or one passkey confirmation. */
@@ -42,6 +43,8 @@ export function AfterPot({ pot, who, nameOf }: { pot: HcPot; who: ActorState; na
   const me = who.actor?.account.toLowerCase() ?? null;
   const players = [...new Set((pot.events ?? []).filter((e) => e.name === "Transfer" && e.args.to && !/^0x0{40}$/i.test(e.args.to)).map((e) => e.args.to!.toLowerCase()))];
   const isPlayer = !!me && players.includes(me);
+  // the side this player held, for a rematch on the same market and side
+  const myRole = me === pot.owners.yes?.toLowerCase() ? 0 : me === pot.owners.no?.toLowerCase() ? 1 : null;
   const practiceCat = pot.practice;
   const mine = (k: Note["kind"]) => notes.find((n) => n.account === me && n.kind === k);
   const theirRematch = notes.find((n) => n.kind === "rematch" && n.account !== me && n.draft_id);
@@ -119,6 +122,24 @@ export function AfterPot({ pot, who, nameOf }: { pot: HcPot; who: ActorState; na
               {mine("rematch") ? "Offer another rematch" : busy === "rematch" ? "Confirm…" : "Offer a rematch on a new market"}
             </Button>
           )}
+          {pot.market && myRole !== null && (
+            <ButtonLink variant="quiet" href={`/pots/new?rematch=${pot.potId}&side=${myRole}`}>
+              Rematch on this market
+            </ButtonLink>
+          )}
+          <Button
+            variant="quiet"
+            onClick={async () => {
+              const url = `${window.location.origin}/pots/${pot.potId}`;
+              if (navigator.share) await navigator.share({ title: "HonorCat", text: "How our pot went", url }).catch(() => {});
+              else {
+                const ok = navigator.clipboard ? await navigator.clipboard.writeText(url).then(() => true, () => false) : false;
+                toast(ok ? "Link copied: its preview tells what happened." : `The link: ${url}`);
+              }
+            }}
+          >
+            Share what happened
+          </Button>
         </div>
       )}
       {mine("rematch")?.draft_id && (

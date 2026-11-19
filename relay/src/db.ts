@@ -587,6 +587,15 @@ CREATE INDEX IF NOT EXISTS perps_b_idx ON perps (b);
 CREATE INDEX IF NOT EXISTS pots_yes_owner_idx ON pots (yes_owner);
 CREATE INDEX IF NOT EXISTS pots_no_owner_idx ON pots (no_owner);
 CREATE INDEX IF NOT EXISTS pots_joiner_idx ON pots ((lower(data->>'joiner')));
+-- Cat gestures at the rope (players and spectators): kept a day. pot_id is a pot id, or -perpId.
+CREATE TABLE IF NOT EXISTS pot_reactions (
+  id      BIGSERIAL PRIMARY KEY,
+  pot_id  TEXT NOT NULL,
+  kind    SMALLINT NOT NULL,          -- 0 paw up, 1 purr, 2 hiss
+  who     TEXT NOT NULL,              -- a daily hash of the sender (no address or IP stored)
+  at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS pot_reactions_pot_idx ON pot_reactions (pot_id, at);
 CREATE INDEX IF NOT EXISTS pot_events_perp_idx ON pot_events ((args->>'perpId')) WHERE event_name LIKE 'Perp:%';
 `;
 

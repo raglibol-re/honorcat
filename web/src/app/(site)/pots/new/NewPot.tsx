@@ -118,12 +118,15 @@ export function NewPot() {
   } | null>(null);
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
-    const t = q.get("copy");
-    if (!t || !/^\d+$/.test(t)) return;
-    const token = BigInt(t);
+    // A rematch link (/pots/new?rematch=<pot>&side=<0|1>): the same market and side, no copy treat.
+    const rematch = q.get("rematch");
+    const t = rematch && /^\d+$/.test(rematch) ? null : q.get("copy");
+    if (!(rematch && /^\d+$/.test(rematch)) && (!t || !/^\d+$/.test(t))) return;
+    const token = t ? BigInt(t) : BigInt(q.get("side") === "1" ? 1 : 0);
     // the leader's pot (database id) comes with the link; older links had only the token (v2.0 range)
-    const potId =
-      q.get("pot") && /^\d+$/.test(q.get("pot")!)
+    const potId = rematch && /^\d+$/.test(rematch)
+      ? rematch
+      : q.get("pot") && /^\d+$/.test(q.get("pot")!)
         ? q.get("pot")!
         : (ROPE_BASE + token / 2n).toString();
     void (async () => {
@@ -138,7 +141,7 @@ export function NewPot() {
       ).catch(() => null);
       const m = lead.market as unknown as Record<string, unknown>;
       setSide(s);
-      setCopy({ token, leader, potId });
+      if (t) setCopy({ token, leader, potId });
       setMarket({
         symbol: lead.market.instrument,
         eventTicker: lead.market.eventTicker,

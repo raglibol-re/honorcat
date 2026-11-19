@@ -34,6 +34,7 @@ import {
 import { PerpChart } from "@/components/perp/PerpChart";
 import { GeminiLink } from "@/components/cat/GeminiLink";
 import { RopePricing } from "@/components/perp/RopePricing";
+import { Reactions } from "@/components/pot/Reactions";
 import { SamplerNotice } from "@/components/pot/SamplerHealth";
 import { useNow } from "@/lib/useNow";
 import { money } from "@/lib/currency";
@@ -554,6 +555,7 @@ export function PerpView({ id }: { id: string }) {
               },
             }}
           />
+          <Reactions potId={`-${id}`} />
           <p style={{ margin: 0, fontSize: 17 }}>
             <strong>Rope {d.ropes}</strong>
             {left !== null ? ` · ${clock(left)}` : ""} · past {points(lower)}{" "}
