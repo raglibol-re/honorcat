@@ -80,26 +80,34 @@ export async function runTick(opts: { reason: string; force?: boolean; skipIndex
       }
     }
     if (cfg.pots && cfg.resolverKey) {
-      try {
-        const indexed = await indexPots(db, { deadlineMs: 15_000 });
-        const own = cfg.samplerKey ? privateKeyToAccount(cfg.samplerKey as `0x${string}`) : null;
-        const house = await potsHousekeeping(db, own);
-        if (indexed?.touched || house.calls) report.pots = { indexed, house };
+      // Each step on its own: one failing step (an RPC limit, a busy API) must not skip the others,
+      // and its error names the step.
+      const step = async <T,>(name: string, f: () => Promise<T>): Promise<T | null> => {
+        try {
+          return await f();
+        } catch (err) {
+          report.errors.push(`${name}: ${(err as Error).message.split(String.fromCharCode(10))[0]}`);
+          return null;
+        }
+      };
+      const own = cfg.samplerKey ? privateKeyToAccount(cfg.samplerKey as `0x${string}`) : null;
+      const indexed = await step("pots index", () => indexPots(db, { deadlineMs: 15_000 }));
+      const house = await step("pots housekeeping", () => potsHousekeeping(db, own));
+      if (indexed?.touched || house?.calls) report.pots = { indexed, house };
+      const head = await step("head", async () => (await publicClient().getBlockNumber()) - 5n);
+      if (head !== null) {
         // Perps: index the chain contract, then start first ropes, credit and roll (perps.ts).
         const { indexPerps, perpsHousekeeping } = await import("./perps");
-        const head = (await publicClient().getBlockNumber()) - 5n;
-        await indexPerps(db, head, { deadlineMs: 8_000 });
-        const perpsHouse = await perpsHousekeeping(db, own);
-        if (perpsHouse.calls) (report as Record<string, unknown>).perps = perpsHouse;
+        await step("perps index", () => indexPerps(db, head, { deadlineMs: 8_000 }));
+        const perpsHouse = await step("perps housekeeping", () => perpsHousekeeping(db, own));
+        if (perpsHouse?.calls) (report as Record<string, unknown>).perps = perpsHouse;
         // Group pots: index, open each batch's price window, fail stuck batches, settle (groups.ts).
         if (cfg.groups) {
           const { indexGroups, groupsHousekeeping } = await import("./groups");
-          await indexGroups(db, head, { deadlineMs: 6_000 });
-          const groupsHouse = await groupsHousekeeping(db, own);
-          if (groupsHouse.calls) (report as Record<string, unknown>).groups = groupsHouse;
+          await step("groups index", () => indexGroups(db, head, { deadlineMs: 6_000 }));
+          const groupsHouse = await step("groups housekeeping", () => groupsHousekeeping(db, own));
+          if (groupsHouse?.calls) (report as Record<string, unknown>).groups = groupsHouse;
         }
-      } catch (err) {
-        report.errors.push(`pots: ${(err as Error).message.split(String.fromCharCode(10))[0]}`);
       }
     }
     // Honor: recomputed from the events at most once an hour, behind HONOR=on (honor/store.ts).
