@@ -570,6 +570,13 @@ CREATE TABLE IF NOT EXISTS market_catalog (
   book      JSONB
 );
 CREATE INDEX IF NOT EXISTS market_catalog_cat_idx ON market_catalog (category, close_ms);
+-- Private pots (privatePots.ts): seen only by their players and people with the link's key.
+CREATE TABLE IF NOT EXISTS pot_private (
+  pot_id      TEXT PRIMARY KEY,
+  key         TEXT NOT NULL,
+  by_account  TEXT NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 -- Who is watching a pot, perp or group right now (treats.ts watch): a daily hash, no address or IP.
 CREATE TABLE IF NOT EXISTS pot_watchers (
   pot_id  TEXT NOT NULL,

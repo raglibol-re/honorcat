@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { CatState } from "@/components/cat/CatState";
 import { Rope } from "@/components/pot/Rope";
 import { sceneOf, STATE_TEXT, storyOf } from "@/components/pot/scene";
@@ -14,7 +15,8 @@ import { useNow } from "@/lib/useNow";
 
 /** The pot for a big screen: the rope fills the room, reactions, a QR code, the newest events. */
 export function TvView({ id }: { id: string }) {
-  const { data: pot } = usePolling<HcPot>(`/api/hc/pots/${id}`, 3000);
+  const k = useSearchParams().get("k");
+  const { data: pot } = usePolling<HcPot>(`/api/hc/pots/${id}${k ? `?k=${encodeURIComponent(k)}` : ""}`, 3000);
   const closed = pot ? pot.state === "Divided" || pot.state === "Settled" || pot.state === "Expired" : false;
   const live = useLivePrice(closed ? null : (pot?.market?.instrument ?? null), Number(pot?.data.window ?? 30));
   const nowS = Math.floor(useNow() / 1000);
@@ -24,7 +26,7 @@ export function TvView({ id }: { id: string }) {
   const events = storyOf(pot, nm)
     .map((x) => x.text)
     .reverse();
-  const url = `${SITE_URL}/pots/${id}`;
+  const url = `${SITE_URL}/pots/${id}${k ? `?k=${encodeURIComponent(k)}` : ""}`;
   return (
     <BigScreen
       home={`/pots/${id}`}

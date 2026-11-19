@@ -1265,6 +1265,8 @@ export async function listPotsHc(db: Db, opts: { owner?: string; states?: number
   } else {
     // Practice pots (against the relay's practice cat) stay out of public lists and numbers.
     where.push("NOT EXISTS (SELECT 1 FROM practice_pots pp WHERE pp.pot_id = pots.pot_id)");
+    // Private pots are seen only by their players and people with the link: never in a public list.
+    where.push("NOT EXISTS (SELECT 1 FROM pot_private pv WHERE pv.pot_id = pots.pot_id::text)");
   }
   if (opts.states?.length) {
     args.push(opts.states);

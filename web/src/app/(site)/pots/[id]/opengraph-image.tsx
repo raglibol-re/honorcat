@@ -1,7 +1,7 @@
 import { formatAmount } from "@/lib/amount";
 import { ImageResponse } from "next/og";
 import { connection } from "next/server";
-import { getDb, honor, namesOf, pots } from "@/server/relay";
+import { getDb, honor, namesOf, pots, privatePots } from "@/server/relay";
 import { sidesOf } from "@/lib/statement";
 import { splitPot } from "@/lib/shares";
 import { nickname, tagName } from "@/lib/nickname";
@@ -32,7 +32,9 @@ export default async function Image({ params }: { params: Promise<{ id: string }
   let challenger = "";
   let story: string[] = [];
   try {
-    const d = /^\d+$/.test(id) ? await pots.potDetail(await getDb(), id) : null;
+    // A private pot's preview says nothing about it.
+    const isPrivate = /^\d+$/.test(id) ? !!(await privatePots.keyOf(await getDb(), id)) : false;
+    const d = /^\d+$/.test(id) && !isPrivate ? await pots.potDetail(await getDb(), id) : null;
     if (d) {
       const m = d.market as { eventTitle: string; label: string; teams?: string | null } | null;
       if (m) {

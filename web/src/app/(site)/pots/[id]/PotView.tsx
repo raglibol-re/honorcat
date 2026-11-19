@@ -1,6 +1,7 @@
 "use client";
 
 import { Watching } from "@/components/pot/Watching";
+import { PrivateControl } from "@/components/pot/PrivateControl";
 
 import { CatState } from "@/components/cat/CatState";
 import Link from "next/link";
@@ -295,7 +296,7 @@ function Actions({
             with a passkey or a wallet; nobody pays network fees.
           </p>
           <Invite
-            path={`/pots/${pot.potId}`}
+            path={`/pots/${pot.potId}${(pot as { privateKey?: string | null }).privateKey ? `?k=${(pot as { privateKey?: string | null }).privateKey}` : ""}`}
             text={`Take the other side of my HonorCat pot${pot.market ? `: ${sidesOf(pot.market).yes}?` : ""}`}
             potId={pot.potId}
             account={me}
@@ -1277,8 +1278,12 @@ function ResultBanner({ pot, mine }: { pot: HcPot; mine: number }) {
 
 export function PotView({ id }: { id: string }) {
   useHome();
-  const { data: pot, error } = usePolling<HcPot>(`/api/hc/pots/${id}`, 3000);
   const who = useActor();
+  // A private pot needs the link's key (?k=) or a player's own account.
+  const linkKey = useSearchParams().get("k");
+  const viewer = who.actor?.account ?? null;
+  const potQs = new URLSearchParams({ ...(linkKey ? { k: linkKey } : {}), ...(viewer ? { account: viewer } : {}) }).toString();
+  const { data: pot, error } = usePolling<HcPot & { private?: boolean; privateKey?: string | null }>(`/api/hc/pots/${id}${potQs ? `?${potQs}` : ""}`, 3000);
   // A closed pot shows its final state: no live price is read for it.
   const closed = pot ? pot.state === "Divided" || pot.state === "Settled" || pot.state === "Expired" : false;
   const live = useLivePrice(
@@ -1311,7 +1316,9 @@ export function PotView({ id }: { id: string }) {
         text={
           /404|not found/i.test(error)
             ? `There is no pot ${id}. Check the link, or see all pots.`
-            : error
+            : /private/i.test(error)
+              ? "This pot is private: only its players and people with its link can see it."
+              : error
         }
       />
     ) : (
@@ -1499,7 +1506,8 @@ export function PotView({ id }: { id: string }) {
       </header>
 
       <Rope {...scene} trail={live.trail} speed={live.speed} />
-      <Watching watchKey={String(pot.potId)} startHref="/pots/new" tvHref={`/pots/${pot.potId}/tv`} player={mine !== null} />
+      <Watching watchKey={String(pot.potId)} startHref="/pots/new" tvHref={`/pots/${pot.potId}/tv${linkKey ? `?k=${linkKey}` : ""}`} player={mine !== null} />
+      {mine !== null && !pot.practice && <PrivateControl potId={String(pot.potId)} who={who} isPrivate={!!pot.private} privateKey={pot.privateKey ?? null} />}
       {(pot.state === "Live" || pot.state === "ExitRequested" || pot.state === "Joining") && !pot.perp && (
         <Reactions potId={String(pot.potId)} />
       )}

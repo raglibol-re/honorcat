@@ -8,7 +8,7 @@ import { verifyPasskeyJoin, type WebAuthnAssertion } from "./passkeys";
  * streaks (section 5). A follow is signed by the follower (wallet signature or one passkey
  * confirmation), moves no money and authorises nothing; follows are public.
  */
-const NOT_PRACTICE = `(NOT EXISTS (SELECT 1 FROM practice_pots pp WHERE pp.pot_id = e.pot_id) AND NOT EXISTS (SELECT 1 FROM seat_pots sp WHERE sp.pot_id = e.pot_id))`;
+const NOT_PRACTICE = `(NOT EXISTS (SELECT 1 FROM practice_pots pp WHERE pp.pot_id = e.pot_id) AND NOT EXISTS (SELECT 1 FROM seat_pots sp WHERE sp.pot_id = e.pot_id) AND NOT EXISTS (SELECT 1 FROM pot_private pv WHERE pv.pot_id = e.pot_id::text))`;
 
 export const followMessage = (leader: string, follow: boolean, account: string, issuedAt: string) =>
   `HonorCat: ${follow ? "follow" : "stop following"} ${getAddress(leader)}.\nAccount: ${getAddress(account)}\nIssued: ${issuedAt}`;

@@ -9,7 +9,7 @@ import type { Db } from "./db";
 
 const TREATS = ["MakerTreat", "ExitFee", "ReferralTreat", "CopycatTreat"] as const;
 export type TreatKind = (typeof TREATS)[number];
-const NOT_PRACTICE = `(e.pot_id IS NULL OR (NOT EXISTS (SELECT 1 FROM practice_pots pp WHERE pp.pot_id = e.pot_id) AND NOT EXISTS (SELECT 1 FROM seat_pots sp WHERE sp.pot_id = e.pot_id)))`;
+const NOT_PRACTICE = `(e.pot_id IS NULL OR (NOT EXISTS (SELECT 1 FROM practice_pots pp WHERE pp.pot_id = e.pot_id) AND NOT EXISTS (SELECT 1 FROM seat_pots sp WHERE sp.pot_id = e.pot_id) AND NOT EXISTS (SELECT 1 FROM pot_private pv WHERE pv.pot_id = e.pot_id::text)))`;
 const RECIPIENT = `lower(coalesce(e.args->>'to', e.args->>'referrer', e.args->>'leader'))`;
 
 /** An account's treats: every one with its pot, payer and transaction, and the totals per kind. */
