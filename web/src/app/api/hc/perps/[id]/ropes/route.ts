@@ -8,7 +8,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
     const { id } = await ctx.params;
     if (!/^\d+$/.test(id)) return Response.json({ error: "bad id" }, { status: 400 });
     const ropes = await perps.perpRopes(await getDb(), id);
-    return Response.json({ ropes }, { headers: { "cache-control": "no-store" } });
+    return Response.json({ ropes }, { headers: { "cache-control": "public, s-maxage=5, stale-while-revalidate=15" } });
   } catch (err) {
     return errorResponse(err);
   }

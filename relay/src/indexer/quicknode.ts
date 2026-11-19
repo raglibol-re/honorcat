@@ -115,13 +115,13 @@ export function extractBatchRange(payload: unknown): { start: bigint | null; end
  * that block", docs/streams/filters). So the webhook is called only for blocks with our events
  * (vault, GuaranteeBook, and Arc Memo logs in the same transactions) plus one heartbeat every
  * HEARTBEAT blocks, which keeps waking the serverless relay to settle off-chain results.
- * With Arc's ~2 blocks/s and HEARTBEAT = 20 that is about one call per 10 s instead of two per
- * second, within Vercel Hobby's included function invocations. Replace the addresses before use.
+ * With Arc's ~2 blocks/s and HEARTBEAT = 120 that is about one call a minute (the samplers' polls
+ * also wake the relay every few seconds), within Vercel Hobby's included invocations. Replace the addresses before use.
  */
 export const STREAMS_FILTER_TEMPLATE = `function main(stream) {
   const OURS = ["<VAULT_ADDRESS_LOWERCASE>", "<GUARANTEE_BOOK_ADDRESS_LOWERCASE>", "<MERKLE_BOOK_ADDRESS_LOWERCASE>", "<POTS_ADDRESS_LOWERCASE>"<EXTRA_ADDRESSES_LOWERCASE>];
   const MEMO = "0x5294e9927c3306dcbadb03fe70b92e01ccede505";
-  const HEARTBEAT = 20;
+  const HEARTBEAT = 120;
   const all = [];
   const walk = (x) => {
     if (Array.isArray(x)) { x.forEach(walk); return; }

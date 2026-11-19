@@ -19,7 +19,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
     nudgeRelay("hc:pot", { samplerBudgetMs: 45_000 });
     // Who minds or plays this pot as an agent, their actions with reasons, and open proposals.
     const agent = await agentInfoOf(db, id).catch(() => null);
-    return Response.json({ ...d, agent }, { headers: { "cache-control": "no-store" } });
+    return Response.json({ ...d, agent }, { headers: { "cache-control": "public, s-maxage=2, stale-while-revalidate=5" } });
   } catch (err) {
     return errorResponse(err);
   }

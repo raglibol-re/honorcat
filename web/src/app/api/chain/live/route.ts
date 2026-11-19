@@ -18,6 +18,6 @@ export async function GET() {
       block: block ? { number: block.number.toString(), timestamp: Number(block.timestamp) } : null,
       lastConfirmation: last[0] ? { tx: last[0].tx_hash, latencyMs: last[0].latency_ms, at: new Date(last[0].confirmed_at).toISOString() } : null,
     },
-    { headers: { "cache-control": "no-store" } },
+    { headers: { "cache-control": "public, s-maxage=5, stale-while-revalidate=10" } },
   );
 }

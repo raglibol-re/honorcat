@@ -14,7 +14,7 @@ export async function GET(req: Request) {
       limit: Math.min(Number(u.get("limit") ?? 50) || 50, 200),
     });
     nudgeRelay("hc:list");
-    return Response.json({ pots: list }, { headers: { "cache-control": "no-store" } });
+    return Response.json({ pots: list }, { headers: { "cache-control": "public, s-maxage=3, stale-while-revalidate=10" } });
   } catch (err) {
     return errorResponse(err);
   }

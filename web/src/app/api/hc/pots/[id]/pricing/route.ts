@@ -7,7 +7,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   try {
     const { id } = await ctx.params;
     if (!/^\d+$/.test(id)) return Response.json({ error: "bad id" }, { status: 400 });
-    return Response.json({ pricing: await pots.potPricing(await getDb(), id) }, { headers: { "cache-control": "no-store" } });
+    return Response.json({ pricing: await pots.potPricing(await getDb(), id) }, { headers: { "cache-control": "public, s-maxage=1, stale-while-revalidate=2" } });
   } catch (err) {
     return errorResponse(err);
   }

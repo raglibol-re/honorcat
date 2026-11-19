@@ -17,7 +17,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
     }
     if (!d) return Response.json({ error: "no such perp" }, { status: 404 });
     nudgeRelay("hc:perp", { samplerBudgetMs: 45_000 });
-    return Response.json(d, { headers: { "cache-control": "no-store" } });
+    return Response.json(d, { headers: { "cache-control": "public, s-maxage=2, stale-while-revalidate=5" } });
   } catch (err) {
     return errorResponse(err);
   }
