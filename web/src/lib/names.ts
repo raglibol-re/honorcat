@@ -72,7 +72,7 @@ export function useNames(accounts: (string | null | undefined)[]) {
 }
 
 export { nickname } from "./nickname";
-import { nickname } from "./nickname";
+import { nickname, tagName } from "./nickname";
 
 /**
  * How to call an account: "you", its display name, "the practice cat", or a stable cat nickname;
@@ -82,7 +82,8 @@ export function displayName(account: string | null | undefined, names: Record<st
   if (!account) return "open seat";
   const a = account.toLowerCase();
   const n = names[a] ?? cache.get(a) ?? (fallback === "a player" ? nickname(a) : undefined);
-  const base = me && a === me.toLowerCase() ? (n ? `you (${n})` : "you") : (n ?? fallback);
+  const tagged = n ? tagName(n, a) : undefined;
+  const base = me && a === me.toLowerCase() ? (tagged ? `you (${tagged})` : "you") : (tagged ?? fallback);
   return tech ? `${base} · ${short(account)}` : base;
 }
 

@@ -1,5 +1,7 @@
 "use client";
 
+import { formatAmount } from "@/lib/amount";
+
 import { CatState } from "@/components/cat/CatState";
 import Link from "next/link";
 import { Cat } from "@/components/cat/Cat";
@@ -30,12 +32,12 @@ export function Terms({ id }: { id: string }) {
   const N = st ? `“${st.no}”` : "NO";
   const terms: [string, string][] = [
     ["The question", `${st ? `${st.yes}?` : "A Gemini prediction-market contract."} One side holds ${Y}, the other ${N}. (Technical: ${Y} is YES on Gemini instrument ${m?.instrument ?? "unknown"}, ${N} is NO.)`],
-    ["The pot", `$${n.toFixed(2)} in test USDC on Arc testnet, both sides together. No real money.`],
+    ["The pot", `${formatAmount(n)} in test USDC on Arc testnet, both sides together. No real money.`],
     ["The price", `The chance of ${Y} is the midpoint of Gemini's best bid and ask, counted only when the spread and the sizes at the top of the book pass the market's rule, averaged over time. A single reading never moves money: every price is a ${d.window}-second average of at least ${d.minSamples} valid readings.`],
     ["Who measures", "Three independent samplers read Gemini's public order book on their own and each signs its own average. Three valid averages: the middle one counts. Two: their mean, if they are within half a point; otherwise nothing moves. The pot contract checks two of three signatures."],
     ["Joining", `The joiner puts in its side's worst case within ${(Number(d.tolerance) / 10_000).toFixed(1)} points of ${(Number(d.bandCenter) / 10_000).toFixed(1)}%. The starting shares are set by the ${d.window}-second average that starts right after the join request; any deposit above a side's share is returned at once. If that average is outside the band, or cannot be measured, the join does not happen and the joiner gets everything back.`],
     ["Shares", `While the pot is live, ${Y}'s share is the pot times the average chance, ${N}'s share the rest. Shares are only shown, never booked: money moves only on an exit, a handshake or the settlement.`],
-    ["Leaving", `Either side may ask to leave, wholly or in part. The request is binding. The exit price is the ${d.window}-second average that starts after the request, never the price at the moment of asking. The leaving side gives a treat for the other cat: a ${fee}% fee on the amount divided ($${((n * fee) / 100).toFixed(2)} on the whole pot), paid to the other side. If the price cannot be measured, nothing is divided and the pot continues; after a failed attempt there is a two-minute pause.`],
+    ["Leaving", `Either side may ask to leave, wholly or in part. The request is binding. The exit price is the ${d.window}-second average that starts after the request, never the price at the moment of asking. The leaving side gives a treat for the other cat: a ${fee}% fee on the amount divided (${formatAmount(((n * fee) / 100))} on the whole pot), paid to the other side. If the price cannot be measured, nothing is divided and the pot continues; after a failed attempt there is a two-minute pause.`],
     ["When leaving is closed", `No exit can start in the last ${Math.round(lockout / 60)} minutes before the close (${close}), while Gemini has halted the market or put it under review, or while another exit is being priced.`],
     ["Nine lives", "A life is an exit of one ninth of the starting pot. Lives are partial exits like any other and follow the same rules."],
     ["Net and bowl", "Each side may set a net (a low price for its own side) and a bowl (a high one). When the samplers see its own average hold there for a full window, they file the side's exit; it is then priced forward like any other exit. A transferred side loses its net and bowl."],

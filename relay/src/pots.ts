@@ -615,8 +615,18 @@ export function averagesAgree(rows: { price_ppm: string; valid: boolean }[], thr
 }
 
 /**
- * Proposes once every sampler has reported; or as soon as two agree (within half a point); or, when
- * they disagree, once the third had THIRD_WAIT_S seconds after the window to report.
+ * Whether a window's averages can be proposed: every sampler reported; or the third's time is up and
+ * the threshold is met; or the threshold agrees and no other sampler is running to wait for.
+ */
+export function readyToPropose(x: { reported: number; samplers: number; threshold: number; ended: boolean; othersAlive: number; agree: boolean }) {
+  if (x.reported >= x.samplers) return true;
+  if (x.reported < x.threshold) return false;
+  return x.ended || (x.othersAlive === 0 && x.agree);
+}
+
+/**
+ * Proposes once every sampler has reported; or as soon as two agree (within half a point) when the
+ * third is not running; otherwise once the third had THIRD_WAIT_S seconds after the window to report.
  */
 export async function maybePropose(db: Db, requestId: string, force = false) {
   const req = (await db.query<ReqRow>("SELECT * FROM att_requests WHERE id = $1", [requestId]))[0];
@@ -628,7 +638,17 @@ export async function maybePropose(db: Db, requestId: string, force = false) {
   );
   const set = signerSet();
   const ended = Math.floor(Date.now() / 1000) > Number(p.windowEnd) + THIRD_WAIT_S;
-  if (!force && rows.length < set.samplers.length && !(rows.length >= set.threshold && (ended || averagesAgree(rows, set.threshold)))) return null;
+  // Two agreeing averages settle it at once only when no other sampler is running: a sampler that
+  // checked in recently gets until THIRD_WAIT_S after the window to report, so a window is priced by
+  // the median of three whenever three run (it was turned away when it came a second after two).
+  let othersAlive = 0;
+  if (!force && !ended && rows.length < set.samplers.length) {
+    const reported = new Set(rows.map((r) => r.signer.toLowerCase()));
+    const seen = await db.query<{ key: string; value: string }>("SELECT key, value FROM relay_state WHERE key LIKE 'sampler_seen:%'");
+    const nowS = Math.floor(Date.now() / 1000);
+    othersAlive = seen.filter((r) => !reported.has(r.key.slice("sampler_seen:".length).toLowerCase()) && set.samplers.some((x) => x.toLowerCase() === r.key.slice("sampler_seen:".length).toLowerCase()) && nowS - Number(r.value) < 45).length;
+  }
+  if (!force && !readyToPropose({ reported: rows.length, samplers: set.samplers.length, threshold: set.threshold, ended, othersAlive, agree: averagesAgree(rows, set.threshold) })) return null;
   if (rows.length < set.threshold && !force) return null;
   const avgs: Avg[] = rows.map((r) => ({ signer: getAddress(r.signer), ppm: BigInt(r.price_ppm), valid: r.valid, sampleCount: r.sample_count, evidenceHash: r.evidence_hash as Hex }));
   const median = contractOf(String(req.pot_id)).median;

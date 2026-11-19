@@ -1,5 +1,7 @@
 "use client";
 
+import { formatAmount } from "./amount";
+
 import { encodeAbiParameters, encodeFunctionData, parseEventLogs, type Address, type Hex } from "viem";
 import { potsAbi } from "@honorcat/relay/potsAbi";
 import { ropesAbi } from "@honorcat/relay/ropesAbi";
@@ -131,7 +133,7 @@ export const KIND = { join: 0, exit: 1, netYes: 2, netNo: 3, bowlYes: 4, bowlNo:
 export const pct = (ppm: number, digits = 1) => `${(ppm / 10_000).toFixed(digits)}%`;
 export const usd = (base: bigint | string | number) => {
   const v = Number(base) / 1e6;
-  return `$${v.toFixed(2)}`;
+  return `${formatAmount(v)}`;
 };
 
 /** The side an address holds in a pot (or the pending joiner's side), if any. */

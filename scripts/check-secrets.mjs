@@ -1,4 +1,4 @@
-// Usage: node scripts/check-secrets.mjs . https://verdict-phi-livid.vercel.app
+// Usage: node scripts/check-secrets.mjs . https://honorcat.vercel.app
 // Looks for every secret value from .env (never printed) in the full git history and in every
 // JavaScript chunk the production site serves. Prints only names and counts.
 import { readFileSync } from "node:fs";

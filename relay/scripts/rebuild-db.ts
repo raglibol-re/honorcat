@@ -91,5 +91,7 @@ console.log(`practice perps marked: ${pp.length}`);
 
 // 5. Re-read every pot so its projection includes the market.
 for (const p of pots) await patient(() => syncPot(db, BigInt(p.pot_id))).catch((e) => console.error("sync", p.pot_id, (e as Error).message));
+// Practice pots are not written on chain: record them from the practice cat's sides.
+await (await import("../src/practice")).markPracticePots(db);
 console.log("done");
 process.exit(0);

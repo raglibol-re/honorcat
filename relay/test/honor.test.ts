@@ -104,6 +104,14 @@ describe("honor", () => {
     for (const a of [1, 2, 3, 4, 5, 6]) expect(r.entries.filter((e) => e.account === acct(a) && e.action !== "streak").length).toBe(0);
   });
 
+  it("the practice cat earns nothing, even on a pot whose practice record was lost", () => {
+    const cat = acct(99);
+    const evs = [...pot({ id: 40, a: acct(7), b: cat, t0: BEFORE, hours: 5, end: "settled" })];
+    const r = computeHonor(base(evs, { notPlayers: new Set([cat]) }), HONOR_V1);
+    expect(r.entries.filter((e) => e.account === cat).length).toBe(0);
+    expect(bal(r, cat)).toBe(0);
+  });
+
   it("two linked accounts trading handshakes earn little: halving per repeat in 24 h, and nothing once flagged or same-funded", () => {
     const evs: HonorEvent[] = [];
     for (let i = 0; i < 10; i++) evs.push(...pot({ id: 10 + i, a: acct(1), b: acct(2), t0: AFTER + i * 3600, hours: 0.5, end: "handshake" }));

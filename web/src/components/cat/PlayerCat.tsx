@@ -1,5 +1,7 @@
 "use client";
 
+import { tagName } from "@/lib/nickname";
+
 import { FURS, furOf, wearOf, type Fur } from "@/lib/names";
 import { Cat, type CatPose, type Mood } from "./Cat";
 
@@ -18,7 +20,7 @@ export function CatName({ account, name, size = 22, strong = false }: { account:
       <span aria-hidden="true" style={{ display: "inline-block", width: size, flex: "none" }}>
         <PlayerCat account={account} pose="face" size={size} label="" />
       </span>
-      {strong ? <strong>{name}</strong> : <span>{name}</span>}
+      {strong ? <strong>{tagName(name, account)}</strong> : <span>{tagName(name, account)}</span>}
     </span>
   );
 }

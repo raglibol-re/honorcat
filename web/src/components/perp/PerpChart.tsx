@@ -19,9 +19,9 @@ const hhmm = (s: number) =>
 
 /**
  * The market's price over the perp's life, with each rope's posts as a band and a mark where each
- * rope ended (filled red: knocked out at a post). Squares are the samplers' 30-second prices (the
- * middle of the book, what the ropes use); the grey line is Gemini's last trade per minute, which can
- * lag far behind on a quiet market.
+ * rope ended (filled red: knocked out at a post). The main line joins the samplers' 30-second prices
+ * (the middle of the book, what the ropes use). Gemini's last trade per minute, which can lag far
+ * behind on a quiet market, is drawn only when the viewer asks for it, with its own label.
  */
 export function PerpChart({
   symbol,
@@ -39,6 +39,7 @@ export function PerpChart({
   const [w, setW] = useState(0);
   const [candles, setCandles] = useState<[number, number][] | null>(null);
   const [failed, setFailed] = useState(false);
+  const [trades, setTrades] = useState(false);
   const nowS = Math.floor(now / 1000);
   const first = ropes.find((r) => r.armedAt > 0)?.armedAt ?? 0;
   const since = first ? first - 600 : nowS - 3600;
@@ -52,6 +53,7 @@ export function PerpChart({
     return () => ro.disconnect();
   }, []);
   useEffect(() => {
+    if (!trades) return;
     let alive = true;
     const load = () =>
       getCandles(symbol, since)
@@ -67,11 +69,16 @@ export function PerpChart({
       alive = false;
       clearInterval(t);
     };
-  }, [symbol, since]);
+  }, [symbol, since, trades]);
 
   const x0 = since;
   const x1 = Math.max(lastEnd, nowS) + 120;
-  const pts = (candles ?? []).filter((c) => c[0] >= x0 && c[0] <= x1);
+  const pts = trades ? (candles ?? []).filter((c) => c[0] >= x0 && c[0] <= x1) : [];
+  // The main line: every 30-second price the samplers measured, in time order.
+  const measured = ropes
+    .flatMap((r) => r.checks)
+    .filter((c) => c[0] >= x0 && c[0] <= x1)
+    .sort((a, b) => a[0] - b[0]);
   const values = [
     ...pts.map((c) => c[1]),
     ...ropes.flatMap((r) => (r.lower || r.upper ? [r.lower / 1e6, r.upper / 1e6] : [])),
@@ -91,6 +98,7 @@ export function PerpChart({
   const ticks: number[] = [];
   for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) ticks.push(Number(v.toFixed(4)));
   const line = pts.map((c, i) => `${i ? "L" : "M"}${X(c[0]).toFixed(1)},${Y(c[1]).toFixed(1)}`).join(" ");
+  const mainLine = measured.map((c, i) => `${i ? "L" : "M"}${X(c[0]).toFixed(1)},${Y(c[1] / 1e6).toFixed(1)}`).join(" ");
 
   const summary = ropes
     .map((r, i) => {
@@ -160,7 +168,8 @@ export function PerpChart({
                 </g>
               );
             })}
-            {line && <path d={line} fill="none" stroke={C.dash} strokeWidth={2} strokeLinejoin="round" />}
+            {line && <path d={line} fill="none" stroke={C.dash} strokeWidth={1.5} strokeDasharray="2 3" strokeLinejoin="round" />}
+            {mainLine && <path d={mainLine} fill="none" stroke={C.ink} strokeWidth={2} strokeLinejoin="round" />}
             {ropes.flatMap((r) =>
               r.checks
                 .filter((c) => c[0] >= x0 && c[0] <= x1)
@@ -183,13 +192,14 @@ export function PerpChart({
         )}
       </div>
       <figcaption style={{ fontSize: 14, color: C.muted, lineHeight: 1.45 }}>
-        {failed && !candles
-          ? "Gemini's price history did not load; the ropes are drawn without it. "
-          : ""}
-        Black squares: the 30-second prices the samplers measured for the ropes (the middle of the order
-        book, YES, in points). Grey line: Gemini&apos;s last trade each minute; on a quiet market it can lag
-        far behind. Dashed: each rope&apos;s posts. A red dot marks a knock-out at a post; a white dot the
-        price a rope was divided at.
+        {trades && failed && !candles ? "Gemini's trade history did not load. " : ""}
+        Black line and squares: the 30-second prices the samplers measured for the ropes (the middle of
+        the order book, YES, in points), the prices the ropes use. Dashed: each rope&apos;s posts. A red
+        dot marks a knock-out at a post; a white dot the price a rope was divided at.{" "}
+        <label style={{ display: "inline-flex", gap: 6, alignItems: "center", cursor: "pointer" }}>
+          <input type="checkbox" checked={trades} onChange={(e) => setTrades(e.target.checked)} />
+          Also show Gemini&apos;s last trade each minute (dotted grey; on a quiet market it can lag far behind the book)
+        </label>
       </figcaption>
     </figure>
   );

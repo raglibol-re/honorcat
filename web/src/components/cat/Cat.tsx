@@ -382,7 +382,7 @@ function Scene({ pose, lives, uid, mood }: { pose: CatPose; lives: number; uid: 
           <path d="M100 90 C 118 94, 112 70, 100 72" fill="none" stroke={k.body} strokeWidth="6" strokeLinecap="round" className="hc-cat-tail" style={origin(100, 90)} />
           <ellipse cx="74" cy="80" rx="34" ry="16" fill={k.body} stroke={k.line} strokeWidth={k.w} />
           <Head cx={46} cy={74} r={17} eyesOpen={false} />
-          <g className="hc-cat-z" fill={C.ink} style={{ fontFamily: F.cond, fontWeight: 700 }}>
+          <g className="hc-cat-z" aria-hidden="true" fill={C.ink} style={{ fontFamily: F.cond, fontWeight: 700 }}>
             <text x="92" y="44" fontSize="18">Z</text>
             <text x="108" y="30" fontSize="13">z</text>
           </g>

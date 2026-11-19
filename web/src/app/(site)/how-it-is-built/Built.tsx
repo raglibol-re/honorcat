@@ -1,5 +1,7 @@
 "use client";
 
+import { formatAmount } from "@/lib/amount";
+
 import Link from "next/link";
 import { C, F } from "@/components/cat/tokens";
 import { usePolling } from "@/lib/api";
@@ -155,7 +157,7 @@ export function Built() {
       status: ed?.sends ? "done" : "partly",
       proof: (
         <>
-          The receiver needs nothing but their HonorCat name; the sender signs with a passkey and HonorCat pays the fee. {ed ? `${ed.sends} sends, $${(Number(ed.sentAmount) / 1e6).toFixed(2)} in all` : "…"}
+          The receiver needs nothing but their HonorCat name; the sender signs with a passkey and HonorCat pays the fee. {ed ? `${ed.sends} sends, ${formatAmount((Number(ed.sentAmount) / 1e6))} in all` : "…"}
           {ed?.lastSend && (
             <>
               ; newest{" "}

@@ -26,6 +26,7 @@ import { P } from "./rope";
 
 export * from "./perpMath";
 import { FIRST_TOLERANCE } from "./perpMath";
+export { livesOf } from "./perpMath";
 
 /* ------------------------------------------------------------------ the chain's state, as served by /api/hc/perps */
 
@@ -335,3 +336,4 @@ export async function leaveNow(
   });
   return perpCall(actor, perps, data, 0n, perpId, onStep);
 }
+

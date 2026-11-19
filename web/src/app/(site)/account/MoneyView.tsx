@@ -1,5 +1,7 @@
 "use client";
 
+import { tagName } from "@/lib/nickname";
+
 import { TreatsPanel } from "@/components/pot/Treats";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -61,7 +63,7 @@ function Signed({ who }: { who: ActorState }) {
       setFromChain(true);
     });
   }, []);
-  const myName = names[a.toLowerCase()] ?? nickname(a);
+  const myName = tagName(names[a.toLowerCase()] ?? nickname(a), a);
   const picked = hasOwnCat(a, names);
   const low = who.balance !== null && who.balance < 2_000_000n;
 

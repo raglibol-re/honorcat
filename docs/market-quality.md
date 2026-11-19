@@ -127,7 +127,7 @@ Since F1 the app measures every active Gemini contract continuously (`relay/src/
 events list over REST (50 events a request, the whole list in about two minutes), order books over
 Gemini's public WebSocket (`depth5`, 150 contracts per step), each judged against the rule its pot
 would get (demo under two hours to close, standard otherwise). The live view is
-[`/markets`](https://verdict-phi-livid.vercel.app/markets); this is a snapshot of it.
+[`/markets`](https://honorcat.vercel.app/markets); this is a snapshot of it.
 
 | Category | Events | Contracts | Work now (works + borderline) | Median spread | Median depth near the price |
 |---|---|---|---|---|---|

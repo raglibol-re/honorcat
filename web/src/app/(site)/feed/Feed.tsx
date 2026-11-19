@@ -1,5 +1,7 @@
 "use client";
 
+import { tagName } from "@/lib/nickname";
+
 import Link from "next/link";
 import { CatState } from "@/components/cat/CatState";
 import { CatName } from "@/components/cat/PlayerCat";
@@ -73,7 +75,7 @@ export function Feed() {
       ) : (
         <ol style={{ margin: 0, padding: 0, listStyle: "none", borderTop: `1.5px solid ${C.ink}` }}>
           {data.items.map((i) => {
-            const name = names[i.leader] ?? nickname(i.leader);
+            const name = tagName(names[i.leader] ?? nickname(i.leader), i.leader);
             const href = i.kind === "perp" ? `/perps/${i.id}` : `/pots/${i.id}`;
             return (
               <li key={`${i.kind}-${i.id}-${i.leader}`} style={{ display: "flex", flexWrap: "wrap", gap: "6px 16px", alignItems: "baseline", padding: "14px 4px", borderBottom: `1px solid ${C.faint}` }}>

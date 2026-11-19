@@ -1,9 +1,10 @@
+import { formatAmount } from "@/lib/amount";
 import { ImageResponse } from "next/og";
 import { connection } from "next/server";
 import { getDb, honor, namesOf, pots } from "@/server/relay";
 import { sidesOf } from "@/lib/statement";
 import { splitPot } from "@/lib/shares";
-import { nickname } from "@/lib/nickname";
+import { nickname, tagName } from "@/lib/nickname";
 
 /**
  * The preview image of a pot link (invitations): the question, the rope between two posts with the
@@ -18,7 +19,7 @@ const PAGE = "#ECEAE4";
 const SIGNAL = "#E8421A";
 const MUTED = "#55534E";
 
-const usd0 = (v: number) => `$${v.toFixed(2)}`;
+const usd0 = (v: number) => `${formatAmount(v)}`;
 
 export default async function Image({ params }: { params: Promise<{ id: string }> }) {
   await connection();
@@ -46,7 +47,7 @@ export default async function Image({ params }: { params: Promise<{ id: string }
       const nm = (await namesOf(await getDb(), [owners.yes, owners.no].filter((x): x is string => !!x)).catch(() => ({}))) as Record<string, { name?: string } | string>;
       const nameOf = (a: string | null) => {
         const v = a ? nm[a.toLowerCase()] : undefined;
-        return (typeof v === "string" ? v : v?.name) || (a ? nickname(a) : "A cat");
+        return a ? tagName((typeof v === "string" ? v : v?.name) || nickname(a), a) : "A cat";
       };
       const creator = Number(data.creatorSide ?? 0) === 0 ? owners.yes : owners.no;
       if (String(d.state) === "Open") {
@@ -101,7 +102,7 @@ export default async function Image({ params }: { params: Promise<{ id: string }
   const split = Math.round(40 * p);
   const left = rope.slice(0, split + 1).join(" ");
   const right = rope.slice(split).join(" ");
-  const usd = (v: number) => `$${v.toFixed(2)}`;
+  const usd = (v: number) => `${formatAmount(v)}`;
   const shares = splitPot(BigInt(Math.round(pot * 1e6)), p);
 
   return new ImageResponse(

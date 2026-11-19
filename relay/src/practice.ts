@@ -27,6 +27,22 @@ export function practiceAddress(): Address {
   return relaySender();
 }
 
+/**
+ * Records as practice every pot and perp where the practice cat holds a side, from the read model.
+ * Practice pots are recorded when practice starts; this also covers pots whose record was lost (the
+ * database rebuild of 2026-11-18 restored pots from the chain, where "practice" is not written).
+ */
+export async function markPracticePots(db: Db) {
+  const me = practiceAddress().toLowerCase();
+  await db.query(
+    `INSERT INTO practice_pots (pot_id)
+       SELECT pot_id FROM pots WHERE lower(yes_owner) = $1 OR lower(no_owner) = $1 OR lower(data->>'joiner') = $1
+       UNION SELECT -perp_id FROM perps WHERE lower(a) = $1 OR lower(b) = $1
+     ON CONFLICT (pot_id) DO NOTHING`,
+    [me],
+  );
+}
+
 export async function isPractice(db: Db, potId: string) {
   return (await db.query("SELECT 1 FROM practice_pots WHERE pot_id = $1", [potId])).length > 0;
 }

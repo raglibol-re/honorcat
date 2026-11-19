@@ -1,5 +1,7 @@
 "use client";
 
+import { formatAmount } from "@/lib/amount";
+
 import { useState } from "react";
 import { C, F } from "@/components/cat/tokens";
 import { Rope } from "@/components/pot/Rope";
@@ -34,7 +36,7 @@ export function RopePreview() {
         <h2 style={h2}>On the create page</h2>
         <RopeControl side={0} center={500_000} tolerance={0} stake={1_000_000n} spread={20_000} crypto closeMs={CLOSE_MS} startMs={null} sideName="BTC above $100,000 at 5 pm" onChange={setSetting} />
         <p style={{ margin: 0, fontSize: 14, color: C.muted }}>
-          Chosen: {setting ? `${setting.choice.leverage}×, size ${setting.choice.size} hundredths, pot $${(Number(setting.choice.pot) / 1e6).toFixed(2)}` : "…"}
+          Chosen: {setting ? `${setting.choice.leverage}×, size ${setting.choice.size} hundredths, pot ${formatAmount((Number(setting.choice.pot) / 1e6))}` : "…"}
         </p>
       </section>
       <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>

@@ -117,7 +117,7 @@ export function PerpRows({
             <span style={{ fontSize: 16 }}>
               {lev
                 ? perpLabel(p.data.t.d, lev.creator, lev.joiner)
-                : `Perp, rope ${points(p.data.t.d)} points`}
+                : `Perp, posts ${points(p.data.t.d)} points either side`}
             </span>
             <span style={{ fontSize: 16, fontVariantNumeric: "tabular-nums" }}>
               {$(stake)} per rope

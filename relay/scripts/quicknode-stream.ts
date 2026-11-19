@@ -79,6 +79,17 @@ if (values.batch || values.status || values.filter || values.url) {
         /* not deployed */
       }
     }
+    // Group pots (HonorCatGroups) and the daily honor roots (HonorRoots).
+    for (const [f, k] of [["5042002.groups.json", "groups"], ["5042002.honor.json", "honorRoots"]] as const) {
+      try {
+        const d = JSON.parse(readFileSync(new URL(`../../deployments/${f}`, import.meta.url), "utf8")) as Record<string, string>;
+        const a = d[k] ?? Object.values(d).find((v) => typeof v === "string" && /^0x[0-9a-fA-F]{40}$/.test(v));
+        if (a) extra.push(a.toLowerCase());
+      } catch {
+        /* not deployed */
+      }
+    }
+    console.log("filter addresses:", [vault, book, merkle, pots, ...extra].length);
     const code = STREAMS_FILTER_TEMPLATE.replace("<VAULT_ADDRESS_LOWERCASE>", vault)
       .replace("<EXTRA_ADDRESSES_LOWERCASE>", extra.map((a) => `, "${a}"`).join(""))
       .replace("<GUARANTEE_BOOK_ADDRESS_LOWERCASE>", book)

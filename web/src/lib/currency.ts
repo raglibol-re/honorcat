@@ -1,3 +1,4 @@
+import { formatAmount } from "./amount";
 /**
  * The player's home currency for showing amounts: USDC (dollars, the default) or EURC (euros, at a
  * stated rate from Circle Swap Kit). Display only: pots hold and pay test USDC either way.
@@ -75,24 +76,18 @@ export function useHome() {
 /** True when amounts are being shown in euros (EURC chosen and a rate known). */
 export const inEuros = () => state.home === "EURC" && !!state.rate;
 
-/** An amount in USDC base units, in the home currency: "$7.40", or "€6.73" at the stated rate. */
+/**
+ * An amount in USDC base units, in the home currency: "$7.40", "$0.675", "$7.405", "under 0.1¢", or
+ * "€6.73" at the stated rate (lib/amount.ts has the rule).
+ */
 export function money(base: string | number | bigint): string {
   const usd = Number(base) / 1e6;
   const eur = state.home === "EURC" && state.rate;
-  const v = eur ? usd * state.rate!.eurcPerUsdc : usd;
-  // Under a cent (tiny test stakes): two significant digits instead of "0.00".
-  const a = Math.abs(v);
-  const text = a > 0 && a < 0.01 ? String(Number(v.toPrecision(2))) : v.toFixed(2);
-  return `${eur ? "€" : "$"}${text}`;
+  return formatAmount(eur ? usd * state.rate!.eurcPerUsdc : usd, eur ? "€" : "$");
 }
 
-/** Like money(), with three decimals for amounts under one (dollar or euro): "$0.047", "$7.40". */
-export function money3(base: string | number | bigint): string {
-  const usd = Number(base) / 1e6;
-  const eur = state.home === "EURC" && state.rate;
-  const v = eur ? usd * state.rate!.eurcPerUsdc : usd;
-  return `${eur ? "€" : "$"}${v.toFixed(Math.abs(v) < 1 ? 3 : 2)}`;
-}
+/** Same as money() (kept for callers that asked for three decimals under one). */
+export const money3 = money;
 
 /** The rate as a plain sentence part: "1 USDC = 0.909 EURC". */
 export const rateText = (r: EurRate) => `1 USDC = ${r.eurcPerUsdc.toFixed(3)} EURC`;

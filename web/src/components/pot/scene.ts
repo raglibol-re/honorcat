@@ -100,15 +100,23 @@ function sceneOfV1(pot: HcPot, price: number | null, nowS: number, o: NameOpts =
         window: { label: partial ? `${who} is leaving with ${money(d.exitNotional)} of the pot (a partial exit). Exit price` : `${who} is leaving. Exit price`, ...win },
       };
     }
-    case "Divided":
-      return { price: lastDivision?.payload.attestation ? lastDivision.payload.attestation.priceYes / 1e6 : price, notional, names, phase: "divided", stamp, cats, sides };
+    case "Divided": {
+      // The final state from the pot's own record (its division event), never the live market.
+      const ev = [...(pot.events ?? [])].reverse().find((e) => e.name === "PotDivided" || e.name === "Handshake");
+      const ppm = lastDivision?.payload.attestation ? lastDivision.payload.attestation.priceYes : ev?.args.price !== undefined ? Number(ev.args.price) : null;
+      return { price: ppm !== null ? ppm / 1e6 : null, notional, names, phase: "divided", stamp: ppm !== null ? `Divided at ${(ppm / 10_000).toFixed(1)}%` : stamp, cats, sides, final: ppm !== null ? `Divided at ${(ppm / 10_000).toFixed(1)}%.` : "Divided." };
+    }
     case "Settled": {
       const o2 = pot.requests.find((r) => r.kind === "outcome")?.payload as { attestation?: { outcome: number } } | undefined;
-      const outcome = o2?.attestation?.outcome;
-      return { price, notional, names, phase: "settled", receiver: outcome === 1 ? 0 : outcome === 0 ? 1 : 2, cats, sides };
+      const ev = (pot.events ?? []).find((e) => e.name === "PotSettled");
+      const outcome = o2?.attestation?.outcome ?? (ev ? Number(ev.args.outcome) : undefined);
+      // The cat lands at 100 (YES) or 0 (NO); a void result leaves it where it entered.
+      const at = outcome === 1 ? 1 : outcome === 0 ? 0 : entry;
+      const what = outcome === 1 ? (sides ? `“${sides.yes}”` : "YES") : outcome === 0 ? (sides ? `“${sides.no}”` : "NO") : null;
+      return { price: at, notional, names, phase: "settled", receiver: outcome === 1 ? 0 : outcome === 0 ? 1 : 2, cats, sides, final: what ? `Settled by Gemini: ${what}.` : "Settled by Gemini: void, deposits back." };
     }
     default:
-      return { price, notional, names, phase: "expired", cats, sides };
+      return { price: entry, notional, names, phase: "expired", cats, sides, final: "Closed: every deposit went back." };
   }
 }
 

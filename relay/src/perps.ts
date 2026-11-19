@@ -356,3 +356,19 @@ export async function perpRopes(db: Db, perpId: string): Promise<RopeStory[]> {
     };
   });
 }
+
+/** Perp logs delivered by QuickNode Streams: recorded at once (source "streams"), then the perps re-read. */
+export async function ingestPerpLogs(db: Db, logs: { address: Address; topics: Hex[]; data: Hex; blockNumber: bigint; transactionHash: Hex; logIndex: number }[], blockTime: (n: bigint) => Promise<number | null>) {
+  const address = perpsAddress();
+  if (!address) return { received: 0 };
+  const ours = logs.filter((l) => l.address.toLowerCase() === address.toLowerCase());
+  const dec = parseEventLogs({ abi: perpsAbi, logs: ours.map((l) => ({ ...l, blockHash: null, transactionIndex: null, removed: false })) as never });
+  const touched = new Set<string>();
+  for (const l of dec) {
+    const a = l.args as { perpId?: bigint; potId?: bigint };
+    if (typeof a.perpId === "bigint") touched.add(a.perpId.toString());
+    await recordPotEvent(db, { ...l, eventName: `Perp:${l.eventName}` } as never, typeof a.potId === "bigint" ? BigInt(ropeDbId(a.potId)) : null, await blockTime(l.blockNumber!).catch(() => null), "streams");
+  }
+  for (const id of touched) await syncPerp(db, BigInt(id)).catch((e) => console.error("[perps] sync", id, e));
+  return { received: dec.length };
+}

@@ -20,6 +20,7 @@ import {
   leaveNow,
   DEFAULT_LIVES,
   lifeWords,
+  livesOf,
   perpLabel,
   playerOf,
   points,
@@ -123,7 +124,7 @@ const at = (s: number) =>
 
 /**
  * One rope's ending in plain words: what decided it, the 30-second window it was measured over and
- * each price sampler's own average (the contract takes the middle one).
+ * each price sampler's own average (the middle of three, or the mean of two within half a point).
  */
 function replay(r: RopeStory): string | null {
   const d = r.decided;
@@ -139,7 +140,7 @@ function replay(r: RopeStory): string | null {
   const samplers = d.averages.length
     ? ` The ${d.averages.length} price samplers measured ${d.averages
         .map((a) => (a.valid ? pts(a.priceYes) : "no price"))
-        .join(", ")}; the contract took the middle one.`
+        .join(", ")}; ${d.averages.filter((a) => a.valid).length >= 3 ? "the contract took the middle one" : d.averages.filter((a) => a.valid).length === 2 ? "the contract took their mean" : "with fewer than two valid averages there is no price"}.`
     : "";
   const retries =
     r.unagreed > 0
@@ -242,7 +243,7 @@ export function PerpView({ id }: { id: string }) {
     };
   }, [id, ropeEvents, phaseNow]);
 
-  const live = useLivePrice(p?.market?.instrument ?? null);
+  const live = useLivePrice(p?.phase === "Ended" ? null : (p?.market?.instrument ?? null));
   const names = useNames([p?.a, p?.b]);
   const me = playerOf(p ?? { a: "", b: null }, who.actor?.account);
   const history = useMemo(() => (p ? ropesOf(p.events) : []), [p]);
@@ -299,7 +300,7 @@ export function PerpView({ id }: { id: string }) {
   const label =
     levA !== null && levB !== null
       ? perpLabel(d.t.d, levA, levB)
-      : `Perp, rope ${points(d.t.d)} points`;
+      : `Perp, posts ${points(d.t.d)} points either side`;
   const st = p.market ? sidesOf(p.market) : null;
   const sideWord = (s: number) =>
     st ? `“${s === 0 ? st.yesShort : st.noShort}”` : s === 0 ? "YES" : "NO";
@@ -332,10 +333,8 @@ export function PerpView({ id }: { id: string }) {
     const acct = x === "a" ? p.a : p.b;
     const side = x === "a" ? sideA : 1 - sideA;
     const free = BigInt(x === "a" ? d.freeA : d.freeB);
-    // Lives: whole stakes not in a rope, plus the one in the running rope.
-    const lives =
-      Number(x === "a" ? d.livesA : d.livesB) +
-      (p.phase === "Running" || p.phase === "Joining" ? 1 : 0);
+    // Lives: whole stakes not in a rope, plus the one in the running rope (lib/perp.ts livesOf).
+    const lives = livesOf(free, stake, p.phase === "Running" || p.phase === "Joining");
     const result = BigInt(x === "a" ? d.resultA : d.resultB);
     const renew = x === "a" ? d.renewA : d.renewB;
     const lev = x === "a" ? levA : levB;
@@ -385,7 +384,8 @@ export function PerpView({ id }: { id: string }) {
               Result so far: <strong>{signed(result)}</strong>
             </span>
             <span style={{ fontSize: 15, color: C.muted }}>
-              {$(free)} not in a rope
+              {$(free)} not in a rope ({Number(free / (stake > 0n ? stake : 1n))} whole {Number(free / (stake > 0n ? stake : 1n)) === 1 ? "life" : "lives"})
+              {p.phase === "Running" || p.phase === "Joining" ? ", plus 1 in the running rope" : ""}
               {p.phase !== "Ended" && !renew ? " · stopped renewing" : ""}
             </span>
           </>
@@ -892,6 +892,16 @@ export function PerpView({ id }: { id: string }) {
                       ? "running"
                       : "ended (details in a moment)"}
                   {r.rolled ? " · started at the last rope's price" : ""}
+                  {(() => {
+                    const st = stories.find((x) => x.rope === r.rope);
+                    if (!st || !(st.upper > st.lower)) return null;
+                    const half = (st.upper - st.lower) / 2;
+                    const mid = (st.upper + st.lower) / 2;
+                    const aYes = sideA === 0;
+                    const la = (aYes ? mid : 1_000_000 - mid) / half;
+                    const lb = (aYes ? 1_000_000 - mid : mid) / half;
+                    return ` · leverage ${times(la)} for ${nm(p.a)}, ${times(lb)} for ${nm(p.b)}`;
+                  })()}
                 </span>
                 {r.paidA !== null && r.paidB !== null && (
                   <span style={{ color: C.body }}>

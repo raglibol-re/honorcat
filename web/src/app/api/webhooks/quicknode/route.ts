@@ -10,6 +10,7 @@ import {
   getDb,
   ingestLogs,
   nudgeRelay,
+  groups,
   perps,
   pots,
   ARC_MEMO,
@@ -55,10 +56,13 @@ export async function POST(req: Request) {
   const potLogs = potAddresses.length ? extractStreamsLogs(payload, potAddresses) : [];
   // Perps: a log names the perp (first indexed topic); re-read those perps at once (the poller
   // records the events themselves a few blocks later).
+  // Perps and group pots: recorded from the delivery itself (source "streams"), then re-read.
+  const blockTimeOf = async (n: bigint) => Number((await publicClient().getBlock({ blockNumber: n })).timestamp);
   const perpsAt = cfg.ropes?.perps;
   const perpLogs = perpsAt ? extractStreamsLogs(payload, [perpsAt]) : [];
-  const perpIds = [...new Set(perpLogs.map((l) => (l.topics as string[] | undefined)?.[1]).filter((t): t is string => !!t).map((t) => BigInt(t).toString()))];
-  for (const id of perpIds) await perps.syncPerp(db, BigInt(id)).catch((e) => console.error("[streams] perp", id, e));
+  if (perpLogs.length) await perps.ingestPerpLogs(db, perpLogs, blockTimeOf).catch((e) => console.error("[streams] perps", e));
+  const groupLogs = cfg.groups ? extractStreamsLogs(payload, [cfg.groups.address]) : [];
+  if (groupLogs.length) await groups.ingestGroupLogs(db, groupLogs, blockTimeOf).catch((e) => console.error("[streams] groups", e));
   const potResult = potLogs.length
     ? await pots.ingestPotLogs(db, potLogs, async (n) => Number((await publicClient().getBlock({ blockNumber: n })).timestamp)).catch((e) => {
         console.error("[streams] pots", e);

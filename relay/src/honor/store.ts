@@ -26,6 +26,7 @@ export async function loadHonorInput(db: Db): Promise<HonorInput> {
       "SELECT pot_id::text AS pot_id, account, extract(epoch FROM created_at)::bigint::text AS at FROM pot_notes WHERE kind = 'well_played' ORDER BY created_at, account",
     )
   ).map((n) => ({ potId: n.pot_id, account: n.account.toLowerCase(), at: Number(n.at) }));
+  await (await import("../practice")).markPracticePots(db).catch((e) => console.error("[honor] practice", (e as Error).message));
   const practice = new Set((await db.query<{ id: string }>("SELECT pot_id::text AS id FROM practice_pots")).map((r) => r.id));
   const seats = new Set((await db.query<{ id: string }>("SELECT pot_id::text AS id FROM seat_pots")).map((r) => r.id));
   const funding = Object.fromEntries(
@@ -39,7 +40,8 @@ export async function loadHonorInput(db: Db): Promise<HonorInput> {
   const cfg = getConfig();
   // HonorCat's own wallets fund many unrelated players (welcome money, the practice cat): never a link.
   const shared = new Set([relaySender(), ...(process.env.HONOR_SHARED_FUNDERS ?? "").split(",")].map((x) => x.trim().toLowerCase()).filter(Boolean));
-  const notPlayers = new Set([cfg.ropes?.perps].filter(Boolean).map((x) => String(x).toLowerCase()));
+  // Not players: the perps contract, and the practice cat (practice play earns nothing).
+  const notPlayers = new Set([cfg.ropes?.perps, relaySender()].filter(Boolean).map((x) => String(x).toLowerCase()));
   const cutoff = events.length ? events.at(-1)!.at : 0;
   return { events, notes, practice, seats, funding, sharedFunders: shared, clusters, notPlayers, cutoff };
 }

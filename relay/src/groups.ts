@@ -406,3 +406,25 @@ export async function groupLines(db: Db, groupId: string): Promise<[string, stri
   const r = (await db.query<{ value: string }>("SELECT value FROM relay_state WHERE key = $1", [`group_lines:${groupId}`]))[0];
   return r ? (JSON.parse(r.value) as [string, string]) : null;
 }
+
+/** Group logs delivered by QuickNode Streams: recorded at once (source "streams"), then the read model. */
+export async function ingestGroupLogs(db: Db, logs: { address: Address; topics: Hex[]; data: Hex; blockNumber: bigint; transactionHash: Hex; logIndex: number }[], blockTime: (n: bigint) => Promise<number | null>) {
+  const cfg = getConfig().groups;
+  if (!cfg) return { received: 0 };
+  const ours = logs.filter((l) => l.address.toLowerCase() === cfg.address.toLowerCase());
+  const dec = parseEventLogs({ abi: groupsAbi, logs: ours.map((l) => ({ ...l, blockHash: null, transactionIndex: null, removed: false })) as never });
+  const touched = new Map<string, Set<string>>();
+  for (const l of dec) {
+    const a = l.args as { groupId?: bigint; account?: Address; from?: Address; to?: Address };
+    if (typeof a.groupId !== "bigint") continue;
+    const set = touched.get(a.groupId.toString()) ?? new Set<string>();
+    for (const w of [a.account, a.from, a.to]) if (w) set.add(getAddress(w));
+    touched.set(a.groupId.toString(), set);
+    await recordPotEvent(db, { ...l, eventName: `Group:${l.eventName}` } as never, BigInt(groupDbId(a.groupId)), await blockTime(l.blockNumber!).catch(() => null), "streams");
+  }
+  for (const [gid, who] of touched) {
+    await syncGroup(db, BigInt(gid)).catch((e) => console.error("[groups] sync", gid, (e as Error).message.slice(0, 200)));
+    for (const w of who) await syncMember(db, BigInt(gid), w as Address).catch(() => null);
+  }
+  return { received: dec.length };
+}

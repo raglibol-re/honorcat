@@ -35,12 +35,17 @@ export function perpRope(side: 0 | 1, yesPpm: number, leverage: number): PerpRop
  * null. The same checks as HonorCatRopes' _checkRope for a symmetric rope.
  */
 export function perpProblem(r: Pick<PerpRope, "d">, o: { yesPpm: number; tol: number; spread: number; crypto: boolean }): string | null {
+  return perpProblemOf(r, o)?.text ?? null;
+}
+
+/** The same check with which rule failed: the spread's minimum distance, a post near 0 or 100, or the leverage cap. */
+export function perpProblemOf(r: Pick<PerpRope, "d">, o: { yesPpm: number; tol: number; spread: number; crypto: boolean }): { rule: "distance" | "edge" | "leverage"; text: string } | null {
   const max = maxLeverage(o.crypto);
   const lo = Math.max(0, o.yesPpm - o.tol);
   const hi = o.yesPpm + o.tol;
-  if (r.d < minDistance(o.spread)) return `The posts must be at least ${(minDistance(o.spread) / 10_000).toFixed(0)} points from the price on this market.`;
-  if (lo < r.d + POST_MARGIN || hi + r.d + POST_MARGIN > P) return "A post would be too close to 0 or 100: pick a lower leverage.";
-  if (hi > max * r.d || P - lo > max * r.d) return `At most ${max}× on this market.`;
+  if (r.d < minDistance(o.spread)) return { rule: "distance", text: `The posts must be at least ${(minDistance(o.spread) / 10_000).toFixed(0)} points from the price on this market.` };
+  if (lo < r.d + POST_MARGIN || hi + r.d + POST_MARGIN > P) return { rule: "edge", text: "A post would be too close to 0 or 100: pick a lower leverage." };
+  if (hi > max * r.d || P - lo > max * r.d) return { rule: "leverage", text: `At most ${max}× on this market.` };
   return null;
 }
 
@@ -62,9 +67,9 @@ export const treatOf = (stake: bigint) => (stake * MAKER_TREAT_BPS) / 10_000n;
 export const times = (x: number) => `${Number.isInteger(Math.round(x * 10) / 10) ? Math.round(x) : (Math.round(x * 10) / 10).toFixed(1)}×`;
 export const points = (ppm: number) => `${Math.round(ppm / 10_000)}`;
 
-/** The short label used everywhere a perp is listed: "Perp, rope 10 points, 6× and 4×". */
+/** The short label used everywhere a perp is listed: "Perp, posts 10 points either side, 6× and 4×". */
 export function perpLabel(d: number, levCreator: number, levJoiner: number) {
-  return `Perp, rope ${points(d)} points, ${times(levCreator)} and ${times(levJoiner)}`;
+  return `Perp, posts ${points(d)} points either side, ${times(levCreator)} and ${times(levJoiner)}`;
 }
 
 /** Rope life in words. */
@@ -90,6 +95,25 @@ export function perpFit(m: { mid: number | null; spreadPpm: number; crypto: bool
   if (!lifeFits(MIN_ROPE_LIFE_S, m.closeMs, nowMs)) return { ok: false, reason: "Closes too soon for a perp" };
   const yes = Math.round(m.mid * 1e6);
   const steps = [...perpSteps(0, yes, { spread: m.spreadPpm, crypto: m.crypto }), ...perpSteps(1, yes, { spread: m.spreadPpm, crypto: m.crypto })];
-  if (!steps.length) return { ok: false, reason: yes < 150_000 || yes > 850_000 ? "Price too close to 0 or 100 for a perp" : "Spread too wide for a perp" };
+  if (!steps.length) {
+    // The rule that actually blocked it: a rope that passed the spread's minimum distance failed only
+    // on a post near 0 or 100 or on the leverage cap, so the spread is not the reason then.
+    const o = { yesPpm: yes, tol: FIRST_TOLERANCE, spread: m.spreadPpm, crypto: m.crypto };
+    const rules = new Set(([0, 1] as const).flatMap((side) => LEVERAGE_STEPS.map((L) => perpProblemOf(perpRope(side, yes, L), o)?.rule)));
+    const max = maxLeverage(m.crypto);
+    if (rules.has("edge") || rules.has("leverage"))
+      return { ok: false, reason: `Price too close to ${yes >= P / 2 ? "100" : "0"} for a perp: a post must stay 2 points inside 0 and 100, and this market allows at most ${max}×` };
+    return { ok: false, reason: `Spread too wide for a perp: the posts would have to be at least ${(minDistance(m.spreadPpm) / 10_000).toFixed(0)} points from the price` };
+  }
   return { ok: true, maxLeverage: Math.max(...steps.map((s) => s.leverage)) };
+}
+
+
+/**
+ * A player's lives, by one rule for both players: whole stakes in their free balance (money not in a
+ * rope), plus one for the stake in the running rope. Pure (relay/test/perp-math.test.ts).
+ */
+export function livesOf(free: bigint, stake: bigint, ropeRunning: boolean): number {
+  if (stake <= 0n) return 0;
+  return Number(free / stake) + (ropeRunning ? 1 : 0);
 }

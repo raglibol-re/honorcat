@@ -1,5 +1,7 @@
 "use client";
 
+import { formatAmount } from "@/lib/amount";
+
 import { useEffect, useId, useState } from "react";
 import type { Address, Hex } from "viem";
 import { PlayerCat } from "@/components/cat/PlayerCat";
@@ -12,7 +14,7 @@ import { FUR_KEYS, type Fur } from "@/lib/names";
 import { findPlayers, sendUsdc, type Player } from "@/lib/send";
 
 const shortAddr = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
-const usd = (base: bigint) => `$${(Number(base) / 1e6).toFixed(2)}`;
+const usd = (base: bigint) => `${formatAmount((Number(base) / 1e6))}`;
 const furOf = (f: string | null): Fur | undefined => (f && (FUR_KEYS as string[]).includes(f) ? (f as Fur) : undefined);
 
 const field: React.CSSProperties = { fontFamily: F.sans, fontSize: 17, minHeight: 48, padding: "0 12px", border: `1.5px solid ${C.ink}`, background: C.panel, color: C.ink, width: "100%", boxSizing: "border-box" };

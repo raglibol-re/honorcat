@@ -39,6 +39,8 @@ const RULES: [RegExp, string][] = [
 ];
 
 export function plainMessage(raw: string): string {
+  // Already plain (an error passed through here twice): keep it as it is, never wrap it again.
+  if (raw.startsWith("That did not go through: ") || RULES.some(([, text]) => text === raw)) return raw;
   for (const [re, text] of RULES) if (re.test(raw)) return text;
   // Relay texts start with the call that failed ("create failed: …"): keep only the reason.
   const s = raw.split("\n")[0]!.trim().replace(/^(Error: )+/, "").replace(/^\w+ failed: /, "");

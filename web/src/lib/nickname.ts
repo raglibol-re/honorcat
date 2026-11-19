@@ -10,3 +10,15 @@ export function nickname(account: string): string {
   const h = parseInt(account.slice(-6), 16) || 0;
   return NICKNAMES[h % NICKNAMES.length]!;
 }
+
+/**
+ * A name with a short tag from the account ("Velvet·7f3"), so two players with the same name never
+ * look the same. Applied wherever a player is shown; "you" and "open seat" stay as they are.
+ */
+export function tagName(name: string, account: string | null | undefined): string {
+  if (!account || !/^0x[0-9a-fA-F]{40}$/.test(account)) return name;
+  const tag = account.slice(-3).toLowerCase();
+  if (name === "you" || name === "open seat" || name.endsWith(`·${tag}`)) return name;
+  if (name.startsWith("you (") && name.endsWith(")")) return `you (${tagName(name.slice(5, -1), account)})`;
+  return `${name}·${tag}`;
+}

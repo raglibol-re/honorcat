@@ -32,7 +32,7 @@ export function RivalryLine({
       ? intro
         ? `${cap(nameA)} and ${nameB} have not met in a pot yet.`
         : `First meeting of ${nameA} and ${nameB}.`
-      : `${data.played} ${data.played === 1 ? "pot" : "pots"} so far: ${nameA} ahead ${data.aAhead}, ${nameB} ahead ${data.bAhead}${data.even ? `, even ${data.even}` : ""}.`;
+      : `${cap(nameA)} ${data.aAhead}, ${nameB} ${data.bAhead}${data.even ? `, ${data.even} even` : ""} (${data.played} ${data.played === 1 ? "pot" : "pots"}).`;
   return (
     <p style={{ margin: 0, display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap", fontSize: 16 }}>
       <span style={{ fontFamily: F.mono, fontSize: 12, letterSpacing: "0.06em", textTransform: "uppercase", color: C.muted }}>Head to head</span>

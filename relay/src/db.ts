@@ -570,6 +570,11 @@ CREATE TABLE IF NOT EXISTS market_catalog (
   book      JSONB
 );
 CREATE INDEX IF NOT EXISTS market_catalog_cat_idx ON market_catalog (category, close_ms);
+-- Invite codes (refCodes.ts): a short code per account, so invite links carry no address.
+CREATE TABLE IF NOT EXISTS ref_codes (
+  code     TEXT PRIMARY KEY,
+  account  TEXT NOT NULL
+);
 -- Group pots (HonorCatGroups): projection of each group and of each member's standing (groups.ts).
 CREATE TABLE IF NOT EXISTS groups (
   group_id     BIGINT PRIMARY KEY,

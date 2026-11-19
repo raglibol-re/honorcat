@@ -1,5 +1,7 @@
 "use client";
 
+import { formatAmount } from "@/lib/amount";
+
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import {
   Cat,
@@ -52,6 +54,8 @@ export type RopeProps = {
   } | null;
   /** Show only this part of the scale (YES chances 0..1), e.g. a perp's rope with a margin. */
   zoom?: readonly [number, number];
+  /** A closed pot's final state in words ("Settled by Gemini: YES."), shown instead of the live price. */
+  final?: string | null;
 };
 export type PostCat = {
   fur: Fur;
@@ -623,7 +627,7 @@ export function Rope(p: RopeProps) {
   const alt =
     price === null
       ? "Waiting for the price."
-      : `A rope between two posts${p.posts ? ` at ${(lo * 100).toFixed(0)} and ${(hi * 100).toFixed(0)}` : ""} over a scale from 0 to 100 percent chance${p.sides ? ` that ${p.sides.yes}` : ""}. The cat stands at ${(price * 100).toFixed(1)} percent. ${p.names.yes}${p.sides ? ` (${p.sides.yes})` : ""}: $${yes!.toFixed(2)}. ${p.names.no}${p.sides ? ` (${p.sides.no})` : ""}: $${no!.toFixed(2)}.`;
+      : `A rope between two posts${p.posts ? ` at ${(lo * 100).toFixed(0)} and ${(hi * 100).toFixed(0)}` : ""} over a scale from 0 to 100 percent chance${p.sides ? ` that ${p.sides.yes}` : ""}. The cat stands at ${(price * 100).toFixed(1)} percent. ${p.names.yes}${p.sides ? ` (${p.sides.yes})` : ""}: ${formatAmount(yes!)}. ${p.names.no}${p.sides ? ` (${p.sides.no})` : ""}: ${formatAmount(no!)}.`;
 
   return (
     <figure
@@ -905,9 +909,11 @@ export function Rope(p: RopeProps) {
             ? ` (started at ${fmt(p.startedAt)})`
             : ""}
           .{" "}
-          {price === null
-            ? "Reading the price."
-            : `The cat stands at ${(price * 100).toFixed(1)}% chance, averaged over 30 seconds.`}
+          {p.final
+            ? p.final
+            : price === null
+              ? "Reading the price."
+              : `The cat stands at ${(price * 100).toFixed(1)}% chance, averaged over 30 seconds.`}
         </span>
         <span>Data provided by Gemini.</span>
       </figcaption>

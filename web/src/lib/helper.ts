@@ -1,3 +1,4 @@
+import { formatAmount } from "./amount";
 /**
  * The helper cat's words (docs/grokcat-spec.md, role 2 "options in words"). Pure: our code supplies
  * every number, already formatted; the sentences only place them. Nothing here recommends a side or
@@ -84,16 +85,16 @@ export function readWish(text: string, own: number, pot: number): Wish {
     const keep = /half/.test(t) ? 50 : num(/(\d+(?:\.\d+)?)\s*%/);
     if (keep) {
       const p = clamp(own * 100 * (keep / 100));
-      return { kind: "net", percent: p, why: `A net at ${p}%: if your side falls to it, you leave with about $${((p / 100) * pot).toFixed(2)}, ${keep}% of today's $${share.toFixed(2)}.` };
+      return { kind: "net", percent: p, why: `A net at ${p}%: if your side falls to it, you leave with about ${formatAmount(((p / 100) * pot))}, ${keep}% of today's ${formatAmount(share)}.` };
     }
   }
   // "take my share off at $8.50", "cash out at 8 dollars"
   const dollars = num(/\$\s*(\d+(?:\.\d+)?)/) ?? num(/(\d+(?:\.\d+)?)\s*(?:dollars|usd|usdc)\b/);
   if (dollars !== null) {
     const p = Math.round((dollars / pot) * 100);
-    if (p <= own * 100) return { kind: "none", why: `Your share is about $${share.toFixed(2)} already; a bowl must sit above today's ${Math.round(own * 100)}%.` };
-    if (p >= 100) return { kind: "none", why: `The whole pot is $${pot.toFixed(2)}, so a share of $${dollars.toFixed(2)} cannot be reached before the result.` };
-    return { kind: "bowl", percent: p, why: `A bowl at ${p}%: when your side reaches it, your share of about $${dollars.toFixed(2)} comes off the rope.` };
+    if (p <= own * 100) return { kind: "none", why: `Your share is about ${formatAmount(share)} already; a bowl must sit above today's ${Math.round(own * 100)}%.` };
+    if (p >= 100) return { kind: "none", why: `The whole pot is ${formatAmount(pot)}, so a share of ${formatAmount(dollars)} cannot be reached before the result.` };
+    return { kind: "bowl", percent: p, why: `A bowl at ${p}%: when your side reaches it, your share of about ${formatAmount(dollars)} comes off the rope.` };
   }
   // "if it drops below 40%", "floor at 40"
   const below = num(/(?:below|under|drops? to|falls? to|floor at|net at)\D*(\d+(?:\.\d+)?)/);

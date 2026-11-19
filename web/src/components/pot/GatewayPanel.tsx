@@ -1,5 +1,7 @@
 "use client";
 
+import { formatAmount } from "@/lib/amount";
+
 import { plainError } from "@/lib/messages";
 import { useCallback, useEffect, useState } from "react";
 import type { Address } from "viem";
@@ -12,7 +14,7 @@ import { type ActorState } from "./Who";
 
 import { Button } from "@/components/ui/Button";
 const input: React.CSSProperties = { minHeight: 44, padding: "0 10px", border: `1.5px solid ${C.ink}`, background: C.page, fontFamily: F.sans, fontSize: 17, color: C.ink, boxSizing: "border-box" };
-const usd = (v: number) => `$${v.toFixed(2)}`;
+const usd = (v: number) => `${formatAmount(v)}`;
 
 /**
  * Money from anywhere: Circle's unified balance (Circle Gateway, the flow of the "Arc multichain
@@ -122,7 +124,7 @@ export function GatewayPanel({ who, bare = false }: { who: ActorState; bare?: bo
                         const v = BigInt(Math.floor(Number(b.balance) * 1e6)) - 50_000n;
                         if (v <= 0n) throw new Error("Too little to move after Circle's fee.");
                         const r = await gatewayMove(wallet.adapter, { sourceDomain: b.domain, depositor, recipient, value: v }, setStep);
-                        setNote(`Moved $${(Number(r.value) / 1e6).toFixed(2)} into your account. Transaction: ${txUrl(r.tx)}`);
+                        setNote(`Moved ${formatAmount((Number(r.value) / 1e6))} into your account. Transaction: ${txUrl(r.tx)}`);
                         await load();
                         await who.refresh();
                       })

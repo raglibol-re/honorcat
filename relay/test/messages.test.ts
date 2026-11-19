@@ -25,3 +25,14 @@ describe("plain messages", () => {
     expect(plainMessage("WrongPhase()")).toMatch(/moved on/);
   });
 });
+
+describe("an error message never repeats itself", () => {
+  it("passing a message through twice gives the same text", async () => {
+    const { plainMessage } = await import("../../web/src/lib/messages");
+    for (const raw of ["Bad id", "create failed: BadParams()", "Failed to fetch", "the samplers are busy"]) {
+      const once = plainMessage(raw);
+      expect(plainMessage(once)).toBe(once);
+      expect(once.split("If no transaction is shown").length).toBeLessThanOrEqual(2);
+    }
+  });
+});

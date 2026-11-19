@@ -44,7 +44,14 @@ export function TreatsPanel({ account, mine }: { account: string; mine: boolean 
       alive = false;
     };
   }, [account]);
-  const link = typeof window === "undefined" ? "" : `${window.location.origin}/?ref=${account}`;
+  // The invite link carries a short code, never the address.
+  const [code, setCode] = useState<string | null>(null);
+  useEffect(() => {
+    getJson<{ code: string }>(`/api/hc/ref?account=${account}`)
+      .then((r) => setCode(r.code))
+      .catch(() => {});
+  }, [account]);
+  const link = typeof window === "undefined" || !code ? "" : `${window.location.origin}/?ref=${code}`;
   const h2 = { margin: 0, fontFamily: F.cond, fontSize: 32, fontWeight: 600 } as const;
   const fur = FURS[furOf(account)];
   return (

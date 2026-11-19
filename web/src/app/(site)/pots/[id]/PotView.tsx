@@ -1277,8 +1277,10 @@ export function PotView({ id }: { id: string }) {
   useHome();
   const { data: pot, error } = usePolling<HcPot>(`/api/hc/pots/${id}`, 3000);
   const who = useActor();
+  // A closed pot shows its final state: no live price is read for it.
+  const closed = pot ? pot.state === "Divided" || pot.state === "Settled" || pot.state === "Expired" : false;
   const live = useLivePrice(
-    pot?.market?.instrument ?? null,
+    closed ? null : (pot?.market?.instrument ?? null),
     Number(pot?.data.window ?? 30),
   );
   const nowS = Math.floor(useNow() / 1000);

@@ -1,5 +1,7 @@
 "use client";
 
+import { tagName } from "@/lib/nickname";
+
 import { money } from "@/lib/currency";
 
 import { CatState } from "@/components/cat/CatState";
@@ -68,7 +70,7 @@ export function Record({ account }: { account: string }) {
   const streak = usePolling<{ current: number; best: number }>(`/api/hc/streaks?account=${account}`, 120_000);
   const names = useNames([account]);
   const { tech } = useTechMode();
-  const name = names[account.toLowerCase()] ?? nickname(account.toLowerCase());
+  const name = tagName(names[account.toLowerCase()] ?? nickname(account.toLowerCase()), account);
   if (!r) return error ? <CatState kind="error" text={error} /> : <CatState kind="loading" />;
   const facts: [string, number | string][] = [
     ["Pots played", r.pots],

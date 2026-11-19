@@ -55,17 +55,22 @@ function marksOf(pot: HcPot): Mark[] {
  * time and the chance; a table view lists the marks for screen readers and print.
  */
 export function PriceChart({ pot }: { pot: HcPot }) {
-  const { data } = usePolling<{ points: Point[] }>(`/api/hc/pots/${pot.potId}/history`, 60_000);
+  const { data } = usePolling<{ points: Point[]; measured?: Point[] }>(`/api/hc/pots/${pot.potId}/history`, 60_000);
   const [hover, setHover] = useState<Point | null>(null);
+  // Gemini's last trades are drawn only when asked for: on a quiet market they lag the book.
+  const [trades, setTrades] = useState(false);
   const marks = useMemo(() => marksOf(pot), [pot]);
   // The line starts at the entry: candles before it are not this pot's history.
   const entryT = marks.find((m) => m.kind === "entry")?.t ?? null;
-  const points = (data?.points ?? []).filter((q) => entryT === null || q.t >= entryT - 60_000);
+  const tradePts = trades ? (data?.points ?? []).filter((q) => entryT === null || q.t >= entryT - 60_000) : [];
+  // The main line: the 30-second prices the samplers measured for this pot (entry, exits, checks).
+  const measured = (data?.measured ?? []).filter((q) => entryT === null || q.t >= entryT - 60_000);
+  const points = [...measured, ...tradePts].sort((a, b) => a.t - b.t);
   if (!data) return null;
-  if (points.length < 2 && !marks.length) return null;
+  if (measured.length < 2 && !marks.length && !tradePts.length) return null;
   // Where Gemini's candles do not reach back to the entry, say so instead of drawing a guess.
-  const gapFrom = entryT !== null && (points.length === 0 || points[0]!.t - entryT > 10 * 60_000) ? entryT : null;
-  const gapTo = gapFrom !== null ? (points[0]?.t ?? null) : null;
+  const gapFrom = trades && entryT !== null && (tradePts.length === 0 || tradePts[0]!.t - entryT > 10 * 60_000) ? entryT : null;
+  const gapTo = gapFrom !== null ? (tradePts[0]?.t ?? null) : null;
 
   const ts = [...points.map((x) => x.t), ...marks.map((m) => m.t)];
   const ps = [...points.map((x) => x.p), ...marks.map((m) => m.p)];
@@ -75,7 +80,8 @@ export function PriceChart({ pot }: { pot: HcPot }) {
   const hi = Math.min(1, Math.ceil((Math.max(...ps) + 0.05) * 20) / 20);
   const x = (t: number) => PAD.l + ((t - t0) / (t1 - t0)) * (W - PAD.l - PAD.r);
   const y = (p: number) => PAD.t + (1 - (p - lo) / Math.max(0.01, hi - lo)) * (H - PAD.t - PAD.b);
-  const path = points.map((q, i) => `${i ? "L" : "M"}${x(q.t).toFixed(1)},${y(q.p).toFixed(1)}`).join(" ");
+  const path = measured.map((q, i) => `${i ? "L" : "M"}${x(q.t).toFixed(1)},${y(q.p).toFixed(1)}`).join(" ");
+  const tradePath = tradePts.map((q, i) => `${i ? "L" : "M"}${x(q.t).toFixed(1)},${y(q.p).toFixed(1)}`).join(" ");
   const grid = Array.from({ length: Math.round((hi - lo) / 0.05) + 1 }, (_, i) => lo + i * 0.05).filter((v, i, a) => a.length <= 6 || i % 2 === 0);
   const pct = (p: number) => `${(p * 100).toFixed(1)}%`;
   const color = (k: Mark["kind"]) => (k === "exit" || k === "handshake" ? C.signal : C.ink);
@@ -118,10 +124,14 @@ export function PriceChart({ pot }: { pot: HcPot }) {
           </text>
           {gapFrom !== null && (
             <g>
-              <line x1={x(gapFrom)} x2={gapTo !== null ? x(gapTo) : W - PAD.r} y1={y(marks[0]!.p)} y2={gapTo !== null ? y(points[0]!.p) : y(marks[0]!.p)} stroke={C.dash} strokeWidth="1.5" strokeDasharray="4 5" />
+              <line x1={x(gapFrom)} x2={gapTo !== null ? x(gapTo) : W - PAD.r} y1={y(marks[0]!.p)} y2={gapTo !== null ? y(tradePts[0]!.p) : y(marks[0]!.p)} stroke={C.dash} strokeWidth="1.5" strokeDasharray="4 5" />
             </g>
           )}
-          <path d={path} fill="none" stroke={C.ink} strokeWidth="2" strokeLinejoin="round" />
+          {tradePath && <path d={tradePath} fill="none" stroke={C.dash} strokeWidth="1.5" strokeDasharray="2 3" strokeLinejoin="round" />}
+          {path && <path d={path} fill="none" stroke={C.ink} strokeWidth="2" strokeLinejoin="round" />}
+          {measured.map((q, i) => (
+            <rect key={i} x={x(q.t) - 2.5} y={y(q.p) - 2.5} width={5} height={5} fill={C.ink} />
+          ))}
           {labelRows(marks.map((m) => x(m.t))).map((row, i) => {
             const m = marks[i]!;
             // Labels are placed in rows above and below the line so two never overlap.
@@ -178,7 +188,13 @@ export function PriceChart({ pot }: { pot: HcPot }) {
         </p>
       )}
       <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, fontSize: 13, color: C.muted }}>
-        <span>Gemini&apos;s last traded price per {points.length > 1 && points[1]!.t - points[0]!.t >= 3_600_000 ? "hour" : "few minutes"}; the pot itself uses 30-second averages.</span>
+        <span>
+          Black: the 30-second prices the samplers measured for this pot (the middle of the order book).{" "}
+          <label style={{ display: "inline-flex", gap: 6, alignItems: "center", cursor: "pointer" }}>
+            <input type="checkbox" checked={trades} onChange={(e) => setTrades(e.target.checked)} />
+            Also show Gemini&apos;s last trades (dotted grey; they can lag the book)
+          </label>
+        </span>
         <span>Data provided by Gemini.</span>
       </div>
       <details>

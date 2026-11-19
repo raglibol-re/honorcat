@@ -107,6 +107,8 @@ export function NewPerp({ perps }: { perps: Address }) {
     : { size: 0n, stake: 0n };
   const n = Math.max(0, Math.floor(Number(lives) || 0));
   const budget = stake * BigInt(n);
+  // What the account can pay for: whole lives in its balance (null while the balance is unknown).
+  const affordable = who.balance !== null && stake > 0n ? Number(who.balance / stake) : null;
   const lifeOk = market
     ? ROPE_LIVES.filter((x) => lifeFits(x.s, market.closeMs))
     : [];
@@ -122,6 +124,10 @@ export function NewPerp({ perps }: { perps: Address }) {
           ? "Put in a little more per life."
           : n < 1
             ? "At least one life."
+            : affordable !== null && n > affordable && !practice
+              ? affordable === 0
+                ? `Your account holds ${$(who.balance ?? 0n)}, less than one life (${$(stake)}). Add money on your account page first.`
+                : `Your account holds ${$(who.balance ?? 0n)}: enough for ${affordable} ${affordable === 1 ? "life" : "lives"}. Choose ${affordable} or fewer, or add money on your account page.`
             : budget > MAX_BUDGET
               ? `On the test version a perp's budget is at most ${$(MAX_BUDGET)}: fewer lives or a smaller stake.`
               : practice && stake > 1_000_000n
@@ -298,7 +304,7 @@ export function NewPerp({ perps }: { perps: Address }) {
                         fontWeight: 500,
                       }}
                     >
-                      {times(r.levTheirs)} for them · rope {points(r.d)} points
+                      {times(r.levTheirs)} for them · posts {points(r.d)} points either side
                     </span>
                   </button>
                 ))}
@@ -310,8 +316,10 @@ export function NewPerp({ perps }: { perps: Address }) {
             )}
             <span style={{ fontSize: 14, color: C.muted }}>
               Higher leverage means shorter ropes: the posts are closer to the
-              price, so a rope ends sooner. At most {crypto ? 10 : 5}× on this
-              market.
+              price, so a rope ends sooner.{" "}
+              {steps.length
+                ? `At most ${Math.max(...steps.map((r) => r.leverage))}× on this market at this price${Math.max(...steps.map((r) => r.leverage)) < (crypto ? 10 : 5) ? ` (the rule allows up to ${crypto ? 10 : 5}×, but the posts must stay inside 2 and 98)` : ""}.`
+                : ""}
             </span>
           </div>
 
@@ -351,6 +359,18 @@ export function NewPerp({ perps }: { perps: Address }) {
                   setLives(e.target.value.replace(/[^0-9]/g, "").slice(0, 2))
                 }
               />
+              {who.balance !== null && stake > 0n && !practice && (
+                <span style={{ fontSize: 14, color: C.muted }}>
+                  Your balance {$(who.balance)}: up to {affordable ?? 0}{" "}
+                  {affordable === 1 ? "life" : "lives"}.{" "}
+                  {affordable !== null && affordable < n ? (
+                    <button type="button" onClick={() => setLives(String(Math.max(1, affordable)))} style={{ background: "none", border: 0, padding: 0, textDecoration: "underline", cursor: "pointer", fontSize: 14 }}>
+                      Use {Math.max(1, affordable)}
+                    </button>
+                  ) : null}{" "}
+                  <a href="/account">Add money</a>
+                </span>
+              )}
             </label>
             <label
               style={{
@@ -409,12 +429,15 @@ export function NewPerp({ perps }: { perps: Address }) {
                   flexWrap: "wrap",
                 }}
               >
-                <Lives left={n} size={20} /> {n} {n === 1 ? "life" : "lives"}:{" "}
-                {$(budget)} in all. Spare money stays yours: take it out
-                whenever no rope needs it.
+                <Lives left={n} size={20} /> {n} {n === 1 ? "life" : "lives"} ×{" "}
+                ${(Number(stake) / 1e6).toFixed(4)} = {$(budget)} in all. Spare
+                money stays yours: take it out whenever no rope needs it.
               </p>
               <p style={{ margin: 0, fontSize: 15, color: C.muted }}>
-                {perpLabel(rope.d, rope.levMine, rope.levTheirs)} (you first).
+                A life is {(Number(size) / 100).toFixed(2)} contracts at{" "}
+                {(rope.d / 10_000).toFixed(1)}¢ each (the rope&apos;s length in points),
+                so it comes to ${(Number(stake) / 1e6).toFixed(4)}, at most what
+                you asked per life. {perpLabel(rope.d, rope.levMine, rope.levTheirs)} (you first).
                 The other side pays you a {$(treatOf(stake))} maker treat on the
                 first rope. Nothing goes to HonorCat.
               </p>

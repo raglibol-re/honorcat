@@ -1,3 +1,4 @@
+import { relaySender } from "./chain";
 import { getConfig } from "./config";
 /**
  * Treats and the leaderboard (HonorCat v2, spec sections 7, 10 and 11), read from the contract's own
@@ -65,6 +66,21 @@ export const LEADERBOARD_MIN_POTS = 3;
  * are left out. `friendsOf`: that player and the players they met; `following`: that player and
  * the players they follow.
  */
+/**
+ * Accounts that are not players: the perps contract (it holds both sides of every perp rope) and
+ * HonorCat's practice cat (the relay wallet), whose pots never count, even where a practice pot's
+ * record was lost.
+ */
+export function notPlayerSet() {
+  let practice: string | null = null;
+  try {
+    practice = relaySender().toLowerCase();
+  } catch {
+    /* no relay wallet configured (tests) */
+  }
+  return new Set([getConfig().ropes?.perps, practice].filter(Boolean).map((x) => String(x).toLowerCase()));
+}
+
 export async function leaderboard(db: Db, opts: { days?: number; friendsOf?: string | null; following?: string | null; limit?: number } = {}) {
   const since = opts.days && opts.days > 0 ? Math.floor(Date.now() / 1000) - opts.days * 86_400 : 0;
   let only = opts.friendsOf ? await friendsOf(db, opts.friendsOf) : null;
@@ -98,8 +114,7 @@ export async function leaderboard(db: Db, opts: { days?: number; friendsOf?: str
       ORDER BY p.n DESC LIMIT 500`,
     [since, only],
   );
-  // The perps contract holds both sides of every perp rope: it is not a player.
-  const notPlayers = new Set([getConfig().ropes?.perps].filter(Boolean).map((x) => String(x).toLowerCase()));
+  const notPlayers = notPlayerSet();
   const list = rows.filter((r) => !notPlayers.has(r.account)).map((r) => {
     const staked = Number(r.staked);
     const finished = Number(r.finished);
@@ -152,7 +167,8 @@ export async function perpLeaderboard(db: Db, opts: { days?: number; friendsOf?:
     `WITH opened AS (SELECT args->>'perpId' AS perp_id, min(coalesce(block_time, 0)) AS at FROM pot_events WHERE event_name = 'Perp:PerpOpened' GROUP BY 1),
      p AS (SELECT q.perp_id, q.a, q.b, q.data FROM perps q JOIN opened o ON o.perp_id = q.perp_id::text
             WHERE q.b IS NOT NULL AND o.at >= $1
-              AND NOT EXISTS (SELECT 1 FROM practice_pots pp WHERE pp.pot_id = -q.perp_id)),
+              AND NOT EXISTS (SELECT 1 FROM practice_pots pp WHERE pp.pot_id = -q.perp_id)
+              AND NOT (lower(q.a) = ANY($4::text[]) OR lower(q.b) = ANY($4::text[]))),
      lost AS (SELECT args->>'perpId' AS perp_id,
                      count(*) FILTER (WHERE args->>'paidA' = '0') AS la, count(*) FILTER (WHERE args->>'paidB' = '0') AS lb
                 FROM pot_events WHERE event_name = 'Perp:RopeCredited' GROUP BY 1),
@@ -165,7 +181,7 @@ export async function perpLeaderboard(db: Db, opts: { days?: number; friendsOf?:
             sum(lost)::text AS lost, sum(r)::text AS result
        FROM sides WHERE ($2::text[] IS NULL OR account = ANY($2::text[]))
       GROUP BY account ORDER BY sum(r) DESC, count(*) DESC LIMIT $3`,
-    [since, only, opts.limit ?? 50],
+    [since, only, opts.limit ?? 50, [...notPlayerSet()]],
   );
   return {
     since: since || null,
@@ -182,7 +198,8 @@ export async function perpLeaderboard(db: Db, opts: { days?: number; friendsOf?:
 export async function rivalry(db: Db, a: string, b: string) {
   const x = a.toLowerCase();
   const y = b.toLowerCase();
-  if (x === y) return { a: x, b: y, played: 0, aAhead: 0, bAhead: 0, even: 0, pots: [] as { potId: string; aNet: string; bNet: string }[] };
+  const np = notPlayerSet();
+  if (x === y || np.has(x) || np.has(y)) return { a: x, b: y, played: 0, aAhead: 0, bAhead: 0, even: 0, pots: [] as { potId: string; aNet: string; bNet: string }[] };
   const rows = await db.query<{ pot_id: string; yes: string; no: string; yes_net: string; no_net: string }>(
     `WITH p AS (SELECT pot_id, lower(yes_owner) AS yes, lower(no_owner) AS no FROM pots
                  WHERE state IN (5, 6, 7) AND ((lower(yes_owner) = $1 AND lower(no_owner) = $2) OR (lower(yes_owner) = $2 AND lower(no_owner) = $1))
