@@ -416,7 +416,7 @@ export function Home({ data }: { data: HomeData }) {
                 }}
               >
                 <Cat
-                  fur={{ hex: "#9A6A35", label: "Brown tabby", light: false, pattern: "tabby" }}
+                  fur={{ hex: "#A8692E", label: "Brown tabby", light: false, pattern: "tabby" }}
                   pose="sit"
                   size={58}
                   mood="up"
@@ -434,7 +434,7 @@ export function Home({ data }: { data: HomeData }) {
                 }}
               >
                 <Cat
-                  fur={{ hex: "#111111", label: "Black and white", light: false, pattern: "tuxedo" }}
+                  fur={{ hex: "#1A1A1A", label: "Black and white", light: false, pattern: "tuxedo" }}
                   pose="sit"
                   size={58}
                   mood="down"

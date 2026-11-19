@@ -132,8 +132,9 @@ async function main() {
   log(`group ${id} open (tx ${r.transactionHash}); page: /groups/${id}`);
 
   const t0 = Date.now();
-  await send(A, "join", [id, 0, amount, true]);
-  await send(B, "join", [id, 1, amount, true]);
+  // The unmatched rest comes back after the first clearing (a rest that waits may wait 20 batches).
+  await send(A, "join", [id, 0, amount, false]);
+  await send(B, "join", [id, 1, amount, false]);
   log(`A joined Micky's team and B Morty's team with ${usd(amount)} each`);
   const ok = await waitCleared(id, Number(values.minutes));
   log(ok ? `cleared ${Math.round((Date.now() - t0) / 1000)} s after the joins` : "NOT cleared in time");

@@ -59,7 +59,11 @@ export type Mood = "up" | "even" | "down";
 const MOOD_TEXT: Record<Mood, string> = { up: "tail high: its side is up since the start", even: "calm: its side is about even", down: "ears low: its side is down since the start" };
 
 /** The cat's fur (body colour) and, for light furs, an ink outline. Lines and the eyes stay as they are. */
-const FurCtx = createContext<{ body: string; line: string; w: number; collar?: boolean; wear?: Cosmetic | null }>({ body: C.ink, line: "none", w: 0 });
+const FurCtx = createContext<{ body: string; line: string; w: number; collar?: boolean; wear?: Cosmetic | null; marks?: "tabby" | "tuxedo" | null }>({ body: C.ink, line: "none", w: 0 });
+/** Coat markings drawn on top of the fur colour (the start page's example cats). */
+const TABBY_STRIPE = "#4A2A12";
+const TABBY_LIGHT = "#E8C9A0";
+const TUX_WHITE = "#FAF8F3";
 
 /** Cat cosmetics, unlocked by honor record milestones (relay/src/cosmetics.ts). Never the helper cat's signal collar. */
 export type Cosmetic = "bell" | "scarf" | "bow" | "hat" | "crown";
@@ -183,6 +187,23 @@ function Head({ cx, cy, r = 20, eyesOpen = true, look = 0, earsLow = false }: { 
         strokeLinejoin="round"
       />
       <circle cx={cx} cy={cy} r={r} fill={k.body} stroke={k.line} strokeWidth={k.w} />
+      {k.marks === "tabby" && (
+        <g fill="none" stroke={TABBY_STRIPE} strokeWidth={r * 0.13} strokeLinecap="round">
+          {/* the "M" on the forehead and a stripe on each cheek */}
+          <path d={`M${cx - r * 0.38} ${cy - r * 0.86} L${cx - r * 0.3} ${cy - r * 0.5}`} />
+          <path d={`M${cx} ${cy - r * 0.97} L${cx} ${cy - r * 0.55}`} />
+          <path d={`M${cx + r * 0.38} ${cy - r * 0.86} L${cx + r * 0.3} ${cy - r * 0.5}`} />
+          <path d={`M${cx - r * 0.98} ${cy + r * 0.12} L${cx - r * 0.62} ${cy + r * 0.2}`} />
+          <path d={`M${cx + r * 0.98} ${cy + r * 0.12} L${cx + r * 0.62} ${cy + r * 0.2}`} />
+        </g>
+      )}
+      {k.marks === "tuxedo" && (
+        <>
+          {/* a white muzzle and a white blaze up the nose */}
+          <path d={`M${cx - r * 0.12} ${cy - r * 0.35} L${cx + r * 0.12} ${cy - r * 0.35} L${cx + r * 0.3} ${cy + r * 0.2} L${cx - r * 0.3} ${cy + r * 0.2} Z`} fill={TUX_WHITE} />
+          <ellipse cx={cx} cy={cy + r * 0.48} rx={r * 0.52} ry={r * 0.36} fill={TUX_WHITE} />
+        </>
+      )}
       <Eyes cx={cx} cy={cy + 1} open={eyesOpen} look={look} />
       <path d={`M${cx - 2} ${cy + 9} h4 l-2 2.4 z`} fill={C.signal} />
       {k.wear && <Wear cx={cx} cy={cy} r={r} wear={k.wear} />}
@@ -205,12 +226,29 @@ function Sitting({ x, base, tail = "up", eyesOpen = true, look = 0, feet = true,
       <g className="hc-cat-tail" style={origin(x + 18, ty)}>
         {k.w > 0 && <path d={tailD} fill="none" stroke={k.line} strokeWidth={7 + 2 * k.w} strokeLinecap="round" />}
         <path d={tailD} fill="none" stroke={k.body} strokeWidth="7" strokeLinecap="round" />
+        {k.marks === "tabby" && <path d={tailD} fill="none" stroke={TABBY_STRIPE} strokeWidth="7" strokeDasharray="3.5 5.5" />}
+        {k.marks === "tuxedo" && <path d={tailD} fill="none" stroke={TUX_WHITE} strokeWidth="7" strokeLinecap="round" strokeDasharray="0 40 6 100" />}
       </g>
       <ellipse cx={x} cy={base - 20} rx="23" ry="21" fill={k.body} stroke={k.line} strokeWidth={k.w} />
+      {k.marks === "tabby" && (
+        <>
+          {/* a light chest and three stripes down each flank */}
+          <ellipse cx={x} cy={base - 22} rx="9" ry="13" fill={TABBY_LIGHT} />
+          <g fill="none" stroke={TABBY_STRIPE} strokeWidth="3" strokeLinecap="round">
+            <path d={`M${x - 22} ${base - 28} q7 1 9 6`} />
+            <path d={`M${x - 23} ${base - 19} q7 0 9 5`} />
+            <path d={`M${x - 20} ${base - 10} q6 0 7 4`} />
+            <path d={`M${x + 22} ${base - 28} q-7 1 -9 6`} />
+            <path d={`M${x + 23} ${base - 19} q-7 0 -9 5`} />
+            <path d={`M${x + 20} ${base - 10} q-6 0 -7 4`} />
+          </g>
+        </>
+      )}
+      {k.marks === "tuxedo" && <path d={`M${x - 10} ${base - 37} Q${x} ${base - 30} ${x + 10} ${base - 37} Q${x + 13} ${base - 14} ${x} ${base - 6} Q${x - 13} ${base - 14} ${x - 10} ${base - 37} Z`} fill={TUX_WHITE} />}
       {feet && (
         <>
-          <ellipse cx={x - 10} cy={base - 2} rx="8.5" ry="4.5" fill={k.body} stroke={k.line} strokeWidth={k.w} />
-          <ellipse cx={x + 10} cy={base - 2} rx="8.5" ry="4.5" fill={k.body} stroke={k.line} strokeWidth={k.w} />
+          <ellipse cx={x - 10} cy={base - 2} rx="8.5" ry="4.5" fill={k.marks === "tuxedo" ? TUX_WHITE : k.body} stroke={k.marks === "tuxedo" ? C.ink : k.line} strokeWidth={k.marks === "tuxedo" ? 1 : k.w} />
+          <ellipse cx={x + 10} cy={base - 2} rx="8.5" ry="4.5" fill={k.marks === "tuxedo" ? TUX_WHITE : k.body} stroke={k.marks === "tuxedo" ? C.ink : k.line} strokeWidth={k.marks === "tuxedo" ? 1 : k.w} />
         </>
       )}
       <Head cx={x} cy={base - 48} eyesOpen={eyesOpen} look={look} earsLow={earsLow} />
@@ -550,9 +588,9 @@ export function Cat({
   const furWord = fur ? fur.label.toLowerCase() : "black";
   const base = POSE_TEXT[pose].replace("A black cat", `A ${furWord} cat`).replace("Two black cats", `Two ${furWord} cats`);
   const text = label ?? (pose === "lives" ? `${n} of 9 lives left.` : pose === "sit" ? `${base.replace(/\.$/, "")}, ${MOOD_TEXT[mood]}.` : base);
-  // A coat pattern (tiger stripes, black-and-white patches) paints the body with an SVG pattern.
-  const body = fur?.pattern ? `url(#${uid}-coat)` : fur ? fur.hex : C.ink;
-  const k = { ...(fur ? { body, line: fur.light ? C.ink : "none", w: fur.light ? 1.6 : 0 } : { body, line: "none", w: 0 }), collar, wear: collar ? null : wear };
+  // Coat markings (tiger stripes, a tuxedo's white bib) are drawn on top of the fur colour.
+  const body = fur ? fur.hex : C.ink;
+  const k = { ...(fur ? { body, line: fur.light ? C.ink : "none", w: fur.light ? 1.6 : 0 } : { body, line: "none", w: 0 }), collar, wear: collar ? null : wear, marks: fur?.pattern ?? null };
   return (
     <svg
       viewBox={`0 0 ${w} ${h}`}
@@ -563,23 +601,6 @@ export function Cat({
       style={{ display: "block", overflow: "visible" }}
     >
       <title>{text}</title>
-      {fur?.pattern === "tabby" && (
-        <defs>
-          <pattern id={`${uid}-coat`} patternUnits="userSpaceOnUse" width="11" height="11" patternTransform="rotate(18)">
-            <rect width="11" height="11" fill={fur.hex} />
-            <rect width="4" height="11" fill="#2E1D10" />
-          </pattern>
-        </defs>
-      )}
-      {fur?.pattern === "tuxedo" && (
-        <defs>
-          <pattern id={`${uid}-coat`} patternUnits="userSpaceOnUse" width="34" height="30">
-            <rect width="34" height="30" fill={fur.hex} />
-            <ellipse cx="9" cy="8" rx="9" ry="6.5" fill="#FAF8F3" />
-            <ellipse cx="26" cy="23" rx="8" ry="6" fill="#FAF8F3" />
-          </pattern>
-        </defs>
-      )}
       <FurCtx.Provider value={k}>
         <Scene pose={pose} lives={n} uid={uid} mood={mood} />
       </FurCtx.Provider>
