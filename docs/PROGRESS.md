@@ -82,8 +82,15 @@
   tree kept for proofs (relay/src/honor/roots.ts, tests that the TypeScript leaf and pairing match
   the contract), proof and root endpoints, /honor/verify (leaf and root computed in the browser, root
   read from Arc, the contract asked), the root on /how-it-is-built, README section.
-- **Blocks current milestone:** owner's go to deploy HonorRoots (script/DeployHonorRoots.s.sol,
-  HONOR_RELAY = the relay's sending address) and to switch `HONOR=on` in production.
+- (done, owner's go) HonorRoots deployed at 0xd8A60838eD1AA25285a86bE7DDf589676c189c5C (relay
+  0xF1EB…F569 only); `HONOR=on` in production.
+- **Hosting (2026-11-19 12:00 UTC):** Vercel paused the project when its spend budget was reached
+  (background calls, now fixed). Owner raised the budget; the website stays on Vercel and only
+  serves visitors (`RELAY_WORKER=on`). All background work runs on a free Render web service,
+  `honorcat-worker` (relay/scripts/worker.ts: relay loop every 5 s, the app's sampler, the second
+  sampler key, the samplers' API, /health). The laptop runs only the LOCAL sampler, pointed at the
+  worker. Render services `honorcat` (full site, out of memory on 512 MB) and `honorcat-sampler` are
+  no longer needed: the owner deletes them (the tools cannot).
 
 ## Review and fixes (2026-11-19, 03:00-04:30 UTC)
 
