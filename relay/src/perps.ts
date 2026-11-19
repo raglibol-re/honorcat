@@ -128,6 +128,29 @@ export async function perpsHousekeeping(db: Db, own: LocalAccount | null) {
   const rows = await db.query<PerpRow>("SELECT perp_id::text AS perp_id, phase, pot_id, data FROM perps WHERE phase BETWEEN 2 AND 4");
   let calls = 0;
   for (const row of rows) {
+    // One perp's trouble (a closed market, an unreadable book) must not stop the others.
+    try {
+      calls += await advanceOne(db, address, row, own);
+    } catch (e) {
+      console.error("[perps] housekeeping", row.perp_id, (e as Error).message.slice(0, 200));
+    }
+  }
+  return { checked: rows.length, calls };
+}
+
+/**
+ * Whether the chain will roll on to a new rope when this ended rope is credited (the contract's own
+ * test): only after a knock-out or an expiry, nobody leaving, both renewing, both with a stake left.
+ * A rope that settled or was given back never rolls, so it needs no depth attestation.
+ */
+export function perpWillRoll(potState: string, q: Record<string, unknown>) {
+  if (potState !== "Divided") return false;
+  return !q.leaving && q.renewA !== false && q.renewB !== false;
+}
+
+async function advanceOne(db: Db, address: Address, row: PerpRow, own: LocalAccount | null): Promise<number> {
+  let calls = 0;
+  {
     const q = dataOf(row);
     const id = BigInt(row.perp_id);
     let data: Hex | null = null;
@@ -137,17 +160,17 @@ export async function perpsHousekeeping(db: Db, own: LocalAccount | null) {
       const m = await marketOf(db, String(q.t.conditionId));
       const raw = m ? await readBook(m.instrument) : null;
       const st = raw ? bookStats(raw, Date.now()) : null;
-      if (!st || st.bid === null || st.ask === null) continue;
+      if (!st || st.bid === null || st.ask === null) return 0;
       const center = Math.round(((st.bid + st.ask) / 2) * 10_000) * 100;
       const dep = await perpDepth(db, row.perp_id, q.t, own);
-      if (!dep) continue;
+      if (!dep) return 0;
       data = encodeFunctionData({ abi: perpsAbi, functionName: "startFirstRope", args: [id, center, depthArg(dep.depth), dep.sigs] });
       why = `first rope around ${(center / 10_000).toFixed(2)}%`;
     } else if (row.pot_id) {
       const pot = (await db.query<{ state: number; expiry: string | null }>("SELECT state, data->>'expiry' AS expiry FROM pots WHERE pot_id = $1", [row.pot_id]))[0];
       if (!pot) {
         await syncPot(db, BigInt(row.pot_id)).catch(() => {});
-        continue;
+        return 0;
       }
       const s = POT_STATES[pot.state];
       const joinDone = row.phase === 3 && (s === "Live" || s === "Open");
@@ -155,23 +178,27 @@ export async function perpsHousekeeping(db: Db, own: LocalAccount | null) {
       if (!joinDone && !ropeDone) {
         // A rope about to end (an exit or knock-out being priced, or its expiry under a minute away):
         // ask for the next rope's depth attestation now, so the roll goes out with the division.
+        // Only while the chain would roll, and not for ropes long past their end (waiting for the
+        // market's result): those would ask for a new attestation every two minutes for days.
         const nowS = Math.floor(Date.now() / 1000);
         const expiry = Number(pot.expiry ?? 0);
-        if (row.phase === 4 && (s === "ExitRequested" || (expiry > 0 && expiry - nowS < 60))) await perpDepth(db, row.perp_id, q.t, own).catch(() => null);
-        continue;
+        const nearEnd = expiry > 0 && expiry - nowS < 60 && nowS - expiry < 300;
+        const exitPriced = s === "ExitRequested" && !q.leaving;
+        if (row.phase === 4 && (exitPriced || nearEnd) && perpWillRoll("Divided", q)) await perpDepth(db, row.perp_id, q.t, own).catch(() => null);
+        return 0;
       }
       let depth = NO_DEPTH;
       let sigs: Hex = "0x";
-      if (ropeDone) {
+      if (ropeDone && perpWillRoll(s, q)) {
         const dep = await perpDepth(db, row.perp_id, q.t, own);
-        if (!dep) continue; // a fresh depth attestation comes within seconds; the roll waits for it
+        if (!dep) return 0; // a fresh depth attestation comes within seconds; the roll waits for it
         depth = depthArg(dep.depth);
         sigs = dep.sigs;
       }
       data = encodeFunctionData({ abi: perpsAbi, functionName: "advance", args: [id, depth, sigs] });
       why = joinDone ? "first rope priced" : `rope ${s.toLowerCase()}: credit, then roll or end`;
     }
-    if (!data) continue;
+    if (!data) return 0;
     const ref = `perp-${row.perp_id}`;
     const res = await sendRelayCalls(db, "pot_house", [{ ...memoCall(address, data, ref, { v: 1, t: "pot", ref, why }), potIds: [], label: `perp ${row.perp_id}: ${why}` }]);
     calls++;
@@ -180,7 +207,7 @@ export async function perpsHousekeeping(db: Db, own: LocalAccount | null) {
       await syncPerp(db, id).catch(() => {});
     }
   }
-  return { checked: rows.length, calls };
+  return calls;
 }
 
 /** Perps for the pages: one with its ropes so far, or a list. */

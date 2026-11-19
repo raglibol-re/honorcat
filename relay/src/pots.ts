@@ -741,11 +741,14 @@ export async function submitReady(db: Db, requestId: string) {
       await new Promise((r) => setTimeout(r, Math.min(20, gap) * 1000 + 300));
     }
   }
+  // Claim it: two passes (the sampler's request and housekeeping) must not both send it.
+  const claimed = await db.query("UPDATE att_requests SET status = 'sending', updated_at = now() WHERE id = $1 AND status = 'ready' RETURNING id", [requestId]);
+  if (!claimed.length) return null;
   const res = await sendRelayCalls(db, req.kind === "outcome" ? "pot_settle" : "pot_attest", [
     { ...memoCall(address, data, ref, { v: 1, t: "pot", ref, pot: String(req.pot_id), why }), potIds: [], label: `${req.kind} ${requestId}` },
   ]);
   if (res.ok) {
-    await db.query("UPDATE att_requests SET status = 'submitted', tx = $2, error = NULL, updated_at = now() WHERE id = $1", [requestId, res.tx]);
+    await db.query("UPDATE att_requests SET status = 'submitted', tx = $2, error = NULL, updated_at = now() WHERE id = $1 AND status = 'sending'", [requestId, res.tx]);
     await recordMemo(db, requestId, res.tx).catch(() => {});
     if (req.pot_id) await syncPot(db, BigInt(String(req.pot_id))).catch(() => {});
     return res.tx;
@@ -754,7 +757,7 @@ export async function submitReady(db: Db, requestId: string) {
   // So is an RPC error that never reached the chain (rate or size limit, timeout): housekeeping
   // sends it again for 15 minutes (see TRANSIENT).
   const retry = res.error.includes("085de625") || res.error.includes("TooEarly");
-  await db.query("UPDATE att_requests SET status = $3, error = $2, updated_at = now() WHERE id = $1", [requestId, res.error.slice(0, 500), retry ? "ready" : "failed"]);
+  await db.query("UPDATE att_requests SET status = $3, error = $2, updated_at = now() WHERE id = $1 AND status = 'sending'", [requestId, res.error.slice(0, 500), retry ? "ready" : "failed"]);
   return null;
 }
 
@@ -845,6 +848,9 @@ export async function potsHousekeeping(db: Db, own: LocalAccount | null) {
        AND created_at > now() - interval '15 minutes' AND updated_at < now() - interval '20 seconds'`,
     [TRANSIENT],
   );
+  // A send whose process died (a function timed out mid-send): ready again after five minutes. If it
+  // did land, the contract refuses the repeat and the pot's own state shows the result.
+  await db.query("UPDATE att_requests SET status = 'ready', updated_at = now() WHERE status = 'sending' AND updated_at < now() - interval '5 minutes'");
   for (const r of await db.query<{ id: string }>("SELECT id FROM att_requests WHERE status = 'ready' AND kind <> 'depth' AND updated_at < now() - interval '10 seconds'")) await submitReady(db, r.id);
 
   // Memos of earlier payouts, read back from the chain (a few per pass).
@@ -945,7 +951,7 @@ export async function openKnockWindow(db: Db, input: { potId: string; windowEnd:
   const window = Number(d.window);
   if (Number(d.expiry) === 0 || !knockWindowOk({ windowEnd: input.windowEnd, window, armedAt: Number(d.armedAt), expiry: Number(d.expiry) })) return null;
   const open = await db.query<{ id: string }>(
-    "SELECT id FROM att_requests WHERE pot_id = $1 AND id LIKE 'k:%' AND status IN ('measuring','proposed','ready') AND created_at > now() - interval '10 minutes'",
+    "SELECT id FROM att_requests WHERE pot_id = $1 AND id LIKE 'k:%' AND status IN ('measuring','proposed','ready','sending') AND created_at > now() - interval '10 minutes'",
     [input.potId],
   );
   if (open[0]) return open[0].id;
@@ -1631,8 +1637,15 @@ async function medianSignature(db: Db, requestId: string, a: WindowAtt): Promise
     "SELECT signer, price_ppm::text AS price_ppm, valid, sample_count, evidence_hash, avg_signature FROM att_averages WHERE request_id = $1",
     [requestId],
   );
-  if (rows.some((r) => !r.avg_signature)) return null;
-  const sorted = rows.sort((x, y) => (BigInt(x.signer) < BigInt(y.signer) ? -1 : 1));
+  // Only the averages the attestation was built from: a third that arrived after it was proposed
+  // would change the median and the evidence root the resolver recomputes, and it would refuse.
+  const used = (await db.query<{ signers: string[] | null }>(
+    "SELECT ARRAY(SELECT lower(x->>'signer') FROM jsonb_array_elements(payload->'averages') x) AS signers FROM att_requests WHERE id = $1",
+    [requestId],
+  ))[0]?.signers;
+  const mine = used?.length ? rows.filter((r) => used.includes(r.signer.toLowerCase())) : rows;
+  if (mine.some((r) => !r.avg_signature)) return null;
+  const sorted = mine.sort((x, y) => (BigInt(x.signer) < BigInt(y.signer) ? -1 : 1));
   const body = encodeAbiParameters(
     [
       {
