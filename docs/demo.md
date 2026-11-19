@@ -11,7 +11,7 @@ https://honorcat.vercel.app/
 - Three ways to play: a pot, a perp, a group. Nothing goes to a house.
 
 ## 2. A perp running on a live market (1 min 30 s): Gemini + Arc
-https://honorcat.vercel.app/perps/PERP_A (Iowa State vs UCF) or /perps/PERP_B (Syracuse vs Boston College)
+https://honorcat.vercel.app/perps/17 (Iowa State vs UCF) or /perps/18 (Syracuse vs Boston College)
 - The rope between two posts 15 points either side of the price; the cat stands at the 30-second
   middle of Gemini's order book. Each player's lives (cat heads) and the rule under them.
 - Every hour the rope is divided at the measured price and the next one starts there, by itself.
