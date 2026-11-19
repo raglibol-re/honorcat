@@ -136,7 +136,7 @@ export function NewPerp({ perps }: { perps: Address }) {
     try {
       setStep("Reading the market's depth");
       // The depth attestation is for the perps contract: it opens every rope.
-      const prep = await prepareRope(market.symbol, perps);
+      const prep = await prepareRope(market.symbol, perps, rope.d);
       if (size > BigInt(prep.maxSize))
         throw new Error(
           "This market is too thin for this stake right now. Put in less per life, or pick a busier market.",

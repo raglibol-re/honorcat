@@ -3,7 +3,8 @@ import { privateKeyToAccount } from "viem/accounts";
 import { z } from "zod";
 import { address, errorResponse, getConfig, getDb, nudgeRelay, pots } from "@/server/relay";
 
-const body = z.object({ symbol: z.string().min(3).max(120), account: address });
+// perpD: the perp's rope distance (ppm), which sets how wide a book its price windows accept.
+const body = z.object({ symbol: z.string().min(3).max(120), account: address, perpD: z.number().int().min(10_000).max(500_000).optional() });
 
 /** The rule, conditionId, close and the v2 depth attestation (cap, spread, category) for a new rope. */
 export async function POST(req: Request) {

@@ -222,6 +222,15 @@ export function potParams(base: TriggerParams, windowS: number, minSamples: numb
   return { ...base, windowMs: windowS * 1000, intervalMs: 2000, minValidSamples: minSamples, thresholdBps: 5000 };
 }
 
+/**
+ * The widest order book (in cents) a perp's price windows accept: a third of its rope distance,
+ * at least the normal 4 cents and at most 6. Live games often trade 5 cents wide; a rope of 15
+ * points or more stays well clear of that noise, so its knock-outs can still be priced.
+ */
+export function perpMaxSpreadCents(dPpm: number) {
+  return Math.max(4, Math.min(6, Math.floor(dPpm / 10_000 / 3)));
+}
+
 export function potConditionId(instrument: string, params: TriggerParams): Hex {
   return conditionIdForTrigger({ instrument, side: "yes", mode: "early-only", params });
 }
@@ -1661,14 +1670,16 @@ export function ropesStatus() {
  * leverage). The cap is on the size: at most a quarter of the contracts resting within 5¢ on the
  * thinner side, and the pot never above the testnet maximum.
  */
-export async function prepareRope(db: Db, input: { symbol: string; account: Address }, own: LocalAccount | null) {
+export async function prepareRope(db: Db, input: { symbol: string; account: Address; perpD?: number }, own: LocalAccount | null) {
   const r = getConfig().ropes;
   if (!r || !r.median) throw Object.assign(new Error("HonorCat v2 is not deployed yet"), { status: 409 });
   const row = await rowBySymbol(db, input.symbol);
   if (!row) throw Object.assign(new Error("unknown market"), { status: 404 });
   const closeTime = Math.floor(row.closeMs / 1000);
   if (row.closeMs - Date.now() < 15 * 60_000) throw Object.assign(new Error("this market closes too soon for a pot"), { status: 409 });
-  const params = potParams(paramsFor("demo"), POT_WINDOW_S, POT_MIN_SAMPLES);
+  // A perp's rule allows a wider book for longer ropes (perpMaxSpreadCents); every other pot keeps 4 cents.
+  const base = potParams(paramsFor("demo"), POT_WINDOW_S, POT_MIN_SAMPLES);
+  const params = input.perpD ? { ...base, maxSpreadUnits: perpMaxSpreadCents(input.perpD) * 10 ** (base.priceDecimals - 2) } : base;
   const conditionId = await registerMarket(db, { instrument: row.symbol, eventTicker: row.eventTicker, contractTicker: row.contractTicker, eventTitle: row.eventTitle, label: row.label, params });
   const crypto = row.category === "Crypto";
   const { id, depth } = await requestDepthV2(db, { conditionId, account: input.account, instrument: row.symbol, closeTime, crypto }, own);

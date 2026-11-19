@@ -108,7 +108,7 @@ async function main() {
   // the market's rule and conditionId (as the app registers it)
   const prep = await api<{ conditionId: Hex; resolver: Address; closeTime: number; window: number; minSamples: number; midPpm: number | null }>(`/api/hc/prepare-rope`, {
     method: "POST",
-    body: JSON.stringify({ symbol: values.symbol, account: PERPS }),
+    body: JSON.stringify({ symbol: values.symbol, account: PERPS, perpD: Number(values.d) }),
   });
   const d = Number(values.d);
   const size = BigInt(values.size!);

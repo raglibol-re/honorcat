@@ -381,8 +381,8 @@ export type PreparedRope = Omit<Prepared, "cap" | "depth"> & {
   crypto: boolean;
 };
 
-export async function prepareRope(symbol: string, account: Address) {
-  return getJson<PreparedRope>("/api/hc/prepare-rope", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ symbol, account }) });
+export async function prepareRope(symbol: string, account: Address, perpD?: number) {
+  return getJson<PreparedRope>("/api/hc/prepare-rope", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ symbol, account, perpD }) });
 }
 
 /** The pot id (read-model range) from a v2 transaction's PotCreated event. */

@@ -192,3 +192,14 @@ describe("pot sampler", () => {
     expect(r.validCount).toBe(0);
   });
 });
+
+describe("perp spread rule", () => {
+  it("allows a wider book for longer ropes: a third of the distance, between 4 and 6 cents", async () => {
+    const { perpMaxSpreadCents } = await import("../src/pots");
+    expect(perpMaxSpreadCents(60_000)).toBe(4); // 6 points: the normal rule
+    expect(perpMaxSpreadCents(120_000)).toBe(4);
+    expect(perpMaxSpreadCents(150_000)).toBe(5); // 15 points: a 5-cent live game book is accepted
+    expect(perpMaxSpreadCents(180_000)).toBe(6);
+    expect(perpMaxSpreadCents(400_000)).toBe(6);
+  });
+});
