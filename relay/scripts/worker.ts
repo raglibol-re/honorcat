@@ -24,6 +24,7 @@ import { PotSampler, type PotsIo } from "../src/potsSampler";
 import { WsBookSource } from "../src/sampler";
 import { runAppSampler } from "../src/samplerHost";
 import { runTick } from "../src/tick";
+import { catalogTick } from "../src/catalogTick";
 
 const started = Date.now();
 const stats = { ticks: 0, tickErrors: 0, lastTickAt: 0, lastTickError: null as string | null, samplerBursts: 0, second: null as string | null, requests: 0 };
@@ -135,6 +136,19 @@ void (async () => {
       log(`tick failed: ${stats.lastTickError}`);
     }
     await new Promise((r) => setTimeout(r, 5000));
+  }
+})();
+
+// The market catalogue: events and order books (markets are offered only with a fresh book).
+void (async () => {
+  for (;;) {
+    try {
+      const r = await catalogTick(await getDb());
+      if (r) log(`catalogue: ${r.books} books, ${r.rows} rows`);
+    } catch (err) {
+      log(`catalogue: ${(err as Error).message.slice(0, 200)}`);
+    }
+    await new Promise((r) => setTimeout(r, 30_000));
   }
 })();
 
