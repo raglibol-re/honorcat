@@ -92,6 +92,13 @@
   worker. Render services `honorcat` (full site, out of memory on 512 MB) and `honorcat-sampler` are
   no longer needed: the owner deletes them (the tools cannot).
 
+## Owner's decisions; feature freeze (2026-11-19 evening)
+
+- Automatic copycat: left out. The relay never moves a player's money without their signature; no
+  page promises automatic copying (checked: none did).
+- Watcher counts: "about N cats watching", shown only from three.
+- Feature freeze from here: fixes only.
+
 ## Full review and fixes (2026-11-19 evening)
 
 Checks: 199 contract tests, 201 relay tests, web typecheck and lint; 30 production pages at 1280

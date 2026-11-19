@@ -5,7 +5,7 @@ import { C } from "@/components/cat/tokens";
 import { ButtonLink } from "@/components/ui/Button";
 
 /**
- * "3 cats watching" for a pot ("123"), perp ("-4") or group ("g2"), from a heartbeat every 30 s
+ * "about 5 cats watching" (shown from three) for a pot ("123"), perp ("-4") or group ("g2"), from a heartbeat every 30 s
  * while the page is visible, with "Start your own" for spectators and a link to the big screen.
  */
 export function Watching({ watchKey, startHref, tvHref, player = false, big = false }: { watchKey: string; startHref?: string; tvHref?: string; player?: boolean; big?: boolean }) {
@@ -27,11 +27,8 @@ export function Watching({ watchKey, startHref, tvHref, player = false, big = fa
   }, [watchKey]);
   return (
     <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap", fontSize: big ? 26 : 16, color: C.body }}>
-      {n !== null && (
-        <span aria-live="polite">
-          {n} {n === 1 ? "cat" : "cats"} watching
-        </span>
-      )}
+      {/* A rough count (it can be inflated), and only once a few are watching. */}
+      {n !== null && n >= 3 && <span aria-live="polite">about {n} cats watching</span>}
       {!player && startHref && (
         <ButtonLink href={startHref} variant="quiet" size="sm">
           Start your own
