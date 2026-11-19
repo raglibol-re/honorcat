@@ -244,8 +244,24 @@ function Actions({
   const creatorSide = Number(d.creatorSide);
   const isCreator = mySide === creatorSide;
   const [part, setPart] = useState("");
+  // Start from the side's saved levels, so saving one never wipes the other.
+  const savedLv = mySide === null ? null : ((d as unknown as { levels?: ({ net: number; bowl: number } | null)[] }).levels?.[mySide] ?? null);
   const [net, setNet] = useState("");
   const [bowl, setBowl] = useState("");
+  const [lvFilled, setLvFilled] = useState(false);
+  if (!lvFilled && savedLv) {
+    setLvFilled(true);
+    if (savedLv.net > 0) setNet(String(savedLv.net / 10_000));
+    if (savedLv.bowl > 0) setBowl(String(savedLv.bowl / 10_000));
+  }
+  const netN = Number(net) || 0;
+  const bowlN = Number(bowl) || 0;
+  const levelsBad =
+    netN > 100 || bowlN > 100
+      ? "Levels are chances between 0 and 100."
+      : netN > 0 && bowlN > 0 && netN >= bowlN
+        ? "The net must be below the bowl."
+        : null;
   // The exit the player is about to confirm (amount of the pot to divide, in words).
   const [ask, setAsk] = useState<{ amount: bigint; what: string } | null>(null);
   const fees = useFees();
@@ -897,6 +913,7 @@ function Actions({
           <Button
             variant="quiet"
             busy={!!a.step}
+            disabled={!!levelsBad}
             onClick={() =>
               a.run(
                 (s) =>
@@ -915,6 +932,11 @@ function Actions({
           >
             Save
           </Button>
+          {levelsBad && (
+            <span role="alert" style={{ fontSize: 14, color: C.signalInk, flexBasis: "100%" }}>
+              {levelsBad}
+            </span>
+          )}
         </div>
       </details>
 

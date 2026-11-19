@@ -19,6 +19,7 @@ import { money } from "@/lib/currency";
 import { sidesOf } from "@/lib/marketName";
 import { ropeShares } from "@/lib/rope";
 import { useAction } from "@/lib/useAction";
+import { useNow } from "@/lib/useNow";
 
 const pts = (ppm: number) => (ppm / 10_000).toFixed(0);
 const box = {
@@ -58,6 +59,7 @@ export function RopeActions({
 }) {
   const a = useAction();
   const [ask, setAsk] = useState<{ size: bigint; what: string } | null>(null);
+  const nowMs = useNow();
   const d = pot.data as unknown as Record<string, string> & {
     copies?: ({ leader: string } | null)[];
   };
@@ -150,6 +152,15 @@ export function RopeActions({
       return <SignIn who={who} purpose="Sign in to take the other side." />;
     const esc = ropeJoinEscrow(pot);
     const side = 1 - creatorSide;
+    // A join needs a full price window before the close (and a rope's expiry): same rule as v1.
+    const nowS = Math.floor(nowMs / 1000);
+    const lockout = Math.max(120, 1 + Number(d.window) + 60);
+    const endS = Number(d.expiry ?? 0) > 0 ? Math.min(Number(d.expiry), Number(d.closeTime)) : Number(d.closeTime);
+    const tooLate = nowS + lockout >= endS;
+    // The entry price must land in the creator's band, or the join is refunded.
+    const bandLo = (Number(d.bandCenter) - Number(d.tolerance)) / 1e6;
+    const bandHi = (Number(d.bandCenter) + Number(d.tolerance)) / 1e6;
+    const outside = price !== null && Number(d.bandCenter) > 0 && (price < bandLo || price > bandHi);
     return (
       <section style={box}>
         <h2 style={h2}>Take “{sideName(side)}”</h2>
@@ -158,10 +169,16 @@ export function RopeActions({
           {money(esc.treat)} maker treat for {nameOf(creator)}. Anything above
           your share at the entry price comes back at once.
         </p>
+        {outside && !tooLate && (
+          <Notice tone="warning">
+            The price is {(price! * 100).toFixed(1)}% now, outside this offer&apos;s band ({(bandLo * 100).toFixed(1)} to{" "}
+            {(bandHi * 100).toFixed(1)}%). If it is still outside when the entry price is measured, your money comes back.
+          </Notice>
+        )}
         <div style={row}>
           <Button
             busy={a.isBusy("join")}
-            disabled={a.any}
+            disabled={a.any || tooLate}
             onClick={() =>
               a.run(
                 "join",
@@ -170,7 +187,7 @@ export function RopeActions({
               )
             }
           >
-            Give your word and join
+            {tooLate ? "Too close to the end to join" : "Give your word and join"}
           </Button>
           <ActionProgress step={a.step} />
         </div>

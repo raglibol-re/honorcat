@@ -189,14 +189,34 @@ function Withdraw({ who }: { who: ActorState }) {
   const [to, setTo] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ text: string; tx?: Hex; error?: boolean } | null>(null);
+  // Sending everything is not undoable: the first press asks, the second sends.
+  const [confirming, setConfirming] = useState(false);
   if (who.actor?.kind === "wallet") return <p style={{ margin: 0, fontSize: 16, color: C.body }}>Nothing to withdraw: your money is already in your wallet.</p>;
   const bal = who.balance ?? 0n;
-  const ok = isAddress(to) && bal > 0n;
+  const self = !!who.actor && to.toLowerCase() === who.actor.account.toLowerCase();
+  const ok = isAddress(to) && bal > 0n && !self;
+  const why =
+    to === ""
+      ? null
+      : !/^0x[0-9a-fA-F]{40}$/.test(to)
+        ? "An address is 0x followed by 40 letters and digits."
+        : !isAddress(to)
+          ? "This address has a typo (its upper- and lower-case letters do not match its checksum)."
+          : self
+            ? "That is this account's own address: enter your wallet's address."
+            : bal === 0n
+              ? "Nothing to withdraw yet."
+              : null;
   return (
     <form
       onSubmit={async (e) => {
         e.preventDefault();
         if (!ok || !who.actor) return;
+        if (!confirming) {
+          setConfirming(true);
+          return;
+        }
+        setConfirming(false);
         setBusy(true);
         setMsg(null);
         try {
@@ -215,15 +235,31 @@ function Withdraw({ who }: { who: ActorState }) {
         Your wallet address on Arc
         <input
           value={to}
-          onChange={(e) => setTo(e.target.value.trim())}
+          onChange={(e) => {
+            setTo(e.target.value.trim());
+            setConfirming(false);
+          }}
           placeholder="0x…"
           autoComplete="off"
           style={{ fontFamily: F.mono, fontSize: 15, minHeight: 48, padding: "0 12px", border: `1.5px solid ${C.ink}`, background: C.panel, color: C.ink, width: "100%", boxSizing: "border-box" }}
         />
       </label>
       <button type="submit" disabled={busy || !ok} style={{ minHeight: 52, background: C.ink, color: C.page, border: 0, fontFamily: F.sans, fontSize: 17, fontWeight: 600, cursor: "pointer", opacity: busy || !ok ? 0.5 : 1 }}>
-        {busy ? "Sending…" : `Withdraw everything${bal > 0n ? ` (${money(bal)})` : ""}`}
+        {busy
+          ? "Sending…"
+          : confirming
+            ? `Yes, send ${money(bal)} to ${to.slice(0, 6)}…${to.slice(-4)}`
+            : `Withdraw everything${bal > 0n ? ` (${money(bal)})` : ""}`}
       </button>
+      {why && <span style={{ fontSize: 14, color: C.signalInk }}>{why}</span>}
+      {confirming && !busy && (
+        <span role="status" style={{ fontSize: 15, color: C.body }}>
+          Check the address: a transfer cannot be undone. Press again to send.{" "}
+          <button type="button" onClick={() => setConfirming(false)} style={{ background: "none", border: 0, padding: 0, color: C.ink, textDecoration: "underline", cursor: "pointer", font: "inherit" }}>
+            Cancel
+          </button>
+        </span>
+      )}
       {msg && (
         <p role={msg.error ? "alert" : "status"} style={{ margin: 0, fontSize: 15, color: msg.error ? C.signalInk : C.body }}>
           {msg.text}{" "}

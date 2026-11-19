@@ -206,7 +206,11 @@ export function NewPot() {
     ? "Pick a market."
     : mineIn <= 0
       ? "Enter what you put in."
-      : center === null
+      : own !== null && !(own > 0 && own < 100)
+        ? "The chance you accept must be between 0 and 100."
+        : Number(tolPts) > 5
+          ? "The band is at most 5 points either way."
+          : center === null
         ? "Waiting for the price."
         : sideChance !== null && (sideChance < 0.02 || sideChance > 0.98)
           ? "This side is almost certain either way; pick a closer market."

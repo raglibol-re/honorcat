@@ -34,7 +34,7 @@ export function Ledger() {
         <span className={`h-2 w-2 ${error ? "bg-negative" : "bg-positive animate-pulse"}`} />
         {error ? `Disconnected: ${error}` : "Live · updates every 2 seconds"}
       </div>
-      <div className="overflow-x-auto border-y-[1.5px] border-foreground">
+      <div className="overflow-x-auto border-y-[1.5px] border-foreground" tabIndex={0} role="region" aria-label="Payments table (scrolls sideways)">
         <table className="w-full text-sm">
           <thead className="border-b border-border text-left text-xs uppercase tracking-wide text-muted">
             <tr>
