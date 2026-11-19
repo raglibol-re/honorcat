@@ -35,8 +35,14 @@ export async function savePushSub(db: Db, input: { potId: string; account: strin
 }
 
 /** Sends one notification to every browser that asked for this pot; drops subscriptions that are gone. */
-export async function notifyPot(db: Db, potId: string, title: string, body: string) {
+export async function notifyPot(db: Db, potId: string, title: string, body: string, once?: string) {
   if (!configured()) return 0;
+  // Several paths sync the same pot at once (Streams, the poller, a send); each sees the old state.
+  // `once` names the change: only the first to record it sends the notice.
+  if (once) {
+    const first = await db.query("INSERT INTO relay_state (key, value) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING RETURNING key", [`push:${once}`, String(Math.floor(Date.now() / 1000))]);
+    if (!first.length) return 0;
+  }
   const subs = await db.query<{ endpoint: string; sub: PushSubscriptionJson | string }>("SELECT endpoint, sub FROM push_subs WHERE pot_id = $1", [potId]);
   let sent = 0;
   // A perp's subscriptions are kept under its negative id (one table for both).

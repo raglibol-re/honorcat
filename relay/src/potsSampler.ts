@@ -47,6 +47,8 @@ export class PotSampler {
   private own = new Map<string, { ppm: bigint; valid: boolean }>();
   private done = new Set<string>();
   private levelAsked = new Map<string, number>();
+  /** Outcome proposals Gemini showed no result for yet: look again after this time. */
+  private outcomeAgain = new Map<string, number>();
   private work: PotsWork | null = null;
   private workAt = 0;
   marketState: (e: string, c: string) => Promise<MarketState | null> = fetchMarketState;
@@ -203,6 +205,7 @@ export class PotSampler {
     // 2. Proposals: co-sign only what this sampler's own data supports.
     for (const c of w.cosign) {
       if (this.done.has(`sig:${c.requestId}`)) continue;
+      if ((this.outcomeAgain.get(c.requestId) ?? 0) > now) continue;
       this.done.add(`sig:${c.requestId}`);
       // v2 requests name their contract (and its EIP-712 name); v1 requests use the v1 pots contract.
       const at: At = c.payload.contract ? { chainId: w.chainId, pots: getAddress(String(c.payload.contract)), name: c.payload.name as At["name"] } : { chainId: w.chainId, pots: w.pots };
@@ -248,6 +251,12 @@ export class PotSampler {
         else {
           ok = seen === o.outcome;
           why = `Gemini shows ${seen === null ? "no result" : ["NO", "YES", "void"][seen]}`;
+          // Gemini may publish the result a little later than the proposal: look again in a minute
+          // (marking it done here would leave the pot waiting for its deadline instead).
+          if (seen === null) {
+            this.done.delete(`sig:${c.requestId}`);
+            this.outcomeAgain.set(c.requestId, now + 60_000);
+          }
         }
       }
       if (!ok) {

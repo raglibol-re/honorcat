@@ -57,7 +57,7 @@ export async function syncPerp(db: Db, perpId: bigint) {
   );
   if (potDb) await syncPot(db, BigInt(potDb)).catch(() => {});
   const msg = perpMessage(perpId.toString(), prev, data);
-  if (msg) await notifyPot(db, `-${perpId}`, msg.title, msg.body).catch((e) => console.error("[push]", e));
+  if (msg) await notifyPot(db, `-${perpId}`, msg.title, msg.body, `-${perpId}:${Number(q.phase)}:${String(q.ropes)}:${livesA}:${livesB}:${msg.title}`).catch((e) => console.error("[push]", e));
   return data;
 }
 

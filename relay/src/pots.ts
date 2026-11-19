@@ -311,7 +311,7 @@ export async function syncPot(db: Db, potId: bigint, createdTx?: string) {
   // Tell the browsers that asked (web push) when the pot changes state.
   const prevState = prevData ? Number(prevData.state) : null;
   const msg = stateMessage(potId.toString(), prevState, state);
-  if (msg && prevData) await notifyPot(db, potId.toString(), msg.title, msg.body).catch((e) => console.error("[push]", e));
+  if (msg && prevData) await notifyPot(db, potId.toString(), msg.title, msg.body, `${potId}:${state}:${String(p.nonce)}`).catch((e) => console.error("[push]", e));
   if (state === 2 || state === 4) {
     const kind = state === 2 ? KIND.join : KIND.exit;
     const start = Number(p.requestTime) + DELAY;
@@ -375,7 +375,7 @@ async function syncRope(db: Db, dbId: bigint, createdTx?: string) {
   );
   const prevState = prevData ? Number(prevData.state) : null;
   const msg = stateMessage(dbId.toString(), prevState, state);
-  if (msg && prevData) await notifyPot(db, dbId.toString(), msg.title, msg.body).catch((e) => console.error("[push]", e));
+  if (msg && prevData) await notifyPot(db, dbId.toString(), msg.title, msg.body, `${dbId}:${state}:${String(p.nonce)}`).catch((e) => console.error("[push]", e));
   if (state === 2 || state === 4) {
     const kind = state === 2 ? KIND.join : KIND.exit;
     const start = Number(p.requestTime) + DELAY;
@@ -498,7 +498,7 @@ export async function potsWork(db: Db, signer: Address) {
   const proposed = await db.query<ReqRow>(
     `SELECT r.* FROM att_requests r WHERE r.status = 'proposed'
        AND NOT EXISTS (SELECT 1 FROM att_sigs g WHERE g.request_id = r.id AND g.signer = $1)
-       AND r.created_at > now() - interval '30 minutes'`,
+       AND (r.created_at > now() - interval '30 minutes' OR (r.kind = 'outcome' AND r.created_at > now() - interval '7 days'))`,
     [s],
   );
   const cosign: CosignTask[] = proposed.map((r) => ({ requestId: r.id, kind: r.kind as CosignTask["kind"], digest: r.digest as Hex, payload: payloadOf(r) }));
