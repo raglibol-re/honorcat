@@ -90,7 +90,8 @@ export class PotSampler {
   }
 
   private async refresh(now: number) {
-    if (this.work && now - this.workAt < 3_000) return;
+    // Every 3 s while there are windows to measure or proposals to co-sign, every 6 s otherwise.
+    if (this.work && now - this.workAt < (this.busyWithWindows ? 3_000 : 6_000)) return;
     this.workAt = now;
     this.work = await this.io.work(this.address);
     const want = new Map<string, TriggerParams>();

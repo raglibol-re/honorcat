@@ -9,7 +9,7 @@ type Live = {
 
 /** Quiet status line: the current Arc block and the latency of the relay's last confirmation. */
 export function LiveLine() {
-  const { data } = usePolling<Live>("/api/chain/live", 3000);
+  const { data } = usePolling<Live>("/api/chain/live", 10_000);
   return (
     <p className="t-13 flex items-center gap-2" style={{ color: "var(--hc-muted)" }} aria-live="off">
       <span

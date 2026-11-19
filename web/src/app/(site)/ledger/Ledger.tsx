@@ -7,7 +7,7 @@ import { formatTime, formatUsdc, kindLabel } from "@/lib/format";
 import { Addr, Tx } from "@/components/ui";
 
 export function Ledger() {
-  const { data, error } = usePolling<{ payments: Payment[] }>("/api/payments?limit=100&scope=guarantees", 2000);
+  const { data, error } = usePolling<{ payments: Payment[] }>("/api/payments?limit=100&scope=guarantees", 10_000);
   const seen = useRef<Set<string> | null>(null);
   const [fresh, setFresh] = useState<Set<string>>(new Set());
 

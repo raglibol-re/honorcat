@@ -129,7 +129,8 @@ export class Sampler {
   }
 
   private async refresh(now: number) {
-    if (now - this.armedAt < 15_000 && this.pots.size) return;
+    // Every 15 s while watching pots, every 30 s while idle (was: every loop when idle, ~4 a second).
+    if (now - this.armedAt < (this.pots.size ? 15_000 : 30_000)) return;
     this.armedAt = now;
     const list = await this.io.armed(this.address);
     const ids = new Set(list.map((p) => p.id));

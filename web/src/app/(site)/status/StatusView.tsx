@@ -133,7 +133,7 @@ function StreamsRows() {
 }
 
 export function StatusView() {
-  const { data: s, error } = usePolling<Status>("/api/status", 5000);
+  const { data: s, error } = usePolling<Status>("/api/status", 20_000);
   const { data: pool } = usePolling<{ pool: string; givenToday: string; dailyLimit: string }>("/api/hc/funding", 30_000);
   const { data: potsList } = usePolling<{ pots: { state: string }[] }>("/api/hc/pots?limit=200", 30_000);
   if (error && !s) return <p style={{ margin: 0, fontSize: 17, color: C.signalInk }}>{error}</p>;
