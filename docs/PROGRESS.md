@@ -68,7 +68,16 @@
   5% copycat treat was already shown); streaks; "copied by N cats" and followers on the record page;
   break reminder after five pots or perps in three hours (create page). Treats page per player,
   referral links, weekly friends table and "nothing goes to HonorCat" already existed.
-- Next: the Honor spec (owner, 2026-11-19: "after you are done"): computation and history first.
+- **Honor spec (2026-11-19), part 1 done, behind `HONOR=on` (off in production):** computation
+  from all on-chain events, v1, v2 and perps (relay/src/honor/compute.ts, pure, rules version 1 in
+  config.ts, docs/honor.md), anti-farming (min stake $0.10, min 10 minutes, same-counterparty
+  halving per pot in 24 h, trust tiers with founding players before 2026-11-20, same funding
+  source via Arc's explorer, daily quick-pot check with reasons), stored history and balances
+  (hourly), API, Honor page with the table (all time / week, everyone / friends), history and
+  badge on the record page, titles on pots, perps, leaderboard rows and the challenge preview,
+  cosmetics by honor thresholds when on, the bell when honor is earned (reduced motion respected).
+  On real data: 26 entries, 18 players (most at half: not yet trusted). Next: HonorRoots contract
+  and the verify page (ask before deploying); then switch Honor on.
 
 ## Review and fixes (2026-11-19, 03:00-04:30 UTC)
 

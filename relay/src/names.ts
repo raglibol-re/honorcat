@@ -79,10 +79,20 @@ export async function catsOf(db: Db, accounts: string[]): Promise<{ names: Recor
   // Cosmetics unlocked by honor record milestones (relay/src/cosmetics.ts), worn everywhere.
   const wear: Record<string, string> = {};
   try {
-    const { progressOf, cosmeticsOf } = await import("./cosmetics");
-    for (const [a, p] of Object.entries(await progressOf(db, list))) {
-      const w = cosmeticsOf(p).wear;
-      if (w) wear[a] = w;
+    const { honorOn, honorMany } = await import("./honor/store");
+    if (honorOn()) {
+      // Honor thresholds replace the milestone unlocks (honor/config.ts HONOR_COSMETICS).
+      const { honorCosmetics } = await import("./honor/config");
+      for (const [a, h] of Object.entries(await honorMany(db, list))) {
+        const w = honorCosmetics(h.points).wear;
+        if (w) wear[a] = w;
+      }
+    } else {
+      const { progressOf, cosmeticsOf } = await import("./cosmetics");
+      for (const [a, p] of Object.entries(await progressOf(db, list))) {
+        const w = cosmeticsOf(p).wear;
+        if (w) wear[a] = w;
+      }
     }
   } catch (e) {
     console.error("[cosmetics]", e);

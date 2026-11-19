@@ -604,6 +604,42 @@ CREATE TABLE IF NOT EXISTS follows (
   PRIMARY KEY (follower, leader)
 );
 CREATE INDEX IF NOT EXISTS follows_leader_idx ON follows (leader);
+-- Honor (honor/): the recomputed history and balances per config version, the daily farming
+-- check's flags, and who first funded each player (from Arc's explorer).
+CREATE TABLE IF NOT EXISTS honor_entries (
+  version      INTEGER NOT NULL,
+  seq          INTEGER NOT NULL,
+  account      TEXT NOT NULL,
+  at           BIGINT NOT NULL,
+  action       TEXT NOT NULL,
+  pot_id       TEXT,
+  counterparty TEXT,
+  base         INTEGER NOT NULL,   -- hundredths of a point
+  points       INTEGER NOT NULL,   -- hundredths, after reductions (0 when removed)
+  notes        JSONB NOT NULL,
+  removed      TEXT,
+  PRIMARY KEY (version, seq)
+);
+CREATE INDEX IF NOT EXISTS honor_entries_account_idx ON honor_entries (version, account, seq);
+CREATE TABLE IF NOT EXISTS honor_balances (
+  version  INTEGER NOT NULL,
+  account  TEXT NOT NULL,
+  points   INTEGER NOT NULL,       -- hundredths
+  PRIMARY KEY (version, account)
+);
+CREATE TABLE IF NOT EXISTS honor_flags (
+  id       SERIAL PRIMARY KEY,
+  accounts TEXT[] NOT NULL,
+  reason   TEXT NOT NULL,
+  since    BIGINT NOT NULL,
+  at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS account_funding (
+  account    TEXT PRIMARY KEY,
+  funder     TEXT,
+  tx         TEXT,
+  checked_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 CREATE INDEX IF NOT EXISTS pot_events_perp_idx ON pot_events ((args->>'perpId')) WHERE event_name LIKE 'Perp:%';
 `;
 

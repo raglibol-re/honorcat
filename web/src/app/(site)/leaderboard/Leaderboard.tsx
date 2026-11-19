@@ -7,6 +7,7 @@ import { CatName } from "@/components/cat/PlayerCat";
 import { C, F } from "@/components/cat/tokens";
 import { useActor } from "@/components/pot/Who";
 import { FollowButton } from "@/components/pot/Follow";
+import { HonorBadge } from "@/components/honor/Honor";
 import { ButtonLink } from "@/components/ui/Button";
 import { usePolling } from "@/lib/api";
 import { nickname, useNames } from "@/lib/names";
@@ -42,6 +43,9 @@ export function Leaderboard() {
     <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
       <header style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <h1 style={{ margin: 0, fontFamily: F.cond, fontSize: "clamp(44px, 9vw, 64px)", fontWeight: 600, lineHeight: 0.95 }}>Leaderboard</h1>
+        <p style={{ margin: 0, fontSize: 16 }}>
+          Results here; how people play is on the <Link href="/honor#table">Honor table</Link>.
+        </p>
         <p style={{ margin: 0, fontSize: 18, color: C.body, maxWidth: 680 }}>
           {kind === "pots"
             ? "Ranked by result relative to stake: over finished pots, what a player was paid less what they put in, divided by what they put in. Also pots played, held to the end, treats earned and how many players copy each cat. Treats are shares of fees other players paid; nothing goes to HonorCat. Practice and Grok Bot pots do not count."
@@ -111,6 +115,9 @@ export function Leaderboard() {
                     <Link href={`/record/${r.account}`} style={{ color: C.ink }}>
                       <CatName account={r.account} name={r.account === me ? "you" : (names[r.account] ?? nickname(r.account))} strong={r.account === me} />
                     </Link>
+                    <span style={{ display: "block" }}>
+                      <HonorBadge account={r.account} size={13} />
+                    </span>
                   </td>
                   <td style={{ ...td, fontWeight: 600, color: r.result.startsWith("-") ? C.signalInk : C.ink }}>{signed(r.result)}</td>
                   <td style={td}>
@@ -148,6 +155,9 @@ export function Leaderboard() {
                     <Link href={`/record/${r.account}`} style={{ color: C.ink }}>
                       <CatName account={r.account} name={r.account === me ? "you" : (names[r.account] ?? nickname(r.account))} strong={r.account === me} />
                     </Link>
+                    <span style={{ display: "block" }}>
+                      <HonorBadge account={r.account} size={13} />
+                    </span>
                   </td>
                   <td style={{ ...td, fontWeight: 600, color: r.returnPct !== null && r.returnPct < 0 ? C.signalInk : C.ink }} title={`${signed(r.net)} on ${money(r.staked.split(".")[0] ?? "0")} put in, over ${r.finished} finished`}>
                     {r.returnPct === null ? "–" : `${r.returnPct > 0 ? "+" : r.returnPct < 0 ? "−" : ""}${Math.abs(r.returnPct).toFixed(1)}%`}

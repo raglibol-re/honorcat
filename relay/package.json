@@ -9,7 +9,8 @@
     "./trigger": "./src/trigger/index.ts",
     "./potsAbi": "./src/potsAbi.ts",
     "./ropesAbi": "./src/ropesAbi.ts",
-    "./perpsAbi": "./src/perpsAbi.ts"
+    "./perpsAbi": "./src/perpsAbi.ts",
+    "./honorConfig": "./src/honor/config.ts"
   },
   "scripts": {
     "e2e": "tsx --env-file-if-exists=../.env scripts/e2e.ts",

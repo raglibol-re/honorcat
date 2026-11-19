@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 import { connection } from "next/server";
-import { getDb, namesOf, pots } from "@/server/relay";
+import { getDb, honor, namesOf, pots } from "@/server/relay";
 import { sidesOf } from "@/lib/statement";
 import { splitPot } from "@/lib/shares";
 import { nickname } from "@/lib/nickname";
@@ -49,7 +49,11 @@ export default async function Image({ params }: { params: Promise<{ id: string }
         return (typeof v === "string" ? v : v?.name) || (a ? nickname(a) : "A cat");
       };
       const creator = Number(data.creatorSide ?? 0) === 0 ? owners.yes : owners.no;
-      if (String(d.state) === "Open") challenger = `${nameOf(creator)} challenges you`;
+      if (String(d.state) === "Open") {
+        // with Honor on, the challenger's title goes with the name ("Mochi, House Cat, challenges you")
+        const t = creator && honor.honorOn() ? (await honor.honorMany(await getDb(), [creator]).catch(() => ({})) as Record<string, { title: string }>)[creator.toLowerCase()]?.title : undefined;
+        challenger = `${nameOf(creator)}${t ? `, ${t},` : ""} challenges you`;
+      }
       // Share card: what happened, in three plain sentences.
       const ev = d.events as { name: string; args: Record<string, string> }[];
       const ended = ["Divided", "Settled", "Expired"].includes(String(d.state));

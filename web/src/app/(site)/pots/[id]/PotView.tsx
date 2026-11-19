@@ -23,6 +23,7 @@ import { SamplerNotice } from "@/components/pot/SamplerHealth";
 import { RopePricing } from "@/components/perp/RopePricing";
 import { RivalryLine } from "@/components/pot/Rivalry";
 import { Reactions } from "@/components/pot/Reactions";
+import { PlayersHonor } from "@/components/honor/Honor";
 import { asV1Pot, sceneOf, storyOf } from "@/components/pot/scene";
 import { ShortRopeNote } from "@/components/pot/RopeControl";
 import { RopeLives } from "@/components/pot/RopeLives";
@@ -1466,6 +1467,14 @@ export function PotView({ id }: { id: string }) {
           v2={v2}
         />
         {ended && mine !== null && <ResultBanner pot={pot} mine={mine} />}
+        {!pot.practice && !pot.perp && (
+          <PlayersHonor
+            players={[
+              { account: pot.owners.yes, name: nameOf(pot.owners.yes) },
+              { account: pot.owners.no, name: nameOf(pot.owners.no) },
+            ]}
+          />
+        )}
         {!pot.practice && !pot.perp && pot.owners.yes && pot.owners.no ? (
           <RivalryLine
             a={pot.owners.yes}

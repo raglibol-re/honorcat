@@ -8,6 +8,8 @@ import { PlayerCat } from "@/components/cat/PlayerCat";
 import { TreatsPanel } from "@/components/pot/Treats";
 import { useActor } from "@/components/pot/Who";
 import { FollowButton } from "@/components/pot/Follow";
+import { HonorBadge } from "@/components/honor/Honor";
+import { HonorHistory } from "@/components/honor/HonorHistory";
 import { useTechMode } from "@/components/TechMode";
 import { nickname, useNames } from "@/lib/names";
 import { honorLabels } from "@/lib/honor";
@@ -92,6 +94,7 @@ export function Record({ account }: { account: string }) {
         </div>
         <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap", fontSize: 16 }}>
           <FollowButton who={who} leader={account} name={name} />
+          <HonorBadge account={account} size={16} />
           {follows.data && (
             <span>
               {follows.data.followers} {follows.data.followers === 1 ? "follower" : "followers"}
@@ -156,6 +159,7 @@ export function Record({ account }: { account: string }) {
         )}
       </section>
       <div id="treats">
+        <HonorHistory account={account} />
         <TreatsPanel account={account} mine={me === account.toLowerCase()} />
       </div>
     </div>

@@ -5,6 +5,7 @@ import { WalletProvider } from "@/lib/wallet/context";
 import { TechModeProvider } from "@/components/TechMode";
 import { RefCapture } from "@/components/RefCapture";
 import { Toaster } from "@/components/ui/Toast";
+import { HonorBell } from "@/components/honor/HonorBell";
 import "./globals.css";
 
 const plexMono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-plex-mono" });
@@ -30,6 +31,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <RefCapture />
             {children}
             <Toaster />
+            <HonorBell />
           </WalletProvider>
         </TechModeProvider>
       </body>

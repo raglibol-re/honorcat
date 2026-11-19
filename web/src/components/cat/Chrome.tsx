@@ -15,6 +15,7 @@ const primary = [
   ["/markets", "Markets"],
   ["/leaderboard", "Leaderboard"],
   ["/feed", "Feed"],
+  ["/honor", "Honor"],
   ["/how", "How it works"],
   ["/account", "Account"],
 ] as const;

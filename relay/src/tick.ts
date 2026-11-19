@@ -95,6 +95,8 @@ export async function runTick(opts: { reason: string; force?: boolean; skipIndex
         report.errors.push(`pots: ${(err as Error).message.split(String.fromCharCode(10))[0]}`);
       }
     }
+    // Honor: recomputed from the events at most once an hour, behind HONOR=on (honor/store.ts).
+    await (await import("./honor/store")).honorHousekeeping(db).catch((err) => report.errors.push(`honor: ${(err as Error).message.split(String.fromCharCode(10))[0]}`));
     // The test-money pool refills itself from Circle's faucet API (at most every 3 hours).
     await refillPool(db).catch((err) => report.errors.push(`refill: ${(err as Error).message.split(String.fromCharCode(10))[0]}`));
     await setState(db, "last_tick", JSON.stringify({ at: new Date().toISOString(), reason: opts.reason }));

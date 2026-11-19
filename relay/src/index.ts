@@ -103,6 +103,8 @@ export * as treats from "./treats";
 export * as cosmetics from "./cosmetics";
 export * as perps from "./perps";
 export * as social from "./social";
+export * as honor from "./honor/store";
+export * as honorConfig from "./honor/config";
 export { PotSampler, potsHttpIo, type PotsIo, type PotsWork } from "./potsSampler";
 export { preparePasskeyPotCall, submitPasskeyPotCall, forwardPotCall, afterPotTx, offerHandshake, handshakeOffers, dripTestUsdc } from "./potsActions";
 export { potsAbi } from "./potsAbi";

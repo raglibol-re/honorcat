@@ -35,6 +35,7 @@ import { PerpChart } from "@/components/perp/PerpChart";
 import { GeminiLink } from "@/components/cat/GeminiLink";
 import { RopePricing } from "@/components/perp/RopePricing";
 import { Reactions } from "@/components/pot/Reactions";
+import { PlayersHonor } from "@/components/honor/Honor";
 import { SamplerNotice } from "@/components/pot/SamplerHealth";
 import { useNow } from "@/lib/useNow";
 import { money } from "@/lib/currency";
@@ -585,6 +586,7 @@ export function PerpView({ id }: { id: string }) {
         </section>
       )}
 
+      {!p.practice && <PlayersHonor players={[{ account: p.a, name: nm(p.a) }, { account: p.b, name: nm(p.b) }]} />}
       <section style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
         {player("a")}
         {player("b")}
