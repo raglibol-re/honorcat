@@ -11,6 +11,7 @@ import {
 } from "@/lib/statement";
 import { CatHead } from "./shapes";
 import { GeminiLink } from "./GeminiLink";
+import { perpFit } from "@/lib/perpMath";
 import { C, F } from "./tokens";
 
 /* ------------------------------------------------------------------ shared types (mirror server/catalog.ts) */
@@ -323,13 +324,19 @@ function Outcome({
   picked,
   onPick,
   detail,
+  perp,
 }: {
   m: MarketItem;
   picked: boolean;
   onPick?: (m: MarketItem) => void;
   detail?: boolean;
+  /** Picking for a perp: say whether a perp works here (and the highest leverage), and only allow those. */
+  perp?: boolean;
 }) {
-  const ok = usable(m.quality);
+  const fit = perp
+    ? perpFit({ mid: midYes(m), spreadPpm: m.book?.bid != null && m.book?.ask != null ? Math.round((m.book.ask - m.book.bid) * 1e6) : m.bid != null && m.ask != null ? Math.round((m.ask - m.bid) * 1e6) : 50_000, crypto: m.category === "Crypto", closeMs: m.closeMs })
+    : null;
+  const ok = usable(m.quality) && (!fit || fit.ok);
   const chance = midYes(m);
   const w = chance === null ? 0 : Math.max(2, Math.round(chance * 100));
   const bid = m.book?.bid ?? m.bid;
@@ -430,6 +437,11 @@ function Outcome({
         >
           {whyLine(m.quality)}
         </span>
+        {fit && usable(m.quality) && (
+          <span style={{ fontSize: 12.5, fontWeight: 600, lineHeight: 1.35, color: picked ? C.faint : fit.ok ? C.ink : C.signalInk }}>
+            {fit.ok ? `Perp works here: up to ${fit.maxLeverage}×` : `No perp: ${fit.reason.charAt(0).toLowerCase()}${fit.reason.slice(1)}`}
+          </span>
+        )}
       </span>
       <span
         aria-hidden="true"
@@ -475,11 +487,13 @@ export function EventBlocks({
   picked,
   onPick,
   detail,
+  perp,
 }: {
   items: MarketItem[];
   picked?: string | null;
   onPick?: (m: MarketItem) => void;
   detail?: boolean;
+  perp?: boolean;
 }) {
   const groups = groupByEvent(items);
   return (
@@ -576,6 +590,7 @@ export function EventBlocks({
                 picked={picked === m.symbol}
                 onPick={onPick}
                 detail={detail}
+                perp={perp}
               />
             ))}
           </div>
@@ -601,9 +616,12 @@ const WITHIN: [string, number | null][] = [
 export function MarketList({
   picked,
   onPick,
+  perp,
 }: {
   picked: string | null;
   onPick: (m: MarketItem) => void;
+  /** Picking a market for a perp: each market says whether a perp works there. */
+  perp?: boolean;
 }) {
   const [category, setCategory] = useState("");
   const [within, setWithin] = useState<number | null>(null);
@@ -747,7 +765,7 @@ export function MarketList({
       )}
 
       {data && data.items.length > 0 && (
-        <EventBlocks items={data.items} picked={picked} onPick={onPick} />
+        <EventBlocks items={data.items} picked={picked} onPick={onPick} perp={perp} />
       )}
       {data && (
         <div

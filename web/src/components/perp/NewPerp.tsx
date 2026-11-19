@@ -221,7 +221,7 @@ export function NewPerp({ perps }: { perps: Address }) {
             </button>
           </div>
         ) : (
-          <MarketList picked={null} onPick={setMarket} />
+          <MarketList picked={null} onPick={setMarket} perp />
         )}
         {market && st && (
           <GeminiCard

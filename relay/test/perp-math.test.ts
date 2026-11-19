@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FIRST_TOLERANCE, lifeFits, perpLabel, perpProblem, perpRope, perpSteps, stakeFor, times, treatOf } from "../../web/src/lib/perpMath";
+import { FIRST_TOLERANCE, lifeFits, perpFit, perpLabel, perpProblem, perpRope, perpSteps, stakeFor, times, treatOf } from "../../web/src/lib/perpMath";
 
 describe("perp rope", () => {
   it("d is the creator side's price over its leverage, rounded up to a tick; the other side's leverage follows", () => {
@@ -58,5 +58,15 @@ describe("perp rope", () => {
     const now = Date.UTC(2026, 10, 18, 12);
     expect(lifeFits(3600, now + 3 * 3600_000, now)).toBe(true);
     expect(lifeFits(3600, now + 2.5 * 3600_000, now)).toBe(false);
+  });
+
+  it("says per market whether a perp works and the highest leverage", () => {
+    const now = Date.UTC(2026, 10, 19, 12);
+    const day = 24 * 3600_000;
+    expect(perpFit({ mid: 0.5, spreadPpm: 10_000, crypto: false, closeMs: now + day }, now)).toEqual({ ok: true, maxLeverage: 4 });
+    expect(perpFit({ mid: 0.455, spreadPpm: 10_000, crypto: true, closeMs: now + day }, now)).toMatchObject({ ok: true });
+    expect(perpFit({ mid: 0.97, spreadPpm: 10_000, crypto: true, closeMs: now + day }, now)).toEqual({ ok: false, reason: "Price too close to 0 or 100 for a perp" });
+    expect(perpFit({ mid: 0.5, spreadPpm: 10_000, crypto: true, closeMs: now + 2 * 3600_000 }, now)).toEqual({ ok: false, reason: "Closes too soon for a perp" });
+    expect(perpFit({ mid: null, spreadPpm: 10_000, crypto: true, closeMs: now + day }, now)).toMatchObject({ ok: false });
   });
 });

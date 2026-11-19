@@ -520,7 +520,7 @@ export function NewPot() {
           </div>
         )}
       </header>
-      {kind === "perp" && ropes?.perps ? <NewPerp perps={ropes.perps} /> : null}
+      {kind === "perp" && perpsOn && ropes?.perps ? <NewPerp perps={ropes.perps} /> : null}
 
       {kind === "normal" && (
         <>

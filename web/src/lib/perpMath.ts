@@ -79,3 +79,17 @@ export function lifeWords(s: number) {
 /** Whether a first rope of `lifeS` still ends at least two hours before trading closes. */
 export const lifeFits = (lifeS: number, closeMs: number, nowMs = Date.now()) => nowMs + lifeS * 1000 + EXPIRY_LEAD_S * 1000 <= closeMs;
 
+
+/**
+ * Whether a perp can be opened on a market now, for either side, and the highest leverage on offer:
+ * the same rules as the perp form (posts inside 2..98, leverage cap, minimum distance, and the first
+ * rope ending two hours before trading closes). `reason` says why not, in plain words.
+ */
+export function perpFit(m: { mid: number | null; spreadPpm: number; crypto: boolean; closeMs: number }, nowMs = Date.now()): { ok: true; maxLeverage: number } | { ok: false; reason: string } {
+  if (m.mid === null) return { ok: false, reason: "No price right now" };
+  if (!lifeFits(MIN_ROPE_LIFE_S, m.closeMs, nowMs)) return { ok: false, reason: "Closes too soon for a perp" };
+  const yes = Math.round(m.mid * 1e6);
+  const steps = [...perpSteps(0, yes, { spread: m.spreadPpm, crypto: m.crypto }), ...perpSteps(1, yes, { spread: m.spreadPpm, crypto: m.crypto })];
+  if (!steps.length) return { ok: false, reason: yes < 150_000 || yes > 850_000 ? "Price too close to 0 or 100 for a perp" : "Spread too wide for a perp" };
+  return { ok: true, maxLeverage: Math.max(...steps.map((s) => s.leverage)) };
+}
