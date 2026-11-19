@@ -11,6 +11,7 @@ import { C, F } from "./tokens";
 const primary = [
   ["/pots/new", "Start"],
   ["/pots", "Pots"],
+  ["/perps", "Perps"],
   ["/markets", "Markets"],
   ["/leaderboard", "Leaderboard"],
   ["/how", "How it works"],

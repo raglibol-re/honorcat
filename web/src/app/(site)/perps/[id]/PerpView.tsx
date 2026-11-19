@@ -15,6 +15,7 @@ import { displayName, useNames } from "@/lib/names";
 import {
   addLives,
   getPerp,
+  getPerpRopes,
   joinPerp,
   leaveNow,
   DEFAULT_LIVES,
@@ -28,7 +29,9 @@ import {
   withdrawSpare,
   type PerpDetail,
   type PerpEvent,
+  type RopeStory,
 } from "@/lib/perp";
+import { PerpChart } from "@/components/perp/PerpChart";
 import { useNow } from "@/lib/useNow";
 import { money } from "@/lib/currency";
 
@@ -105,6 +108,41 @@ function ropesOf(events: PerpEvent[]) {
   return out.reverse();
 }
 
+const pts = (ppm: number) => (ppm / 10_000).toFixed(1);
+const at = (s: number) =>
+  new Date(s * 1000).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+
+/**
+ * One rope's ending in plain words: what decided it, the 30-second window it was measured over and
+ * each price sampler's own average (the contract takes the middle one).
+ */
+function replay(r: RopeStory): string | null {
+  const d = r.decided;
+  if (!d || d.kind === "entry") return null;
+  const posts = `posts ${pts(r.lower)} and ${pts(r.upper)}`;
+  const price = d.priceYes !== null ? pts(d.priceYes) : "?";
+  const head =
+    d.kind === "post"
+      ? `Knocked out: the price held at ${price}, past the ${d.priceYes !== null && d.priceYes >= r.upper ? pts(r.upper) : pts(r.lower)} post, for 30 seconds`
+      : d.kind === "expiry"
+        ? `Time was up: divided at ${price} (${posts})`
+        : `Someone left: divided at ${price} (${posts})`;
+  const samplers = d.averages.length
+    ? ` The ${d.averages.length} price samplers measured ${d.averages
+        .map((a) => (a.valid ? pts(a.priceYes) : "no price"))
+        .join(", ")}; the contract took the middle one.`
+    : "";
+  const retries =
+    r.unagreed > 0
+      ? ` Before that, ${r.unagreed} price ${r.unagreed === 1 ? "check" : "checks"} did not agree (too few fresh readings), so the rope ran on.`
+      : "";
+  return `${head}, measured ${at(d.windowStart)} to ${at(d.windowEnd)}.${samplers}${retries}`;
+}
+
 export function PerpView({ id }: { id: string }) {
   const who = useActor();
   const { tech } = useTechMode();
@@ -121,6 +159,7 @@ export function PerpView({ id }: { id: string }) {
       void Promise.resolve().then(() => setPracticeFailed(true));
   }, []);
   const [rope, setRope] = useState<HcPot | null>(null);
+  const [stories, setStories] = useState<RopeStory[]>([]);
   const [perps, setPerps] = useState<Address | null>(null);
   const [step, setStep] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -180,6 +219,23 @@ export function PerpView({ id }: { id: string }) {
       if (t) clearTimeout(t);
     };
   }, [potDb]);
+
+  const ropeEvents = p?.events.length ?? 0;
+  const phaseNow = p?.phase;
+  useEffect(() => {
+    if (!ropeEvents) return;
+    let alive = true;
+    const load = () =>
+      getPerpRopes(id)
+        .then((r) => alive && setStories(r.ropes))
+        .catch(() => {});
+    void load();
+    const t = phaseNow === "Ended" ? null : setInterval(load, 15_000);
+    return () => {
+      alive = false;
+      if (t) clearInterval(t);
+    };
+  }, [id, ropeEvents, phaseNow]);
 
   const live = useLivePrice(p?.market?.instrument ?? null);
   const names = useNames([p?.a, p?.b]);
@@ -300,7 +356,26 @@ export function PerpView({ id }: { id: string }) {
         </strong>
         {acct && (
           <>
-            <Lives left={lives} lost={lostOf(x)} size={20} />
+            <span
+              style={{
+                display: "flex",
+                gap: 10,
+                alignItems: "center",
+                flexWrap: "wrap",
+                fontSize: 16,
+              }}
+            >
+              <Lives left={lives} lost={lostOf(x)} size={20} />
+              <span>
+                {lives} {lives === 1 ? "life" : "lives"} left
+                {lostOf(x) > 0 ? `, ${lostOf(x)} lost` : ""}
+              </span>
+            </span>
+            <span style={{ fontSize: 14, color: C.muted }}>
+              A life is {$(stake)}: lost when the price holds past{" "}
+              this player&apos;s post for 30
+              seconds.
+            </span>
             <span style={{ fontSize: 16 }}>
               Result so far: <strong>{signed(result)}</strong>
             </span>
@@ -358,7 +433,7 @@ export function PerpView({ id }: { id: string }) {
       )}
       <header style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <span style={{ fontSize: 15, color: C.muted }}>
-          <Link href="/pots">All pots and perps</Link>
+          <Link href="/perps">All perps</Link>
         </span>
         <h1
           style={{
@@ -475,6 +550,21 @@ export function PerpView({ id }: { id: string }) {
               <Link href={`/pots/${rope.potId}`}>pot {rope.potId}</Link>.
             </span>
           )}
+        </section>
+      )}
+
+      {p.market && stories.some((r) => r.armedAt > 0) && (
+        <section
+          aria-label="Price and ropes"
+          style={{ display: "flex", flexDirection: "column", gap: 10 }}
+        >
+          <h2 style={h2}>Price and ropes</h2>
+          <PerpChart
+            symbol={p.market.instrument}
+            ropes={stories}
+            now={now}
+            live={p.phase === "Running" ? price : null}
+          />
         </section>
       )}
 
@@ -752,7 +842,7 @@ export function PerpView({ id }: { id: string }) {
 
       {history.length > 0 && (
         <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <h2 style={h2}>Ropes so far</h2>
+          <h2 style={h2}>How each rope went</h2>
           <ol
             style={{
               margin: 0,
@@ -791,6 +881,34 @@ export function PerpView({ id }: { id: string }) {
                   </span>
                 )}
                 {r.pot && <Link href={`/pots/${r.pot}`}>pot {r.pot}</Link>}
+                {(() => {
+                  const st = stories.find((x) => x.rope === r.rope);
+                  const line = st ? replay(st) : null;
+                  return line ? (
+                    <span
+                      style={{
+                        flexBasis: "100%",
+                        fontSize: 15,
+                        color: C.body,
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      {line}
+                      {tech && st?.decided?.tx && (
+                        <>
+                          {" "}
+                          <a
+                            href={`https://explorer.testnet.arc.io/tx/${st.decided.tx}`}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            transaction
+                          </a>
+                        </>
+                      )}
+                    </span>
+                  ) : null;
+                })()}
               </li>
             ))}
           </ol>

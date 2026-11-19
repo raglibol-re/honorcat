@@ -229,3 +229,93 @@ async function perpMarket(db: Db, r: PerpRow) {
   }
   return { instrument: m.instrument, eventTicker: m.eventTicker, contractTicker: m.contractTicker, eventTitle: m.eventTitle, label: m.label, center };
 }
+
+/** One rope of a perp, for the perp page's chart and its "how it ended" lines. */
+export type RopeStory = {
+  rope: number;
+  pot: string;
+  lower: number;
+  upper: number;
+  /** When the rope started running and when it had to end at the latest (unix seconds; 0 when unknown). */
+  armedAt: number;
+  expiry: number;
+  /** The price window that ended the rope (or priced its start), with each sampler's own average. */
+  decided: {
+    kind: "entry" | "exit" | "post" | "expiry";
+    windowStart: number;
+    windowEnd: number;
+    priceYes: number | null;
+    averages: { signer: string; priceYes: number; valid: boolean; samples: number }[];
+    tx: string | null;
+  } | null;
+  /** Price windows asked for and not agreed (missing or invalid sampler readings). */
+  unagreed: number;
+  /** Every 30-second price the samplers measured for this rope: [window end (s), YES price (ppm)]. */
+  checks: [number, number][];
+};
+
+const STORY_KIND: Record<number, NonNullable<RopeStory["decided"]>["kind"]> = { 0: "entry", 1: "exit", 7: "post", 8: "expiry" };
+
+/**
+ * Each rope of a perp with its posts and the price window that decided it: when it was measured and
+ * what each sampler's own average was. Public data only (the same as the evidence pages).
+ */
+export async function perpRopes(db: Db, perpId: string): Promise<RopeStory[]> {
+  const started = await db.query<{ rope: string; pot_id: string }>(
+    "SELECT args->>'rope' AS rope, pot_id::text AS pot_id FROM pot_events WHERE event_name = 'Perp:RopeStarted' AND args->>'perpId' = $1 AND pot_id IS NOT NULL ORDER BY block_number, log_index",
+    [perpId],
+  );
+  if (!started.length) return [];
+  const pots = started.map((r) => r.pot_id);
+  const potRows = await db.query<{ pot_id: string; lower: string | null; upper: string | null; armed: string | null; expiry: string | null }>(
+    "SELECT pot_id::text AS pot_id, data->>'lower' AS lower, data->>'upper' AS upper, data->>'armedAt' AS armed, data->>'expiry' AS expiry FROM pots WHERE pot_id = ANY($1::bigint[])",
+    [pots],
+  );
+  const reqs = await db.query<{ id: string; pot_id: string; status: string; tx: string | null; kind: string | null; ws: string | null; we: string | null; memo: string | null }>(
+    `SELECT id, pot_id::text AS pot_id, status, tx, payload->>'kind' AS kind, payload->>'windowStart' AS ws, payload->>'windowEnd' AS we, payload->>'memo' AS memo
+       FROM att_requests WHERE kind = 'window' AND pot_id = ANY($1::bigint[]) ORDER BY created_at`,
+    [pots],
+  );
+  const ids = reqs.map((r) => r.id);
+  const avgs = ids.length
+    ? await db.query<{ request_id: string; signer: string; price_ppm: string; valid: boolean; sample_count: number }>(
+        "SELECT request_id, signer, price_ppm::text AS price_ppm, valid, sample_count FROM att_averages WHERE request_id = ANY($1::text[]) ORDER BY signer",
+        [ids],
+      )
+    : [];
+  return started.map((s) => {
+    const p = potRows.find((r) => r.pot_id === s.pot_id);
+    const mine = reqs.filter((r) => r.pot_id === s.pot_id && r.kind !== null && STORY_KIND[Number(r.kind)] !== undefined);
+    // The deciding window: the last one sent on-chain with a price (not "no … price").
+    const decidedReq = [...mine].reverse().find((r) => r.status === "submitted" && Number(r.kind) !== 0 && !/^no /.test(r.memo ?? ""))
+      ?? [...mine].reverse().find((r) => r.status === "submitted" && Number(r.kind) === 0 && !/^no /.test(r.memo ?? ""));
+    const price = decidedReq?.memo?.match(/(\d+(?:\.\d+)?)% \(YES\)/);
+    const own = decidedReq ? avgs.filter((a) => a.request_id === decidedReq.id) : [];
+    return {
+      rope: Number(s.rope),
+      pot: s.pot_id,
+      lower: Number(p?.lower ?? 0),
+      upper: Number(p?.upper ?? 0),
+      armedAt: Number(p?.armed ?? 0),
+      expiry: Number(p?.expiry ?? 0),
+      decided: decidedReq
+        ? {
+            kind: STORY_KIND[Number(decidedReq.kind)]!,
+            windowStart: Number(decidedReq.ws ?? 0),
+            windowEnd: Number(decidedReq.we ?? 0),
+            priceYes: price ? Math.round(Number(price[1]) * 10_000) : null,
+            averages: own.map((a) => ({ signer: a.signer, priceYes: Number(a.price_ppm), valid: a.valid, samples: a.sample_count })),
+            tx: decidedReq.tx,
+          }
+        : null,
+      unagreed: mine.filter((r) => r.status === "failed").length,
+      checks: mine
+        .map((r): [number, number] | null => {
+          // the reading with the most samples stands for the window (valid ones agree within half a point)
+          const best = avgs.filter((a) => a.request_id === r.id && a.sample_count > 0).sort((x, y) => y.sample_count - x.sample_count)[0];
+          return best && r.we ? [Number(r.we), Number(best.price_ppm)] : null;
+        })
+        .filter((c): c is [number, number] => c !== null),
+    };
+  });
+}

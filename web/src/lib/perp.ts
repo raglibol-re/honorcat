@@ -111,6 +111,33 @@ export type PerpDetail = {
 };
 export type PerpSummary = Omit<PerpDetail, "events">;
 
+/** One rope with its posts and the price window that decided it (/api/hc/perps/{id}/ropes). */
+export type RopeStory = {
+  rope: number;
+  pot: string;
+  lower: number;
+  upper: number;
+  armedAt: number;
+  expiry: number;
+  decided: {
+    kind: "entry" | "exit" | "post" | "expiry";
+    windowStart: number;
+    windowEnd: number;
+    priceYes: number | null;
+    averages: { signer: string; priceYes: number; valid: boolean; samples: number }[];
+    tx: string | null;
+  } | null;
+  unagreed: number;
+  /** The samplers' 30-second prices for this rope: [window end (s), YES ppm]. */
+  checks: [number, number][];
+};
+export const getPerpRopes = (id: string) =>
+  getJson<{ ropes: RopeStory[] }>(`/api/hc/perps/${id}/ropes`);
+export const getCandles = (symbol: string, since: number) =>
+  getJson<{ candles: [number, number][] }>(
+    `/api/catalog/candles?symbol=${encodeURIComponent(symbol)}&since=${since}`,
+  );
+
 export const getPerp = (id: string) =>
   getJson<PerpDetail>(`/api/hc/perps/${id}`);
 export const listPerps = (
