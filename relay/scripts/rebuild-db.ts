@@ -21,8 +21,22 @@ const fetchJson = async (path: string) => {
   return JSON.parse(t);
 };
 
-// 1. The catalogue (the events list, page by page, until a full sweep).
-for (let i = 0; i < 60; i++) {
+// Arc's public RPC answers bursts with "rate limit exceeded": wait and try again.
+const patient = async <T,>(f: () => Promise<T>): Promise<T> => {
+  for (let i = 0; ; i++) {
+    try {
+      return await f();
+    } catch (e) {
+      if (i >= 20 || !/rate limit|exceeds defined limit|429|timeout/i.test(String((e as Error).message))) throw e;
+      console.log(`rate limited; waiting ${5 + i * 5} s`);
+      await new Promise((r) => setTimeout(r, (5 + i * 5) * 1000));
+    }
+  }
+};
+
+// 1. The catalogue (the events list, page by page, until a full sweep); skipped when already there.
+const have = Number((await db.query<{ n: string }>("SELECT count(*)::text AS n FROM market_catalog"))[0]?.n ?? 0);
+for (let i = 0; i < 60 && have < 10_000; i++) {
   const s = await catalog.refreshStep(db, fetchJson, { listBudget: 10, bookBudget: 0 });
   console.log(`catalogue step ${i}: pages ${s.pages}, rows ${s.rows}, swept ${s.swept}`);
   if (s.swept) break;
@@ -30,7 +44,7 @@ for (let i = 0; i < 60; i++) {
 
 // 2. Every pot event from the deploy block (the poller trails the head by about a minute).
 for (let i = 0; i < 400; i++) {
-  const r = (await indexPots(db, { deadlineMs: 60_000 })) as { from?: string; to?: string; done?: boolean } | undefined;
+  const r = (await patient(() => indexPots(db, { deadlineMs: 60_000 }))) as { from?: string; to?: string; done?: boolean } | undefined;
   const cur = (await db.query<{ value: string }>("SELECT value FROM relay_state WHERE key = 'pots_cursor_v2'"))[0]?.value;
   console.log(`index pass ${i}: cursor ${cur}`, r ?? "");
   const head = await (await import("../src/chain")).publicClient().getBlockNumber();
@@ -42,7 +56,7 @@ for (let i = 0; i < 400; i++) {
   const { indexPerps } = await import("../src/perps");
   const head = await (await import("../src/chain")).publicClient().getBlockNumber();
   for (let i = 0; i < 200; i++) {
-    await indexPerps(db, head, { deadlineMs: 60_000 });
+    await patient(() => indexPerps(db, head, { deadlineMs: 60_000 }));
     const cur = (await db.query<{ value: string }>("SELECT value FROM relay_state WHERE key = 'perps_cursor'"))[0]?.value;
     console.log(`perps pass ${i}: cursor ${cur}`);
     if (!cur || BigInt(cur) >= head) break;
@@ -76,6 +90,6 @@ const pp = await db.query("INSERT INTO practice_pots (pot_id) SELECT -perp_id FR
 console.log(`practice perps marked: ${pp.length}`);
 
 // 5. Re-read every pot so its projection includes the market.
-for (const p of pots) await syncPot(db, BigInt(p.pot_id)).catch((e) => console.error("sync", p.pot_id, (e as Error).message));
+for (const p of pots) await patient(() => syncPot(db, BigInt(p.pot_id))).catch((e) => console.error("sync", p.pot_id, (e as Error).message));
 console.log("done");
 process.exit(0);
