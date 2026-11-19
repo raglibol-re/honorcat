@@ -58,7 +58,17 @@
   challenger and becomes a three-sentence share card when the pot ends; "Share what happened";
   one-tap rematch on the same market and side (the rematch on a new market existed); "Trade this
   market on Gemini" on pot and perp pages ("Well played" already existed). Private pots and the
-  watch view belong to step 5. Next: step 2 (copycat and incentives).
+  watch view belong to step 5.
+- **Step 2 (copycat and incentives) done, except:** automatic copycat through seats, joining an
+  open opposite side when copying, and the shadow cat on copied pots (not built yet); cosmetics by
+  milestones are left as they are because the Honor spec (2026-11-19) replaces them with honor
+  thresholds. Built: signed public follows and a feed with copy buttons; leaderboard ranked by
+  result on stake (min. 3 finished pots, shown), held-to-the-end share, "people I follow" view,
+  follow and copy on each row; leader's entry price next to the current one in the copy form (the
+  5% copycat treat was already shown); streaks; "copied by N cats" and followers on the record page;
+  break reminder after five pots or perps in three hours (create page). Treats page per player,
+  referral links, weekly friends table and "nothing goes to HonorCat" already existed.
+- Next: the Honor spec (owner, 2026-11-19: "after you are done"): computation and history first.
 
 ## Review and fixes (2026-11-19, 03:00-04:30 UTC)
 
