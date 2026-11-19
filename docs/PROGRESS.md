@@ -76,8 +76,14 @@
   (hourly), API, Honor page with the table (all time / week, everyone / friends), history and
   badge on the record page, titles on pots, perps, leaderboard rows and the challenge preview,
   cosmetics by honor thresholds when on, the bell when honor is earned (reduced motion respected).
-  On real data: 26 entries, 18 players (most at half: not yet trusted). Next: HonorRoots contract
-  and the verify page (ask before deploying); then switch Honor on.
+  On real data: 26 entries, 18 players (most at half: not yet trusted).
+- **Honor part 2 built, not deployed:** HonorRoots (contracts/src/HonorRoots.sol: one root a day,
+  only the relay posts, never overwritten, `verify()` for other contracts; 4 forge tests), the daily
+  tree kept for proofs (relay/src/honor/roots.ts, tests that the TypeScript leaf and pairing match
+  the contract), proof and root endpoints, /honor/verify (leaf and root computed in the browser, root
+  read from Arc, the contract asked), the root on /how-it-is-built, README section.
+- **Blocks current milestone:** owner's go to deploy HonorRoots (script/DeployHonorRoots.s.sol,
+  HONOR_RELAY = the relay's sending address) and to switch `HONOR=on` in production.
 
 ## Review and fixes (2026-11-19, 03:00-04:30 UTC)
 

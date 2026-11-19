@@ -634,6 +634,15 @@ CREATE TABLE IF NOT EXISTS honor_flags (
   since    BIGINT NOT NULL,
   at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+CREATE TABLE IF NOT EXISTS honor_roots (
+  day        INTEGER PRIMARY KEY,   -- days since 1970-01-01 UTC
+  version    INTEGER NOT NULL,
+  root       TEXT NOT NULL,
+  last_block BIGINT NOT NULL,
+  tree       JSONB NOT NULL,        -- the OpenZeppelin standard tree dump (proofs for every player)
+  tx         TEXT,
+  posted_at  TIMESTAMPTZ
+);
 CREATE TABLE IF NOT EXISTS account_funding (
   account    TEXT PRIMARY KEY,
   funder     TEXT,

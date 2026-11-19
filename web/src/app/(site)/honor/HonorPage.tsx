@@ -156,7 +156,7 @@ export function HonorPage() {
         <p style={p}>
           Honor is counted only from the contracts&apos; events on Arc (and the signed “Well played” notes), by rules published in the repository
           (docs/honor.md): anyone can count again and compare. Each player&apos;s history on their <Link href={me ? `/record/${me}` : "/leaderboard"}>honor record</Link>{" "}
-          shows every point with its reason. A daily root of all balances posted on Arc, with a proof you can check in your browser, comes next.
+          shows every point with its reason. Every day one Merkle root of all balances goes to the HonorRoots contract on Arc, where it can never be changed: <Link href="/honor/verify">check a balance in your browser against it</Link>. Other apps on Arc can call HonorRoots.verify() with the same proof.
         </p>
       </section>
     </div>

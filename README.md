@@ -244,6 +244,35 @@ Gemini midpoints (`relay/scripts/record-mids.ts`, recording since 18 Nov, live N
 separate) are added to the JSON as they accumulate; the production sampler history before 16 Nov was
 lost when the database was rebuilt, so there was no older record to use.
 
+## Honor: points for honorable play
+
+Honor rewards conduct, never results: holding a pot or a perp to its end (2 an hour, at most 20),
+a handshake (10 each), an open side being joined (5), taking over a side so the other player can go
+on (10), "Well played" (1), a referred friend's first real pot (20), playing on consecutive days
+(3 a day, at most 7). Winning, stake size, leverage and volume earn nothing; leaving is a right and
+earns or costs nothing.
+
+**Never a token.** Honor cannot be bought, sold, transferred or airdropped, has no cash value and is
+never exchanged for money or fee discounts. It shows as a title (Stray, House Cat, Honor Cat, Lion)
+and the cat cosmetics it unlocks. Its symbol is a small collar bell.
+
+**Anti-farming, from the start:** a minimum stake ($0.10 a side) and duration (10 minutes); the
+first pot with the same player in 24 hours counts in full, each further one halves; new accounts
+earn half until they have finished pots with 3 different trusted players (a closed circle of new
+accounts stays at half); no honor between accounts first funded from the same address; nothing in
+practice or Grok Bot pots; a daily check flags pairs trading many quick pots and removes their
+honor with a reason the history shows. Its limit, stated plainly: one person with several accounts
+funded from different places who plays slowly with many others looks like several honest players,
+which is why honor buys nothing.
+
+**Anyone can recount and verify it.** Honor is derived only from the contracts' events on Arc (plus
+the signed "Well played" notes) by published rules (docs/honor.md, versioned values in
+relay/src/honor/config.ts); recomputing from scratch gives the same balances. Every day one Merkle
+root of all balances goes to the HonorRoots contract with the rules version and the last block
+counted; a posted root can never be changed. /honor/verify checks a player's proof in the browser
+against the root read from Arc, and `HonorRoots.verify(account, total, day, proof)` lets any other
+contract on Arc use it.
+
 ## How HonorCat uses Arc
 
 - **USDC as gas.** Players hold only USDC; HonorCat's relay pays the network fee in USDC for passkey

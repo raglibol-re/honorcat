@@ -51,6 +51,42 @@ function List({ title, items }: { title: string; items: Item[] }) {
   );
 }
 
+/** The newest daily honor root (HonorRoots on Arc) and its transaction. */
+function HonorRootLine() {
+  const { data } = usePolling<{ root: { day: number; version: number; root: string; last_block: string; tx: string | null; contract: string | null } | null }>("/api/hc/honor/root", 300_000);
+  const r = data?.root;
+  return (
+    <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <h2 style={{ margin: 0, fontFamily: F.cond, fontSize: 40, fontWeight: 600 }}>Honor root</h2>
+      {!r ? (
+        <p style={{ margin: 0, fontSize: 16, color: C.muted }}>No honor root yet (Honor is counted once it is switched on; the first root follows the same day).</p>
+      ) : (
+        <p style={{ margin: 0, fontSize: 16, lineHeight: 1.5, color: C.body }}>
+          Day {r.day} (UTC days since 1970), rules version {r.version}, counted up to block {r.last_block}:{" "}
+          <span style={{ fontFamily: F.mono, fontSize: 13, wordBreak: "break-all" }}>{r.root}</span>.{" "}
+          {r.tx ? (
+            <a href={txUrl(r.tx)} target="_blank" rel="noreferrer">
+              Its transaction on Arc
+            </a>
+          ) : (
+            "Not posted on Arc yet (HonorRoots is not deployed)."
+          )}
+          {r.contract && (
+            <>
+              {" · "}
+              <a href={addressUrl(r.contract)} target="_blank" rel="noreferrer">
+                HonorRoots
+              </a>
+            </>
+          )}
+          {" · "}
+          <Link href="/honor/verify">Verify a player&apos;s honor</Link>
+        </p>
+      )}
+    </section>
+  );
+}
+
 export function Built() {
   const { data: e } = usePolling<Evidence>("/api/hc/evidence", 15_000);
   const ev = (name: string) => e?.events.find((x) => x.event_name === name);
@@ -270,6 +306,7 @@ export function Built() {
           . Source, tests and the design document are in the repository.
         </p>
       </header>
+      <HonorRootLine />
       <List title="Every asset" items={assets} />
       <List title="Every Circle product" items={circleProducts} />
       <List title="Arc" items={arc} />

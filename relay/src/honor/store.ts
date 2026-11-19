@@ -209,7 +209,10 @@ export async function honorHousekeeping(db: Db) {
     const f = await lookUpFunding(db).catch((e) => (console.error("[honor] funding", (e as Error).message), { found: 0 }));
     const c = await farmingCheck(db).catch((e) => (console.error("[honor] check", (e as Error).message), { flagged: 0 }));
     await db.query("INSERT INTO relay_state (key, value) VALUES ('honor_check_at', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", [String(now)]);
-    if (f.found || c.flagged) return recomputeHonor(db);
+    const again = f.found || c.flagged ? await recomputeHonor(db) : first;
+    // the day's root (tree kept for proofs; posted to HonorRoots once it is deployed)
+    await (await import("./roots")).postDailyRoot(db).catch((e) => console.error("[honor] root", (e as Error).message));
+    return again;
   }
   return first;
 }
