@@ -92,6 +92,24 @@
   worker. Render services `honorcat` (full site, out of memory on 512 MB) and `honorcat-sampler` are
   no longer needed: the owner deletes them (the tools cannot).
 
+## Evening checks (2026-11-19, 19:30-20:00 UTC)
+
+- Showcase perps 15 and 16 ended after their first rope: the test script switches renewal off when
+  its watch ends (its clean-up). Money swept back ($44.68); reopened with the new --keep option as
+  perp 17 (Iowa State vs UCF) and perp 18 (Syracuse vs Boston College), both renewing.
+- HonorCat's own test accounts had earned honor (6 of 12 players): they are now house accounts
+  (written by the test scripts), never players in honor, leaderboards or rivalry; honor recomputed
+  (6 players); 0 test accounts on the leaderboard.
+- Group 4 (rest waiting): batches 0-4 cleared once a minute; the carried batch's price request was
+  created ahead (79 s before its window). Unsigned or foreign team-line writes refused (400, 403).
+- Worker: no tick errors and no failed price requests in the last hour; it reads about 230 KB per
+  10 minutes. Neon's total still rose about 21 MB an hour, most likely per-query overhead the meter
+  does not count (about 20 small queries per 5-second tick); at that rate the free 5 GB lasts to
+  about 29 November.
+- The next honor root (the first without practice and test play) is posted about 24 hours after the
+  last daily check, around 12:00-13:00 UTC on 20 November.
+- docs/demo.md: the demo route with links and what to point at for each sponsor.
+
 ## Owner's decisions; feature freeze (2026-11-19 evening)
 
 - Automatic copycat: left out. The relay never moves a player's money without their signature; no
