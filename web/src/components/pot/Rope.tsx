@@ -100,12 +100,13 @@ function poseFor(p: RopeProps): CatPose {
   return (p.speed ?? 0) > 1.5 ? "wobble" : "rope";
 }
 
-/** Dollars that roll like an odometer; screen readers get the plain amount. */
+/** Dollars that roll like an odometer, written by the one amount rule (lib/amount.ts); screen readers get the plain amount. */
 function Dollars({ v }: { v: number }) {
   const { home, rate } = useHome();
   const eur = home === "EURC" && rate;
   const sym = eur ? "€" : "$";
-  const cents = Math.round(v * (eur ? rate.eurcPerUsdc : 1) * 100);
+  const text = formatAmount(v * (eur ? rate.eurcPerUsdc : 1), sym);
+  const m = /^-?.(\d+)\.(\d+)$/.exec(text);
   return (
     <span
       style={{
@@ -114,14 +115,19 @@ function Dollars({ v }: { v: number }) {
         fontVariantNumeric: "tabular-nums",
       }}
     >
-      <span className="hc-sr">{`${sym}${(cents / 100).toFixed(2)}`}</span>
+      <span className="hc-sr">{text}</span>
       <span
         aria-hidden="true"
         style={{ display: "inline-flex", alignItems: "baseline" }}
       >
-        {sym}
-        <RollingNumber value={Math.floor(cents / 100)} />.
-        {String(cents % 100).padStart(2, "0")}
+        {m ? (
+          <>
+            {sym}
+            <RollingNumber value={Number(m[1])} />.{m[2]}
+          </>
+        ) : (
+          text
+        )}
       </span>
     </span>
   );

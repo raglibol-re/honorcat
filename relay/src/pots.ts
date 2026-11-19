@@ -1053,9 +1053,9 @@ async function openExpiryWindow(db: Db, row: PotRow, d: Record<string, string>, 
  * refreshes every pot they touch. Covers transactions the relay did not send (wallet users).
  */
 export const POLLER_LAG_BLOCKS = 10n; // Arc is final in under a second: a few blocks of margin is plenty
-// The database was rebuilt from the chain on 2026-11-16 (every older event is marked as found by
-// the poller), and the stream was resumed at about this block: count Streams' share from here.
-export const STREAMS_POTS_SINCE_BLOCK = 72_600_235n;
+// The current stream (a new QuickNode account, 2026-11-19 17:00 UTC) starts at this block; the one
+// before stopped at its plan's monthly limit. Count Streams' share of pot events from here.
+export const STREAMS_POTS_SINCE_BLOCK = 73_050_111n;
 
 export async function indexPots(db: Db, opts: { deadlineMs?: number } = {}) {
   const cfg = getConfig();
