@@ -307,3 +307,34 @@ QuickNode
       a time; one sign-in and one sign-out; currency as a one-line $ / € switch; the Onramp reason and
       Gateway details folded away; Grok Bot in one sentence. Signed-in axe check on every view: 0
       issues, no overflow at phone width.
+
+## 16. Browser review of production (2026-11-19), fixes in the order given
+- [ ] A1 QuickNode Streams delivers again. Cause: QuickNode stopped the stream on 2026-11-18 13:18
+      UTC at block 72,855,292 ("You've reached the monthly limit for streams in your plan"); the
+      webhook address (honorcat.vercel.app) and signature check were right. Done in code: the filter
+      also covers HonorCatGroups and HonorRoots, and perp and group logs from Streams are recorded as
+      Streams deliveries. Open: the plan limit (owner's QuickNode dashboard).
+- [x] A2 The third sampler counts. Cause: the relay proposed as soon as two averages agreed and turned
+      away the laptop sampler's average, which came 2 to 3 s after the window. Now a running third
+      sampler is waited for until 6 s after the window (relay/test/agree.test.ts); "their mean" for two.
+- [x] A3 Practice play earns nothing. Cause: the database rebuild restored pots from the chain, where
+      practice is not written, so 11 of the practice cat's 13 pots counted. Practice pots are recorded
+      from the practice cat's sides, and its account is never a player in honor, leaderboards or
+      rivalry (relay/test/honor.test.ts "the practice cat earns nothing"); honor recomputed.
+- [x] B1 Amounts add up: one rule (three decimals under $1 or with a tenth of a cent, "under 0.1¢"),
+      shares rounded to tenths of a cent (relay/test/shares.test.ts, 5,000 random pots).
+- [x] B2 Lives by one rule for both players, stated on the page (relay/test/perp-math.test.ts).
+- [x] B3 Names carry a short tag from the account everywhere (Velvet·c19; relay/test/names-tag.test.ts).
+- [x] B4 Invite links carry a short code, not the address; old links still work.
+- [x] C1 /perps/new opens the perp form; an error is never wrapped twice (relay/test/messages.test.ts).
+- [x] C2 The perp form offers only the lives the balance pays for and explains the stake per life.
+- [x] C3 The picker names the rule that stops a perp (relay/test/perp-math.test.ts, one test per rule).
+- [x] C4 Closed pots show their final state from their own events, without a live price.
+- [x] C5 Charts draw the samplers' 30-second prices; Gemini's last trades only on request.
+- [x] D Wording: "posts N points either side", leverage per rope, head to head "Willow 1, Tofu 0",
+      decorative Z hidden, the old domain gone from docs and scripts.
+- [x] E Gateway run again: 1 USDC deposited on Arc, $0.40 minted by the Circle wallet in 2.8 s
+      (tx 0x5fceacd007bb26d6cde8acd8202e7413dec714ef76ead69113ec76891e200e58).
+- [ ] E Two showcase perps ($1.00 per life, liquid even markets): waiting for the owner's go.
+- [x] E /how-it-is-built and /developers list every current contract (read from the deployment files).
+- [ ] F Production check of every page at desktop and 390 px, console errors: after the deploy.

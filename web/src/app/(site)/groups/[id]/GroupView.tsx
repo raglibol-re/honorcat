@@ -10,6 +10,7 @@ import { InviteQR } from "@/components/pot/InviteQR";
 import { Reactions } from "@/components/pot/Reactions";
 import { Rope } from "@/components/pot/Rope";
 import { useLivePrice } from "@/components/pot/usePrice";
+import { BreakReminder } from "@/components/pot/BreakReminder";
 import { SignIn, useActor } from "@/components/pot/Who";
 import { ActionProgress, Button } from "@/components/ui/Button";
 import { Input, Notice } from "@/components/ui/Field";
@@ -18,7 +19,6 @@ import { pollFast, usePolling } from "@/lib/api";
 import { money } from "@/lib/currency";
 import { collect, getGroups, groupPath, joinTeam, leaveGroup, MAX_WAIT_BATCHES, P, valueOf, type GroupDetail, type GroupsStatus } from "@/lib/group";
 import { plainError } from "@/lib/messages";
-import { furOf } from "@/lib/names";
 import { SITE_URL } from "@/lib/site";
 import { useNow } from "@/lib/useNow";
 
@@ -79,6 +79,9 @@ export function GroupView({ id }: { id: string }) {
   const priceNow = live.smoothed ?? (lastPrice !== null ? lastPrice / P : null);
   const pricePpm = lastPrice ?? (live.smoothed !== null ? Math.round(live.smoothed * P) : null);
   const pool = BigInt(g.teams[0]?.pool ?? "0");
+  // The two teams' cats: fixed, different furs (ginger for the first team, grey for the second).
+  const furA = "ginger" as const;
+  const furB = "grey" as const;
   const open = g.state === "Open";
   const settled = g.state === "Settled";
   const closing = open && now >= g.closeTime;
@@ -108,6 +111,10 @@ export function GroupView({ id }: { id: string }) {
 
   const joinAmount = dollars(amount);
   const joinTooSmall = joinAmount < 100_000n;
+  // Test-version limit per player and group: $20 in all (joins waiting plus what the position cost).
+  const PER_PLAYER = 20_000_000n;
+  const already = (mine?.request ? BigInt(mine.request.escrow) : 0n) + (pricePpm !== null && myTeam !== null ? valueOf(myNotional, pricePpm, myTeam) : 0n);
+  const joinTooBig = joinAmount + already > PER_PLAYER;
   const leaveN = leaveAll ? myNotional : dollars(leavePart) > myNotional ? myNotional : dollars(leavePart);
   const leaveValue = pricePpm !== null && myTeam !== null ? valueOf(leaveN, pricePpm, myTeam) : null;
 
@@ -147,8 +154,8 @@ export function GroupView({ id }: { id: string }) {
           trail={live.trail}
           speed={live.speed}
           cats={{
-            yes: { fur: furOf(`team:${g.groupId}:${nameA}`), mood: "even", name: `${nameA} · ${g.teams[0]?.members ?? 0} cats` },
-            no: { fur: furOf(`team:${g.groupId}:${nameB}`), mood: "even", name: `${nameB} · ${g.teams[1]?.members ?? 0} cats` },
+            yes: { fur: furA, mood: "even", name: `${nameA} · ${g.teams[0]?.members ?? 0} cats` },
+            no: { fur: furB, mood: "even", name: `${nameB} · ${g.teams[1]?.members ?? 0} cats` },
           }}
         />
         <Reactions potId={String(9_000_000_000 + Number(g.groupId))} />
@@ -306,7 +313,7 @@ export function GroupView({ id }: { id: string }) {
               <div>
                 <Button
                   busy={busy === "join"}
-                  disabled={Boolean(busy) || joinTooSmall || !groups || (myTeam !== null && myTeam !== team)}
+                  disabled={Boolean(busy) || joinTooSmall || joinTooBig || !groups || (myTeam !== null && myTeam !== team)}
                   onClick={() =>
                     run("join", async (s) => {
                       await joinTeam(who.actor!, groups!, g.groupId, team, joinAmount, wait, s);
@@ -318,6 +325,8 @@ export function GroupView({ id }: { id: string }) {
                 </Button>
               </div>
               {joinTooSmall && <p style={{ margin: 0, fontSize: 15, color: C.signalInk }}>The smallest join is $0.10.</p>}
+              {joinTooBig && <p style={{ margin: 0, fontSize: 15, color: C.signalInk }}>On the test version a player puts at most {money(PER_PLAYER)} into one group (you have about {money(already)} in it).</p>}
+              <BreakReminder who={who} />
               <ActionProgress step={busy === "join" ? step : null} />
             </>
           )}

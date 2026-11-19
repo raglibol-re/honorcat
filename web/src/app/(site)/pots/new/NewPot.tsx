@@ -107,10 +107,12 @@ export function NewPot() {
   const [kind, setKind] = useState<"normal" | "perp" | "group">("normal");
   // Group pots: only once switched on (GROUPS=on); ?groups=preview shows them for testing.
   const [groupsOn, setGroupsOn] = useState(false);
+  const [groupsKnown, setGroupsKnown] = useState(false);
   useEffect(() => {
     getGroups()
       .then((r) => setGroupsOn(r.status.on || (r.status.available && new URLSearchParams(window.location.search).get("groups") === "preview")))
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setGroupsKnown(true));
   }, []);
   const [preview, setPreview] = useState(false);
   useEffect(() => {
@@ -191,6 +193,8 @@ export function NewPot() {
   // only a Grok Bot opponent still needs a v1 pot.
   const v2 = Boolean(ropes?.forNewPots) && !(practice && opponent === "bot");
   const perpsOn = Boolean(ropes?.perps && (ropes.perpsForNewPots || preview));
+  // A choice that is switched off is never shown as chosen: the normal form shows instead.
+  const shownKind = (kind === "perp" && ropes !== null && !perpsOn) || (kind === "group" && groupsKnown && !groupsOn) ? "normal" : kind;
   const [step, setStep] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const live = useLivePrice(market?.symbol ?? null);
@@ -380,7 +384,7 @@ export function NewPot() {
             lineHeight: 0.95,
           }}
         >
-          {kind === "perp" ? "Start a perp" : kind === "group" ? "Start a group" : "Start a pot"}
+          {shownKind === "perp" ? "Start a perp" : shownKind === "group" ? "Start a group" : "Start a pot"}
         </h1>
         <div
           role="radiogroup"
@@ -406,7 +410,7 @@ export function NewPot() {
               },
             ] as const
           ).map((o) => {
-            const on = kind === o.k;
+            const on = shownKind === o.k;
             const off = (o.k === "perp" && !perpsOn) || (o.k === "group" && !groupsOn);
             return (
               <button
@@ -454,7 +458,7 @@ export function NewPot() {
             Preview: perps are not switched on for everyone yet.
           </p>
         )}
-        {kind === "normal" && (
+        {shownKind === "normal" && (
           <p
             style={{
               margin: 0,
@@ -552,7 +556,7 @@ export function NewPot() {
       {kind === "perp" && perpsOn && ropes?.perps ? <NewPerp perps={ropes.perps} /> : null}
       {kind === "group" && groupsOn ? <NewGroup /> : null}
 
-      {kind === "normal" && (
+      {shownKind === "normal" && (
         <>
           <section
             style={{ display: "flex", flexDirection: "column", gap: 12 }}

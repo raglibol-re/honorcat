@@ -92,6 +92,63 @@
   worker. Render services `honorcat` (full site, out of memory on 512 MB) and `honorcat-sampler` are
   no longer needed: the owner deletes them (the tools cannot).
 
+## Fixes from the browser review of production (2026-11-19 afternoon)
+
+Each item: the cause in one sentence, the fix, the evidence. Rubric: docs/rubric.md section 16.
+
+- **A1 Streams.** Cause: QuickNode terminated the stream on 2026-11-18 13:18 UTC at block 72,855,292
+  because the account reached its plan's monthly Streams limit (the API answers "You've reached the
+  monthly limit for streams in your plan"); the webhook address and its signature check were right.
+  Fix in code: the filter adds HonorCatGroups and HonorRoots; perp and group logs from a delivery are
+  recorded at once with source "streams". Open: the owner raises the plan or starts a new stream.
+- **A2 Third sampler.** Cause: the relay proposed a price as soon as two averages agreed, and the laptop
+  sampler's average, 2 to 3 s after the window, was then refused ("request is ready"); perp 13's
+  windows show it logged by the sampler and never stored. Fix: with a third sampler running (seen
+  within 45 s), two agreeing averages wait until 6 s after the window (relay/test/agree.test.ts).
+  Wording: "the contract took their mean" for two, "the middle one" only for three.
+- **A3 Practice in honor.** Cause: the rebuild of 2026-11-18 restored pots from the chain, where
+  practice is not written, so 11 of the practice cat's 13 pots were not marked practice. Fix:
+  markPracticePots records them from the practice cat's sides (also in rebuild-db.ts), and the
+  practice account is never a player in honor, leaderboards and rivalry; honor recomputed (8 players,
+  the practice cat not among them; checked on /api/hc/leaderboard and /api/hc/honor/board). Today's
+  root (day 20776) stays as posted (a day's root can never be replaced); tomorrow's is the corrected one.
+- **B1 Amounts.** Cause: each amount was rounded to the cent on its own ($0.675 + $0.325 shown as
+  $0.68 + $0.33). Fix: one rule in web/src/lib/amount.ts; shares rounded to tenths of a cent, one side
+  the pot minus the other (relay/test/shares.test.ts).
+- **B2 Lives.** Cause: the rule was already the same for both (whole stakes free, plus the running
+  rope), but $0.0846 and $0.0754 were both shown as $0.08. Fix: livesOf() in perpMath (tested); the
+  page states the rule and shows the free money exactly.
+- **B3 Names.** Cause: names are free text and the automatic nicknames come from a list of about 50.
+  Fix: a short tag from the account after every shown name (tagName, relay/test/names-tag.test.ts).
+- **B4 Invite link.** Cause: the link was built from the account. Fix: a short code (ref_codes);
+  ?ref=0x… links keep working.
+- **C1** Cause: /perps/new was read as a perp with the id "new", and plainError() wrapped an already
+  plain message again. Fix: a redirect to /pots/new?kind=perp; plainMessage() leaves plain messages as
+  they are (relay/test/messages.test.ts).
+- **C2** Cause: the form never compared the total with the balance, and a life is a whole number of
+  contracts times the rope length ($0.9997, not $1.00). Fix: lives capped by the balance with "Add
+  money", the exact stake per life and why.
+- **C3** Cause: perpFit() guessed the reason ("spread too wide" for anything between 15% and 85%).
+  Fix: it reports the rule that failed: a post near 0 or 100 with the leverage cap, or the spread
+  (one test per rule).
+- **C4** Cause: a closed pot's rope used the live market price (none after the close) and the outcome
+  was looked up in price requests the rebuild had not restored. Fix: the final state from the pot's
+  own events; no live price is read for closed pots or ended perps.
+- **C5** Cause: the line was Gemini's last trade per minute, which lags the book on quiet markets.
+  Fix: the main line joins the samplers' measured 30-second prices; last trades only behind a
+  labelled checkbox.
+- **D** Wording as asked; leverage shown on every rope of a perp.
+- **E** Gateway run end to end (tx 0x5fceacd0…e58, minted in 2.8 s); /how-it-is-built and /developers
+  list every current contract. Showcase perps proposed (Iowa State vs UCF, Syracuse vs Boston
+  College), waiting for the owner's go.
+- **Database transfer.** Cause: the worker read about 1.3 MB every 10 minutes (whole catalogue rows to
+  pick books to refresh, and every active pot and perp each 5-second tick), about 5.7 GB a month on
+  its own. Fix: the catalogue step reads only symbols; active pots and perps are re-read only when a
+  one-line fingerprint (count, newest update) changes (relay/src/rowCache.ts).
+- **Groups, before switching on:** at most $20 per player and group on the test version, group joins
+  count for the break reminder, fixed different furs for the two team cats; a switched-off choice on
+  the start page is never shown as chosen.
+
 ## Groups spec, step 4: group relay and pages (2026-11-19 afternoon)
 
 - Switch: `GROUPS=on` shows group pots (menu, start page, create, prepare route); off by default.

@@ -190,7 +190,8 @@ export async function recentPlays(db: Db, account: string) {
     `SELECT count(*)::text AS n FROM pot_events
       WHERE coalesce(block_time, 0) >= $2 AND (
         (event_name = 'Transfer' AND args->>'from' ~* '^0x0{40}$' AND lower(args->>'to') = $1)
-        OR (event_name IN ('Perp:PerpOpened', 'Perp:PerpJoined') AND lower(coalesce(args->>'creator', args->>'joiner')) = $1))`,
+        OR (event_name IN ('Perp:PerpOpened', 'Perp:PerpJoined') AND lower(coalesce(args->>'creator', args->>'joiner')) = $1)
+        OR (event_name = 'Group:JoinRequested' AND lower(args->>'account') = $1))`,
     [a, since],
   );
   return { account: a, lastThreeHours: Number(r[0]?.n ?? 0) };

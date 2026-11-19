@@ -274,9 +274,10 @@ export const toRow = (r: DbRow): CatalogRow => ({ ...parse(r.listed), book: r.bo
  * time, listed with both sides and a spread that could pass, book never read or older than
  * `staleMs`. Tightest spreads and soonest closes first.
  */
-export async function bookQueue(db: Db, now: number, limit: number, staleMs = 10 * 60_000): Promise<CatalogRow[]> {
-  const rows = await db.query<DbRow>(
-    `SELECT listed, book FROM market_catalog
+export async function bookQueue(db: Db, now: number, limit: number, staleMs = 10 * 60_000): Promise<{ symbol: string }[]> {
+  // Only the symbols: the callers read the books themselves (the whole rows were ~110 KB a step).
+  return db.query<{ symbol: string }>(
+    `SELECT symbol FROM market_catalog
       WHERE close_ms > $1 AND (book_at IS NULL OR book_at < $2)
         AND (listed->>'bid') IS NOT NULL AND (listed->>'ask') IS NOT NULL
         AND (listed->>'ask')::numeric - (listed->>'bid')::numeric <= 0.05
@@ -284,7 +285,6 @@ export async function bookQueue(db: Db, now: number, limit: number, staleMs = 10
       LIMIT $3`,
     [now + MIN_LEAD_MS, now - staleMs, limit],
   );
-  return rows.map(toRow);
 }
 
 /** Every open contract (~16 MB): one-off scripts only, never a request path (see queryRows). */

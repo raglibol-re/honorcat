@@ -24,6 +24,7 @@ import { perpsAbi } from "./perpsAbi";
 import { depthResult, marketOf, recordPotEvent, requestDepthV2, syncPot, type DepthAtt } from "./pots";
 import { ropeDbId } from "./ropes";
 import { notifyPot, perpMessage } from "./push";
+import { rowsWhileUnchanged } from "./rowCache";
 import { sendRelayCalls } from "./txs";
 
 export const PERP_PHASES = ["None", "Open", "Funded", "Joining", "Running", "Ended"] as const;
@@ -125,7 +126,12 @@ const NO_DEPTH = { conditionId: `0x${"0".repeat(64)}` as Hex, account: "0x000000
 export async function perpsHousekeeping(db: Db, own: LocalAccount | null) {
   const address = perpsAddress();
   if (!address) return { checked: 0, calls: 0 };
-  const rows = await db.query<PerpRow>("SELECT perp_id::text AS perp_id, phase, pot_id, data FROM perps WHERE phase BETWEEN 2 AND 4");
+  const rows = await rowsWhileUnchanged<PerpRow>(
+    db,
+    "house:perps",
+    "SELECT count(*)::text || ':' || coalesce(max(updated_at)::text, '') AS fp FROM perps WHERE phase BETWEEN 2 AND 4",
+    "SELECT perp_id::text AS perp_id, phase, pot_id, data FROM perps WHERE phase BETWEEN 2 AND 4",
+  );
   let calls = 0;
   for (const row of rows) {
     // One perp's trouble (a closed market, an unreadable book) must not stop the others.

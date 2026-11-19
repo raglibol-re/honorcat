@@ -17,7 +17,7 @@ export function BreakReminder({ who }: { who: ActorState }) {
   if (!data || data.lastThreeHours < BREAK_AFTER) return null;
   return (
     <Notice tone="warning">
-      <strong>You started {data.lastThreeHours} pots and perps in the last three hours.</strong>
+      <strong>You joined {data.lastThreeHours} pots, perps and groups in the last three hours.</strong>
       <span>A short break? Running pots keep going without you, and you can leave one at any time.</span>
     </Notice>
   );

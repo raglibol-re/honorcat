@@ -40,6 +40,7 @@ import { ARC_MEMO } from "./arc";
 import { potsAbi } from "./potsAbi";
 import { ropesAbi } from "./ropesAbi";
 import { groupsAbi } from "./groupsAbi";
+import { rowsWhileUnchanged } from "./rowCache";
 import { ATTEST_TIMEOUT_S, EXPIRY_TRIES, KIND_EXPIRY, KIND_KNOCK, chainPotId, contractOf, deploymentOf, domainNameFor, expiryWindowStart, isGroupDbId, isRopeDbId, knockWindowOk, ropeDbId } from "./ropes";
 import { notifyPot, stateMessage } from "./push";
 import { sendRelayCalls } from "./txs";
@@ -921,7 +922,12 @@ export async function potsHousekeeping(db: Db, own: LocalAccount | null) {
   for (const r of await db.query<{ id: string; tx: string }>("SELECT id, tx FROM att_requests WHERE status = 'submitted' AND tx IS NOT NULL AND NOT (payload ? 'memo') ORDER BY updated_at DESC LIMIT 5"))
     await recordMemo(db, r.id, r.tx as Hex).catch(() => {});
 
-  const rows = await db.query<PotRow>("SELECT pot_id::text AS pot_id, state, data, condition_id FROM pots WHERE state BETWEEN 1 AND 4");
+  const rows = await rowsWhileUnchanged<PotRow>(
+    db,
+    "house:pots",
+    "SELECT count(*)::text || ':' || coalesce(max(updated_at)::text, '') AS fp FROM pots WHERE state BETWEEN 1 AND 4",
+    "SELECT pot_id::text AS pot_id, state, data, condition_id FROM pots WHERE state BETWEEN 1 AND 4",
+  );
   const calls: { fn: "abandonJoin" | "abandonExit" | "expire" | "cancel" | "skipExpiryWindow"; pot: bigint }[] = [];
   for (const row of rows) {
     const d = (typeof row.data === "string" ? JSON.parse(row.data) : row.data) as Record<string, string>;
@@ -1571,7 +1577,7 @@ export async function potsEvidence(db: Db) {
     streamsSinceFilter: { sinceBlock: STREAMS_POTS_SINCE_BLOCK.toString(), total: Number(streamsShare[0]?.total ?? 0), streams: Number(streamsShare[0]?.streams ?? 0), pollerLagBlocks: Number(POLLER_LAG_BLOCKS) },
     events: byKind,
     windows: windows[0],
-    medianWindowToPaidMs: latency[0]?.ms ? Number(latency[0].ms) : null, contracts: { pots: getConfig().pots?.address ?? null, fairValue: getConfig().fairValue } };
+    medianWindowToPaidMs: latency[0]?.ms ? Number(latency[0].ms) : null, contracts: { pots: getConfig().pots?.address ?? null, fairValue: getConfig().fairValue, all: currentContracts() } };
 }
 
 /**
@@ -1803,6 +1809,26 @@ export async function prepareRope(db: Db, input: { symbol: string; account: Addr
     midPpm: mid === null ? null : Math.round(mid * 1e6),
     market: { symbol: row.symbol, eventTicker: row.eventTicker, contractTicker: row.contractTicker, eventTitle: row.eventTitle, label: row.label, category: row.category, closeMs: row.closeMs },
   };
+}
+
+/** Every contract the app uses now, by name, read from the deployment files (for the evidence pages). */
+export function currentContracts(): { name: string; address: string; what: string }[] {
+  const c = getConfig();
+  const out: { name: string; address: string; what: string }[] = [];
+  if (c.ropes) {
+    out.push({ name: "HonorCatRopes", address: c.ropes.address, what: "v2 pots and short ropes (new pots)" });
+    if (c.ropes.perps) out.push({ name: "HonorCatPerps", address: c.ropes.perps, what: "perps: chains of short ropes with lives" });
+    if (c.ropes.median) out.push({ name: "MedianResolver (pots, perps)", address: c.ropes.median, what: "prices from the samplers' own signed averages, checked on-chain" });
+  }
+  if (c.groups) {
+    out.push({ name: "HonorCatGroups", address: c.groups.address, what: "group pots: two teams on one market" });
+    out.push({ name: "MedianResolver (groups)", address: c.groups.median, what: "the same resolver code, bound to the group contract" });
+  }
+  if (c.honorRoots) out.push({ name: "HonorRoots", address: c.honorRoots, what: "one Merkle root of all honor balances per day" });
+  if (c.pots) out.push({ name: "HonorCatPots (v1)", address: c.pots.address, what: "the first pots (kept as they are)" });
+  if (c.fairValue) out.push({ name: "HonorCatFairValue", address: c.fairValue, what: "a side's value on-chain from a signed quote" });
+  if (c.passkeys?.factory) out.push({ name: "PasskeyAccountFactory", address: c.passkeys.factory, what: "passkey accounts (HonorCat pays the fee)" });
+  return out;
 }
 
 /* ------------------------------------------------------------------ pricing in progress (for the pot and perp pages) */

@@ -21,7 +21,7 @@ type Evidence = {
     fees: Record<string, string>;
   };
   medianWindowToPaidMs: number | null;
-  contracts: { pots: string | null; fairValue: string | null };
+  contracts: { pots: string | null; fairValue: string | null; all?: { name: string; address: string; what: string }[] };
 };
 
 type Status = "done" | "partly" | "not yet";
@@ -291,21 +291,20 @@ export function Built() {
       <header style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <h1 style={{ margin: 0, fontFamily: F.cond, fontSize: 64, fontWeight: 600, lineHeight: 0.95 }}>How it is built</h1>
         <p style={{ margin: 0, fontSize: 19, lineHeight: 1.45, color: C.body }}>
-          What each part does, how to check it, and the live evidence. Contracts on Arc testnet:{" "}
-          {e?.contracts.pots && (
-            <a href={addressUrl(e.contracts.pots)} target="_blank" rel="noreferrer">
-              HonorCatPots
-            </a>
-          )}
-          {e?.contracts.fairValue && (
-            <>
-              ,{" "}
-              <a href={addressUrl(e.contracts.fairValue)} target="_blank" rel="noreferrer">
-                HonorCatFairValue
-              </a>
-            </>
-          )}
-          . Source, tests and the design document are in the repository.
+          What each part does, how to check it, and the live evidence. Source, tests and the design documents are in the repository. Contracts on Arc testnet, as deployed now:
+        </p>
+        <ul style={{ margin: 0, paddingLeft: 20, fontSize: 16, lineHeight: 1.5 }}>
+          {(e?.contracts.all ?? []).map((c) => (
+            <li key={c.address}>
+              <a href={addressUrl(c.address)} target="_blank" rel="noreferrer">
+                {c.name}
+              </a>{" "}
+              <code style={{ fontSize: 13 }}>{c.address}</code>: {c.what}
+            </li>
+          ))}
+        </ul>
+        <p style={{ margin: 0, fontSize: 15, color: C.muted }}>
+          Every address is read from the deployment files the relay itself uses.
         </p>
       </header>
       <HonorRootLine />
