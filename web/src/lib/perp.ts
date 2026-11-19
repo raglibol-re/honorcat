@@ -85,6 +85,8 @@ export type PerpMarket = {
   label: string;
   /** The YES price (ppm) the leverages are shown at: the running rope's entry, else the market's last price. */
   center: number | null;
+  /** Gemini's page slug (perp detail only). */
+  slug?: string | null;
 };
 
 /** Both leverages (creator, joiner) at the perp's shown price, or null. */

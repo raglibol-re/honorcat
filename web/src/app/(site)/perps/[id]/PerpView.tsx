@@ -32,6 +32,7 @@ import {
   type RopeStory,
 } from "@/lib/perp";
 import { PerpChart } from "@/components/perp/PerpChart";
+import { GeminiLink } from "@/components/cat/GeminiLink";
 import { RopePricing } from "@/components/perp/RopePricing";
 import { SamplerNotice } from "@/components/pot/SamplerHealth";
 import { useNow } from "@/lib/useNow";
@@ -481,6 +482,11 @@ export function PerpView({ id }: { id: string }) {
             waits for a real player: send the link, or cancel it below and get
             your money back.
           </p>
+        )}
+        {p.market?.eventTicker && (
+          <span style={{ fontSize: 15 }}>
+            <GeminiLink ticker={p.market.eventTicker} slug={p.market.slug} label="Trade this market on Gemini" size={15} />
+          </span>
         )}
         <p style={{ margin: 0, fontSize: 17, color: C.body }}>
           On “{question}”. Each rope, both put in {$(stake)}; a rope lasts at

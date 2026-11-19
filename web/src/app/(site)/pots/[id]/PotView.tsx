@@ -1343,7 +1343,7 @@ export function PotView({ id }: { id: string }) {
               <GeminiLink
                 ticker={m.eventTicker}
                 slug={m.slug}
-                label="the market on Gemini"
+                label="Trade this market on Gemini"
                 size={15}
               />
             </>
