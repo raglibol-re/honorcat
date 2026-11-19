@@ -65,6 +65,7 @@ export function HonorPage() {
 
       <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <h2 style={h2}>How to earn it</h2>
+        <div style={{ overflowX: "auto", maxWidth: "100%", minWidth: 0, position: "relative" }}>
         <table style={{ borderCollapse: "collapse", width: "100%", maxWidth: 760, fontSize: 16 }}>
           <tbody>
             {RULES.map(([what, pts]) => (
@@ -75,6 +76,7 @@ export function HonorPage() {
             ))}
           </tbody>
         </table>
+        </div>
         <p style={{ ...p, fontSize: 15 }}>
           Rules version {H.version}. A change of any value is a new version; the history keeps which version counted what.
         </p>

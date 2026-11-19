@@ -95,7 +95,7 @@ export function Leaderboard() {
       ) : data.rows.length === 0 ? (
         <CatState kind="empty" text={kind === "perps" ? (days === 7 ? "Nobody has played a perp this week yet." : "Nobody has played a perp yet.") : days === 7 ? "Nobody has played this week yet." : "Nobody has played yet."} />
       ) : kind === "perps" ? (
-        <div style={{ overflowX: "auto" }}>
+        <div style={{ overflowX: "auto", maxWidth: "100%", minWidth: 0, position: "relative" }}>
           <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 560, fontSize: 16 }}>
             <thead>
               <tr>
@@ -131,7 +131,7 @@ export function Leaderboard() {
           </table>
         </div>
       ) : (
-        <div style={{ overflowX: "auto" }}>
+        <div style={{ overflowX: "auto", maxWidth: "100%", minWidth: 0, position: "relative" }}>
           <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 560, fontSize: 16 }}>
             <thead>
               <tr>
