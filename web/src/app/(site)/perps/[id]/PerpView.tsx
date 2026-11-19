@@ -138,7 +138,7 @@ function replay(r: RopeStory): string | null {
     : "";
   const retries =
     r.unagreed > 0
-      ? ` Before that, ${r.unagreed} price ${r.unagreed === 1 ? "check" : "checks"} did not agree (too few fresh readings), so the rope ran on.`
+      ? ` Before that, ${r.unagreed} price ${r.unagreed === 1 ? "check" : "checks"} gave no price (Gemini's order book was too wide or too thin for long enough), so the rope ran on.`
       : "";
   return `${head}, measured ${at(d.windowStart)} to ${at(d.windowEnd)}.${samplers}${retries}`;
 }
