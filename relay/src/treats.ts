@@ -82,3 +82,37 @@ export async function leaderboard(db: Db, opts: { days?: number; friendsOf?: str
     rows: rows.map((r) => ({ account: r.account, pots: Number(r.pots), heldToEnd: Number(r.held), paid: r.paid, treats: r.treats, copycats: Number(r.copycats) })),
   };
 }
+
+/**
+ * The perp table: per player, net result over the perps both players joined (practice perps do not
+ * count), perps played and won, ropes played and lives lost (ropes that paid the player nothing).
+ * `days` counts perps opened in that period; ordered by net result.
+ */
+export async function perpLeaderboard(db: Db, opts: { days?: number; friendsOf?: string | null; limit?: number } = {}) {
+  const since = opts.days && opts.days > 0 ? Math.floor(Date.now() / 1000) - opts.days * 86_400 : 0;
+  const only = opts.friendsOf ? await friendsOf(db, opts.friendsOf) : null;
+  const rows = await db.query<{ account: string; perps: string; won: string; ropes: string; lost: string; result: string }>(
+    `WITH opened AS (SELECT args->>'perpId' AS perp_id, min(coalesce(block_time, 0)) AS at FROM pot_events WHERE event_name = 'Perp:PerpOpened' GROUP BY 1),
+     p AS (SELECT q.perp_id, q.a, q.b, q.data FROM perps q JOIN opened o ON o.perp_id = q.perp_id::text
+            WHERE q.b IS NOT NULL AND o.at >= $1
+              AND NOT EXISTS (SELECT 1 FROM practice_pots pp WHERE pp.pot_id = -q.perp_id)),
+     lost AS (SELECT args->>'perpId' AS perp_id,
+                     count(*) FILTER (WHERE args->>'paidA' = '0') AS la, count(*) FILTER (WHERE args->>'paidB' = '0') AS lb
+                FROM pot_events WHERE event_name = 'Perp:RopeCredited' GROUP BY 1),
+     sides AS (SELECT lower(p.a) AS account, (p.data->>'resultA')::numeric AS r, coalesce((p.data->>'ropes')::int, 0) AS ropes, coalesce(l.la, 0) AS lost
+                 FROM p LEFT JOIN lost l ON l.perp_id = p.perp_id::text
+               UNION ALL
+               SELECT lower(p.b), (p.data->>'resultB')::numeric, coalesce((p.data->>'ropes')::int, 0), coalesce(l.lb, 0)
+                 FROM p LEFT JOIN lost l ON l.perp_id = p.perp_id::text)
+     SELECT account, count(*)::text AS perps, count(*) FILTER (WHERE r > 0)::text AS won, sum(ropes)::text AS ropes,
+            sum(lost)::text AS lost, sum(r)::text AS result
+       FROM sides WHERE ($2::text[] IS NULL OR account = ANY($2::text[]))
+      GROUP BY account ORDER BY sum(r) DESC, count(*) DESC LIMIT $3`,
+    [since, only, opts.limit ?? 50],
+  );
+  return {
+    since: since || null,
+    friendsOf: opts.friendsOf?.toLowerCase() ?? null,
+    rows: rows.map((r) => ({ account: r.account, perps: Number(r.perps), won: Number(r.won), ropes: Number(r.ropes), livesLost: Number(r.lost), result: r.result })),
+  };
+}

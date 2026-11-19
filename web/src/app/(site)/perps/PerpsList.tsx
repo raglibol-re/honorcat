@@ -68,7 +68,7 @@ export function PerpsList() {
           of the price: if the price holds past one for 30 seconds, that side loses its stake for the rope,
           one life. Otherwise the rope is divided at the price when its time is up, and the next one starts
           there. It goes on until someone leaves or runs out of lives.{" "}
-          <Link href="/how">How it works</Link>
+<Link href="/how">How it works</Link> · <Link href="/leaderboard?kind=perps">Perp leaderboard</Link>
         </p>
       </header>
 

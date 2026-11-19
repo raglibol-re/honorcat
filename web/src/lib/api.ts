@@ -101,9 +101,13 @@ export function usePolling<T>(path: string | null, intervalMs: number) {
     const run = async () => {
       if (document.visibilityState === "visible") {
         try {
-          setData(await getJson<T>(path));
+          const d = await getJson<T>(path);
+          // A slower answer for the previous address must not overwrite this one's.
+          if (stopped) return;
+          setData(d);
           setError(null);
         } catch (err) {
+          if (stopped) return;
           setError(err instanceof Error ? err.message : String(err));
         }
       }
