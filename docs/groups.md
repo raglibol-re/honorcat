@@ -62,7 +62,7 @@ less what they were paid out) is shared by its members pro rata to their notiona
 
 ## Rounding and dust
 
-Every division rounds down against the payee, so the contract can never owe more than it holds.
+Every division rounds down against the payee (a join's notional comes from the matched notional itself, rounded down; each leaver's fee rounds up), so members never hold more than the pool and the contract never owes more than it holds. As a last guard a withdrawal never takes more than its group still holds; a fuzz test of 5,000 random runs checks that every withdrawal goes through and at most 1,000 base units of dust remain.
 Rounding dust (at most a few base units per action) stays in the contract for good: it belongs to
 no one and nobody, HonorCat included, can take it. Each group keeps its own balance, which never
 goes below zero (tested), so one group's dust or rounding can never touch another's money.

@@ -414,6 +414,6 @@ contract HonorCatGroupsTest is Test {
         }
         assertLe(out, deposited, "never more out than in");
         assertEq(usdc.balanceOf(address(groups)), deposited - out, "the rest stays (dust)");
-        assertLe(deposited - out, deposited / 100 + 10_000, "only dust is left");
+        assertLe(deposited - out, 1_000, "only rounding dust is left (every withdrawal went through)");
     }
 }

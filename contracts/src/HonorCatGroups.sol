@@ -132,6 +132,7 @@ contract HonorCatGroups is EIP712, ReentrancyGuard {
         uint256 newWait; // of which joins that wait
         uint256 exits; // notional leaving in this batch
         uint256 phi; // fraction of the available join escrow filled (1e18)
+        uint256 nfrac; // notional granted per unit of notional the available escrow could buy (1e18, rounded down)
         uint256 qBefore; // the team's Q when the batch cleared (before) and after
         uint256 qAfter;
         uint64 jeBefore;
@@ -434,6 +435,10 @@ contract HonorCatGroups is EIP712, ReentrancyGuard {
         }
         c.escrowUsed[0] += _ceilDiv(c.m * c.q0, PPM);
         c.escrowUsed[1] += _ceilDiv(c.m * c.q1, PPM);
+        // the notional each join gets: from the matched notional itself, rounded down, so the joins
+        // of a batch never get more notional than the pool takes in
+        b0.nfrac = _nfrac(c.avail[0], c.q0, c.take[0] + c.m);
+        b1.nfrac = _nfrac(c.avail[1], c.q1, c.take[1] + c.m);
         // snapshots where this batch's new notional enters (after the shrink), then add it
         b0.snap = _snapOf(groupId, YES);
         b1.snap = _snapOf(groupId, NO);
@@ -447,6 +452,13 @@ contract HonorCatGroups is EIP712, ReentrancyGuard {
         batches[groupId][k] = Batch(true, false, price);
         _advance(groupId, k);
         emit BatchCleared(groupId, k, price, c.m, c.take[0], c.take[1], c.c, r1, r0);
+    }
+
+    function _nfrac(uint256 avail, uint256 q, uint256 granted) internal pure returns (uint256 f) {
+        uint256 could = (avail * PPM) / q;
+        if (could == 0) return 0;
+        f = (granted * ONE) / could;
+        if (f > ONE) f = ONE;
     }
 
     function g_cap(uint256 groupId) internal view returns (uint256) {
@@ -645,7 +657,7 @@ contract HonorCatGroups is EIP712, ReentrancyGuard {
             }
             BatchTeam storage bt = _bt[groupId][r.batch][team];
             uint256 filled = (r.escrow * bt.phi) / ONE;
-            if (filled > 0) _addPiece(groupId, who, team, (filled * PPM) / _teamPrice(b.price, team), bt.snap);
+            if (filled > 0) _addPiece(groupId, who, team, (((r.escrow * PPM) / _teamPrice(b.price, team)) * bt.nfrac) / ONE, bt.snap);
             uint256 rest = r.escrow - filled;
             if (!r.wait || rest == 0 || bt.jeAfter != bt.jeBefore) {
                 // no waiting, or all filled (a fresh join epoch means every waiting join was filled)
@@ -673,7 +685,7 @@ contract HonorCatGroups is EIP712, ReentrancyGuard {
             }
             uint256 avail = (r.base * bt.qBefore) / ONE;
             uint256 filled = (avail * bt.phi) / ONE;
-            if (filled > 0) _addPiece(groupId, who, team, (filled * PPM) / _teamPrice(b.price, team), bt.snap);
+            if (filled > 0) _addPiece(groupId, who, team, (((avail * PPM) / _teamPrice(b.price, team)) * bt.nfrac) / ONE, bt.snap);
             if (bt.jeAfter != bt.jeBefore) {
                 r.base = 0; // filled in full in this batch
                 r.next += 1;
@@ -731,7 +743,10 @@ contract HonorCatGroups is EIP712, ReentrancyGuard {
         uint256 amount = claimable[groupId][msg.sender];
         if (amount == 0) revert NothingToDo();
         claimable[groupId][msg.sender] = 0;
-        g.balance -= amount; // reverts if a group would ever pay out more than it holds
+        // Rounding is against the payee everywhere, so this should never bind; if it ever did, the
+        // last withdrawer gets a few base units less instead of the group paying more than it holds.
+        if (amount > g.balance) amount = g.balance;
+        g.balance -= amount;
         usdc.safeTransfer(msg.sender, amount);
         emit Withdrawn(groupId, msg.sender, amount);
     }
