@@ -596,6 +596,14 @@ CREATE TABLE IF NOT EXISTS pot_reactions (
   at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS pot_reactions_pot_idx ON pot_reactions (pot_id, at);
+-- Who follows whom (signed by the follower; public). Feeds and the "people I follow" table.
+CREATE TABLE IF NOT EXISTS follows (
+  follower TEXT NOT NULL,
+  leader   TEXT NOT NULL,
+  at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (follower, leader)
+);
+CREATE INDEX IF NOT EXISTS follows_leader_idx ON follows (leader);
 CREATE INDEX IF NOT EXISTS pot_events_perp_idx ON pot_events ((args->>'perpId')) WHERE event_name LIKE 'Perp:%';
 `;
 

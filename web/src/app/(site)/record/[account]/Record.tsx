@@ -7,6 +7,7 @@ import Link from "next/link";
 import { PlayerCat } from "@/components/cat/PlayerCat";
 import { TreatsPanel } from "@/components/pot/Treats";
 import { useActor } from "@/components/pot/Who";
+import { FollowButton } from "@/components/pot/Follow";
 import { useTechMode } from "@/components/TechMode";
 import { nickname, useNames } from "@/lib/names";
 import { honorLabels } from "@/lib/honor";
@@ -58,8 +59,11 @@ function lineOf(t: HonorRecord["timeline"][number], m: Parameters<typeof sidesOf
 
 /** An honor record: what an account did in its pots, from the contract's events. Facts only, no score. */
 export function Record({ account }: { account: string }) {
-  const me = useActor().actor?.account.toLowerCase() ?? null;
+  const who = useActor();
+  const me = who.actor?.account.toLowerCase() ?? null;
   const { data: r, error } = usePolling<HonorRecord>(`/api/hc/record/${account}`, 15_000);
+  const follows = usePolling<{ followers: number }>(`/api/hc/follows?account=${account}`, 60_000);
+  const streak = usePolling<{ current: number; best: number }>(`/api/hc/streaks?account=${account}`, 120_000);
   const names = useNames([account]);
   const { tech } = useTechMode();
   const name = names[account.toLowerCase()] ?? nickname(account.toLowerCase());
@@ -85,6 +89,20 @@ export function Record({ account }: { account: string }) {
         <div style={{ display: "flex", alignItems: "flex-end", gap: 16 }}>
           <PlayerCat account={account} pose="sit" size={110} label={`${name}'s cat`} />
           <h1 style={{ margin: 0, fontFamily: F.cond, fontSize: 56, fontWeight: 600, lineHeight: 0.95 }}>{name}&apos;s honor record</h1>
+        </div>
+        <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap", fontSize: 16 }}>
+          <FollowButton who={who} leader={account} name={name} />
+          {follows.data && (
+            <span>
+              {follows.data.followers} {follows.data.followers === 1 ? "follower" : "followers"}
+            </span>
+          )}
+          {streak.data && streak.data.best > 0 && (
+            <span>
+              {streak.data.current > 1 ? `Playing ${streak.data.current} days in a row` : "No streak right now"} · best {streak.data.best}{" "}
+              {streak.data.best === 1 ? "day" : "days"}
+            </span>
+          )}
         </div>
         <p style={{ margin: 0, fontSize: 17, color: C.body }}>
           Facts from the pot contract&apos;s events on Arc testnet, nothing else. Practice pots do not count.

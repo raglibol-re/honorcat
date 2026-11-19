@@ -14,6 +14,7 @@ import { useLivePrice } from "@/components/pot/usePrice";
 import { Reliability } from "@/components/pot/Reliability";
 import { marketLine, sidesOf, yesMeans } from "@/lib/marketName";
 import { AccountLine, FundsHelp, SignIn, useActor } from "@/components/pot/Who";
+import { BreakReminder } from "@/components/pot/BreakReminder";
 import { useTechMode } from "@/components/TechMode";
 import { PlayerCat } from "@/components/cat/PlayerCat";
 import { GeminiLink } from "@/components/cat/GeminiLink";
@@ -115,6 +116,8 @@ export function NewPot() {
     token: bigint;
     leader: string;
     potId: string;
+    /** the leader's entry price (YES, ppm), shown next to the current price */
+    entry: number | null;
   } | null>(null);
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
@@ -141,7 +144,8 @@ export function NewPot() {
       ).catch(() => null);
       const m = lead.market as unknown as Record<string, unknown>;
       setSide(s);
-      if (t) setCopy({ token, leader, potId });
+      const entry = Number((lead.data as unknown as { entry?: string }).entry ?? 0);
+      if (t) setCopy({ token, leader, potId, entry: entry > 0 ? entry : null });
       setMarket({
         symbol: lead.market.instrument,
         eventTicker: lead.market.eventTicker,
@@ -529,6 +533,7 @@ export function NewPot() {
           </div>
         )}
       </header>
+      <BreakReminder who={who} />
       {kind === "perp" && perpsOn && ropes?.perps ? <NewPerp perps={ropes.perps} /> : null}
 
       {kind === "normal" && (
@@ -729,6 +734,8 @@ export function NewPot() {
                   <Link href={`/pots/${copy.potId}`}>pot {copy.potId}</Link>. If
                   you end with a profit, 5% of that profit goes to that player;
                   if you do not, nothing does.
+                  {copy.entry !== null &&
+                    ` They entered at ${(copy.entry / 10_000).toFixed(1)}%${p !== null ? `; the price is ${(p * 100).toFixed(1)}% now` : ""} (YES).`}
                   {Number(copy.token % 2n) !== side &&
                     " (You picked the other side, so this pot is not a copy.)"}
                 </p>

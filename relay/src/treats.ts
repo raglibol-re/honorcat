@@ -1,3 +1,4 @@
+import { getConfig } from "./config";
 /**
  * Treats and the leaderboard (HonorCat v2, spec sections 7, 10 and 11), read from the contract's own
  * events (pot_events). Every treat is a share of a fee another player paid: maker treats, exit fees,
@@ -53,15 +54,25 @@ async function friendsOf(db: Db, account: string): Promise<string[]> {
   return [a, ...rows.map((r) => r.f).filter(Boolean)];
 }
 
+/** Fewest finished pots to be ranked by result (shown on the page). */
+export const LEADERBOARD_MIN_POTS = 3;
+
 /**
- * The leaderboard over the last `days` days (0 = all time): pots played, held to the end, paid out,
- * treats earned and how many players copy them. With `friendsOf`, only that player and the players
- * they have met in a pot.
+ * The leaderboard over the last `days` days (0 = all time). Ranked by result relative to stake:
+ * over the finished pots, what a player was paid less what they put in, divided by what they put
+ * in; only players with at least LEADERBOARD_MIN_POTS finished pots are ranked, the rest follow.
+ * Also: pots played, held to the end, treats earned and copycats. Practice and agent-minded pots
+ * are left out. `friendsOf`: that player and the players they met; `following`: that player and
+ * the players they follow.
  */
-export async function leaderboard(db: Db, opts: { days?: number; friendsOf?: string | null; limit?: number } = {}) {
+export async function leaderboard(db: Db, opts: { days?: number; friendsOf?: string | null; following?: string | null; limit?: number } = {}) {
   const since = opts.days && opts.days > 0 ? Math.floor(Date.now() / 1000) - opts.days * 86_400 : 0;
-  const only = opts.friendsOf ? await friendsOf(db, opts.friendsOf) : null;
-  const rows = await db.query<{ account: string; pots: string; held: string; paid: string; treats: string; copycats: string }>(
+  let only = opts.friendsOf ? await friendsOf(db, opts.friendsOf) : null;
+  if (opts.following) {
+    const f = opts.following.toLowerCase();
+    only = [f, ...(await db.query<{ leader: string }>("SELECT leader FROM follows WHERE follower = $1", [f])).map((r) => r.leader)];
+  }
+  const rows = await db.query<{ account: string; pots: string; held: string; paid: string; treats: string; copycats: string; finished: string; staked: string; net: string }>(
     `WITH ev AS (SELECT * FROM pot_events e WHERE coalesce(e.block_time, 0) >= $1 AND ${NOT_PRACTICE}),
      played AS (SELECT lower(args->>'to') AS account, count(DISTINCT pot_id) AS n FROM ev WHERE event_name = 'Transfer' AND args->>'from' ~* '^0x0{40}$' GROUP BY 1),
      held AS (SELECT lower(t.args->>'to') AS account, count(DISTINCT s.pot_id) AS n FROM ev s JOIN pot_events t ON t.pot_id = s.pot_id AND t.event_name = 'Transfer'
@@ -69,17 +80,63 @@ export async function leaderboard(db: Db, opts: { days?: number; friendsOf?: str
      paid AS (SELECT lower(args->>'to') AS account, sum((args->>'amount')::numeric) AS n FROM ev WHERE event_name = 'Paid' GROUP BY 1),
      treats AS (SELECT lower(coalesce(args->>'to', args->>'referrer', args->>'leader')) AS account, sum((args->>'amount')::numeric) AS n FROM ev
                 WHERE event_name IN ('MakerTreat','ExitFee','ReferralTreat','CopycatTreat') GROUP BY 1),
-     copied AS (SELECT lower(args->>'leader') AS account, count(*) AS n FROM ev WHERE event_name = 'CopyMarked' GROUP BY 1)
-     SELECT p.account, p.n::text AS pots, coalesce(h.n, 0)::text AS held, coalesce(pd.n, 0)::text AS paid, coalesce(t.n, 0)::text AS treats, coalesce(c.n, 0)::text AS copycats
+     copied AS (SELECT lower(args->>'leader') AS account, count(*) AS n FROM ev WHERE event_name = 'CopyMarked' GROUP BY 1),
+     j AS (SELECT pot_id, max((args->>'depYes')::numeric) AS dy, max((args->>'depNo')::numeric) AS dn FROM ev WHERE event_name = 'Joined' GROUP BY pot_id),
+     out AS (SELECT pot_id, sum(coalesce((args->>'paidYes')::numeric, 0)) AS py, sum(coalesce((args->>'paidNo')::numeric, 0)) AS pn FROM pot_events
+              WHERE event_name IN ('PotDivided', 'PotSettled', 'PotExpired') AND pot_id IN (SELECT pot_id FROM j) GROUP BY pot_id),
+     sides AS (SELECT lower(p.yes_owner) AS account, j.dy AS stake, out.py - j.dy AS net FROM pots p JOIN j USING (pot_id) JOIN out USING (pot_id)
+                WHERE p.state IN (5, 6, 7) AND lower(p.yes_owner) <> lower(p.no_owner)
+               UNION ALL
+               SELECT lower(p.no_owner), j.dn, out.pn - j.dn FROM pots p JOIN j USING (pot_id) JOIN out USING (pot_id)
+                WHERE p.state IN (5, 6, 7) AND lower(p.yes_owner) <> lower(p.no_owner)),
+     result AS (SELECT account, count(*) AS finished, sum(stake) AS staked, sum(net) AS net FROM sides GROUP BY account)
+     SELECT p.account, p.n::text AS pots, coalesce(h.n, 0)::text AS held, coalesce(pd.n, 0)::text AS paid, coalesce(t.n, 0)::text AS treats, coalesce(c.n, 0)::text AS copycats,
+            coalesce(r.finished, 0)::text AS finished, coalesce(r.staked, 0)::text AS staked, coalesce(r.net, 0)::text AS net
        FROM played p LEFT JOIN held h USING (account) LEFT JOIN paid pd USING (account) LEFT JOIN treats t USING (account) LEFT JOIN copied c USING (account)
+       LEFT JOIN result r USING (account)
       WHERE ($2::text[] IS NULL OR p.account = ANY($2::text[]))
-      ORDER BY p.n DESC, coalesce(t.n, 0) DESC, coalesce(h.n, 0) DESC LIMIT $3`,
-    [since, only, opts.limit ?? 50],
+      ORDER BY p.n DESC LIMIT 500`,
+    [since, only],
   );
+  // The perps contract holds both sides of every perp rope: it is not a player.
+  const notPlayers = new Set([getConfig().ropes?.perps].filter(Boolean).map((x) => String(x).toLowerCase()));
+  const list = rows.filter((r) => !notPlayers.has(r.account)).map((r) => {
+    const staked = Number(r.staked);
+    const finished = Number(r.finished);
+    return {
+      account: r.account,
+      pots: Number(r.pots),
+      heldToEnd: Number(r.held),
+      paid: r.paid,
+      treats: r.treats,
+      copycats: Number(r.copycats),
+      finished,
+      staked: r.staked,
+      net: r.net,
+      /** net result over stake, in percent; null below the minimum or with nothing staked */
+      returnPct: finished >= LEADERBOARD_MIN_POTS && staked > 0 ? (Number(r.net) / staked) * 100 : null,
+    };
+  });
+  list.sort((x, y) => (y.returnPct ?? -Infinity) - (x.returnPct ?? -Infinity) || y.pots - x.pots);
+  const shown = list.slice(0, opts.limit ?? 50);
+  // For the copycat button: each shown player's newest live v2 pot (same market and side in a new pot).
+  const live = shown.length
+    ? await db.query<{ owner: string; pot_id: string; side: number; chain: string }>(
+        `SELECT DISTINCT ON (owner) owner, pot_id::text AS pot_id, side, data->>'chainPotId' AS chain FROM (
+           SELECT lower(yes_owner) AS owner, pot_id, 0 AS side, data FROM pots WHERE state = 3 AND (data->>'v2')::boolean IS TRUE
+           UNION ALL SELECT lower(no_owner), pot_id, 1, data FROM pots WHERE state = 3 AND (data->>'v2')::boolean IS TRUE
+         ) x WHERE owner = ANY($1::text[]) AND NOT EXISTS (SELECT 1 FROM practice_pots pp WHERE pp.pot_id = x.pot_id)
+         ORDER BY owner, pot_id DESC`,
+        [shown.map((r) => r.account)],
+      )
+    : [];
+  const copyOf = new Map(live.filter((r) => r.chain).map((r) => [r.owner, { potId: r.pot_id, token: (BigInt(r.chain) * 2n + BigInt(r.side)).toString() }]));
   return {
     since: since || null,
     friendsOf: opts.friendsOf?.toLowerCase() ?? null,
-    rows: rows.map((r) => ({ account: r.account, pots: Number(r.pots), heldToEnd: Number(r.held), paid: r.paid, treats: r.treats, copycats: Number(r.copycats) })),
+    following: opts.following?.toLowerCase() ?? null,
+    minPots: LEADERBOARD_MIN_POTS,
+    rows: shown.map((r) => ({ ...r, copy: copyOf.get(r.account) ?? null })),
   };
 }
 
