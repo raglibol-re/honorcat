@@ -71,14 +71,19 @@ export const LEADERBOARD_MIN_POTS = 3;
  * HonorCat's practice cat (the relay wallet), whose pots never count, even where a practice pot's
  * record was lost.
  */
-export function notPlayerSet() {
+export function notPlayerSet(house: string[] = []) {
   let practice: string | null = null;
   try {
     practice = relaySender().toLowerCase();
   } catch {
     /* no relay wallet configured (tests) */
   }
-  return new Set([getConfig().ropes?.perps, practice].filter(Boolean).map((x) => String(x).toLowerCase()));
+  return new Set([getConfig().ropes?.perps, practice, ...house].filter(Boolean).map((x) => String(x).toLowerCase()));
+}
+
+/** HonorCat's own test accounts (written by the test scripts): never players in tables or honor. */
+export async function houseAccounts(db: Db): Promise<string[]> {
+  return (await db.query<{ account: string }>("SELECT account FROM house_accounts").catch(() => [])).map((r) => r.account.toLowerCase());
 }
 
 export async function leaderboard(db: Db, opts: { days?: number; friendsOf?: string | null; following?: string | null; limit?: number } = {}) {
@@ -114,7 +119,7 @@ export async function leaderboard(db: Db, opts: { days?: number; friendsOf?: str
       ORDER BY p.n DESC LIMIT 500`,
     [since, only],
   );
-  const notPlayers = notPlayerSet();
+  const notPlayers = notPlayerSet(await houseAccounts(db));
   const list = rows.filter((r) => !notPlayers.has(r.account)).map((r) => {
     const staked = Number(r.staked);
     const finished = Number(r.finished);
@@ -181,7 +186,7 @@ export async function perpLeaderboard(db: Db, opts: { days?: number; friendsOf?:
             sum(lost)::text AS lost, sum(r)::text AS result
        FROM sides WHERE ($2::text[] IS NULL OR account = ANY($2::text[]))
       GROUP BY account ORDER BY sum(r) DESC, count(*) DESC LIMIT $3`,
-    [since, only, opts.limit ?? 50, [...notPlayerSet()]],
+    [since, only, opts.limit ?? 50, [...notPlayerSet(await houseAccounts(db))]],
   );
   return {
     since: since || null,
@@ -198,7 +203,7 @@ export async function perpLeaderboard(db: Db, opts: { days?: number; friendsOf?:
 export async function rivalry(db: Db, a: string, b: string) {
   const x = a.toLowerCase();
   const y = b.toLowerCase();
-  const np = notPlayerSet();
+  const np = notPlayerSet(await houseAccounts(db));
   if (x === y || np.has(x) || np.has(y)) return { a: x, b: y, played: 0, aAhead: 0, bAhead: 0, even: 0, pots: [] as { potId: string; aNet: string; bNet: string }[] };
   const rows = await db.query<{ pot_id: string; yes: string; no: string; yes_net: string; no_net: string }>(
     `WITH p AS (SELECT pot_id, lower(yes_owner) AS yes, lower(no_owner) AS no FROM pots

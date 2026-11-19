@@ -40,8 +40,10 @@ export async function loadHonorInput(db: Db): Promise<HonorInput> {
   const cfg = getConfig();
   // HonorCat's own wallets fund many unrelated players (welcome money, the practice cat): never a link.
   const shared = new Set([relaySender(), ...(process.env.HONOR_SHARED_FUNDERS ?? "").split(",")].map((x) => x.trim().toLowerCase()).filter(Boolean));
-  // Not players: the perps contract, and the practice cat (practice play earns nothing).
-  const notPlayers = new Set([cfg.ropes?.perps, relaySender()].filter(Boolean).map((x) => String(x).toLowerCase()));
+  // Not players: the perps contract, the practice cat (practice play earns nothing) and HonorCat's own
+  // test accounts (house_accounts, written by the test scripts).
+  const house = (await db.query<{ account: string }>("SELECT account FROM house_accounts").catch(() => [])).map((r) => r.account);
+  const notPlayers = new Set([cfg.ropes?.perps, relaySender(), ...house].filter(Boolean).map((x) => String(x).toLowerCase()));
   const cutoff = events.length ? events.at(-1)!.at : 0;
   return { events, notes, practice, seats, funding, sharedFunders: shared, clusters, notPlayers, cutoff };
 }

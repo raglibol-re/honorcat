@@ -14,6 +14,7 @@ import { parseArgs } from "node:util";
 import { createPublicClient, createWalletClient, erc20Abi, http, maxUint256, parseEventLogs, type Address, type Hex } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { arcTestnet } from "viem/chains";
+import { markHouse } from "./house";
 import { ARC_USDC } from "../src/arc";
 import { getDb } from "../src/db";
 import { groupsAbi } from "../src/groupsAbi";
@@ -28,6 +29,8 @@ const { values } = parseArgs({
     minutes: { type: "string", default: "12" },
     sweep: { type: "string" },
     wallets: { type: "string" },
+    // the unmatched rest waits for later batches (tests the relay pricing carried batches ahead)
+    wait: { type: "boolean", default: false },
   },
 });
 const rpc = process.env.ARC_RPC_URL!;
@@ -106,6 +109,7 @@ async function main() {
   const amount = BigInt(Math.round(Number(values.amount) * 1e6));
   const db = await getDb();
   const [A, B] = [fresh(), fresh()];
+  await markHouse([A.address, B.address], "groups-e2e"); // HonorCat's own test players: never in honor or tables
   for (const w of [A, B]) {
     await client.waitForTransactionReceipt({ hash: await dw.writeContract({ address: ARC_USDC, abi: erc20Abi, functionName: "transfer", args: [w.address, amount + 300_000n] }) });
     const ww = createWalletClient({ account: w, chain: arcTestnet, transport: http(rpc) });
@@ -133,8 +137,8 @@ async function main() {
 
   const t0 = Date.now();
   // The unmatched rest comes back after the first clearing (a rest that waits may wait 20 batches).
-  await send(A, "join", [id, 0, amount, false]);
-  await send(B, "join", [id, 1, amount, false]);
+  await send(A, "join", [id, 0, amount, values.wait]);
+  await send(B, "join", [id, 1, amount, values.wait]);
   log(`A joined Micky's team and B Morty's team with ${usd(amount)} each`);
   const ok = await waitCleared(id, Number(values.minutes));
   log(ok ? `cleared ${Math.round((Date.now() - t0) / 1000)} s after the joins` : "NOT cleared in time");

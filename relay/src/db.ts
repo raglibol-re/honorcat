@@ -570,6 +570,12 @@ CREATE TABLE IF NOT EXISTS market_catalog (
   book      JSONB
 );
 CREATE INDEX IF NOT EXISTS market_catalog_cat_idx ON market_catalog (category, close_ms);
+-- HonorCat's own test accounts (scripts/*-e2e.ts): never players in honor, leaderboards or rivalry.
+CREATE TABLE IF NOT EXISTS house_accounts (
+  account     TEXT PRIMARY KEY,
+  why         TEXT NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 -- Private pots (privatePots.ts): seen only by their players and people with the link's key.
 CREATE TABLE IF NOT EXISTS pot_private (
   pot_id      TEXT PRIMARY KEY,

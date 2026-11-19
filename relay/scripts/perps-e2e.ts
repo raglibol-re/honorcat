@@ -20,6 +20,7 @@ import { parseArgs } from "node:util";
 import { createPublicClient, createWalletClient, erc20Abi, http, maxUint256, parseEventLogs, type Address, type Hex } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { arcTestnet } from "viem/chains";
+import { markHouse } from "./house";
 import { ARC_USDC } from "../src/arc";
 import { perpsAbi } from "../src/perpsAbi";
 
@@ -35,6 +36,8 @@ const { values } = parseArgs({
     plan: { type: "string", default: "chain,out,leave,stop" },
     sweep: { type: "string" },
     wallets: { type: "string" },
+    // leave the perps running when the watch ends (showcase perps); without it they are wound down
+    keep: { type: "boolean", default: false },
   },
 });
 const API = values.api!.replace(/\/$/, "");
@@ -116,6 +119,7 @@ async function main() {
   const treat = (stake * 25n) / 10_000n;
   log(`market ${values.symbol} at ${((prep.midPpm ?? 0) / 10_000).toFixed(1)}%: rope ±${d / 10_000} points, stake $${Number(stake) / 1e6} per side per rope`);
   const [A, B] = [fresh(), fresh()];
+  await markHouse([A.address, B.address], "perps-e2e"); // HonorCat's own test players: never in honor or tables
   // Fund what the planned lives need (plus two stakes for the treat and gas), not a fixed 40 stakes.
   const maxLives = 9n;
   for (const w of wallets) {
@@ -186,7 +190,7 @@ async function main() {
   }
   log(`finished: ${done.size} of ${ids.length} perps ended within the run`);
   // Perps still running: both stop renewing, so each ends at its rope's expiry; then clean up.
-  for (let i = 0; i < ids.length; i++) if (!done.has(i)) for (const w of wallets) await send(w, "stopRenewing", [ids[i]]).catch(() => {});
+  if (!values.keep) for (let i = 0; i < ids.length; i++) if (!done.has(i)) for (const w of wallets) await send(w, "stopRenewing", [ids[i]]).catch(() => {});
   if (done.size === ids.length) await sweep(wallets, ids, deployer.address);
   else log(`clean up later: --sweep ${ids.join(",")} --wallets ${wallets.map((w) => w.address).join(",")}`);
 }
