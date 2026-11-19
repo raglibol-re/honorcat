@@ -37,6 +37,18 @@ for (let i = 0; i < 400; i++) {
   if (cur && BigInt(cur) >= head - 200n) break;
 }
 
+// 2b. Every perp event (HonorCatPerps), and each perp's state.
+{
+  const { indexPerps } = await import("../src/perps");
+  const head = await (await import("../src/chain")).publicClient().getBlockNumber();
+  for (let i = 0; i < 200; i++) {
+    await indexPerps(db, head, { deadlineMs: 60_000 });
+    const cur = (await db.query<{ value: string }>("SELECT value FROM relay_state WHERE key = 'perps_cursor'"))[0]?.value;
+    console.log(`perps pass ${i}: cursor ${cur}`);
+    if (!cur || BigInt(cur) >= head) break;
+  }
+}
+
 // 3. Each pot's market, by its conditionId.
 const params = potParams(paramsFor("demo"), POT_WINDOW_S, POT_MIN_SAMPLES);
 const rows = await catalog.allRows(db, 0);
@@ -58,6 +70,10 @@ console.log(`markets matched for ${matched} of ${pots.length} pots`);
 const practice = relaySender().toLowerCase();
 const pr = await db.query("INSERT INTO practice_pots (pot_id) SELECT pot_id FROM pots WHERE lower(yes_owner) = $1 OR lower(no_owner) = $1 ON CONFLICT DO NOTHING RETURNING pot_id", [practice]);
 console.log(`practice pots marked: ${pr.length}`);
+
+// 4b. Practice perps (the practice cat took the other side), stored under the negative perp id.
+const pp = await db.query("INSERT INTO practice_pots (pot_id) SELECT -perp_id FROM perps WHERE lower(b) = $1 OR lower(a) = $1 ON CONFLICT DO NOTHING RETURNING pot_id", [practice]);
+console.log(`practice perps marked: ${pp.length}`);
 
 // 5. Re-read every pot so its projection includes the market.
 for (const p of pots) await syncPot(db, BigInt(p.pot_id)).catch((e) => console.error("sync", p.pot_id, (e as Error).message));
