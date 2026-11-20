@@ -103,6 +103,9 @@
   scrolled sideways on phones (a hidden link label escaped the table's scroll area).
 - Checked: tsc and eslint clean; screenshots desktop and 390 px of every demo page, no sideways
   scrolling; all demo pages load on production. docs/demo.md says where the folded details are.
+- Second pass: perp list rows are one line ("$1.000 per rope · posts ±15 · 3.4× / 3.2×"), the /perps
+  intro is one sentence, the leaderboard's ranking rules are folded, and the rope caption no longer
+  repeats the cat's price. Checked live, desktop and phone.
 
 ## Posts (2026-11-20, 00:30-02:00 UTC; owner lifted the freeze for this one feature)
 - **Honor root for day 20777 posted at 00:00 UTC** by hand (postDailyRoot, same code as the worker):
