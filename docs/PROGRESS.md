@@ -97,7 +97,7 @@
   6 players, no test accounts, tx 0xc653e503fa145e492c18baf0c8e9401f0cc2692785e788f139460bde4708fb81
   (status 1). Day 20776's root (12:00 UTC Nov 19) still has the old balances; a posted root can never
   be replaced.
-- **Posts, behind SOCIAL=on (off in production until the owner switches it on):** players write
+- **Posts, behind SOCIAL=on (switched on in production at 02:45 UTC, owner's go-ahead):** players write
   short public posts (280 characters), optionally about one of their own pots, perps or groups.
   `relay/src/posts.ts`, table `posts`, routes `/api/hc/posts` (list, create), `/posts/delete`,
   `/posts/plays`; page `/posts` (Everyone / Following) and a Posts section at the bottom of every pot,
@@ -112,6 +112,10 @@
   signed delete (200); screenshots at 1280 px and phone width without sideways scrolling. Found and
   fixed on the way: a second post signed at the same moment was treated as a retry of the first.
   The two test posts are deleted.
+- Live on production (SOCIAL=on, Vercel redeployed; the worker does not need the switch): "Posts"
+  in the menu, /posts, /perps/17, /groups/3, /pots/19 load; a signed post about perp 17 by its test
+  player (200, snapshot YES on UCF, running), listed, deleted with its signature (200), list empty
+  again. Switch off: remove SOCIAL from Vercel production and redeploy.
 
 ## Evening checks (2026-11-19, 19:30-20:00 UTC)
 
