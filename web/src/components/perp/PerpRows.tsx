@@ -8,7 +8,6 @@ import { nickname, useNames } from "@/lib/names";
 import { money } from "@/lib/currency";
 import {
   lifeWords,
-  perpLabel,
   perpLeverages,
   playerOf,
   points,
@@ -114,17 +113,12 @@ export function PerpRows({
                 ? `${p.market.eventTitle}${p.market.label && p.market.label !== "Yes" ? `: ${p.market.label}` : ""}`
                 : "Unknown market"}
             </span>
-            <span style={{ fontSize: 16 }}>
-              {lev
-                ? perpLabel(p.data.t.d, lev.creator, lev.joiner)
-                : `Perp, posts ${points(p.data.t.d)} points either side`}
-            </span>
             <span style={{ fontSize: 16, fontVariantNumeric: "tabular-nums" }}>
-              {$(stake)} per rope
+              {$(stake)} per rope · posts ±{points(p.data.t.d)}
+              {lev ? ` · ${times(lev.creator)} / ${times(lev.joiner)}` : ""}
             </span>
             <span style={{ fontSize: 14, color: C.muted }}>
-              {phaseWords(p)} · ropes up to{" "}
-              {lifeWords(Number(p.data.t.ropeLife))}
+              {phaseWords(p)} · up to {lifeWords(Number(p.data.t.ropeLife))} a rope
             </span>
             {offer && lev && (
               <span style={{ fontSize: 15, color: C.muted }}>

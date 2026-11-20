@@ -926,7 +926,7 @@ export function Rope(p: RopeProps) {
             ? p.final
             : price === null
               ? "Reading the price."
-              : `The cat stands at ${(price * 100).toFixed(1)}% chance, averaged over 30 seconds.`}
+              : "Price: 30-second average."}
         </span>
         <span>Data provided by Gemini.</span>
       </figcaption>

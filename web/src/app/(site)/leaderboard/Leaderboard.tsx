@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { More } from "@/components/ui/More";
 import { useEffect, useState } from "react";
 import { CatState } from "@/components/cat/CatState";
 import { CatName } from "@/components/cat/PlayerCat";
@@ -46,11 +47,13 @@ export function Leaderboard() {
         <p style={{ margin: 0, fontSize: 16 }}>
           Results here; how people play is on the <Link href="/honor#table">Honor table</Link>.
         </p>
-        <p style={{ margin: 0, fontSize: 18, color: C.body, maxWidth: 680 }}>
-          {kind === "pots"
-            ? "Ranked by result relative to stake: over finished pots, what a player was paid less what they put in, divided by what they put in. Also pots played, held to the end, treats earned and how many players copy each cat. Treats are shares of fees other players paid; nothing goes to HonorCat. Practice and Grok Bot pots do not count."
-            : "Perps by net result: what each player won or lost over all their ropes, with perps played and won, ropes played and lives lost. Perps with the practice cat do not count."}
-        </p>
+        <More label="How the ranking works" style={{ maxWidth: 680 }}>
+          <p style={{ margin: 0, fontSize: 16, color: C.body }}>
+            {kind === "pots"
+              ? "Ranked by result relative to stake: over finished pots, what a player was paid less what they put in, divided by what they put in. Also pots played, held to the end, treats earned and how many players copy each cat. Treats are shares of fees other players paid; nothing goes to HonorCat. Practice and Grok Bot pots do not count."
+              : "Perps by net result: what each player gained or lost over all their ropes, with perps played, ropes played and lives lost. Perps with the practice cat do not count."}
+          </p>
+        </More>
       </header>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
         <div role="radiogroup" aria-label="Table" style={{ display: "flex", gap: 8 }}>

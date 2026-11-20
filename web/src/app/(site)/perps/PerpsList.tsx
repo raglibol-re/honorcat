@@ -64,11 +64,8 @@ export function PerpsList() {
           <ButtonLink href="/pots/new?kind=perp">Start a perp</ButtonLink>
         </div>
         <p style={{ margin: 0, fontSize: 18, lineHeight: 1.5, maxWidth: 720, color: C.body }}>
-          A perp is a chain of short ropes on one market. Each rope has two posts a few points either side
-          of the price: if the price holds past one for 30 seconds, that side loses its stake for the rope,
-          one life. Otherwise the rope is divided at the price when its time is up, and the next one starts
-          there. It goes on until someone leaves or runs out of lives.{" "}
-<Link href="/how">How it works</Link> · <Link href="/leaderboard?kind=perps">Perp leaderboard</Link>
+          Short ropes on one market, one after another. Lose a rope at a post and you lose one life.{" "}
+          <Link href="/how">How it works</Link> · <Link href="/leaderboard?kind=perps">Perp leaderboard</Link>
         </p>
       </header>
 
