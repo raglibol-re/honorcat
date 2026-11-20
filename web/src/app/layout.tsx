@@ -21,6 +21,8 @@ export const metadata: Metadata = {
   // Added to the home screen on iPhone and iPad: full screen, its own name, the paper-coloured status bar.
   appleWebApp: { capable: true, title: "HonorCat", statusBarStyle: "default" },
   formatDetection: { telephone: false },
+  // Older iPhones (before iOS 16.4) read only this tag to open the home-screen app full screen.
+  other: { "apple-mobile-web-app-capable": "yes" },
 };
 
 export const viewport: Viewport = {

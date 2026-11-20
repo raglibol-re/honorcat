@@ -107,7 +107,7 @@
   scrolling on /, /perps/17 and /app in WebKit (iPhone SE, iPhone 15 Pro Max, iPad Mini) and
   Chromium (Pixel 7, Galaxy S9+, 320 px); the phone header now stays on one line down to 320 px;
   the menu still opens; as an installed app Back appears and works.
-- Slogan (owner: wanted a cat line that makes sense): "Nine lives. One fair price." (start page,
+- Slogan (owner chose it from four cat lines): "Honor among cats." (start page,
   footers, README), replacing "A cat always lands on its feet". Also clearer: "HonorCat takes no
   fee" instead of "Nothing goes to a house", the example explains the $0.10 fee, the perp card says
   "a pot with leverage that renews every hour; you can never lose more than you put in", net and bowl

@@ -655,7 +655,7 @@ export function Home({ data }: { data: HomeData }) {
                 textWrap: "balance",
               }}
             >
-              Nine lives. One fair price.
+              Honor among cats.
             </p>
             <StartButton inverted />
           </div>

@@ -57,6 +57,10 @@ about), a leaderboard, private pots, send money to a player by name, and a big s
 </tr>
 </table>
 
+**Open markets and plays right now:**
+
+<img src="docs/media/markets-desktop.png" alt="The Markets page: the best Gemini markets right now, ranked by spread and depth, with each market's chance, spread, depth and a Gemini link" width="49%"> <img src="docs/media/perps-desktop.png" alt="The Perps page: perps 17 and 18 running on live college football games, with stake per rope, posts and leverage" width="49%">
+
 ## Why you can trust the numbers
 
 Nothing moves without a price three independent machines agree on, and **the contract checks the agreement itself**.
@@ -189,6 +193,6 @@ Every switch, variable and deploy step: [technical reference](docs/technical.md#
 
 Data provided by Gemini. Prices can be off when few people trade a market.
 
-**Nine lives. One fair price.**
+**Honor among cats.**
 
 </div>
