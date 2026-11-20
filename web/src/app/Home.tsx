@@ -335,7 +335,7 @@ export function Home({ data }: { data: HomeData }) {
             >
               {[
                 "Each pot is a contract on Arc. No one holds your money.",
-                "Nothing goes to a house.",
+                "HonorCat takes no fee.",
               ].map((t) => (
                 <li
                   key={t}
@@ -366,7 +366,7 @@ export function Home({ data }: { data: HomeData }) {
               <StartButton
                 href="/pots/new?practice=1"
                 label="Try it now"
-                note="Free test money, two minutes"
+                note="Free test money, ready in two minutes"
               />
               <ButtonLink
                 href="/pots/new"
@@ -377,7 +377,7 @@ export function Home({ data }: { data: HomeData }) {
               </ButtonLink>
             </div>
             <p style={{ margin: 0, fontSize: 17, color: C.body }}>
-              Or <Link href="/pots">take an open side</Link>.
+              Or <Link href="/pots">join a pot someone already opened</Link>.
             </p>
           </div>
           <div
@@ -465,7 +465,7 @@ export function Home({ data }: { data: HomeData }) {
                   ],
                   [
                     "3",
-                    "Micky leaves with $7.40. Or both hold, and the right side gets $10.",
+                    "Micky leaves with $7.40: the $7.50 less a 1% fee that goes to Morty. Or both hold, and the right side gets all $10.",
                   ],
                 ] as const
               ).map(([n, t]) => (
@@ -524,13 +524,13 @@ export function Home({ data }: { data: HomeData }) {
               ],
               [
                 "A perp",
-                "Short ropes in a chain, with leverage. You only risk the lives you put in.",
+                "A pot with leverage that renews every hour. You can never lose more than you put in.",
                 "/perps",
                 "See perps",
               ],
               [
                 "With a friend",
-                "Pick the question and stakes together. Send the link.",
+                "Choose the question and the amounts together, then send your friend the link.",
                 "/pots/together",
                 "Invite a friend",
               ],
@@ -595,8 +595,9 @@ export function Home({ data }: { data: HomeData }) {
             other side. That is the $0.10 in the example.
           </p>
           <p style={{ margin: 0, fontSize: 16, lineHeight: 1.55, color: C.body }}>
-            Also on the rope: a <strong>net</strong> catches your side at a low
-            price. A <strong>bowl</strong> takes your share off at a high one.{" "}
+            You can also set a <strong>net</strong>: you leave automatically if
+            your side falls to a price you choose. A <strong>bowl</strong> is the
+            same when it rises to one.{" "}
             <strong>Nine lives</strong> let you leave a ninth at a time. A{" "}
             <strong>handshake</strong> splits now with no fee. A{" "}
             <strong>takeover</strong> lets someone step into a leaving
@@ -608,7 +609,7 @@ export function Home({ data }: { data: HomeData }) {
             you.
           </p>
           <p style={{ margin: 0, fontSize: 16, lineHeight: 1.55, color: C.body }}>
-            Pots are capped at $25. Gemini markets can be wrong or thin. Not
+            Pots are capped at $25. Gemini prices can be off when few people trade a market. Not
             financial advice. Full rules are on each pot&apos;s{" "}
             <em>terms</em> page and in <Link href="/how">How it works</Link>.
           </p>
@@ -654,7 +655,7 @@ export function Home({ data }: { data: HomeData }) {
                 textWrap: "balance",
               }}
             >
-              A cat always lands on its feet.
+              Fair prices. Paid on Arc.
             </p>
             <StartButton inverted />
           </div>

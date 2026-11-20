@@ -410,7 +410,7 @@ export function GroupView({ id }: { id: string }) {
       <More label="How a group works">
         <p style={{ margin: 0, fontSize: 15, color: C.body, maxWidth: 760 }}>
           Every join and leave asked for in a minute is priced together over the {g.window} s after. Waiting joins on a team take over a leaving part first;
-          if they do not cover it, the other team shrinks by the rest. Nothing goes to a house: the only fee is 1% of what leaves early, and it goes to the
+          if they do not cover it, the other team shrinks by the rest. HonorCat takes no fee: the only fee is 1% of what leaves early, and it goes to the
           other team. Most per team on this market: {money(g.cap)}.
         </p>
       </More>

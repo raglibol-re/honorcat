@@ -522,7 +522,7 @@ function Actions({
           signature: sig,
         }),
       });
-    }, "Paws shaken. The pot is split at the agreed price, with no fee.");
+    }, "Handshake done. The pot is split at the agreed price, with no fee.");
   const offerHandshake = () =>
     a.run(async (s) => {
       const p = Math.round(price! * 1e6);

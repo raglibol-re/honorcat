@@ -8,7 +8,7 @@ https://honorcat.vercel.app/
 - "Take a side on a real Gemini question; leave at the live price whenever you like, or hold to the
   result." Micky and Morty's worked example: $6 and $4 on a $10 pot, the price moves, Micky leaves
   with $7.40.
-- Three ways to play: a pot, a perp, a group. Nothing goes to a house.
+- Three ways to play: a pot, a perp, a group. HonorCat takes no fee.
 
 ## 2. A perp running on a live market (1 min 30 s): Gemini + Arc
 https://honorcat.vercel.app/perps/17 (Iowa State vs UCF) or /perps/18 (Syracuse vs Boston College)

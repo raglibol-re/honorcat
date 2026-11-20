@@ -308,7 +308,7 @@ export function EarlyView() {
 
   const canJoin = e.state === "locked" && !joined;
   const note = paid
-    ? "Nothing to file, nothing to claim. A cat always lands on its feet, and so does your money, even if the market turns out wrong."
+    ? "Nothing to file, nothing to claim. The money is already paid out on Arc, and it stays paid even if the market turns out wrong."
     : refunded
       ? "Nobody was paid. The money is back with the person who set it aside."
       : canJoin

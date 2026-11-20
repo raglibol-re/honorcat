@@ -186,8 +186,8 @@ Every switch, variable and deploy step: [technical reference](docs/technical.md#
 
 <div align="center">
 
-Data provided by Gemini. Gemini prices can be wrong or thin.
+Data provided by Gemini. Prices can be off when few people trade a market.
 
-**A cat always lands on its feet.**
+**Fair prices. Paid on Arc.**
 
 </div>
