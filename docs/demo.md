@@ -1,4 +1,4 @@
-# HonorCat demo route (about 6 minutes)
+# HonorCat demo route (about 6 and a half minutes)
 
 Everything is live on https://honorcat.vercel.app, Arc testnet, test money only. Open the pages in
 this order; each step says what to point at and which sponsor it is for.
@@ -32,7 +32,13 @@ https://honorcat.vercel.app/pots/19 then "proof"
 - The proof page: every price window, each sampler's signed average, the rule (median of three, mean
   of two within half a point), checked on-chain by the MedianResolver.
 
-## 5. For the sponsors (1 min 30 s)
+## 5. Posts (30 s): players talk about their plays
+https://honorcat.vercel.app/perps/17 (scroll to "Posts") then https://honorcat.vercel.app/posts
+- A player writes a short post about a play they are in; HonorCat checks they hold a side, and the
+  post shows it ("YES on UCF · perp 17 · running when posted"). Signed by the player, moves no money.
+- /posts: Everyone and Following. Private pots never show up.
+
+## 6. For the sponsors (1 min 30 s)
 https://honorcat.vercel.app/status and https://honorcat.vercel.app/how-it-is-built
 - **QuickNode:** Streams is the primary source: "Last delivery … s ago", deliveries in the last 5
   minutes, and the share of pot events first seen by Streams since the stream started (the RPC
