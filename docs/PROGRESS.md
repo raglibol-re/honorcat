@@ -92,6 +92,14 @@
   worker. Render services `honorcat` (full site, out of memory on 512 MB) and `honorcat-sampler` are
   no longer needed: the owner deletes them (the tools cannot).
 
+## README for the judges (2026-11-20, 09:00-10:00 UTC)
+- New README.md: what HonorCat is, three GIFs (docs/media: a tour of the live site at 1280 px, the
+  rope mechanic on the real Rope component with sample numbers, the site at phone width), three ways
+  to play with live links, why the prices can be trusted, each sponsor's job with where to check it,
+  evidence on Arc, current contracts, run and test, honest limits.
+- The old README moved unchanged to docs/technical.md (links fixed), linked from the new one.
+- The rope GIF was recorded from a temporary local page (not committed); the other two from production.
+
 ## Less text (2026-11-20, 06:00-07:30 UTC; owner: "the whole UI has too much text")
 - Every main page shows what matters first; rules, explanations and history fold behind a short
   "More" line (`web/src/components/ui/More.tsx`, a styled <details>). Visible words on load, live:
