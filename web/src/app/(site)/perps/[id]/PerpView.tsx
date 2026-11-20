@@ -26,7 +26,6 @@ import {
   DEFAULT_LIVES,
   lifeWords,
   livesOf,
-  perpLabel,
   playerOf,
   points,
   stopRenewing,
@@ -48,6 +47,7 @@ import { money } from "@/lib/currency";
 
 import { ActionProgress, Button } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Field";
+import { More } from "@/components/ui/More";
 import { toast } from "@/components/ui/Toast";
 import { CatState } from "@/components/cat/CatState";
 import { Rope } from "@/components/pot/Rope";
@@ -303,10 +303,6 @@ export function PerpView({ id }: { id: string }) {
     center === null ? null : (sideA === 0 ? center : 1e6 - center) / d.t.d;
   const levB =
     center === null ? null : (sideA === 0 ? 1e6 - center : center) / d.t.d;
-  const label =
-    levA !== null && levB !== null
-      ? perpLabel(d.t.d, levA, levB)
-      : `Perp, posts ${points(d.t.d)} points either side`;
   const st = p.market ? sidesOf(p.market) : null;
   const sideWord = (s: number) =>
     st ? `“${s === 0 ? st.yesShort : st.noShort}”` : s === 0 ? "YES" : "NO";
@@ -357,7 +353,6 @@ export function PerpView({ id }: { id: string }) {
         }}
       >
         <span style={{ fontSize: 14, color: C.muted }}>
-          {x === "a" ? "Opened the perp" : "Took the other side"} ·{" "}
           {side === 0 ? "YES" : "NO"}
           {lev !== null && ` · ${times(lev)}`}
         </span>
@@ -381,17 +376,11 @@ export function PerpView({ id }: { id: string }) {
                 {lostOf(x) > 0 ? `, ${lostOf(x)} lost` : ""}
               </span>
             </span>
-            <span style={{ fontSize: 14, color: C.muted }}>
-              A life is {$(stake)}: lost when the price holds past{" "}
-              this player&apos;s post for 30
-              seconds.
-            </span>
             <span style={{ fontSize: 16 }}>
               Result so far: <strong>{signed(result)}</strong>
             </span>
-            <span style={{ fontSize: 15, color: C.muted }}>
-              {$(free)} not in a rope ({Number(free / (stake > 0n ? stake : 1n))} whole {Number(free / (stake > 0n ? stake : 1n)) === 1 ? "life" : "lives"})
-              {p.phase === "Running" || p.phase === "Joining" ? ", plus 1 in the running rope" : ""}
+            <span style={{ fontSize: 14, color: C.muted }}>
+              {$(free)} not in a rope
               {p.phase !== "Ended" && !renew ? " · stopped renewing" : ""}
             </span>
           </>
@@ -413,6 +402,99 @@ export function PerpView({ id }: { id: string }) {
       ? mine.free
       : mine.free % stake
     : 0n;
+
+  // One compact rope row: number, how it ended, each side's leverage, the result. The samplers'
+  // detail (window, each price, pot, transaction) folds away under "Details".
+  const ropeRow = (r: (typeof history)[number]) => {
+    const st = stories.find((x) => x.rope === r.rope);
+    const knocked = r.reason === 1;
+    const loser = r.paidA === 0n ? p.a : r.paidB === 0n ? p.b : null;
+    const how =
+      r.reason === null
+        ? p.phase === "Running" && r.rope === d.ropes
+          ? "running"
+          : "ending…"
+        : knocked
+          ? `knocked out at ${loser ? `${nm(loser)}'s` : "a"} post`
+          : (REASONS[r.reason] ?? "ended");
+    const lev = (() => {
+      if (!st || !(st.upper > st.lower)) return null;
+      const half = (st.upper - st.lower) / 2;
+      const mid = (st.upper + st.lower) / 2;
+      const aYes = sideA === 0;
+      const la = (aYes ? mid : 1_000_000 - mid) / half;
+      const lb = (aYes ? 1_000_000 - mid : mid) / half;
+      return `${aYes ? "YES" : "NO"} ${times(la)} · ${aYes ? "NO" : "YES"} ${times(lb)}`;
+    })();
+    const result =
+      r.paidA === null || r.paidB === null
+        ? null
+        : r.paidA === stake && r.paidB === stake
+          ? "even"
+          : `${nm(p.a)} ${signed(r.paidA - stake)} · ${nm(p.b)} ${signed(r.paidB - stake)}`;
+    const line = st ? replay(st) : null;
+    return (
+      <li
+        key={r.rope}
+        style={{
+          display: "flex",
+          gap: "4px 14px",
+          flexWrap: "wrap",
+          alignItems: "baseline",
+          borderTop: `1px solid ${C.faint}`,
+          padding: "8px 0",
+          fontSize: 16,
+        }}
+      >
+        <strong style={{ minWidth: 64 }}>Rope {r.rope}</strong>
+        <span
+          style={{
+            flex: "1 1 160px",
+            color: knocked ? C.signalInk : C.ink,
+            fontWeight: knocked ? 600 : 400,
+          }}
+        >
+          {how}
+        </span>
+        {lev && (
+          <span style={{ color: C.muted, fontVariantNumeric: "tabular-nums" }}>
+            {lev}
+          </span>
+        )}
+        {result && (
+          <span style={{ color: C.body, fontVariantNumeric: "tabular-nums" }}>
+            {result}
+          </span>
+        )}
+        {(line || r.pot) && (
+          <More label="Details" style={{ margin: 0, flexBasis: "100%" }}>
+            <span style={{ fontSize: 15, color: C.body, lineHeight: 1.5 }}>
+              {line}
+              {r.rolled ? " Started at the last rope's price." : ""}
+              {r.pot && (
+                <>
+                  {" "}
+                  <Link href={`/pots/${r.pot}`}>Pot {r.pot}</Link>
+                </>
+              )}
+              {tech && st?.decided?.tx && (
+                <>
+                  {" · "}
+                  <a
+                    href={`https://explorer.testnet.arc.io/tx/${st.decided.tx}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    transaction
+                  </a>
+                </>
+              )}
+            </span>
+          </More>
+        )}
+      </li>
+    );
+  };
 
   return (
     <div
@@ -457,7 +539,11 @@ export function PerpView({ id }: { id: string }) {
         >
           Perp {id}
         </h1>
-        <p style={{ margin: 0, fontSize: 19 }}>{label}</p>
+        <p style={{ margin: 0, fontSize: 19 }}>“{question}”</p>
+        <p style={{ margin: 0, fontSize: 16, color: C.muted }}>
+          {$(stake)} each per rope · posts {points(d.t.d)} points either side ·
+          up to {lifeWords(Number(d.t.ropeLife))} a rope
+        </p>
         {p.practice && (
           <p
             role="note"
@@ -470,10 +556,9 @@ export function PerpView({ id }: { id: string }) {
               maxWidth: 760,
             }}
           >
-            <strong>Practice perp.</strong> The other side is the practice cat,
-            HonorCat&apos;s own test account. It never leaves or stops on its
-            own: leave now, stop renewing, or let the lives run out. Test money
-            only.
+            <strong>Practice perp.</strong> The other side is HonorCat&apos;s
+            practice cat and never stops on its own: leave, stop renewing, or
+            let the lives run out.
           </p>
         )}
         {practiceFailed && p.phase === "Open" && (
@@ -496,24 +581,20 @@ export function PerpView({ id }: { id: string }) {
             <GeminiLink ticker={p.market.eventTicker} slug={p.market.slug} label="Trade this market on Gemini" size={15} />
           </span>
         )}
-        <p style={{ margin: 0, fontSize: 17, color: C.body }}>
-          On “{question}”. Each rope, both put in {$(stake)}; a rope lasts at
-          most {lifeWords(Number(d.t.ropeLife))}.
-        </p>
-        <p style={{ margin: 0, fontSize: 17 }}>
+        <p role="status" style={{ margin: 0, fontSize: 19 }}>
           <strong>
             {p.phase === "Open"
               ? "Waiting for someone to take the other side."
               : p.phase === "Funded"
-                ? "Both are in: the first rope starts in a moment."
+                ? "Both are in. The first rope starts in a moment."
                 : p.phase === "Joining"
-                  ? "The first rope is starting: its price is being measured over 30 seconds."
+                  ? "The first rope is starting."
                   : p.phase === "Running"
                     ? d.leaving
-                      ? "Someone is leaving: this rope is being priced, then the perp ends."
+                      ? "Someone is leaving. This rope is being priced, then the perp ends."
                       : rd && Number(rd.expiryTry ?? 0) >= 4
-                        ? `Rope ${d.ropes} is past its end and waits for the market's result.`
-                        : `Rope ${d.ropes} is running.`
+                        ? `Rope ${d.ropes} waits for the market's result.`
+                        : `Rope ${d.ropes} running${left !== null ? ` · ${clock(left)}` : ""}`
                     : `Ended after ${d.ropes} ${d.ropes === 1 ? "rope" : "ropes"}${(() => {
                         const why = p.events.find((e) => e.name === "PerpEnded")
                           ?.args.why;
@@ -564,17 +645,6 @@ export function PerpView({ id }: { id: string }) {
           />
           <Reactions potId={`-${id}`} />
           <Watching watchKey={`-${id}`} startHref="/pots/new?kind=perp" tvHref={`/perps/${id}/tv`} player={me !== null} />
-          <p style={{ margin: 0, fontSize: 17 }}>
-            <strong>Rope {d.ropes}</strong>
-            {left !== null ? ` · ${clock(left)}` : ""} · past {points(lower)}{" "}
-            the NO side wins this rope, past {points(upper)} the YES side.
-          </p>
-          {rope && (
-            <span style={{ fontSize: 14, color: C.muted }}>
-              This rope is{" "}
-              <Link href={`/pots/${rope.potId}`}>pot {rope.potId}</Link>.
-            </span>
-          )}
         </section>
       )}
 
@@ -598,6 +668,20 @@ export function PerpView({ id }: { id: string }) {
         {player("a")}
         {player("b")}
       </section>
+      <p
+        role="note"
+        style={{
+          margin: "-12px 0 0",
+          fontSize: 16,
+          lineHeight: 1.5,
+          border: `2px solid ${C.signal}`,
+          padding: "10px 14px",
+        }}
+      >
+        <strong>A life is {$(stake)}.</strong> It is lost when the price holds
+        past that player&apos;s post for 30 seconds, which on a live game can
+        take minutes.
+      </p>
 
       {p.phase === "Open" && me !== "a" && (
         <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -846,19 +930,21 @@ export function PerpView({ id }: { id: string }) {
             </div>
           )}
           {p.phase !== "Ended" && (
-            <p
-              style={{
-                margin: 0,
-                fontSize: 15,
-                color: C.muted,
-                lineHeight: 1.5,
-              }}
-            >
-              Leave now: this rope is priced over the next 30 seconds and you
-              give 1% of what you take out to the other side; then the perp
-              ends. Stop renewing: this rope runs to its end, and no new one
-              starts.
-            </p>
+            <More label="What these do" style={{ margin: 0 }}>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 15,
+                  color: C.muted,
+                  lineHeight: 1.5,
+                }}
+              >
+                Leave now: this rope is priced over the next 30 seconds and you
+                give 1% of what you take out to the other side; then the perp
+                ends. Stop renewing: this rope runs to its end, and no new one
+                starts.
+              </p>
+            </More>
           )}
         </section>
       )}
@@ -868,110 +954,25 @@ export function PerpView({ id }: { id: string }) {
         </p>
       )}
 
-      {history.length > 0 && (
-        <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <h2 style={h2}>How each rope went</h2>
-          <ol
-            style={{
-              margin: 0,
-              padding: 0,
-              listStyle: "none",
-              display: "flex",
-              flexDirection: "column",
-            }}
-          >
-            {history.map((r) => (
-              <li
-                key={r.rope}
-                style={{
-                  display: "flex",
-                  gap: 12,
-                  flexWrap: "wrap",
-                  alignItems: "baseline",
-                  borderTop: `1px solid ${C.faint}`,
-                  padding: "10px 0",
-                  fontSize: 16,
-                }}
-              >
-                <strong style={{ minWidth: 70 }}>Rope {r.rope}</strong>
-                <span style={{ flex: "1 1 200px" }}>
-                  {r.reason !== null
-                    ? (REASONS[r.reason] ?? "ended")
-                    : p.phase === "Running" && r.rope === d.ropes
-                      ? "running"
-                      : "ended (details in a moment)"}
-                  {r.rolled ? " · started at the last rope's price" : ""}
-                  {(() => {
-                    const st = stories.find((x) => x.rope === r.rope);
-                    if (!st || !(st.upper > st.lower)) return null;
-                    const half = (st.upper - st.lower) / 2;
-                    const mid = (st.upper + st.lower) / 2;
-                    const aYes = sideA === 0;
-                    const la = (aYes ? mid : 1_000_000 - mid) / half;
-                    const lb = (aYes ? 1_000_000 - mid : mid) / half;
-                    return ` · leverage ${times(la)} for ${nm(p.a)}, ${times(lb)} for ${nm(p.b)}`;
-                  })()}
-                </span>
-                {r.paidA !== null && r.paidB !== null && (
-                  <span style={{ color: C.body }}>
-                    {nm(p.a)} {signed(r.paidA - stake)} · {nm(p.b)}{" "}
-                    {signed(r.paidB - stake)}
-                  </span>
-                )}
-                {r.pot && <Link href={`/pots/${r.pot}`}>pot {r.pot}</Link>}
-                {(() => {
-                  const st = stories.find((x) => x.rope === r.rope);
-                  const line = st ? replay(st) : null;
-                  return line ? (
-                    <span
-                      style={{
-                        flexBasis: "100%",
-                        fontSize: 15,
-                        color: C.body,
-                        lineHeight: 1.5,
-                      }}
-                    >
-                      {line}
-                      {tech && st?.decided?.tx && (
-                        <>
-                          {" "}
-                          <a
-                            href={`https://explorer.testnet.arc.io/tx/${st.decided.tx}`}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            transaction
-                          </a>
-                        </>
-                      )}
-                    </span>
-                  ) : null;
-                })()}
-              </li>
-            ))}
-          </ol>
-        </section>
-      )}
+      {history.length > 0 && (() => {
+        const list = { margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column" } as const;
+        // The running rope (if any) and the latest three ended ropes; the rest fold away.
+        const cut = history[0]?.reason === null ? 4 : 3;
+        const rest = history.slice(cut);
+        return (
+          <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <h2 style={h2}>Ropes</h2>
+            <ol style={list}>{history.slice(0, cut).map(ropeRow)}</ol>
+            {rest.length > 0 && (
+              <More label={`All ${history.length} ropes`} style={{ margin: 0 }}>
+                <ol style={list}>{rest.map(ropeRow)}</ol>
+              </More>
+            )}
+          </section>
+        );
+      })()}
 
-      <p
-        role="note"
-        style={{
-          margin: 0,
-          fontSize: 16,
-          lineHeight: 1.5,
-          border: `2px solid ${C.signal}`,
-          padding: "10px 14px",
-        }}
-      >
-        <strong>A life can be lost in minutes.</strong> A move of{" "}
-        {points(d.t.d)} points ends a rope; on live games the price can jump
-        that far at once.
-      </p>
       <PlayPosts about={{ kind: "perp", id }} who={who} />
-      <p style={{ margin: 0, fontSize: 14, color: C.muted }}>
-        Test version on Arc testnet: test money only. Not financial advice. Play
-        within limits.
-      </p>
     </div>
   );
 }

@@ -8,6 +8,7 @@ import { CatName } from "@/components/cat/PlayerCat";
 import { C, F } from "@/components/cat/tokens";
 import { Bell, fmtHonor } from "@/components/honor/Honor";
 import { useActor } from "@/components/pot/Who";
+import { More } from "@/components/ui/More";
 import { usePolling } from "@/lib/api";
 import { nickname, useNames } from "@/lib/names";
 
@@ -44,72 +45,13 @@ export function HonorPage() {
         <h1 style={{ margin: 0, fontFamily: F.cond, fontSize: "clamp(44px, 9vw, 64px)", fontWeight: 600, lineHeight: 0.95, display: "flex", gap: 14, alignItems: "center" }}>
           <Bell size={44} /> Honor
         </h1>
-        <p style={p}>
-          Honor rewards how you play, never what you win. Holding a pot to its end, shaking hands, letting someone take over, saying “Well played”: that earns
-          honor. Winning, the size of your stake, leverage and volume earn nothing. Leaving a pot is your right: it earns nothing and costs nothing.
-        </p>
+        <p style={p}>Points for fair play, never for winning. No cash value, ever.</p>
         {off && (
           <p role="note" style={{ ...p, border: `1.5px solid ${C.ink}`, padding: "10px 14px" }}>
-            Honor is not switched on yet. The rules below are the ones it will use.
+            Honor is not on yet. These are the rules it will use.
           </p>
         )}
       </header>
-
-      <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        <h2 style={h2}>No cash value, ever</h2>
-        <p style={p}>
-          Honor is not a token, is never airdropped, cannot be bought, sold or transferred, has no cash value, and is never exchanged for money or fee
-          discounts. It shows on your cat: a title and the cat cosmetics you unlock.
-        </p>
-      </section>
-
-      <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        <h2 style={h2}>How to earn it</h2>
-        <div style={{ overflowX: "auto", maxWidth: "100%", minWidth: 0, position: "relative" }}>
-        <table style={{ borderCollapse: "collapse", width: "100%", maxWidth: 760, fontSize: 16 }}>
-          <tbody>
-            {RULES.map(([what, pts]) => (
-              <tr key={what}>
-                <td style={{ padding: "9px 8px 9px 0", borderBottom: `1px solid ${C.faint}` }}>{what}</td>
-                <td style={{ padding: "9px 0", borderBottom: `1px solid ${C.faint}`, textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{pts}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        </div>
-        <p style={{ ...p, fontSize: 15 }}>
-          Rules version {H.version}. A change of any value is a new version; the history keeps which version counted what.
-        </p>
-      </section>
-
-      <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        <h2 style={h2}>How farming is handled</h2>
-        <ul style={{ ...p, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 6 }}>
-          <li>Nothing for practice pots, Grok Bot pots, a stake under ${(H.minStake / 1e6).toFixed(2)} a side, or pots that end within {H.minDurationS / 60} minutes of starting.</li>
-          <li>The same player again: the first pot within 24 hours counts in full, each further pot with them halves again.</li>
-          <li>
-            New accounts earn half honor until they have finished pots with {H.trustCounterparties} different trusted players (a closed circle of new accounts
-            stays at half). The founding players before 20 November 2026 count for each other.
-          </li>
-          <li>Two accounts first funded from the same address earn nothing from each other (HonorCat&apos;s welcome money does not count as a link).</li>
-          <li>
-            A daily check flags pairs with many quick pots (joined within a minute, ended within an hour). Their honor from each other is removed, and the
-            history shows why.
-          </li>
-          <li>A friend&apos;s honor for inviting counts only if the friend passes the same checks.</li>
-        </ul>
-        <p style={{ ...p, fontSize: 15 }}>
-          What it cannot catch: one person with several accounts funded from different places who plays slowly and with many others looks like many honest
-          players. That is why honor buys nothing.
-        </p>
-      </section>
-
-      <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        <h2 style={h2}>Titles and cosmetics</h2>
-        <p style={p}>
-          {TITLES.map((t) => `${t.title} from ${t.min}`).join(" · ")}. Cosmetics: {HONOR_COSMETICS.map((c) => `${c.label} at ${c.min}`).join(", ")}.
-        </p>
-      </section>
 
       <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <h2 id="table" style={h2}>
@@ -154,12 +96,62 @@ export function HonorPage() {
       </section>
 
       <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        <h2 style={h2}>Check it yourself</h2>
-        <p style={p}>
-          Honor is counted only from the contracts&apos; events on Arc (and the signed “Well played” notes), by rules published in the repository
-          (docs/honor.md): anyone can count again and compare. Each player&apos;s history on their <Link href={me ? `/record/${me}` : "/leaderboard"}>honor record</Link>{" "}
-          shows every point with its reason. Every day one Merkle root of all balances goes to the HonorRoots contract on Arc, where it can never be changed: <Link href="/honor/verify">check a balance in your browser against it</Link>. Other apps on Arc can call HonorRoots.verify() with the same proof.
-        </p>
+        <h2 style={h2}>How to earn it</h2>
+        <div style={{ overflowX: "auto", maxWidth: "100%", minWidth: 0, position: "relative" }}>
+        <table style={{ borderCollapse: "collapse", width: "100%", maxWidth: 760, fontSize: 16 }}>
+          <tbody>
+            {RULES.map(([what, pts]) => (
+              <tr key={what}>
+                <td style={{ padding: "9px 8px 9px 0", borderBottom: `1px solid ${C.faint}` }}>{what}</td>
+                <td style={{ padding: "9px 0", borderBottom: `1px solid ${C.faint}`, textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{pts}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <More label="Why honor has no cash value">
+            <p style={p}>
+              Honor is not a token, is never airdropped, cannot be bought, sold or transferred, and is never exchanged for money or fee discounts. Winning,
+              stake size, leverage and volume earn nothing. Leaving a pot earns nothing and costs nothing.
+            </p>
+          </More>
+          <More label="How farming is handled">
+            <ul style={{ ...p, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 6 }}>
+              <li>Nothing for practice pots, Grok Bot pots, a stake under ${(H.minStake / 1e6).toFixed(2)} a side, or pots that end within {H.minDurationS / 60} minutes of starting.</li>
+              <li>The same player again: the first pot within 24 hours counts in full, each further pot with them halves again.</li>
+              <li>
+                New accounts earn half honor until they have finished pots with {H.trustCounterparties} different trusted players (a closed circle of new
+                accounts stays at half). The founding players before 20 November 2026 count for each other.
+              </li>
+              <li>Two accounts first funded from the same address earn nothing from each other (HonorCat&apos;s welcome money does not count as a link).</li>
+              <li>
+                A daily check flags pairs with many quick pots (joined within a minute, ended within an hour). Their honor from each other is removed, and the
+                history shows why.
+              </li>
+              <li>A friend&apos;s honor for inviting counts only if the friend passes the same checks.</li>
+            </ul>
+            <p style={{ ...p, fontSize: 15 }}>
+              What it cannot catch: one person with several accounts funded from different places who plays slowly and with many others looks like many
+              honest players. That is why honor buys nothing.
+            </p>
+          </More>
+          <More label="Titles and cosmetics">
+            <p style={p}>
+              {TITLES.map((t) => `${t.title} from ${t.min}`).join(" · ")}. Cosmetics: {HONOR_COSMETICS.map((c) => `${c.label} at ${c.min}`).join(", ")}.
+            </p>
+          </More>
+          <More label="Check it yourself">
+            <p style={p}>
+              Honor is counted only from the contracts&apos; events on Arc (and the signed “Well played” notes), by rules published in the repository
+              (docs/honor.md): anyone can count again and compare. Each player&apos;s history on their <Link href={me ? `/record/${me}` : "/leaderboard"}>honor record</Link>{" "}
+              shows every point with its reason. Every day one Merkle root of all balances goes to the HonorRoots contract on Arc, where it can never be changed: <Link href="/honor/verify">check a balance in your browser against it</Link>. Other apps on Arc can call HonorRoots.verify() with the same proof.
+            </p>
+            <p style={{ ...p, fontSize: 15 }}>
+              Rules version {H.version}. A change of any value is a new version; the history keeps which version counted what.
+            </p>
+          </More>
+        </div>
       </section>
     </div>
   );

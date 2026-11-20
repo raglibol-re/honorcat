@@ -189,16 +189,16 @@ export function PriceChart({ pot }: { pot: HcPot }) {
       )}
       <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, fontSize: 13, color: C.muted }}>
         <span>
-          Black: the 30-second prices the samplers measured for this pot (the middle of the order book).{" "}
+          Black: the samplers&apos; 30-second prices.{" "}
           <label style={{ display: "inline-flex", gap: 6, alignItems: "center", cursor: "pointer" }}>
             <input type="checkbox" checked={trades} onChange={(e) => setTrades(e.target.checked)} />
-            Also show Gemini&apos;s last trades (dotted grey; they can lag the book)
+            Show Gemini&apos;s last trades (dotted)
           </label>
         </span>
         <span>Data provided by Gemini.</span>
       </div>
       <details>
-        <summary style={{ cursor: "pointer", fontSize: 15, minHeight: 32 }}>Show the marked events as a table</summary>
+        <summary style={{ cursor: "pointer", fontSize: 15, minHeight: 32 }}>As a table</summary>
         <table style={{ borderCollapse: "collapse", fontSize: 15, marginTop: 8 }}>
           <thead>
             <tr>

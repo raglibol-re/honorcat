@@ -70,6 +70,7 @@ import { plainError } from "@/lib/messages";
 import { shareOf } from "@/lib/shares";
 import { money, useHome } from "@/lib/currency";
 import { RateNote } from "@/components/cat/Currency";
+import { More } from "@/components/ui/More";
 
 const POTS = "0xc890C990048f45cb268d076E4A3dB25270Ea1e59" as const;
 const h2: React.CSSProperties = {
@@ -1084,8 +1085,7 @@ function Windows({ pot, tech }: { pot: HcPot; tech: boolean }) {
   const st = pot.market ? sidesOf(pot.market) : null;
   if (!rows.length) return null;
   return (
-    <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <h2 style={h2}>Every measured price</h2>
+    <More label="Every measured price">
       <p
         style={{
           margin: 0,
@@ -1192,7 +1192,7 @@ function Windows({ pot, tech }: { pot: HcPot; tech: boolean }) {
           );
         })}
       </div>
-    </section>
+    </More>
   );
 }
 
@@ -1238,8 +1238,7 @@ function ResultBanner({ pot, mine }: { pot: HcPot; mine: number }) {
           Paid out
         </span>
         <span style={{ fontSize: 16, color: C.faint }}>
-          Your amount appears here in a moment, as soon as the payout is read
-          from Arc.
+          Your amount appears once the payout is read from Arc.
         </span>
       </div>
     );
@@ -1269,10 +1268,10 @@ function ResultBanner({ pot, mine }: { pot: HcPot; mine: number }) {
       </span>
       <span style={{ fontSize: 16, color: C.faint }}>
         {cancelled
-          ? "Nobody joined, so nothing was played. Your money is back in your account."
+          ? "Nobody joined. Your money is back."
           : refunded
-            ? "Nobody could price this pot; both sides got their money back."
-            : "from this pot. The details are below."}
+            ? "Nobody could price it; both sides got their money back."
+            : "from this pot."}
       </span>
     </div>
   );
@@ -1386,22 +1385,14 @@ export function PotView({ id }: { id: string }) {
             <Link href={`/perps/${pot.perp.perpId}`}>
               perp {pot.perp.perpId}
             </Link>
-            . Both seats are held by the perp for its two players; see the perp
-            for the players, their lives and every rope.
+            . The perp holds both seats for its two players.
           </p>
         )}
-        {st && (
+        {st && mine !== null && (
           <p
             style={{ margin: 0, fontSize: 18, color: C.ink, lineHeight: 1.45 }}
           >
-            One side holds <strong>{st.yes}</strong>; the other holds{" "}
-            <strong style={{ color: C.signalInk }}>{st.no}</strong>.
-            {mine !== null && (
-              <>
-                {" "}
-                You hold <strong>{mine === YES ? st.yes : st.no}</strong>.
-              </>
-            )}
+            You hold <strong>{mine === YES ? st.yes : st.no}</strong>.
           </p>
         )}
         {m && tech && (
@@ -1424,10 +1415,8 @@ export function PotView({ id }: { id: string }) {
               maxWidth: 760,
             }}
           >
-            <strong>Practice pot.</strong> The other side is the practice cat,
-            HonorCat&apos;s own test account. It never leaves on its own; you
-            can leave whenever you like, or hold until Gemini&apos;s result.
-            Test money only.
+            <strong>Practice pot</strong> against the practice cat. It never
+            leaves; you can leave any time or hold to the result. Test money.
           </p>
         )}
         {practiceFailed && pot.state === "Open" && (
@@ -1440,9 +1429,8 @@ export function PotView({ id }: { id: string }) {
               maxWidth: 760,
             }}
           >
-            The practice cat could not take the other side just now. Your pot is
-            open and waits for a real opponent: send the link, or take it back
-            below and get your deposit back.
+            The practice cat could not join. Your pot waits for a real player:
+            send the link, or take it back below.
           </p>
         )}
         {botFailed && pot.state === "Open" && (
@@ -1450,8 +1438,7 @@ export function PotView({ id }: { id: string }) {
             role="alert"
             style={{ margin: 0, fontSize: 17, color: C.signalInk, maxWidth: 760 }}
           >
-            Your pot is open, but the invite for your Grok Bot did not go through. Send the link to a
-            friend, or take the pot back below and get your deposit back.
+            Your Grok Bot invite did not go through. Send the link to a friend, or take the pot back below.
           </p>
         )}
         {botInvited && pot.state === "Open" && (
@@ -1460,9 +1447,8 @@ export function PotView({ id }: { id: string }) {
             style={{ margin: 0, fontSize: 17, maxWidth: 760, lineHeight: 1.5 }}
           >
             Your pot waits for your Grok Bot. Tell it:{" "}
-            <strong>“take my HonorCat invite”</strong>. It joins with
-            HonorCat&apos;s practice wallet as an AI player (test money, out of
-            honor records). <a href="/grok-bot">How to set up your Grok Bot</a>
+            <strong>“take my HonorCat invite”</strong>. Test money, no honor.{" "}
+            <a href="/grok-bot">Set up your Grok Bot</a>
           </p>
         )}
         <PotStatusLine
@@ -1594,17 +1580,7 @@ export function PotView({ id }: { id: string }) {
       <PriceChart pot={pot} />
 
       {story.length > 0 && (
-        <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <h2
-            style={{
-              margin: 0,
-              fontFamily: F.cond,
-              fontSize: 32,
-              fontWeight: 600,
-            }}
-          >
-            What happened
-          </h2>
+        <More label={`What happened (${story.length})`}>
           <ol
             style={{
               margin: 0,
@@ -1649,7 +1625,7 @@ export function PotView({ id }: { id: string }) {
               </li>
             ))}
           </ol>
-        </section>
+        </More>
       )}
 
       {(pot.state === "Divided" ||
@@ -1663,7 +1639,7 @@ export function PotView({ id }: { id: string }) {
           Nothing goes to HonorCat: every fee in this pot goes to a player.
         </p>
       )}
-      {m?.eventTicker && st && (
+      {m?.eventTicker && st && !ended && (
         <GeminiCard
           ticker={m.eventTicker}
           slug={m.slug}
@@ -1685,8 +1661,7 @@ export function PotView({ id }: { id: string }) {
           fontSize: 16,
         }}
       >
-        <Link href={`/pots/${pot.potId}/tv`}>Big screen</Link>
-        <Link href={`/pots/${pot.potId}/terms`}>Terms of this pot</Link>
+        <Link href={`/pots/${pot.potId}/terms`}>Terms</Link>
         <Link href={`/pots/${pot.potId}/proof`}>Proof</Link>
         {pot.createdTx && (
           <a href={txUrl(pot.createdTx)} target="_blank" rel="noreferrer">
@@ -1696,9 +1671,6 @@ export function PotView({ id }: { id: string }) {
       </nav>
       {!pot.private && !pot.perp && <PlayPosts about={{ kind: "pot", id: String(pot.potId) }} who={who} />}
       <GeminiCredit />
-      <p style={{ margin: 0, fontSize: 14, color: C.muted }}>
-        Test version on Arc testnet: test money only. Not financial advice.
-      </p>
     </div>
   );
 }

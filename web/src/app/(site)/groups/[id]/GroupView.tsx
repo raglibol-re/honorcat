@@ -18,6 +18,7 @@ import { useLivePrice } from "@/components/pot/usePrice";
 import { BreakReminder } from "@/components/pot/BreakReminder";
 import { SignIn, useActor } from "@/components/pot/Who";
 import { ActionProgress, Button } from "@/components/ui/Button";
+import { More } from "@/components/ui/More";
 import { Input, Notice } from "@/components/ui/Field";
 import { toast } from "@/components/ui/Toast";
 import { pollFast, usePolling } from "@/lib/api";
@@ -31,6 +32,8 @@ import { useNow } from "@/lib/useNow";
 
 const h2 = { margin: 0, fontFamily: F.cond, fontSize: 30, fontWeight: 600 } as const;
 const card: React.CSSProperties = { border: `1.5px solid ${C.ink}`, padding: 16, display: "flex", flexDirection: "column", gap: 10, background: C.panel };
+/** Latest "What happened" lines shown; the rest fold away. */
+const SHOWN = 3;
 const pct = (ppm: number) => `${(ppm / 10_000).toFixed(1)}%`;
 const dollars = (s: string) => {
   const v = Number(s.replace(",", "."));
@@ -146,7 +149,7 @@ export function GroupView({ id }: { id: string }) {
         {g.market && (
           <p style={{ margin: 0, fontSize: 18, color: C.body }}>
             {g.market.eventTitle}
-            {g.market.label ? ` · ${g.market.label}` : ""} · {nameA} hold the yes side, {nameB} the no side.{" "}
+            {g.market.label ? ` · ${g.market.label}` : ""} ·{" "}
             <GeminiLink ticker={g.market.eventTicker} label="Trade this market on Gemini" size={15} />
           </p>
         )}
@@ -154,11 +157,11 @@ export function GroupView({ id }: { id: string }) {
 
       {settled && (
         <Notice tone="success" role="status">
-          The market settled: {g.outcome === 1 ? `${nameA} land the pot` : g.outcome === 0 ? `${nameB} land the pot` : "it was void, so every deposit went back"}.
+          Settled: {g.outcome === 1 ? `${nameA} land the pot` : g.outcome === 0 ? `${nameB} land the pot` : "void, every deposit went back"}.
           {owed > 0n || myNotional > 0n ? " Take out your share below." : ""}
         </Notice>
       )}
-      {g.state === "Void" && <Notice tone="note">No result came by the deadline: everyone gets their team&apos;s remaining deposit back.</Notice>}
+      {g.state === "Void" && <Notice tone="note">No result by the deadline: everyone gets their team&apos;s deposit back.</Notice>}
 
       <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <Rope
@@ -169,6 +172,11 @@ export function GroupView({ id }: { id: string }) {
           receiver={settled ? (g.outcome === 1 ? 0 : g.outcome === 0 ? 1 : 2) : null}
           trail={live.trail}
           speed={live.speed}
+          final={
+            open
+              ? `${closing ? "Market closed: settles when Gemini publishes the result." : `Next clearing in ${secs(nextClear - now)}.`}${lastPrice !== null ? ` Last cleared at ${pct(lastPrice)} / ${pct(P - lastPrice)}.` : ""}`
+              : null
+          }
           cats={{
             yes: { fur: furA, mood: "even", name: `${nameA} · ${g.teams[0]?.members ?? 0} cats` },
             no: { fur: furB, mood: "even", name: `${nameB} · ${g.teams[1]?.members ?? 0} cats` },
@@ -176,18 +184,9 @@ export function GroupView({ id }: { id: string }) {
         />
         <Reactions potId={String(9_000_000_000 + Number(g.groupId))} />
         <Watching watchKey={`g${g.groupId}`} startHref="/pots/new?kind=group" tvHref={`/groups/${g.groupId}/tv`} player={myTeam !== null} />
-        <p style={{ margin: 0, fontSize: 17 }}>
-          {open && !closing && (
-            <>
-              <strong>Next clearing in {secs(nextClear - now)}</strong>: every join and leave asked for until then is priced together over the {g.window} s after.
-            </>
-          )}
-          {closing && <strong>The market has closed: the group settles when Gemini publishes the result.</strong>}
-          {lastPrice !== null && ` Last cleared at ${pct(lastPrice)} for ${nameA}, ${pct(P - lastPrice)} for ${nameB}.`}
-        </p>
         {g.pricing.find((q) => q.status === "measuring" || q.status === "proposed" || q.status === "ready") && (
           <p role="status" style={{ margin: 0, fontSize: 15, color: C.muted }}>
-            Pricing batch {g.pricing[0]!.batch}: the samplers are measuring the window and agreeing on a price.
+            Pricing batch {g.pricing[0]!.batch}…
           </p>
         )}
       </section>
@@ -202,11 +201,11 @@ export function GroupView({ id }: { id: string }) {
               <h2 style={h2}>{name}</h2>
               {g.lines?.[t] && <p style={{ margin: 0, fontSize: 16, color: C.body }}>{g.lines[t]}</p>}
               <p style={{ margin: 0, fontSize: 17 }}>
-                {g.teams[t]?.members ?? 0} {(g.teams[t]?.members ?? 0) === 1 ? "member" : "members"} · team share {price === null ? "–" : money(valueOf(BigInt(g.teams[t]?.pool ?? "0"), pricePpm!, t))} · pays {money(BigInt(g.teams[t]?.pool ?? "0"))} if {t === 0 ? "yes" : "no"}
+                {g.teams[t]?.members ?? 0} {(g.teams[t]?.members ?? 0) === 1 ? "member" : "members"} · share {price === null ? "–" : money(valueOf(BigInt(g.teams[t]?.pool ?? "0"), pricePpm!, t))} · pays {money(BigInt(g.teams[t]?.pool ?? "0"))} if {t === 0 ? "yes" : "no"}
               </p>
               {open && takingRequests && (
                 <details>
-                  <summary style={{ cursor: "pointer", fontSize: 16 }}>Join link and QR code for {name}</summary>
+                  <summary style={{ cursor: "pointer", fontSize: 16 }}>Join link and QR</summary>
                   <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
                     <InviteQR url={url} size={160} label={`Scan to join ${name}`} />
                     <code style={{ fontSize: 13, wordBreak: "break-all" }}>{url}</code>
@@ -263,7 +262,7 @@ export function GroupView({ id }: { id: string }) {
                 <Input inputMode="decimal" value={leavePart} onChange={(e) => (setLeavePart(e.target.value), setLeaveAll(false))} style={{ width: 110 }} aria-label="Notional to leave, in dollars" />
               </label>
               <p style={{ margin: 0, fontSize: 15, color: C.body }}>
-                Priced in the next clearing at that window&apos;s price{leaveValue !== null ? ` (now about ${money((leaveValue * 99n) / 100n)} after the 1% exit fee, which goes to ${g.names[1 - myTeam]})` : ""}. Waiting joins on {g.names[myTeam]} take over your part first; if they do not cover it, {g.names[1 - myTeam]} shrinks by the rest.
+                Priced in the next clearing{leaveValue !== null ? `: now about ${money((leaveValue * 99n) / 100n)} after the 1% fee to ${g.names[1 - myTeam]}` : ""}.
               </p>
               <div>
                 <Button
@@ -315,14 +314,14 @@ export function GroupView({ id }: { id: string }) {
                 Amount in $ <Input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} style={{ width: 110 }} invalid={joinTooSmall} />
               </label>
               <p style={{ margin: 0, fontSize: 16, color: C.body }}>
-                Your {money(joinAmount)} joins in the next clearing at the price of that window. If the other team cannot cover all of it, the rest waits or comes back, your choice.
+                Joins in the next clearing. If the other team cannot cover it all, the rest:
               </p>
               <div role="radiogroup" aria-label="An unmatched rest" style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 16 }}>
                 <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <input type="radio" checked={wait} onChange={() => setWait(true)} /> The rest waits for later clearings (up to {MAX_WAIT_BATCHES} minutes), then comes back
+                  <input type="radio" checked={wait} onChange={() => setWait(true)} /> waits up to {MAX_WAIT_BATCHES} minutes, then comes back
                 </label>
                 <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <input type="radio" checked={!wait} onChange={() => setWait(false)} /> The rest comes back right after the clearing
+                  <input type="radio" checked={!wait} onChange={() => setWait(false)} /> comes back right away
                 </label>
               </div>
               {mine?.request && (Number(mine.request.batch) !== g.clock.currentBatch || mine.request.wait !== wait || myTeam !== team) && (
@@ -354,15 +353,46 @@ export function GroupView({ id }: { id: string }) {
       {err && <Notice tone="error" role="alert">{err}</Notice>}
 
       {open && takingRequests && (
-        <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <h2 style={h2}>Bring your team</h2>
+        <More label="Bring your team">
           <Invite path={`/groups/${g.groupId}?team=${myTeam ?? team}`} text={`Join ${g.names[myTeam ?? team]} on HonorCat: ${g.market?.eventTitle ?? "a group pot"}`} account={account} />
-        </section>
+        </More>
       )}
 
-      {g.prices.length > 0 && (
+      {(g.events ?? []).length > 0 && (
         <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <h2 style={h2}>Clearings</h2>
+          <h2 style={h2}>What happened</h2>
+          {(() => {
+            const rows = (g.events ?? [])
+              .map((e) => ({ e, text: groupEventText(e, g.names, (a) => displayName(a, names, account, false), money) }))
+              .filter((x) => x.text)
+              .slice(0, 12)
+              .map(({ e, text }) => (
+                <li key={`${e.tx}-${e.name}`}>
+                  {text}
+                  {e.at ? ` · ${new Date(e.at * 1000).toLocaleTimeString()}` : ""} ·{" "}
+                  <a href={txUrl(e.tx)} target="_blank" rel="noreferrer">
+                    receipt on Arc
+                  </a>
+                </li>
+              ));
+            const list: React.CSSProperties = { margin: 0, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 4, fontSize: 16 };
+            return (
+              <>
+                <ol style={list}>{rows.slice(0, SHOWN)}</ol>
+                {rows.length > SHOWN && (
+                  <More label={`${rows.length - SHOWN} earlier`}>
+                    <ol start={SHOWN + 1} style={list}>
+                      {rows.slice(SHOWN)}
+                    </ol>
+                  </More>
+                )}
+              </>
+            );
+          })()}
+        </section>
+      )}
+      {g.prices.length > 0 && (
+        <More label="Clearings">
           <ol style={{ margin: 0, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 4, fontSize: 16 }}>
             {g.prices
               .slice(-10)
@@ -375,32 +405,16 @@ export function GroupView({ id }: { id: string }) {
                 </li>
               ))}
           </ol>
-        </section>
+        </More>
       )}
-      {(g.events ?? []).length > 0 && (
-        <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <h2 style={h2}>What happened</h2>
-          <ol style={{ margin: 0, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 4, fontSize: 16 }}>
-            {(g.events ?? [])
-              .map((e) => ({ e, text: groupEventText(e, g.names, (a) => displayName(a, names, account, false), money) }))
-              .filter((x) => x.text)
-              .slice(0, 12)
-              .map(({ e, text }) => (
-                <li key={`${e.tx}-${e.name}`}>
-                  {text}
-                  {e.at ? ` · ${new Date(e.at * 1000).toLocaleTimeString()}` : ""} ·{" "}
-                  <a href={txUrl(e.tx)} target="_blank" rel="noreferrer">
-                    receipt on Arc
-                  </a>
-                </li>
-              ))}
-          </ol>
-        </section>
-      )}
+      <More label="How a group works">
+        <p style={{ margin: 0, fontSize: 15, color: C.body, maxWidth: 760 }}>
+          Every join and leave asked for in a minute is priced together over the {g.window} s after. Waiting joins on a team take over a leaving part first;
+          if they do not cover it, the other team shrinks by the rest. Nothing goes to a house: the only fee is 1% of what leaves early, and it goes to the
+          other team. Most per team on this market: {money(g.cap)}.
+        </p>
+      </More>
       <PlayPosts about={{ kind: "group", id: String(g.groupId) }} who={who} />
-      <p style={{ margin: 0, fontSize: 14, color: C.muted }}>
-        Nothing goes to a house: the only fee is 1% of what leaves early, and it goes to the other team. Most per team on this market: {money(g.cap)}.
-      </p>
     </article>
   );
 }

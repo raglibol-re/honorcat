@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { C, F } from "@/components/cat/tokens";
+import { More } from "@/components/ui/More";
 import { getCandles, type RopeStory } from "@/lib/perp";
 
 const H = 240;
@@ -193,13 +194,18 @@ export function PerpChart({
       </div>
       <figcaption style={{ fontSize: 14, color: C.muted, lineHeight: 1.45 }}>
         {trades && failed && !candles ? "Gemini's trade history did not load. " : ""}
-        Black line and squares: the 30-second prices the samplers measured for the ropes (the middle of
-        the order book, YES, in points), the prices the ropes use. Dashed: each rope&apos;s posts. A red
-        dot marks a knock-out at a post; a white dot the price a rope was divided at.{" "}
-        <label style={{ display: "inline-flex", gap: 6, alignItems: "center", cursor: "pointer" }}>
-          <input type="checkbox" checked={trades} onChange={(e) => setTrades(e.target.checked)} />
-          Also show Gemini&apos;s last trade each minute (dotted grey; on a quiet market it can lag far behind the book)
-        </label>
+        Dashed lines: each rope&apos;s posts. Red dot: knocked out.
+        <More label="How to read the chart" style={{ margin: "4px 0 0" }}>
+          <span>
+            Black line and squares: the 30-second prices the samplers measured for the ropes (the middle of
+            the order book, YES, in points), the prices the ropes use. Dashed: each rope&apos;s posts. A red
+            dot marks a knock-out at a post; a white dot the price a rope was divided at.
+          </span>
+          <label style={{ display: "inline-flex", gap: 6, alignItems: "center", cursor: "pointer" }}>
+            <input type="checkbox" checked={trades} onChange={(e) => setTrades(e.target.checked)} />
+            Also show Gemini&apos;s last trade each minute (dotted grey; on a quiet market it can lag far behind the book)
+          </label>
+        </More>
       </figcaption>
     </figure>
   );

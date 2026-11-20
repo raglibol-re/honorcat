@@ -342,7 +342,6 @@ function Outcome({
   const bid = m.book?.bid ?? m.bid;
   const ask = m.book?.ask ?? m.ask;
   const canPick = ok && !!onPick;
-  const reason = m.quality.reasons.join("; ");
   const Tag = onPick ? "button" : "div";
   return (
     <Tag
@@ -356,7 +355,7 @@ function Outcome({
           }
         : {})}
       className={canPick ? "hc-row" : undefined}
-      title={ok ? undefined : reason}
+      title={whyLine(m.quality)}
       style={{
         width: "100%",
         display: "grid",
@@ -428,18 +427,21 @@ function Outcome({
             <span>{`${bid === null ? "–" : Math.round(bid * 100)}¢ / ${ask === null ? "–" : Math.round(ask * 100)}¢ · ${usd(m.quality.minDepthUsd)} near the price`}</span>
           )}
         </span>
-        <span
-          style={{
-            fontSize: 12.5,
-            lineHeight: 1.35,
-            color: picked ? C.faint : ok ? C.body : C.signalInk,
-          }}
-        >
-          {whyLine(m.quality)}
-        </span>
+        {/* Why a market works is the mark's tooltip; only a problem is spelled out. */}
+        {m.quality.status !== "works" && (
+          <span
+            style={{
+              fontSize: 12.5,
+              lineHeight: 1.35,
+              color: picked ? C.faint : ok ? C.body : C.signalInk,
+            }}
+          >
+            {whyLine(m.quality)}
+          </span>
+        )}
         {fit && usable(m.quality) && (
-          <span style={{ fontSize: 12.5, fontWeight: 600, lineHeight: 1.35, color: picked ? C.faint : fit.ok ? C.ink : C.signalInk }}>
-            {fit.ok ? `Perp works here: up to ${fit.maxLeverage}×` : `No perp: ${fit.reason.charAt(0).toLowerCase()}${fit.reason.slice(1)}`}
+          <span title={fit.ok ? undefined : fit.reason} style={{ fontSize: 12.5, fontWeight: 600, lineHeight: 1.35, color: picked ? C.faint : fit.ok ? C.ink : C.signalInk }}>
+            {fit.ok ? `Perp: up to ${fit.maxLeverage}×` : "No perp here"}
           </span>
         )}
       </span>
@@ -629,7 +631,7 @@ export function MarketList({
   // Only markets a pot can use right now, by default: the rest are still being checked or too thin.
   const [works, setWorks] = useState(true);
   const [q, setQ] = useState("");
-  const [limit, setLimit] = useState(25);
+  const [limit, setLimit] = useState(10);
   const qs = new URLSearchParams({ limit: String(limit) });
   if (category) qs.set("category", category);
   if (within) qs.set("within", String(within));
@@ -804,7 +806,7 @@ export function MarketList({
             cursor: "pointer",
           }}
         >
-          Show 25 more
+          Show more markets
         </button>
       )}
     </div>

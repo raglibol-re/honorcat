@@ -4,6 +4,7 @@ import { money } from "@/lib/currency";
 
 import Link from "next/link";
 import { ButtonLink } from "@/components/ui/Button";
+import { More } from "@/components/ui/More";
 import { Cat } from "@/components/cat/Cat";
 import { CatName } from "@/components/cat/PlayerCat";
 import { sidesOf } from "@/lib/statement";
@@ -112,11 +113,10 @@ function LivePot({ data }: { data: HomeData }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <p style={{ margin: 0, fontSize: 17, color: C.muted }}>
-        An example: a $10 pot on{" "}
+        Live now:{" "}
         <strong
           style={{ color: C.ink }}
         >{`${data.market.title}: ${data.market.label}`}</strong>
-        , moving with the live price.
       </p>
       <Rope
         price={live.smoothed}
@@ -317,12 +317,9 @@ export function Home({ data }: { data: HomeData }) {
                 maxWidth: 520,
               }}
             >
-              Pick a question from Gemini&apos;s prediction markets, like “Will
-              Boston beat Denver?”. You and another player each put in your
-              side&apos;s part of one pot. While the market runs, your share
-              follows the live price, and you can leave at that price at any
-              moment. Or hold to the end, and the result decides who gets the
-              pot.
+              Two players share one pot on a Gemini question. The cat stands at
+              the live price. Leave at that price any time, or hold to the
+              result.
             </p>
             <ul
               style={{
@@ -337,9 +334,8 @@ export function Home({ data }: { data: HomeData }) {
               }}
             >
               {[
-                "Prices from Gemini, measured by three independent samplers",
-                "Every pot is a contract on Arc: no one holds your money",
-                "Nothing goes to a house · test money only",
+                "Each pot is a contract on Arc. No one holds your money.",
+                "Nothing goes to a house.",
               ].map((t) => (
                 <li
                   key={t}
@@ -370,7 +366,7 @@ export function Home({ data }: { data: HomeData }) {
               <StartButton
                 href="/pots/new?practice=1"
                 label="Try it now"
-                note="Free test money, about two minutes"
+                note="Free test money, two minutes"
               />
               <ButtonLink
                 href="/pots/new"
@@ -381,8 +377,7 @@ export function Home({ data }: { data: HomeData }) {
               </ButtonLink>
             </div>
             <p style={{ margin: 0, fontSize: 17, color: C.body }}>
-              Or <Link href="/pots/together">play with a friend</Link>, or{" "}
-              <Link href="/pots">take a side someone left open</Link>.
+              Or <Link href="/pots">take an open side</Link>.
             </p>
           </div>
           <div
@@ -462,15 +457,15 @@ export function Home({ data }: { data: HomeData }) {
                 [
                   [
                     "1",
-                    "Micky holds “Boston beats Orlando” at 60%, Morty the other side: Micky puts in $6, Morty $4.",
+                    "“Boston beats Orlando” is at 60%. Micky puts in $6, Morty $4. A $10 pot.",
                   ],
                   [
                     "2",
-                    "Boston pulls ahead and the market moves to 75%: Micky’s share is now $7.50, Morty’s $2.50.",
+                    "The price moves to 75%. Micky’s share is now $7.50.",
                   ],
                   [
                     "3",
-                    "Micky leaves with $7.40 (a $0.10 treat for Morty), or both hold and the right side gets the $10.",
+                    "Micky leaves with $7.40. Or both hold, and the right side gets $10.",
                   ],
                 ] as const
               ).map(([n, t]) => (
@@ -523,19 +518,19 @@ export function Home({ data }: { data: HomeData }) {
             [
               [
                 "A pot",
-                "One question, two sides. Hold to the end or leave at the live price whenever you like.",
+                "One question, two sides. Leave or hold.",
                 "/pots/new",
                 "Start a pot",
               ],
               [
                 "A perp",
-                "A chain of short ropes with lives: a rope ends when the price reaches a post, and the next one starts. Leverage, but you can only lose the lives you put in.",
+                "Short ropes in a chain, with leverage. You only risk the lives you put in.",
                 "/perps",
                 "See perps",
               ],
               [
                 "With a friend",
-                "Agree on the question and the stakes together, then send the link. Your head-to-head record is kept.",
+                "Pick the question and stakes together. Send the link.",
                 "/pots/together",
                 "Invite a friend",
               ],
@@ -573,9 +568,7 @@ export function Home({ data }: { data: HomeData }) {
           ))}
         </div>
         <p style={{ margin: 0, fontSize: 16, color: C.body }}>
-          Play fair and earn <Link href="/honor">Honor</Link>: points for
-          holding on, shaking hands and saying “well played”, never for winning.
-          It has no cash value.
+          Play fair to earn <Link href="/honor">Honor</Link>, points with no cash value.
         </p>
       </section>
 
@@ -585,152 +578,42 @@ export function Home({ data }: { data: HomeData }) {
         id="how"
         className="hc-wrap"
         style={{
-          paddingTop: 96,
+          paddingTop: 56,
           display: "flex",
-          flexWrap: "wrap",
-          gap: "24px 56px",
-          alignItems: "flex-start",
+          flexDirection: "column",
+          gap: 8,
         }}
       >
-        <div
-          style={{
-            flex: "1 1 280px",
-            minWidth: 0,
-            display: "flex",
-            flexDirection: "column",
-            gap: 12,
-          }}
-        >
-          <h2
-            style={{
-              margin: 0,
-              ...cond,
-              fontSize: 64,
-              fontWeight: 600,
-              lineHeight: 0.95,
-            }}
-          >
-            How it works
-          </h2>
-          <p style={{ margin: 0, fontSize: 19, color: C.muted }}>
-            The rules in full are on every pot&apos;s <em>terms</em> page.
+        <More label="More about the rules" style={{ maxWidth: 760 }}>
+          <p style={{ margin: 0, fontSize: 16, lineHeight: 1.55, color: C.body }}>
+            Starting shares come from the market price right after the second
+            player joins.
           </p>
-        </div>
-        <ol
-          style={{
-            flex: "999 1 620px",
-            minWidth: 0,
-            display: "flex",
-            flexDirection: "column",
-            borderBottom: `1px solid ${C.ink}`,
-            margin: 0,
-            padding: 0,
-            listStyle: "none",
-          }}
-        >
-          {(
-            [
-              [
-                "Pick a side",
-                "Choose a live Gemini question and a side: it happens, or it does not. You put in your side's part of the pot; whoever takes the other side puts in theirs. The starting shares come from the market price measured right after they join.",
-              ],
-              [
-                "Walk the rope",
-                "The cat stands at the price. Left of it is one side's share, right of it the other's, in dollars. Shares are only shown; nothing moves until someone leaves or the market settles.",
-              ],
-              [
-                "Step off or hold on",
-                "Leave whenever you like: three independent samplers measure the 30 seconds after you ask, and you are paid your share at that price, minus a 1% fee to the other side. Or hold to the end and Gemini's result decides who gets the pot.",
-              ],
-            ] as const
-          ).map(([title, body], i) => (
-            <li
-              key={title}
-              style={{
-                display: "flex",
-                gap: 32,
-                padding: "28px 0",
-                borderTop: `1px solid ${C.ink}`,
-                alignItems: "flex-start",
-              }}
-            >
-              <span
-                style={{
-                  ...cond,
-                  fontSize: 84,
-                  fontWeight: 600,
-                  lineHeight: 0.85,
-                  flex: "0 0 56px",
-                }}
-              >
-                {i + 1}
-              </span>
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 8,
-                  minWidth: 0,
-                }}
-              >
-                <h3
-                  style={{
-                    margin: 0,
-                    fontSize: 26,
-                    fontWeight: 600,
-                    lineHeight: 1.15,
-                  }}
-                >
-                  {title}
-                </h3>
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: 18,
-                    lineHeight: 1.5,
-                    color: C.body,
-                    maxWidth: 620,
-                  }}
-                >
-                  {body}
-                </p>
-              </div>
-            </li>
-          ))}
-        </ol>
-      </section>
-
-      <section className="hc-wrap" style={{ paddingTop: 40 }}>
-        <p
-          style={{
-            margin: 0,
-            fontSize: 17,
-            lineHeight: 1.55,
-            color: C.body,
-            maxWidth: 760,
-          }}
-        >
-          Also on the rope: a <strong>net</strong> that catches your side if its
-          price falls to a level, a <strong>bowl</strong> that takes your share
-          off the rope when it rises to one, <strong>nine lives</strong> to
-          leave a ninth at a time, a <strong>handshake</strong> to split now at
-          the current price with no fee, and a <strong>takeover</strong>, where
-          someone else steps into the leaving side&apos;s place.
-        </p>
-        <p
-          style={{
-            margin: "16px 0 0",
-            fontSize: 17,
-            lineHeight: 1.55,
-            color: C.ink,
-            maxWidth: 760,
-          }}
-        >
-          <strong>Nothing goes to a house.</strong> HonorCat takes no cut: every
-          fee goes to a player, the side that stays, the player who opened the
-          pot, or the friend who invited you.
-        </p>
-        <GeminiCredit style={{ marginTop: 16 }} />
+          <p style={{ margin: 0, fontSize: 16, lineHeight: 1.55, color: C.body }}>
+            When you leave, three independent samplers measure the next 30
+            seconds. You get your share at that price, minus a 1% fee to the
+            other side. That is the $0.10 in the example.
+          </p>
+          <p style={{ margin: 0, fontSize: 16, lineHeight: 1.55, color: C.body }}>
+            Also on the rope: a <strong>net</strong> catches your side at a low
+            price. A <strong>bowl</strong> takes your share off at a high one.{" "}
+            <strong>Nine lives</strong> let you leave a ninth at a time. A{" "}
+            <strong>handshake</strong> splits now with no fee. A{" "}
+            <strong>takeover</strong> lets someone step into a leaving
+            player&apos;s place.
+          </p>
+          <p style={{ margin: 0, fontSize: 16, lineHeight: 1.55, color: C.body }}>
+            HonorCat takes no cut. Every fee goes to a player: the side that
+            stays, the player who opened the pot, or the friend who invited
+            you.
+          </p>
+          <p style={{ margin: 0, fontSize: 16, lineHeight: 1.55, color: C.body }}>
+            Pots are capped at $25. Gemini markets can be wrong or thin. Not
+            financial advice. Full rules are on each pot&apos;s{" "}
+            <em>terms</em> page and in <Link href="/how">How it works</Link>.
+          </p>
+        </More>
+        <GeminiCredit style={{ marginTop: 8 }} />
       </section>
 
       <div style={{ marginTop: 96 }}>
@@ -775,19 +658,6 @@ export function Home({ data }: { data: HomeData }) {
             </p>
             <StartButton inverted />
           </div>
-          <p
-            style={{
-              margin: 0,
-              fontSize: 16,
-              lineHeight: 1.5,
-              color: C.faint,
-              maxWidth: 720,
-            }}
-          >
-            A test version on Arc testnet with test money only. Not financial
-            advice. Prices come from Gemini markets, which can be wrong or thin.
-            Pots are capped at $25; play within limits.
-          </p>
           <HcFooterLinks />
         </div>
       </footer>

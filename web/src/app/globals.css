@@ -259,3 +259,14 @@ body {
   .hc-menu a { padding: 14px 2px; font-size: 19px; font-weight: 500; text-decoration: none; border-bottom: 1px solid var(--hc-rule); }
   .hc-menu a[aria-current="page"] { color: var(--hc-accent); }
 }
+
+/* More: a fold-out for secondary text (components/ui/More.tsx) */
+.hc-more { margin: 8px 0; }
+.hc-more__summary { cursor: pointer; font-size: 15px; font-weight: 500; color: #55534E; list-style: none; display: inline-flex; align-items: center; gap: 6px; padding: 4px 0; }
+.hc-more__summary::-webkit-details-marker { display: none; }
+.hc-more__summary::before { content: "+"; display: inline-block; width: 14px; font-weight: 600; color: #111111; }
+.hc-more[open] > .hc-more__summary::before { content: "−"; }
+.hc-more__summary:hover { color: #111111; text-decoration: underline; text-underline-offset: 3px; }
+.hc-more__body { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+.hc-more:not([open]) > .hc-more__body { display: none; }
+.hc-more__body { min-width: 0; max-width: 100%; }

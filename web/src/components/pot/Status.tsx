@@ -54,29 +54,27 @@ export function StatusBadge({ state, rope }: { state: string; rope?: boolean }) 
 export function PotStatusLine({ state, mySide, exitSide, exitFull, leaverName, rope, v2 }: { state: string; mySide: number | null; exitSide: number | null; exitFull: boolean; leaverName: string; rope?: boolean; /** v2 pots have no takeover. */ v2?: boolean }) {
   const mine = mySide !== null;
   const text: Record<string, string> = {
-    Open: mine ? "Waiting for a player to take the other side. Share the link below, or take your offer back." : "Open: you can take the other side below.",
-    Joining: "A player is joining. The entry price is being measured over 30 seconds.",
-    Live: mine
-      ? `Live: your share follows the price.${rope ? " The rope ends at a post or at its expiry." : ""} You can leave or shake hands below.`
-      : "Live between two players.",
+    Open: mine ? "Share the link below, or take your offer back." : "Take the other side below.",
+    Joining: "Measuring the entry price over 30 seconds.",
+    Live: mine ? `Your share follows the price.${rope ? " The rope ends at a post or at its expiry." : ""} Leave or shake hands below.` : "",
     ExitRequested:
       mine && exitSide === mySide
-        ? "Your exit is being priced over 30 seconds. Nothing else is needed from you."
+        ? "Your exit is being priced over 30 seconds."
         : mine
-          ? `${leaverName} asked to ${exitFull ? "leave" : "take part of the pot off the rope"}; the price is being measured. You stay in.`
+          ? `${leaverName} asked to ${exitFull ? "leave" : "take part of the pot off the rope"}. You stay in.`
           : exitFull
             ? rope || v2
-              ? "A side is leaving; the price is being measured over 30 seconds."
-              : "A side is leaving. You can take over its place below while the window is open."
+              ? "A side is leaving."
+              : "A side is leaving. You can take over its place below."
             : "A side is taking part of the pot off the rope.",
-    Divided: mine ? "Closed: the pot was divided. See below what you received, and what you would have now if you had stayed." : "Closed: the pot was divided.",
-    Settled: mine ? "Closed: Gemini settled the market and the pot was paid out." : "Closed: Gemini settled the market.",
-    Expired: mine ? "Closed: the deposits went back." : "Closed: the deposits went back.",
+    Divided: mine ? "What you received is below." : "",
+    Settled: mine ? "Paid out." : "",
+    Expired: "",
   };
   return (
     <div role="status" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "8px 14px", borderLeft: `4px solid ${isInPlay(state) ? C.signal : C.muted}`, padding: "6px 0 6px 12px" }}>
       <StatusBadge state={state} rope={rope} />
-      <span style={{ fontSize: 17, lineHeight: 1.45 }}>{text[state] ?? ""}</span>
+      {text[state] ? <span style={{ fontSize: 17, lineHeight: 1.45 }}>{text[state]}</span> : null}
     </div>
   );
 }

@@ -59,18 +59,16 @@ export function RopePricing({
           role="status"
           style={{ margin: 0, padding: "10px 14px", border: `1.5px solid ${C.ink}`, fontSize: 16, lineHeight: 1.45, background: C.panel }}
         >
-          <strong>This rope now ends with the market&apos;s result.</strong> Four price checks after its end gave no
-          price (Gemini&apos;s order book was too wide or thin), so, as the contract says, it is paid out on the result
-          once Gemini settles the market. Your money stays in the contract until then; nothing is lost.
+          <strong>This rope now ends with the market&apos;s result.</strong> Four price checks gave no price, so it
+          pays out when Gemini settles the market. Your money stays in the contract.
         </p>
       ) : (late || (leaving && p?.state === "no-price")) && (
         <p
           role="status"
           style={{ margin: 0, padding: "10px 14px", border: `1.5px solid ${C.ink}`, fontSize: 16, lineHeight: 1.45, background: C.panel }}
         >
-          <strong>This is taking longer than usual.</strong> A rope ends only on a price the samplers agree on, and
-          Gemini&apos;s order book has been too wide or thin to give one. They try again every few seconds. Your money
-          stays in the contract meanwhile; nothing is lost.
+          <strong>This is taking longer than usual.</strong> Gemini&apos;s order book is too thin for a price the
+          samplers agree on; they keep trying. Your money stays in the contract.
         </p>
       )}
     </>

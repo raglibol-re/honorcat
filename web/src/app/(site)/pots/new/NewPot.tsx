@@ -17,7 +17,6 @@ import { AccountLine, FundsHelp, SignIn, useActor } from "@/components/pot/Who";
 import { BreakReminder } from "@/components/pot/BreakReminder";
 import { useTechMode } from "@/components/TechMode";
 import { PlayerCat } from "@/components/cat/PlayerCat";
-import { GeminiLink } from "@/components/cat/GeminiLink";
 import { GeminiCard } from "@/components/cat/GeminiCard";
 import { FeeNote, useFees } from "@/components/pot/Receipts";
 import { getJson } from "@/lib/api";
@@ -45,6 +44,7 @@ import { inviteMyAgent, seatsOf, type SeatView } from "@/lib/agent";
 
 import { ActionProgress, Button } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Field";
+import { More } from "@/components/ui/More";
 import { money } from "@/lib/currency";
 const label: React.CSSProperties = {
   fontSize: 15,
@@ -397,17 +397,17 @@ export function NewPot() {
               {
                 k: "normal",
                 title: "Normal",
-                line: "One pot until the market closes. Your share follows the price; leave whenever you like.",
+                line: "Take a side. Leave any time.",
               },
               {
                 k: "perp",
                 title: "Perp",
-                line: "Leverage on the price: a chain of short ropes. You pick the leverage and how many lives you bring.",
+                line: "Leverage, in hourly ropes.",
               },
               {
                 k: "group",
                 title: "Group",
-                line: "Two teams on one market. Anyone joins a team with any amount; everyone's share follows the price.",
+                line: "Two teams, one market.",
               },
             ] as const
           ).map((o) => {
@@ -428,7 +428,7 @@ export function NewPot() {
                 style={{
                   flex: "1 1 260px",
                   padding: "14px 16px",
-                  minHeight: 96,
+                  minHeight: 72,
                   gap: 6,
                   borderWidth: 2,
                   fontWeight: 400,
@@ -445,7 +445,7 @@ export function NewPot() {
                   {o.title}
                 </strong>
                 <span style={{ fontSize: 16, lineHeight: 1.4 }}>
-                  {off ? `Coming soon: ${o.k === "group" ? "groups" : "perps"} are being tested on Arc.` : o.line}
+                  {off ? "Coming soon." : o.line}
                 </span>
               </button>
             );
@@ -459,26 +459,23 @@ export function NewPot() {
             Preview: perps are not switched on for everyone yet.
           </p>
         )}
-        {shownKind === "normal" && (
-          <p
-            style={{
-              margin: 0,
-              fontSize: 19,
-              lineHeight: 1.45,
-              color: C.body,
-              maxWidth: 680,
-            }}
-          >
-            Pick a question on Gemini and a side. Someone takes the other side.
-            While the market runs, each side&apos;s share of the pot follows the
-            price, and either of you can leave at that share.
-          </p>
-        )}
-        <p style={{ margin: 0, fontSize: 17, color: C.body }}>
-          Playing with a friend?{" "}
-          <Link href="/pots/together">Start one together</Link>: you pick the
-          question and the sides with them, and it is only for the two of you.
+        <p style={{ margin: 0, fontSize: 16, color: C.body }}>
+          Playing a friend? <Link href="/pots/together">Start one together</Link>
         </p>
+        {shownKind === "normal" && (
+          <More label="How a pot works">
+            <p style={{ margin: 0, fontSize: 16, lineHeight: 1.5, color: C.body }}>
+              Pick a question on Gemini and a side. Someone takes the other side.
+              While the market runs, each side&apos;s share of the pot follows the
+              price, and either of you can leave at that share, or hold to the
+              result.
+            </p>
+            <p style={{ margin: 0, fontSize: 16, lineHeight: 1.5, color: C.body }}>
+              Together pots: you pick the question and the sides with your
+              friend, and it is only for the two of you.
+            </p>
+          </More>
+        )}
         {practice && (
           <div
             role="note"
@@ -514,41 +511,41 @@ export function NewPot() {
                   lineHeight: 1,
                 }}
               >
-                Practice: you play against the practice cat
+                Practice vs. the practice cat
               </strong>
               <span style={{ fontSize: 16, lineHeight: 1.5 }}>
-                The practice cat is HonorCat&apos;s own test account. It plays
-                with test money only, and practice pots never count in your
-                honor record.
+                Practice pots never count in your honor record.
               </span>
-              <ol
-                style={{
-                  margin: 0,
-                  paddingLeft: 22,
-                  fontSize: 16,
-                  lineHeight: 1.55,
-                  listStyle: "decimal",
-                }}
-              >
-                <li>Pick a question and your side.</li>
-                <li>
-                  Put in up to{" "}
-                  {$(Math.floor(PRACTICE_N * 1e6 * (sideChance ?? 0.5)))} (the
-                  pot is at most ${PRACTICE_N}); new players get test money
-                  automatically.
-                </li>
-                <li>
-                  Give your word: the practice cat takes the other side at once
-                  and the rope starts moving.
-                </li>
-                <li>
-                  Leave whenever you like: your exit is priced over the next 30
-                  seconds and paid out in about a minute.
-                </li>
-              </ol>
-              <span style={{ fontSize: 14, color: C.muted }}>
-                Want a real opponent instead? Untick “Practise alone” in step 3.
-              </span>
+              <More label="How practice works" style={{ margin: 0 }}>
+                <ol
+                  style={{
+                    margin: 0,
+                    paddingLeft: 22,
+                    fontSize: 15,
+                    lineHeight: 1.55,
+                    listStyle: "decimal",
+                  }}
+                >
+                  <li>Pick a question and your side.</li>
+                  <li>
+                    Put in up to{" "}
+                    {$(Math.floor(PRACTICE_N * 1e6 * (sideChance ?? 0.5)))} (the
+                    pot is at most ${PRACTICE_N}); new players get test money
+                    automatically.
+                  </li>
+                  <li>
+                    Give your word: the practice cat (HonorCat&apos;s own test
+                    account) takes the other side at once.
+                  </li>
+                  <li>
+                    Leave whenever you like: your exit is priced over the next 30
+                    seconds and paid out in about a minute.
+                  </li>
+                </ol>
+                <span style={{ fontSize: 14, color: C.muted }}>
+                  Want a real opponent? Untick “Practise alone” in step 3.
+                </span>
+              </More>
             </div>
           </div>
         )}
@@ -570,7 +567,7 @@ export function NewPot() {
                 fontWeight: 600,
               }}
             >
-              1. The question
+              1. Pick a market
             </h2>
             {market && st ? (
               <div
@@ -593,11 +590,6 @@ export function NewPot() {
                   <span style={{ fontSize: 20, fontWeight: 600 }}>
                     {st.yes}?
                   </span>
-                  <GeminiLink
-                    ticker={market.eventTicker}
-                    slug={market.slug}
-                    label="See this market on Gemini"
-                  />
                   {tech && (
                     <span style={{ fontSize: 14, color: C.muted }}>
                       Technical: YES on {market.symbol} settles YES if{" "}
@@ -660,7 +652,7 @@ export function NewPot() {
                   fontWeight: 600,
                 }}
               >
-                2. Your side and your part
+                2. Your side and amount
               </h2>
               <div
                 role="radiogroup"
@@ -701,7 +693,7 @@ export function NewPot() {
               <label
                 style={{ display: "flex", flexDirection: "column", gap: 6 }}
               >
-                <span style={label}>What you put in (USDC)</span>
+                <span style={label}>Amount (USDC)</span>
                 <input
                   style={input}
                   inputMode="decimal"
@@ -723,19 +715,8 @@ export function NewPot() {
                   }}
                 >
                   <p style={{ margin: 0, fontSize: 21, lineHeight: 1.4 }}>
-                    Your opponent puts in <strong>{$(theirsIn)}</strong>. The
-                    pot is <strong>{$(n)}</strong>.
-                  </p>
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: 16,
-                      lineHeight: 1.5,
-                      color: C.body,
-                    }}
-                  >
-                    The favourite costs more: each side puts in its chance times
-                    the pot, so nobody starts ahead.
+                    Opponent puts in <strong>{$(theirsIn)}</strong> · pot{" "}
+                    <strong>{$(n)}</strong>
                   </p>
                 </div>
               )}
@@ -753,26 +734,15 @@ export function NewPot() {
                 >
                   <strong>Copycat pot:</strong> you copy the{" "}
                   {Number(copy.token % 2n) === YES ? "YES" : "NO"} side of{" "}
-                  <Link href={`/pots/${copy.potId}`}>pot {copy.potId}</Link>. If
-                  you end with a profit, 5% of that profit goes to that player;
-                  if you do not, nothing does.
+                  <Link href={`/pots/${copy.potId}`}>pot {copy.potId}</Link>.
+                  5% of any profit goes to that player.
                   {copy.entry !== null &&
-                    ` They entered at ${(copy.entry / 10_000).toFixed(1)}%${p !== null ? `; the price is ${(p * 100).toFixed(1)}% now` : ""} (YES).`}
+                    ` They entered at ${(copy.entry / 10_000).toFixed(1)}%${p !== null ? `; now ${(p * 100).toFixed(1)}%` : ""} (YES).`}
                   {Number(copy.token % 2n) !== side &&
                     " (You picked the other side, so this pot is not a copy.)"}
                 </p>
               )}
-              {v2 && (
-                <p style={{ margin: 0, fontSize: 15, color: C.muted }}>
-                  Nothing goes to HonorCat: every fee goes to a player.
-                </p>
-              )}
-              <details>
-                <summary
-                  style={{ cursor: "pointer", fontSize: 16, minHeight: 32 }}
-                >
-                  More options
-                </summary>
+              <More label="More options">
                 <div
                   style={{
                     display: "flex",
@@ -784,11 +754,7 @@ export function NewPot() {
                   <label
                     style={{ display: "flex", flexDirection: "column", gap: 6 }}
                   >
-                    <span style={label}>
-                      The chance you accept for “{st.yes}”, in % (empty:
-                      today&apos;s{" "}
-                      {p === null ? "price" : `${(p * 100).toFixed(1)}%`})
-                    </span>
+                    <span style={label}>Your price for “{st.yes}” (%)</span>
                     <input
                       style={input}
                       inputMode="decimal"
@@ -799,8 +765,8 @@ export function NewPot() {
                       }
                     />
                     <span style={{ fontSize: 14, color: C.muted }}>
-                      Someone can join only while the market&apos;s 30-second
-                      average stays close to this price (see the next setting).
+                      Empty: today&apos;s{" "}
+                      {p === null ? "price" : `${(p * 100).toFixed(1)}%`}.
                     </span>
                   </label>
                   <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
@@ -813,10 +779,7 @@ export function NewPot() {
                         minWidth: 220,
                       }}
                     >
-                      <span style={label}>
-                        The price may move this far before someone joins
-                        (points, 0 to 5)
-                      </span>
+                      <span style={label}>Price band (points, 0–5)</span>
                       <input
                         style={input}
                         inputMode="decimal"
@@ -835,9 +798,7 @@ export function NewPot() {
                         minWidth: 220,
                       }}
                     >
-                      <span style={label}>
-                        Days Gemini has to settle after the close (at least 1)
-                      </span>
+                      <span style={label}>Days to settle (min 1)</span>
                       <input
                         style={input}
                         inputMode="numeric"
@@ -849,17 +810,12 @@ export function NewPot() {
                     </label>
                   </div>
                 </div>
-              </details>
+              </More>
               {mine !== null && n > 0n && (
-                <details>
-                  <summary
-                    style={{ cursor: "pointer", fontSize: 16, minHeight: 32 }}
-                  >
-                    How your money is held until someone joins
-                  </summary>
+                <More label="How this works">
                   <p
                     style={{
-                      margin: "8px 0 0",
+                      margin: 0,
                       fontSize: 15,
                       lineHeight: 1.55,
                       color: C.body,
@@ -873,7 +829,16 @@ export function NewPot() {
                     join, nobody pays anything. Whoever leaves early gives the other side 1% of
                     the pot.
                   </p>
-                </details>
+                  <p style={{ margin: 0, fontSize: 15, lineHeight: 1.55, color: C.body }}>
+                    The favourite costs more: each side puts in its chance times
+                    the pot, so nobody starts ahead.
+                    {v2 && " Nothing goes to HonorCat: every fee goes to a player."}
+                  </p>
+                  <p style={{ margin: 0, fontSize: 15, lineHeight: 1.55, color: C.body }}>
+                    The price band: someone can join only while the market&apos;s
+                    30-second average stays within it of your price.
+                  </p>
+                </More>
               )}
             </section>
           )}
@@ -917,17 +882,14 @@ export function NewPot() {
                   style={{ width: 22, height: 22, marginTop: 2 }}
                 />
                 <span>
-                  <strong>Practise alone:</strong> the practice cat
-                  (HonorCat&apos;s own test account) takes the other side right
-                  away, so you can watch the rope and leave within two minutes.
-                  Pots up to ${PRACTICE_N}, test money only, and they do not
-                  count towards your honor record.
+                  <strong>Practise alone</strong>: the practice cat takes the
+                  other side. Pots up to ${PRACTICE_N}.
                 </span>
               </label>
               {!who.actor ? (
                 <SignIn
                   who={who}
-                  purpose="Your account holds your side of the pot. A passkey on this device is enough; HonorCat pays the network fees."
+                  purpose="Sign in with a passkey. HonorCat pays network fees."
                 />
               ) : (
                 <>
@@ -959,7 +921,7 @@ export function NewPot() {
                           onChange={() => setOpponent("cat")}
                           style={{ width: 20, height: 20 }}
                         />
-                        the practice cat (joins at once)
+                        Practice cat
                       </label>
                       <label
                         style={{
@@ -976,7 +938,7 @@ export function NewPot() {
                           onChange={() => setOpponent("bot")}
                           style={{ width: 20, height: 20 }}
                         />
-                        my Grok Bot ({seat.label}): an AI player
+                        My Grok Bot ({seat.label})
                       </label>
                     </div>
                   )}
@@ -989,15 +951,17 @@ export function NewPot() {
                   >
                     {practice
                       ? opponent === "bot" && seat
-                        ? "Give your word and invite my Grok Bot"
-                        : "Give your word and play the practice cat"
+                        ? "Give your word · Grok Bot"
+                        : "Give your word · practice"
                       : "Give your word"}
                   </Button>
                   <ActionProgress step={step} />
-                  <FeeNote
-                    fees={fees}
-                    payer={who.actor.kind === "wallet" ? "wallet" : "honorcat"}
-                  />
+                  <More label="Fees">
+                    <FeeNote
+                      fees={fees}
+                      payer={who.actor.kind === "wallet" ? "wallet" : "honorcat"}
+                    />
+                  </More>
                 </>
               )}
               {err && (
@@ -1012,8 +976,7 @@ export function NewPot() {
                 <FundsHelp account={who.actor.account} />
               )}
               <p style={{ margin: 0, fontSize: 14, color: C.muted }}>
-                Test version on Arc testnet: test money only. Not financial
-                advice. Play within limits.
+                Test money only. Not financial advice.
               </p>
             </section>
           )}

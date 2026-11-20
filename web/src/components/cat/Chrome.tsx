@@ -46,7 +46,7 @@ export function HcHeader() {
   return (
     <>
       <div className="hc-strip">
-        <div className="hc-wrap">Test version on Arc testnet · test money only · not financial advice</div>
+        <div className="hc-wrap">Arc testnet · test money only · not financial advice</div>
       </div>
       <header className="hc-wrap" style={{ paddingTop: 16, paddingBottom: 16, display: "flex", flexWrap: "wrap", gap: "12px 40px", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
         <Link href="/" aria-label="HonorCat home" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
@@ -129,7 +129,7 @@ export function HcFooter() {
         <div className="hc-wrap" style={{ paddingTop: 32, paddingBottom: 32, display: "flex", flexDirection: "column", gap: 24 }}>
           <p style={{ margin: 0, fontFamily: F.cond, fontSize: 44, fontWeight: 600, lineHeight: 1 }}>A cat always lands on its feet.</p>
           <p style={{ margin: 0, fontSize: 16, lineHeight: 1.5, color: C.faint, maxWidth: 720 }}>
-            A test version on Arc testnet with test money only. Not financial advice. Prices come from Gemini markets, which can be wrong or thin.
+            Gemini prices can be wrong or thin.
           </p>
           <HcFooterLinks />
         </div>
