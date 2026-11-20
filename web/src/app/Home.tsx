@@ -3,7 +3,9 @@
 import { money } from "@/lib/currency";
 
 import Link from "next/link";
-import { ButtonLink } from "@/components/ui/Button";
+import { Button, ButtonLink } from "@/components/ui/Button";
+import { useRouter } from "next/navigation";
+import { GeminiLink } from "@/components/cat/GeminiLink";
 import { More } from "@/components/ui/More";
 import { Cat } from "@/components/cat/Cat";
 import { CatName } from "@/components/cat/PlayerCat";
@@ -99,7 +101,8 @@ function LivePot({ data }: { data: HomeData }) {
             {pot.market ? marketTitle(pot.market) : "a Gemini market"}
           </strong>
           . {STATE_TEXT[pot.state]}{" "}
-          <Link href={`/pots/${pot.potId}`}>Open it</Link>.
+          <Link href={`/pots/${pot.potId}`}>Open it</Link>.{" "}
+          {pot.market && <GeminiLink ticker={pot.market.eventTicker} slug={(pot.market as { slug?: string | null }).slug} label="See this market on Gemini" size={15} />}
         </p>
         <Rope
           {...sceneOf(pot, live.smoothed, nowS, { names, tech })}
@@ -110,22 +113,84 @@ function LivePot({ data }: { data: HomeData }) {
     );
   }
   if (!data.market) return null;
+  return <DemoGame market={data.market} live={live} />;
+}
+
+const DEMO_POT = 10;
+
+/**
+ * The start page's demo on a real Gemini market: pick a side, watch your share of a $10 example pot
+ * move with Gemini's live price, then play the same market for real with test money.
+ */
+function DemoGame({ market, live }: { market: NonNullable<HomeData["market"]>; live: ReturnType<typeof useLivePrice> }) {
+  const router = useRouter();
+  const sides = sidesOf({ eventTitle: market.title, label: market.label, teams: market.teams, yesMeans: market.yesMeans });
+  const [pick, setPick] = useState<0 | 1 | null>(null);
+  const [entry, setEntry] = useState<number | null>(null);
+  const p = live.smoothed;
+  const worth = (side: 0 | 1, price: number) => Math.round((side === 0 ? price : 1 - price) * DEMO_POT * 100) / 100;
+  const choose = (side: 0 | 1) => {
+    setPick(side);
+    setEntry(p);
+  };
+  const mine = pick !== null && p !== null ? worth(pick, p) : null;
+  const change = pick !== null && p !== null && entry !== null ? Math.round((worth(pick, p) - worth(pick, entry)) * 100) / 100 : null;
+  const play = () => {
+    try {
+      sessionStorage.setItem("hc:demo-market", JSON.stringify(market.item));
+    } catch {
+      /* private mode: the create page then starts with the market picker */
+    }
+    router.push(`/pots/new?from=demo&side=${pick ?? 0}`);
+  };
+  const sideBtn = (side: 0 | 1, label: string) => (
+    <button type="button" className={`hc-btn hc-demo-side${pick === side ? " hc-btn--chosen" : " hc-btn--quiet"}`} aria-pressed={pick === side} onClick={() => choose(side)}>
+      {label}
+      {p !== null && <span className="hc-demo-side__price">{side === 0 ? Math.round(p * 100) : 100 - Math.round(p * 100)}%</span>}
+    </button>
+  );
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <p style={{ margin: 0, fontSize: 17, color: C.muted }}>
-        Live now:{" "}
-        <strong
-          style={{ color: C.ink }}
-        >{`${data.market.title}: ${data.market.label}`}</strong>
+    <div className="hc-demo">
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "6px 14px" }}>
+        <span className="hc-live-pill">
+          <span className="hc-live-dot" aria-hidden="true" /> Live on Gemini
+        </span>
+        <strong style={{ fontSize: 17 }}>{market.title}</strong>
+        <GeminiLink ticker={market.eventTicker} slug={market.slug} label="See this market on Gemini" size={15} />
+      </div>
+      <p style={{ margin: 0, ...cond, fontSize: "clamp(26px, 4vw, 34px)", fontWeight: 600, lineHeight: 1.05 }}>
+        {pick === null ? "Try it: which side do you take?" : "Your cat is on the rope. Watch it move."}
       </p>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+        {sideBtn(0, sides.yesShort)}
+        {sideBtn(1, sides.noShort)}
+      </div>
       <Rope
-        price={live.smoothed}
-        notional={10_000_000n}
-        names={{ yes: "you", no: "a friend" }}
+        price={p}
+        notional={BigInt(DEMO_POT * 1_000_000)}
+        names={pick === null ? { yes: "one player", no: "the other" } : { yes: pick === 0 ? "you" : "a friend", no: pick === 1 ? "you" : "a friend" }}
+        sides={sides}
         phase="live"
         trail={live.trail}
         speed={live.speed}
       />
+      <div className="hc-demo__result" aria-live="polite">
+        {pick === null || mine === null ? (
+          <span>An example {money(DEMO_POT * 1e6)} pot between you and a friend. Pick a side to see what your share is worth right now.</span>
+        ) : (
+          <span>
+            Your side is worth <strong>{money(Math.round(mine * 1e6))}</strong> of the {money(DEMO_POT * 1e6)} pot right now
+            {change !== null && change !== 0 && (
+              <>
+                {" "}
+                (<strong style={{ color: change > 0 ? C.ink : C.signalInk }}>{change > 0 ? "+" : "−"}{money(Math.round(Math.abs(change) * 1e6))}</strong> since you picked)
+              </>
+            )}
+            . Leave at any moment for that, less 1%, or hold to Gemini&apos;s result.
+          </span>
+        )}
+        <Button onClick={play}>{pick === null ? "Play this market" : "Play this for real, with test money"}</Button>
+      </div>
     </div>
   );
 }
@@ -288,7 +353,7 @@ export function Home({ data }: { data: HomeData }) {
               letterSpacing: "-0.01em",
             }}
           >
-            Take a side on a real question. Leave whenever you like.
+            Take a side on a real question. Leave <span className="hc-mark">whenever</span> you like.
           </h1>
         </div>
         <div
@@ -521,35 +586,44 @@ export function Home({ data }: { data: HomeData }) {
                 "One question, two sides. Leave or hold.",
                 "/pots/new",
                 "Start a pot",
+                "rope",
               ],
               [
                 "A perp",
                 "A pot with leverage that renews every hour. You can never lose more than you put in.",
                 "/perps",
                 "See perps",
+                "air",
               ],
               [
                 "With a friend",
                 "Choose the question and the amounts together, then send your friend the link.",
                 "/pots/together",
                 "Invite a friend",
+                "second",
               ],
             ] as const
-          ).map(([t, d, href, cta]) => (
-            <div
+          ).map(([t, d, href, cta, pose]) => (
+            <Link
               key={t}
+              href={href}
+              className="hc-play-card"
               style={{
                 flex: "1 1 260px",
-                border: `1.5px solid ${C.ink}`,
                 padding: "18px 20px",
                 display: "flex",
                 flexDirection: "column",
                 gap: 10,
+                color: C.ink,
+                textDecoration: "none",
               }}
             >
-              <h3 style={{ margin: 0, ...cond, fontSize: 32, fontWeight: 600 }}>
-                {t}
-              </h3>
+              <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, minHeight: 64 }}>
+                <h3 style={{ margin: 0, ...cond, fontSize: 32, fontWeight: 600 }}>{t}</h3>
+                <span className="hc-play-card__cat" aria-hidden="true">
+                  <Cat pose={pose} size={pose === "second" ? 92 : 72} label="" />
+                </span>
+              </div>
               <p
                 style={{
                   margin: 0,
@@ -561,10 +635,8 @@ export function Home({ data }: { data: HomeData }) {
               >
                 {d}
               </p>
-              <Link href={href} style={{ fontWeight: 600 }}>
-                {cta}
-              </Link>
-            </div>
+              <span className="hc-play-card__cta">{cta} →</span>
+            </Link>
           ))}
         </div>
         <p style={{ margin: 0, fontSize: 16, color: C.body }}>

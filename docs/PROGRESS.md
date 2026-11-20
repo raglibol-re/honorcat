@@ -92,6 +92,21 @@
   worker. Render services `honorcat` (full site, out of memory on 512 MB) and `honorcat-sampler` are
   no longer needed: the owner deletes them (the tools cannot).
 
+## Start page demo and a livelier start page (2026-11-20, 14:00-15:00 UTC)
+- The example rope on the start page is now a small demo on the live Gemini market it shows: "Live on
+  Gemini" with a link to the market's page on Gemini, pick a side (with its current chance), your
+  share of a $10 example pot and how much it moved since you picked, then "Play this for real, with
+  test money", which opens /pots/new on the same market and side (the catalogue entry is passed in
+  sessionStorage; without it the market picker shows as usual). A running pot on the start page also
+  links its market on Gemini. Owner: "link the real prediction market on Gemini".
+- Livelier, same style (owner: "it still seems so dry"): the three ways to play are whole-card links
+  with a cat each (rope, jumping, two cats), lift with an ink shadow and a moving cat on hover; the
+  demo box has the same ink shadow and a pulsing live dot; "whenever" in the headline is marked in
+  the signal colour. Motion is off with reduced motion.
+- Checked locally at 1280 and 390 px: demo picks a side, shows the share, the Gemini link points at
+  the event (/predictions/NFL-2611221800-TEN-DAL-M/tennessee-vs-dallas), the create page opens on
+  that market and side; no sideways scrolling, no page errors.
+
 ## The app (2026-11-20, 13:00-14:00 UTC; owner: "users should be able to download the app")
 - HonorCat installs as an app from the browser (a web app; no app store): app/manifest.ts (name,
   icons 192/512/maskable, Apple icon, start page, shortcuts), public/sw.js now also serves

@@ -6,7 +6,18 @@ export type HomeData = {
   /** The pot the landing shows: the newest running one (live first), else none. */
   potId: string | null;
   /** Without a running pot: a liquid market to show an example rope on. */
-  market: { symbol: string; title: string; label: string; closeMs: number } | null;
+  market: {
+    symbol: string;
+    title: string;
+    label: string;
+    closeMs: number;
+    eventTicker: string;
+    slug: string | null;
+    teams: string | null;
+    yesMeans: string | null;
+    /** The whole catalogue entry, so "Play this" can open the create page on this market. */
+    item: unknown;
+  } | null;
 };
 
 /** Picks what the landing shows: one live pot, or an example on a liquid Gemini market. */
@@ -29,5 +40,10 @@ export async function homeData(): Promise<HomeData> {
     const ask = x.book?.ask ?? x.ask;
     return bid !== null && ask !== null && bid > 0.2 && ask < 0.8 && x.closeMs - now > 3600_000;
   });
-  return { potId: null, market: m ? { symbol: m.symbol, title: m.eventTitle, label: m.label, closeMs: m.closeMs } : null };
+  if (!m) return { potId: null, market: null };
+  const x = m as typeof m & { slug?: string | null; teams?: string | null; yesMeans?: string | null };
+  return {
+    potId: null,
+    market: { symbol: m.symbol, title: m.eventTitle, label: m.label, closeMs: m.closeMs, eventTicker: m.eventTicker, slug: x.slug ?? null, teams: x.teams ?? null, yesMeans: x.yesMeans ?? null, item: m },
+  };
 }

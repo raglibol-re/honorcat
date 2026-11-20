@@ -122,6 +122,19 @@ export function NewPot() {
       if (q.get("kind") === "perp") setKind("perp");
       if (q.get("kind") === "group") setKind("group");
       if (q.get("perps") === "preview") setPreview(true);
+      // From the start page's demo (/pots/new?from=demo&side=<0|1>): the same live market and side.
+      if (q.get("from") === "demo") {
+        try {
+          const raw = sessionStorage.getItem("hc:demo-market");
+          const item = raw ? (JSON.parse(raw) as MarketItem | null) : null;
+          if (item && typeof item.symbol === "string" && typeof item.eventTitle === "string") {
+            setMarket(item);
+            setSide(q.get("side") === "1" ? 1 : 0);
+          }
+        } catch {
+          /* no stored market: the picker shows as usual */
+        }
+      }
     });
   }, []);
   // A copy link (/pots/new?copy=<token>&side=<0|1>): the same market and side as another player's pot.
