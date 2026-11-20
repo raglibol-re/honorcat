@@ -92,6 +92,18 @@
   worker. Render services `honorcat` (full site, out of memory on 512 MB) and `honorcat-sampler` are
   no longer needed: the owner deletes them (the tools cannot).
 
+## Less text (2026-11-20, 06:00-07:30 UTC; owner: "the whole UI has too much text")
+- Every main page shows what matters first; rules, explanations and history fold behind a short
+  "More" line (`web/src/components/ui/More.tsx`, a styled <details>). Visible words on load, live:
+  home 707 -> 311, perp 986 -> 315, create pot/perp ~1,700-2,000 -> ~550, pot 481 -> 226, group
+  364 -> 214, honor 546 -> 156, markets 11,495 -> 340 (best 8 shown, all under "Show all").
+- The testnet note is said once (top bar). The market picker shows 10 markets first; a market's
+  "works" reason is its tooltip, only problems are spelled out.
+- Copy and arrangement only: no actions, data or calculations changed. Fixed on the way: /markets
+  scrolled sideways on phones (a hidden link label escaped the table's scroll area).
+- Checked: tsc and eslint clean; screenshots desktop and 390 px of every demo page, no sideways
+  scrolling; all demo pages load on production. docs/demo.md says where the folded details are.
+
 ## Posts (2026-11-20, 00:30-02:00 UTC; owner lifted the freeze for this one feature)
 - **Honor root for day 20777 posted at 00:00 UTC** by hand (postDailyRoot, same code as the worker):
   6 players, no test accounts, tx 0xc653e503fa145e492c18baf0c8e9401f0cc2692785e788f139460bde4708fb81

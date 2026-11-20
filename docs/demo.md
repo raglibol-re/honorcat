@@ -15,15 +15,16 @@ https://honorcat.vercel.app/perps/17 (Iowa State vs UCF) or /perps/18 (Syracuse 
 - The rope between two posts 15 points either side of the price; the cat stands at the 30-second
   middle of Gemini's order book. Each player's lives (cat heads) and the rule under them.
 - Every hour the rope is divided at the measured price and the next one starts there, by itself.
-- Rope history: each rope's leverage, how it ended, the three samplers' averages ("the contract took
-  the middle one").
+- "Ropes": each rope's leverage and how it ended; open a rope's "Details" for the three samplers'
+  averages ("the contract took the middle one"). Older ropes are under "All N ropes".
 - Earlier evidence of knock-outs on a live market: /perps/13, ropes 11 and 12 (knocked out at a
   post, next rope started at the division price).
 
 ## 3. A group (1 min): two teams on one market
 https://honorcat.vercel.app/groups/3 and the big screen https://honorcat.vercel.app/groups/3/tv
 - Micky's team vs Morty's team on Iowa State vs UCF; joins and leaves are gathered for a minute and
-  priced together over the 30 seconds after. "What happened" lists every step with its receipt on Arc.
+  priced together over the 30 seconds after. "What happened" shows the latest steps with their receipts
+  on Arc ("N earlier" opens the rest).
 - The big screen: rope, team cats with member counts, reactions, a join QR code per team.
 
 ## 4. A closed pot and its proof (1 min): trust in the numbers
