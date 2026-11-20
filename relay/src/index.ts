@@ -106,6 +106,7 @@ export * as groups from "./groups";
 export * as refCodes from "./refCodes";
 export * as privatePots from "./privatePots";
 export * as social from "./social";
+export * as posts from "./posts";
 export { catalogTick } from "./catalogTick";
 export * as honor from "./honor/store";
 export * as honorRoots from "./honor/roots";

@@ -651,6 +651,21 @@ CREATE TABLE IF NOT EXISTS follows (
   PRIMARY KEY (follower, leader)
 );
 CREATE INDEX IF NOT EXISTS follows_leader_idx ON follows (leader);
+-- Posts (posts.ts): short public notes signed by their author, optionally about one of their own
+-- plays (a snapshot of the side at posting time). Deleting hides a post.
+CREATE TABLE IF NOT EXISTS posts (
+  id          BIGSERIAL PRIMARY KEY,
+  author      TEXT NOT NULL,
+  body        TEXT NOT NULL,
+  about_kind  TEXT,
+  about_id    TEXT,
+  snapshot    JSONB,
+  issued_at   TEXT NOT NULL,
+  hidden      BOOLEAN NOT NULL DEFAULT false,
+  at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS posts_author_idx ON posts (author, id);
+CREATE INDEX IF NOT EXISTS posts_about_idx ON posts (about_kind, about_id, id);
 -- Honor (honor/): the recomputed history and balances per config version, the daily farming
 -- check's flags, and who first funded each player (from Arc's explorer).
 CREATE TABLE IF NOT EXISTS honor_entries (

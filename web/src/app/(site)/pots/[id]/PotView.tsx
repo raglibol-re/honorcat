@@ -1,5 +1,6 @@
 "use client";
 
+import { PlayPosts } from "@/components/social/Posts";
 import { Watching } from "@/components/pot/Watching";
 import { PrivateControl, UnlockPrivate } from "@/components/pot/PrivateControl";
 import { setPotKey } from "@/lib/potKey";
@@ -1693,6 +1694,7 @@ export function PotView({ id }: { id: string }) {
           </a>
         )}
       </nav>
+      {!pot.private && !pot.perp && <PlayPosts about={{ kind: "pot", id: String(pot.potId) }} who={who} />}
       <GeminiCredit />
       <p style={{ margin: 0, fontSize: 14, color: C.muted }}>
         Test version on Arc testnet: test money only. Not financial advice.

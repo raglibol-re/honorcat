@@ -92,6 +92,27 @@
   worker. Render services `honorcat` (full site, out of memory on 512 MB) and `honorcat-sampler` are
   no longer needed: the owner deletes them (the tools cannot).
 
+## Posts (2026-11-20, 00:30-02:00 UTC; owner lifted the freeze for this one feature)
+- **Honor root for day 20777 posted at 00:00 UTC** by hand (postDailyRoot, same code as the worker):
+  6 players, no test accounts, tx 0xc653e503fa145e492c18baf0c8e9401f0cc2692785e788f139460bde4708fb81
+  (status 1). Day 20776's root (12:00 UTC Nov 19) still has the old balances; a posted root can never
+  be replaced.
+- **Posts, behind SOCIAL=on (off in production until the owner switches it on):** players write
+  short public posts (280 characters), optionally about one of their own pots, perps or groups.
+  `relay/src/posts.ts`, table `posts`, routes `/api/hc/posts` (list, create), `/posts/delete`,
+  `/posts/plays`; page `/posts` (Everyone / Following) and a Posts section at the bottom of every pot,
+  perp and group page, where its players can post. A post is signed by its author (wallet or one
+  passkey confirmation), moves no money, and a post about a play is checked: the author must hold a
+  side in it (403 otherwise), private pots are refused and their posts leave every list. The side
+  shown ("YES on UCF · perp 17 · running when posted") is a snapshot at posting time. Limits: 10
+  posts an hour; a retried signed request is stored once; the author deletes with a signature.
+- Tests: relay/test/posts.test.ts (8 tests); all 210 relay tests pass; web tsc and eslint clean.
+- Checked locally against the production database with posts on: a signed post about perp 17 by its
+  test player (200), a post about perp 18 it does not play in (403), a forged signature (401), the
+  signed delete (200); screenshots at 1280 px and phone width without sideways scrolling. Found and
+  fixed on the way: a second post signed at the same moment was treated as a retry of the first.
+  The two test posts are deleted.
+
 ## Evening checks (2026-11-19, 19:30-20:00 UTC)
 
 - Showcase perps 15 and 16 ended after their first rope: the test script switches renewal off when

@@ -35,7 +35,10 @@ const techOnly = [["/guarantees", "Guarantees"]] as const;
  */
 // Groups appear in the menu only once switched on (GROUPS=on, passed to the browser at build time).
 const GROUPS_ON = (process.env.NEXT_PUBLIC_GROUPS ?? "").toLowerCase() === "on";
-const primaryNow: readonly (readonly [string, string])[] = GROUPS_ON ? [...primary.slice(0, 3), ["/groups", "Groups"], ...primary.slice(3)] : primary;
+// Posts appear once switched on (SOCIAL=on, passed to the browser as NEXT_PUBLIC_SOCIAL).
+const SOCIAL_ON = (process.env.NEXT_PUBLIC_SOCIAL ?? "").toLowerCase() === "on";
+const withGroups: readonly (readonly [string, string])[] = GROUPS_ON ? [...primary.slice(0, 3), ["/groups", "Groups"], ...primary.slice(3)] : primary;
+const primaryNow: readonly (readonly [string, string])[] = SOCIAL_ON ? [...withGroups.slice(0, -1), ["/posts", "Posts"], ...withGroups.slice(-1)] : withGroups;
 
 export function HcHeader() {
   const { tech } = useTechMode();

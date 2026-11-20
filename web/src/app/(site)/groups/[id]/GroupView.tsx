@@ -1,5 +1,6 @@
 "use client";
 
+import { PlayPosts } from "@/components/social/Posts";
 import { FeeNote, useFees } from "@/components/pot/Receipts";
 
 import { Watching } from "@/components/pot/Watching";
@@ -396,6 +397,7 @@ export function GroupView({ id }: { id: string }) {
           </ol>
         </section>
       )}
+      <PlayPosts about={{ kind: "group", id: String(g.groupId) }} who={who} />
       <p style={{ margin: 0, fontSize: 14, color: C.muted }}>
         Nothing goes to a house: the only fee is 1% of what leaves early, and it goes to the other team. Most per team on this market: {money(g.cap)}.
       </p>

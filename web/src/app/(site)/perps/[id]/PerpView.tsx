@@ -1,5 +1,6 @@
 "use client";
 
+import { PlayPosts } from "@/components/social/Posts";
 import { FeeNote, useFees } from "@/components/pot/Receipts";
 
 import { Watching } from "@/components/pot/Watching";
@@ -966,6 +967,7 @@ export function PerpView({ id }: { id: string }) {
         {points(d.t.d)} points ends a rope; on live games the price can jump
         that far at once.
       </p>
+      <PlayPosts about={{ kind: "perp", id }} who={who} />
       <p style={{ margin: 0, fontSize: 14, color: C.muted }}>
         Test version on Arc testnet: test money only. Not financial advice. Play
         within limits.
