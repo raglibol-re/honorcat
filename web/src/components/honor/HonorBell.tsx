@@ -52,7 +52,7 @@ export function HonorBell() {
       key={show.key}
       role="status"
       onAnimationEnd={() => setShow(null)}
-      className="hc-honor-bell"
+      className="hc-honor-bell hc-float"
       style={{ position: "fixed", right: 16, bottom: 16, zIndex: 50, display: "flex", gap: 10, alignItems: "center", background: C.ink, color: C.page, padding: "12px 16px", fontFamily: F.sans, fontSize: 16, maxWidth: 360 }}
     >
       <style>{`

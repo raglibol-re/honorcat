@@ -1,7 +1,7 @@
 "use client";
 
 import { plainError } from "@/lib/messages";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { erc20Abi, type Address } from "viem";
 import { WalletChoice } from "@/components/cat/WalletChoice";
 import { C, F } from "@/components/cat/tokens";
@@ -115,10 +115,13 @@ export function useActor() {
 export type ActorState = ReturnType<typeof useActor>;
 
 /** Sign in: a passkey (no app, no seed words) or, for people who have one, a wallet. */
+const noSubscribe = () => () => {};
+
 export function SignIn({ who, purpose }: { who: ActorState; purpose: string }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const supported = typeof window === "undefined" ? true : passkeysSupported();
+  // Known only in the browser; the server assumes yes, and the browser corrects it after hydration.
+  const supported = useSyncExternalStore(noSubscribe, passkeysSupported, () => true);
   const run = async (f: () => Promise<PasskeySession>) => {
     setBusy(true);
     setErr(null);
@@ -136,12 +139,17 @@ export function SignIn({ who, purpose }: { who: ActorState; purpose: string }) {
       {supported && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
           <Button disabled={busy} onClick={() => run(createPasskey)}>
-            Create a passkey
+            Sign up in one tap
           </Button>
           <Button variant="quiet" disabled={busy} onClick={() => run(signInWithPasskey)}>
-            I have one
+            I have an account
           </Button>
         </div>
+      )}
+      {supported && (
+        <p style={{ margin: 0, fontSize: 14, lineHeight: 1.45, color: C.muted }}>
+          With Face ID, your fingerprint or your phone&apos;s screen lock (a passkey). No password, no wallet app; HonorCat pays the network fees.
+        </p>
       )}
       {who.wallet.circle.isAvailable() && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8, borderTop: `1px solid ${C.faint}`, paddingTop: 12 }}>

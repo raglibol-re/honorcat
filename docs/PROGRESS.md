@@ -92,6 +92,25 @@
   worker. Render services `honorcat` (full site, out of memory on 512 MB) and `honorcat-sampler` are
   no longer needed: the owner deletes them (the tools cannot).
 
+## More like a consumer app (2026-11-20, 14:15-15:15 UTC; owner: "do everything" from the review)
+- Tab bar on phones and tablets (under 900 px, also in the installed app): Home, Play, Perps, Social
+  (Posts), Me (My money), the current one marked; toasts and the honor bell sit above it; the closing
+  block on inner pages is slimmer on phones (no ears, smaller line).
+- Start page on phones: the live demo comes right after the buttons; the static Micky and Morty
+  example shows on wider screens only; small heading "Play live Gemini markets with friends".
+- Leaderboard: the top ten (and your own row), "Show all N players" for the rest.
+- Sign in: "Sign up in one tap" / "I have an account", with one line: Face ID, fingerprint or the
+  phone's screen lock (a passkey), no password, no wallet app, HonorCat pays the fees. My money says
+  new players get free test money.
+- Names and amounts: a perp page is titled by its game ("Iowa State vs UCF", "Perp #17" small above);
+  lists show "#18"; amounts in whole cents always have two decimals ("$0.60", not "$0.600"; tenths of
+  a cent still show three). Tests updated (shares, receipts); relay suite 209 passed (one earlier run
+  had a single failure that did not repeat).
+- Fixed on the way: a hydration warning on the sign-in box (passkey support is known only in the
+  browser) and an uncached empty wallet list; 0 console errors on /account, /feed, /pots.
+- Checked locally: /, /perps/17, /perps, /leaderboard, /account, /pots/new on Pixel 7 (Chromium),
+  iPhone SE (WebKit) and 1280 px: no sideways scrolling, tab bar only on phones, the right tab marked.
+
 ## Start page demo and a livelier start page (2026-11-20, 14:00-15:00 UTC)
 - The example rope on the start page is now a small demo on the live Gemini market it shows: "Live on
   Gemini" with a link to the market's page on Gemini, pick a side (with its current chance), your

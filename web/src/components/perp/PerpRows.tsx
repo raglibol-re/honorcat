@@ -95,7 +95,8 @@ export function PerpRows({
                 minWidth: 48,
               }}
             >
-              P{p.perpId}
+              <span style={{ fontSize: 15, color: C.muted, fontFamily: F.sans, fontWeight: 500 }}>#</span>
+              {p.perpId}
             </span>
             <span
               style={{

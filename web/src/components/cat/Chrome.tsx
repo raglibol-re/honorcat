@@ -7,6 +7,7 @@ import { LiveLine } from "@/components/LiveLine";
 import { TechToggle, useTechMode } from "@/components/TechMode";
 import { CatHead, Ears } from "./shapes";
 import { AppBackButton, InstallHeaderButton } from "@/components/app/InstallApp";
+import { TabBar } from "@/components/app/TabBar";
 import { C, F } from "./tokens";
 
 const primary = [
@@ -62,6 +63,7 @@ export function HcHeader() {
           <NavHere items={items} />
         </Suspense>
       </header>
+      <TabBar />
     </>
   );
 }
@@ -134,10 +136,12 @@ export function HcFooterLinks() {
 export function HcFooter() {
   return (
     <div style={{ marginTop: 96 }}>
-      <Ears viewBox="0 0 1440 60" points={["150,61 210,3 270,61", "1170,61 1230,3 1290,61"]} />
+      <span className="hc-footer-ears">
+        <Ears viewBox="0 0 1440 60" points={["150,61 210,3 270,61", "1170,61 1230,3 1290,61"]} />
+      </span>
       <footer style={{ background: C.ink, color: C.page }}>
         <div className="hc-wrap" style={{ paddingTop: 32, paddingBottom: 32, display: "flex", flexDirection: "column", gap: 24 }}>
-          <p style={{ margin: 0, fontFamily: F.cond, fontSize: 44, fontWeight: 600, lineHeight: 1 }}>Honor among cats.</p>
+          <p className="hc-footer-slogan" style={{ margin: 0, fontFamily: F.cond, fontSize: 44, fontWeight: 600, lineHeight: 1 }}>Honor among cats.</p>
           <p style={{ margin: 0, fontSize: 16, lineHeight: 1.5, color: C.faint, maxWidth: 720 }}>
             Prices come from Gemini and can be off when few people trade a market.
           </p>

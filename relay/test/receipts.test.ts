@@ -18,7 +18,7 @@ describe("Arc in plain words", () => {
   });
   it("a receipt sentence for the one who left, the one who stayed, and a visitor", () => {
     expect(receiptsOf(exit, 0, name, says)[0]!.text).toBe("You left at 74.5% and received $7.40.");
-    expect(receiptsOf(exit, 1, name, says)[0]!.text).toBe("Mochi left at 74.5%; you received $2.60, including a $0.100 treat.");
+    expect(receiptsOf(exit, 1, name, says)[0]!.text).toBe("Mochi left at 74.5%; you received $2.60, including a $0.10 treat.");
     expect(receiptsOf(exit, null, name, says)[0]!.text).toBe("Mochi left at 74.5% and received $7.40; Tofu received $2.60.");
   });
   it("how long the payout took", () => {

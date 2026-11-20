@@ -341,7 +341,7 @@ export function Home({ data }: { data: HomeData }) {
               color: C.muted,
             }}
           >
-            Prediction markets between two people · on Arc
+            Play live Gemini markets with friends · on Arc
           </span>
           <h1
             style={{
@@ -445,7 +445,9 @@ export function Home({ data }: { data: HomeData }) {
               Or <Link href="/pots">join a pot someone already opened</Link>.
             </p>
           </div>
+          {/* On phones the live demo right below does the same job, so the worked example is left out. */}
           <div
+            className="hc-home-example"
             style={{
               flex: "1 1 520px",
               display: "flex",
@@ -554,7 +556,7 @@ export function Home({ data }: { data: HomeData }) {
         </div>
       </section>
 
-      <section className="hc-wrap" style={{ paddingTop: 48 }}>
+      <section className="hc-wrap hc-home-demo" style={{ paddingTop: 48 }}>
         <LivePot data={data} />
       </section>
 

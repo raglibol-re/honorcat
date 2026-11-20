@@ -39,7 +39,7 @@ const link: React.CSSProperties = { background: "none", border: 0, padding: 0, f
 export function MoneyView() {
   const who = useActor();
   useHome();
-  if (!who.actor) return <SignIn who={who} purpose="Sign in to see your money. A passkey is all you need." />;
+  if (!who.actor) return <SignIn who={who} purpose="Sign in to see your money and your plays. New players get free test money to start." />;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 48 }}>
       <Signed who={who} />

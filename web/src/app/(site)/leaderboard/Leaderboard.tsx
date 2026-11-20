@@ -30,6 +30,10 @@ export function Leaderboard() {
   const [view, setView] = useState<"everyone" | "friends" | "following">("everyone");
   const friends = view === "friends";
   const [kind, setKind] = useState<"pots" | "perps">("pots");
+  // The top ten first, like a scoreboard; your own row always shows; the rest on request.
+  const [all, setAll] = useState(false);
+  const TOP = 10;
+  const shown = <T extends { account: string }>(rows: T[]) => (all ? rows : rows.filter((r, i) => i < TOP || r.account === me));
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("kind") === "perps") void Promise.resolve().then(() => setKind("perps"));
   }, []);
@@ -111,9 +115,9 @@ export function Leaderboard() {
               </tr>
             </thead>
             <tbody>
-              {(data.rows as PerpRow[]).map((r, i) => (
+              {shown(data.rows as PerpRow[]).map((r) => (
                 <tr key={r.account} style={{ background: r.account === me ? C.faint : "transparent" }}>
-                  <td style={{ ...td, textAlign: "left", color: C.muted }}>{i + 1}</td>
+                  <td style={{ ...td, textAlign: "left", color: C.muted }}>{data.rows.indexOf(r) + 1}</td>
                   <td style={{ ...td, textAlign: "left" }}>
                     <Link href={`/record/${r.account}`} style={{ color: C.ink }}>
                       <CatName account={r.account} name={r.account === me ? "you" : (names[r.account] ?? nickname(r.account))} strong={r.account === me} />
@@ -151,9 +155,9 @@ export function Leaderboard() {
               </tr>
             </thead>
             <tbody>
-              {(data.rows as Row[]).map((r, i) => (
+              {shown(data.rows as Row[]).map((r) => (
                 <tr key={r.account} style={{ background: r.account === me ? C.faint : "transparent" }}>
-                  <td style={{ ...td, textAlign: "left", color: C.muted }}>{i + 1}</td>
+                  <td style={{ ...td, textAlign: "left", color: C.muted }}>{data.rows.indexOf(r) + 1}</td>
                   <td style={{ ...td, textAlign: "left" }}>
                     <Link href={`/record/${r.account}`} style={{ color: C.ink }}>
                       <CatName account={r.account} name={r.account === me ? "you" : (names[r.account] ?? nickname(r.account))} strong={r.account === me} />
@@ -184,6 +188,11 @@ export function Leaderboard() {
             </tbody>
           </table>
         </div>
+      )}
+      {data && data.rows.length > TOP && (
+        <button type="button" className="hc-btn hc-btn--quiet hc-btn--sm" style={{ alignSelf: "flex-start" }} onClick={() => setAll((a) => !a)}>
+          {all ? "Show the top ten" : `Show all ${data.rows.length} players`}
+        </button>
       )}
     </div>
   );

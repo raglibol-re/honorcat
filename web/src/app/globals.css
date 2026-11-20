@@ -293,6 +293,25 @@ html[data-standalone="true"] body { -webkit-tap-highlight-color: transparent; }
 .hc-play-card:hover .hc-play-card__cat { transform: translateY(-4px) rotate(-4deg); }
 @media (prefers-reduced-motion: reduce) { .hc-play-card, .hc-play-card__cat { transition: none; } .hc-play-card:hover, .hc-play-card:hover .hc-play-card__cat { transform: none; } }
 
+/* the tab bar (components/app/TabBar.tsx): phones and tablets, and the installed app */
+.hc-tabbar { display: none; }
+@media (max-width: 899px) {
+  .hc-tabbar { display: grid; grid-template-columns: repeat(5, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; background: var(--hc-page); border-top: 1.5px solid var(--hc-ink); padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .hc-tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 58px; font-size: 12px; font-weight: 600; letter-spacing: 0.02em; color: #55534E; text-decoration: none; -webkit-tap-highlight-color: transparent; }
+  .hc-tab[aria-current="page"] { color: var(--hc-ink); box-shadow: inset 0 3px 0 var(--hc-signal); }
+  .hc-tab:active { background: rgba(17, 17, 17, 0.06); }
+  body { padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px)); }
+  .hc-toast { bottom: calc(72px + env(safe-area-inset-bottom, 0px)) !important; }
+  .hc-float { bottom: calc(72px + env(safe-area-inset-bottom, 0px)) !important; }
+  /* a slimmer closing block on phones */
+  .hc-footer-ears { display: none; }
+  .hc-footer-slogan { font-size: 30px !important; }
+}
+@media (max-width: 699px) {
+  .hc-home-example { display: none !important; }
+  .hc-home-demo { padding-top: 8px !important; }
+}
+
 /* More: a fold-out for secondary text (components/ui/More.tsx) */
 .hc-more { margin: 8px 0; }
 .hc-more__summary { cursor: pointer; font-size: 15px; font-weight: 500; color: #55534E; list-style: none; display: inline-flex; align-items: center; gap: 6px; padding: 4px 0; }

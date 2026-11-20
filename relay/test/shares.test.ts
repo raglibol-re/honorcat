@@ -27,11 +27,12 @@ describe("the two shares always add up to the pot", () => {
   it("writes amounts by one rule", () => {
     expect(formatAmount(7.4)).toBe("$7.40");
     expect(formatAmount(7.405)).toBe("$7.405");
-    expect(formatAmount(0.5)).toBe("$0.500");
-    expect(formatAmount(0.02)).toBe("$0.020");
+    expect(formatAmount(0.5)).toBe("$0.50");
+    expect(formatAmount(0.02)).toBe("$0.02");
     expect(formatAmount(0.0004)).toBe("under 0.1¢");
     expect(formatAmount(0)).toBe("$0.00");
-    expect(formatAmount(-0.25)).toBe("-$0.250");
+    expect(formatAmount(-0.25)).toBe("-$0.25");
+    expect(formatAmount(0.934)).toBe("$0.934");
   });
   it("edges", () => {
     expect(splitPot(1_000_000n, 0)).toEqual({ yes: 0n, no: 1_000_000n });

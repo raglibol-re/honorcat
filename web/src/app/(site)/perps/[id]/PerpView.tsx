@@ -526,7 +526,7 @@ export function PerpView({ id }: { id: string }) {
       )}
       <header style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <span style={{ fontSize: 15, color: C.muted }}>
-          <Link href="/perps">All perps</Link>
+          <Link href="/perps">All perps</Link> · Perp #{id}
         </span>
         <h1
           style={{
@@ -537,7 +537,7 @@ export function PerpView({ id }: { id: string }) {
             lineHeight: 0.95,
           }}
         >
-          Perp {id}
+          {p.market ? p.market.eventTitle : `Perp ${id}`}
         </h1>
         <p style={{ margin: 0, fontSize: 19 }}>“{question}”</p>
         <p style={{ margin: 0, fontSize: 16, color: C.muted }}>

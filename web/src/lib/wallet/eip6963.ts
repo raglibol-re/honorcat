@@ -42,6 +42,8 @@ function start() {
   }
 }
 
+const NO_WALLETS: AnnouncedWallet[] = [];
+
 /** The wallets this browser announced (empty on the server and before they answer). */
 export function useAnnouncedWallets(): AnnouncedWallet[] {
   return useSyncExternalStore(
@@ -51,7 +53,7 @@ export function useAnnouncedWallets(): AnnouncedWallet[] {
       return () => listeners.delete(cb);
     },
     () => snapshot,
-    () => [],
+    () => NO_WALLETS,
   );
 }
 
