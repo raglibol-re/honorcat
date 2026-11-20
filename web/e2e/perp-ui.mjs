@@ -25,10 +25,10 @@ async function player(name, phone) {
 }
 const shot = (p, f) => p.page.screenshot({ path: f, fullPage: true }).then(() => log(`saved ${f}`));
 async function signIn(p) {
-  const b = p.page.getByRole("button", { name: "Create a passkey" }).first();
+  const b = p.page.getByRole("button", { name: "Sign up in one tap" }).first();
   await b.waitFor({ timeout: 60_000 });
   await b.click();
-  await p.page.getByRole("button", { name: "Create a passkey" }).first().waitFor({ state: "detached", timeout: 60_000 });
+  await p.page.getByRole("button", { name: "Sign up in one tap" }).first().waitFor({ state: "detached", timeout: 60_000 });
   log(`${p.name} signed in with a new passkey`);
 }
 async function waitText(p, re, ms = 300_000) {

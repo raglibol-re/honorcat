@@ -1,4 +1,5 @@
-// An open pot nobody joined, seen by its creator: node open-ui.mjs <base> [phone]
+// An open pot nobody joined, seen by its creator: node open-ui.mjs <base> [phone] [--keep]
+// --keep leaves the pot open for someone to join (otherwise it is taken back at the end).
 import { chromium, devices } from "playwright-core";
 import { mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -8,6 +9,7 @@ process.chdir(fileURLToPath(new URL("./out/", import.meta.url)));
 const exe = process.env.CHROME_PATH ?? `${process.env.LOCALAPPDATA}/ms-playwright/chromium-1254/chrome-win64/chrome.exe`;
 const base = process.argv[2] ?? "https://honorcat.vercel.app";
 const phone = process.argv[3] === "phone";
+const keep = process.argv.includes("--keep");
 const log = (m) => console.log(`[${new Date().toISOString().slice(11, 19)}] ${m}`);
 const browser = await chromium.launch({ executablePath: exe });
 const ctx = await browser.newContext(phone ? devices["Pixel 7"] : { viewport: { width: 1280, height: 900 } });
@@ -21,9 +23,9 @@ const shot = (f) => page.screenshot({ path: f, fullPage: true }).then(() => log(
 await page.goto(`${base}/pots/new`, { waitUntil: "load" });
 await page.waitForTimeout(6000);
 await page.locator('button[role="radio"][aria-disabled="false"]').filter({ hasNotText: /^(Normal|Perp)/ }).first().click({ timeout: 60_000 });
-await page.getByRole("textbox", { name: "What you put in (USDC)" }).fill("0.5").catch(() => {});
-await page.getByRole("button", { name: "Create a passkey" }).first().click();
-await page.getByRole("button", { name: "Create a passkey" }).first().waitFor({ state: "detached", timeout: 60_000 });
+await page.getByRole("textbox", { name: "What you put in (USDC)" }).fill(keep ? "1" : "0.5").catch(() => {});
+await page.getByRole("button", { name: "Sign up in one tap" }).first().click();
+await page.getByRole("button", { name: "Sign up in one tap" }).first().waitFor({ state: "detached", timeout: 60_000 });
 await page.waitForTimeout(4000);
 const give = page.getByRole("button", { name: /^Give your word$/ });
 await give.click();
@@ -35,7 +37,8 @@ await shot(`open-${phone ? "phone" : "desk"}.png`);
 const buttons = await page.getByRole("button").allTextContents();
 log(`buttons: ${buttons.map((b) => b.trim()).filter(Boolean).join(" | ")}`);
 const back = page.getByRole("button", { name: /Cancel and get my/ });
-if (await back.count()) {
+if (keep) log("--keep: left open for someone to join");
+else if (await back.count()) {
   await back.first().click();
   log("pressed take back");
   await page.getByText(/Nobody joined, so nothing was played/i).first().waitFor({ timeout: 120_000 }).catch(() => log("no confirmation text seen"));
