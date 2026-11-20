@@ -92,6 +92,28 @@
   worker. Render services `honorcat` (full site, out of memory on 512 MB) and `honorcat-sampler` are
   no longer needed: the owner deletes them (the tools cannot).
 
+## The app (2026-11-20, 13:00-14:00 UTC; owner: "users should be able to download the app")
+- HonorCat installs as an app from the browser (a web app; no app store): app/manifest.ts (name,
+  icons 192/512/maskable, Apple icon, start page, shortcuts), public/sw.js now also serves
+  public/offline.html when a page cannot load (it never caches pages, prices or API answers; push
+  notifications as before), lib/installApp.ts and components/app/InstallApp.tsx.
+- "Get the app" in the phone header and every footer, and the page /app: one tap where the browser
+  offers it (Chrome, Edge, Samsung Internet), otherwise the steps for this device (iPhone/iPad:
+  Share, Add to Home Screen; Android menu; Mac Safari: Add to Dock; in-app browsers: open in the
+  browser first) and a QR code on computers. Inside the installed app the header shows Back (iOS has
+  no back button) and hides "Get the app". Switch off: APP_INSTALL=off on Vercel and redeploy.
+- Checked locally: Chromium reports the site installable (only "incognito" from the test profile),
+  the service worker activates, icons and manifest load, /sw.js is never cached. No sideways
+  scrolling on /, /perps/17 and /app in WebKit (iPhone SE, iPhone 15 Pro Max, iPad Mini) and
+  Chromium (Pixel 7, Galaxy S9+, 320 px); the phone header now stays on one line down to 320 px;
+  the menu still opens; as an installed app Back appears and works.
+- Slogan (owner: wanted a cat line that makes sense): "Nine lives. One fair price." (start page,
+  footers, README), replacing "A cat always lands on its feet". Also clearer: "HonorCat takes no
+  fee" instead of "Nothing goes to a house", the example explains the $0.10 fee, the perp card says
+  "a pot with leverage that renews every hour; you can never lose more than you put in", net and bowl
+  explained as automatic leaves, "Handshake done" instead of "Paws shaken", "prices can be off when
+  few people trade a market" instead of "wrong or thin".
+
 ## README for the judges (2026-11-20, 09:00-10:00 UTC)
 - New README.md: what HonorCat is, three GIFs (docs/media: a tour of the live site at 1280 px, the
   rope mechanic on the real Rope component with sample numbers, the site at phone width), three ways

@@ -51,6 +51,7 @@ about), a leaderboard, private pots, send money to a player by name, and a big s
 - New players get test money and can be in a pot in **under two minutes** (measured on an iPhone viewport, pots 18 and 20).
 - Every action shows its Arc fee in cents and ends in a plain receipt: *"You left at 74.5% and received $7.40."*
 - Browser wallets work too, with exact approvals.
+- **Install it as an app**: [honorcat.vercel.app/app](https://honorcat.vercel.app/app). One tap on Android, Chrome and Edge; Share, then Add to Home Screen on iPhone and iPad. No app store, opens full screen, with an offline page and its own Back button.
 
 </td>
 </tr>
@@ -188,6 +189,6 @@ Every switch, variable and deploy step: [technical reference](docs/technical.md#
 
 Data provided by Gemini. Prices can be off when few people trade a market.
 
-**Fair prices. Paid on Arc.**
+**Nine lives. One fair price.**
 
 </div>

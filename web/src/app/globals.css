@@ -260,6 +260,18 @@ body {
   .hc-menu a[aria-current="page"] { color: var(--hc-accent); }
 }
 
+/* the installed app (components/app/InstallApp.tsx, lib/installApp.ts) */
+.hc-install-short { display: none; }
+@media (max-width: 379px) { .hc-install-long { display: none; } .hc-install-short { display: inline; } }
+html[data-standalone="true"] { overscroll-behavior-y: none; }
+/* narrow phones (iPhone SE, 320-399 px): logo, App and Menu stay on one line */
+@media (max-width: 399px) {
+  .hc-head { gap: 8px 10px !important; }
+  .hc-logo-text { font-size: 22px !important; }
+  .hc-head .hc-btn--sm { padding-left: 10px; padding-right: 10px; }
+}
+html[data-standalone="true"] body { -webkit-tap-highlight-color: transparent; }
+
 /* More: a fold-out for secondary text (components/ui/More.tsx) */
 .hc-more { margin: 8px 0; }
 .hc-more__summary { cursor: pointer; font-size: 15px; font-weight: 500; color: #55534E; list-style: none; display: inline-flex; align-items: center; gap: 6px; padding: 4px 0; }

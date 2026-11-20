@@ -6,6 +6,7 @@ import { Suspense, useState } from "react";
 import { LiveLine } from "@/components/LiveLine";
 import { TechToggle, useTechMode } from "@/components/TechMode";
 import { CatHead, Ears } from "./shapes";
+import { AppBackButton, InstallHeaderButton } from "@/components/app/InstallApp";
 import { C, F } from "./tokens";
 
 const primary = [
@@ -48,11 +49,14 @@ export function HcHeader() {
       <div className="hc-strip">
         <div className="hc-wrap">Arc testnet · test money only · not financial advice</div>
       </div>
-      <header className="hc-wrap" style={{ paddingTop: 16, paddingBottom: 16, display: "flex", flexWrap: "wrap", gap: "12px 40px", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
-        <Link href="/" aria-label="HonorCat home" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
-          <CatHead width={30} height={28} eyes={C.signal} />
-          <span style={{ fontFamily: F.cond, fontSize: 28, fontWeight: 600, letterSpacing: "0.01em" }}>HonorCat</span>
-        </Link>
+      <header className="hc-wrap hc-head" style={{ paddingTop: 16, paddingBottom: 16, display: "flex", flexWrap: "wrap", gap: "12px 40px", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <AppBackButton />
+          <Link href="/" aria-label="HonorCat home" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
+            <CatHead width={30} height={28} eyes={C.signal} />
+            <span className="hc-logo-text" style={{ fontFamily: F.cond, fontSize: 28, fontWeight: 600, letterSpacing: "0.01em" }}>HonorCat</span>
+          </Link>
+        </div>
         {/* The current page is only known at runtime: the links render plain first, then marked. */}
         <Suspense fallback={<Nav items={items} path={null} />}>
           <NavHere items={items} />
@@ -87,9 +91,12 @@ function Nav({ items, path }: { items: readonly Item[]; path: string | null }) {
       <nav className="hc-nav" aria-label="Main">
         {items.map(link)}
       </nav>
-      <button type="button" className="hc-btn hc-btn--quiet hc-btn--sm hc-menu-btn" aria-expanded={open} aria-controls="hc-menu" onClick={() => setOpen((o) => !o)}>
-        {open ? "Close" : "Menu"}
-      </button>
+      <div className="hc-menu-btn" style={{ gap: 8, alignItems: "center" }}>
+        <InstallHeaderButton />
+        <button type="button" className="hc-btn hc-btn--quiet hc-btn--sm" aria-expanded={open} aria-controls="hc-menu" onClick={() => setOpen((o) => !o)}>
+          {open ? "Close" : "Menu"}
+        </button>
+      </div>
       <nav id="hc-menu" className="hc-menu" data-open={open} aria-label="Main menu">
         {items.map(link)}
       </nav>
@@ -109,6 +116,9 @@ export function HcFooterLinks() {
         {tech && <LiveLine />}
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 28px", alignItems: "center" }}>
+        <Link href="/app" style={{ color: C.page, padding: "12px 0" }}>
+          Get the app
+        </Link>
         {technical.map(([href, label]) => (
           <Link key={href} href={href} style={{ color: C.page, padding: "12px 0" }}>
             {label}
@@ -127,7 +137,7 @@ export function HcFooter() {
       <Ears viewBox="0 0 1440 60" points={["150,61 210,3 270,61", "1170,61 1230,3 1290,61"]} />
       <footer style={{ background: C.ink, color: C.page }}>
         <div className="hc-wrap" style={{ paddingTop: 32, paddingBottom: 32, display: "flex", flexDirection: "column", gap: 24 }}>
-          <p style={{ margin: 0, fontFamily: F.cond, fontSize: 44, fontWeight: 600, lineHeight: 1 }}>Fair prices. Paid on Arc.</p>
+          <p style={{ margin: 0, fontFamily: F.cond, fontSize: 44, fontWeight: 600, lineHeight: 1 }}>Nine lives. One fair price.</p>
           <p style={{ margin: 0, fontSize: 16, lineHeight: 1.5, color: C.faint, maxWidth: 720 }}>
             Prices come from Gemini and can be off when few people trade a market.
           </p>

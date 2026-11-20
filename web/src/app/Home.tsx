@@ -655,7 +655,7 @@ export function Home({ data }: { data: HomeData }) {
                 textWrap: "balance",
               }}
             >
-              Fair prices. Paid on Arc.
+              Nine lives. One fair price.
             </p>
             <StartButton inverted />
           </div>
